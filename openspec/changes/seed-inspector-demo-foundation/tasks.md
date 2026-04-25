@@ -47,26 +47,26 @@
 
 ## 5. Web Dashboard (`apps/dashboard`)
 
-- [ ] 5.1 Vite + React + TS scaffold with `base: '/advance-seeds-field-inspector-demo/'`
-- [ ] 5.2 Tailwind config extending `packages/tokens` preset
-- [ ] 5.3 Install shadcn/ui; configure to use token CSS vars
-- [ ] 5.4 Supabase client at `src/lib/supabase.ts` reading `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-- [ ] 5.5 `.env.example` with placeholders; `.env.local` gitignored
-- [ ] 5.6 React Router setup with `basename` matching Vite base
-- [ ] 5.7 i18n provider (react-i18next) loaded with shared resources
-- [ ] 5.8 Theme provider (light/dark) toggling `data-theme` on `<html>`; persists to localStorage
-- [ ] 5.9 AuthGate route component; redirects unauthenticated → `/login`
-- [ ] 5.10 Login screen (email + password)
-- [ ] 5.11 App shell: top bar with sync pill, locale + theme switchers, user menu
-- [ ] 5.12 Home screen: KPI tiles, recent inspections list (admin sees all, inspector sees own)
-- [ ] 5.13 Inspections list: filter by variety/batch/inspector (admin only)/date range; search; delete
-- [ ] 5.14 Inspection detail: per-seed grid, measurements summary, image with overlay placeholder
-- [ ] 5.15 Per-seed detail dialog
-- [ ] 5.16 Varieties screen: list + create + edit + delete (admin write; inspector read)
-- [ ] 5.17 Batches screen: list + create + edit + delete (admin write; inspector read)
-- [ ] 5.18 Reports screen: filters + chart placeholder + CSV export button
-- [ ] 5.19 Settings screen: locale toggle, theme toggle, profile read-only
-- [ ] 5.20 Empty / loading / error states for every primary screen (per HANDOFF rule)
+- [x] 5.1 Vite + React + TS scaffold with `base: '/advance-seeds-field-inspector-demo/'`
+- [x] 5.2 Tailwind config extending `packages/tokens` preset
+- [x] 5.3 Install shadcn/ui; configure to use token CSS vars
+- [x] 5.4 Supabase client at `src/lib/supabase.ts` reading `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+- [x] 5.5 `.env.example` with placeholders; `.env.local` gitignored
+- [x] 5.6 React Router setup with `basename` matching Vite base
+- [x] 5.7 i18n provider (react-i18next) loaded with shared resources
+- [x] 5.8 Theme provider (light/dark) toggling `data-theme` on `<html>`; persists to localStorage
+- [x] 5.9 AuthGate route component; redirects unauthenticated → `/login`
+- [x] 5.10 Login screen (email + password)
+- [x] 5.11 App shell: top bar with sync pill, locale + theme switchers, user menu
+- [x] 5.12 Home screen: KPI tiles, recent inspections list (admin sees all, inspector sees own)
+- [x] 5.13 Inspections list: filter by variety/batch/inspector (admin only)/date range; search; delete
+- [x] 5.14 Inspection detail: per-seed grid, measurements summary, image with overlay placeholder
+- [x] 5.15 Per-seed detail dialog
+- [x] 5.16 Varieties screen: list + create + edit + delete (admin write; inspector read)
+- [x] 5.17 Batches screen: list + create + edit + delete (admin write; inspector read)
+- [x] 5.18 Reports screen: filters + chart placeholder + CSV export button
+- [x] 5.19 Settings screen: locale toggle, theme toggle, profile read-only
+- [x] 5.20 Empty / loading / error states for every primary screen (per HANDOFF rule)
 - [ ] 5.21 Manual smoke test checklist run as Jane and Alex
 
 ## 6. Mobile App (`apps/mobile`)

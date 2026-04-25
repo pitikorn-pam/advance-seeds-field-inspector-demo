@@ -1,0 +1,51 @@
+@import "@advance-seeds/tokens/css-vars.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: var(--as-font-sans);
+    background: var(--as-bg-secondary);
+    color: var(--as-text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  ::selection {
+    background: var(--as-brand-soft);
+    color: var(--as-brand-deep);
+  }
+}
+
+@layer components {
+  /* Surface helpers — Tailwind users mostly write classes, but these match the
+     prototype's `.as-card` / `.as-stat` / `.as-pill` for parity. */
+  .as-card {
+    background: var(--as-bg-primary);
+    border: 0.5px solid var(--as-border-tertiary);
+    border-radius: var(--as-radius-xl);
+    padding: var(--as-space-lg) var(--as-space-xl);
+  }
+  .as-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 11px;
+    border-radius: var(--as-radius-md);
+    font-size: 12px;
+    font-weight: 500;
+  }
+}

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0F6E56" />
+    <title>Advance Seeds Field Inspector</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // GH Pages SPA rehydrate — pairs with public/404.html.
+      (function () {
+        var l = window.location;
+        if (l.search.indexOf("?p=") === 0 || l.search.indexOf("&p=") > -1) {
+          var p = new URLSearchParams(l.search);
+          var path = p.get("p") || "/";
+          var q = p.get("q") || "";
+          history.replaceState(
+            null,
+            "",
+            l.pathname.replace(/\/$/, "") +
+              path +
+              (q ? "?" + q.replace(/~and~/g, "&") : "") +
+              l.hash,
+          );
+        }
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

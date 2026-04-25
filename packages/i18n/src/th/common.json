@@ -1,5 +1,13 @@
 {
   "appName": "ผู้ตรวจเมล็ดพันธุ์ Advance Seeds",
+  "nav": {
+    "home": "หน้าแรก",
+    "inspections": "การตรวจสอบ",
+    "varieties": "พันธุ์",
+    "batches": "ล็อต",
+    "reports": "รายงาน",
+    "settings": "การตั้งค่า"
+  },
   "actions": {
     "save": "บันทึก",
     "saveAndSync": "บันทึกและซิงก์",

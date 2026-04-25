@@ -1,5 +1,13 @@
 {
   "appName": "Advance Seeds Field Inspector",
+  "nav": {
+    "home": "Home",
+    "inspections": "Inspections",
+    "varieties": "Varieties",
+    "batches": "Batches",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
   "actions": {
     "save": "Save",
     "saveAndSync": "Save and sync",
