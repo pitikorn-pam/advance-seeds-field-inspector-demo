@@ -1,0 +1,240 @@
+// Identical hooks to apps/dashboard/src/lib/queries.ts. Sibling copy by
+// design (see access.ts comment). Keep both in sync when adding queries.
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type {
+  Inspection,
+  Seed,
+  Variety,
+  Batch,
+  CalibrationProfile,
+  Profile,
+} from "@advance-seeds/types";
+import { supabase } from "./supabase";
+
+const keys = {
+  inspections: ["inspections"] as const,
+  inspection: (id: string) => ["inspection", id] as const,
+  varieties: ["varieties"] as const,
+  batches: ["batches"] as const,
+  calibrations: ["calibrations"] as const,
+  profiles: ["profiles"] as const,
+};
+
+export type InspectionRow = Inspection & {
+  variety: { id: string; name: string; color_key: string | null } | null;
+  batch: { id: string; code: string } | null;
+  inspector: { id: string; full_name: string | null; email: string } | null;
+};
+
+const inspectionSelect = `
+  id, inspector_id, variety_id, batch_id, calibration_id,
+  image_url, captured_at, status, total_seeds,
+  mean_length_mm, mean_width_mm, mean_area_mm2,
+  notes, created_at,
+  variety:varieties ( id, name, color_key ),
+  batch:batches ( id, code ),
+  inspector:profiles!inspections_inspector_id_fkey ( id, full_name, email )
+`;
+
+export function useInspections() {
+  return useQuery({
+    queryKey: keys.inspections,
+    queryFn: async (): Promise<InspectionRow[]> => {
+      const { data, error } = await supabase
+        .from("inspections")
+        .select(inspectionSelect)
+        .order("captured_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as InspectionRow[];
+    },
+  });
+}
+
+export function useInspection(id: string | undefined) {
+  return useQuery({
+    queryKey: keys.inspection(id ?? ""),
+    enabled: !!id,
+    queryFn: async (): Promise<{ inspection: InspectionRow; seeds: Seed[] } | null> => {
+      if (!id) return null;
+      const [insp, seeds] = await Promise.all([
+        supabase.from("inspections").select(inspectionSelect).eq("id", id).single(),
+        supabase.from("seeds").select("*").eq("inspection_id", id).order("index"),
+      ]);
+      if (insp.error) throw insp.error;
+      if (seeds.error) throw seeds.error;
+      return {
+        inspection: insp.data as unknown as InspectionRow,
+        seeds: (seeds.data ?? []) as unknown as Seed[],
+      };
+    },
+  });
+}
+
+export function useDeleteInspection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("inspections").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.inspections }),
+  });
+}
+
+export function useVarieties() {
+  return useQuery({
+    queryKey: keys.varieties,
+    queryFn: async (): Promise<Variety[]> => {
+      const { data, error } = await supabase.from("varieties").select("*").order("name");
+      if (error) throw error;
+      return (data ?? []) as unknown as Variety[];
+    },
+  });
+}
+
+type VarietyInput = Pick<
+  Variety,
+  "name" | "scientific_name" | "description" | "image_url" | "color_key"
+>;
+export function useUpsertVariety() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id?: string } & VarietyInput) => {
+      if (id) {
+        const { error } = await supabase.from("varieties").update(input).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("varieties").insert(input);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.varieties }),
+  });
+}
+
+export function useDeleteVariety() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("varieties").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.varieties }),
+  });
+}
+
+export function useBatches() {
+  return useQuery({
+    queryKey: keys.batches,
+    queryFn: async (): Promise<Batch[]> => {
+      const { data, error } = await supabase.from("batches").select("*").order("code");
+      if (error) throw error;
+      return (data ?? []) as unknown as Batch[];
+    },
+  });
+}
+
+type BatchInput = Pick<Batch, "code" | "location" | "sown_at" | "notes">;
+export function useUpsertBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id?: string } & BatchInput) => {
+      if (id) {
+        const { error } = await supabase.from("batches").update(input).eq("id", id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("batches").insert(input);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.batches }),
+  });
+}
+
+export function useDeleteBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("batches").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.batches }),
+  });
+}
+
+export function useCalibrations() {
+  return useQuery({
+    queryKey: keys.calibrations,
+    queryFn: async (): Promise<CalibrationProfile[]> => {
+      const { data, error } = await supabase.from("calibration_profiles").select("*").order("name");
+      if (error) throw error;
+      return (data ?? []) as unknown as CalibrationProfile[];
+    },
+  });
+}
+
+export function useInspectors() {
+  return useQuery({
+    queryKey: keys.profiles,
+    queryFn: async (): Promise<Pick<Profile, "id" | "full_name" | "email" | "role">[]> => {
+      const { data, error } = await supabase.from("profiles").select("id, full_name, email, role");
+      if (error) throw error;
+      return (data ?? []) as unknown as Pick<Profile, "id" | "full_name" | "email" | "role">[];
+    },
+  });
+}
+
+export function useCreateInspection() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      inspector_id: string;
+      variety_id: string;
+      batch_id: string | null;
+      calibration_id: string | null;
+      image_url: string;
+      total_seeds: number;
+      mean_length_mm: number;
+      mean_width_mm: number;
+      mean_area_mm2: number;
+      seeds: {
+        index: number;
+        length_mm: number;
+        width_mm: number;
+        area_mm2: number;
+        grade: Seed["grade"];
+        defects: Seed["defects"];
+        bbox: Seed["bbox"];
+      }[];
+    }) => {
+      const { seeds, ...inspection } = args;
+      const { data, error } = await supabase
+        .from("inspections")
+        .insert({ ...inspection, status: "complete" })
+        .select("id")
+        .single();
+      if (error || !data) throw error ?? new Error("inspection insert failed");
+      // Supabase's generated `Json` union doesn't admit our domain types
+      // (no index signature). Stringify-roundtrip lets us pass plain objects
+      // safely without any structural mismatch at the boundary.
+      const seedRows = seeds.map((s) => ({
+        inspection_id: data.id,
+        index: s.index,
+        length_mm: s.length_mm,
+        width_mm: s.width_mm,
+        area_mm2: s.area_mm2,
+        grade: s.grade,
+        defects: JSON.parse(JSON.stringify(s.defects)),
+        bbox: JSON.parse(JSON.stringify(s.bbox)),
+      }));
+      const { error: seedErr } = await supabase
+        .from("seeds")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(seedRows as any);
+      if (seedErr) throw seedErr;
+      return data.id;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.inspections }),
+  });
+}

@@ -71,26 +71,26 @@
 
 ## 6. Mobile App (`apps/mobile`)
 
-- [ ] 6.1 `npx create-expo-app -t default` with TS, RN 0.76 New Architecture
-- [ ] 6.2 Install NativeWind; tailwind config consuming `packages/tokens` preset
-- [ ] 6.3 Expo Router setup; folder structure per design layout
-- [ ] 6.4 Supabase client at `lib/supabase.ts`; AsyncStorage for session
-- [ ] 6.5 `.env.example` and Expo `extra` config wiring
-- [ ] 6.6 i18n bootstrap with `expo-localization` for default + persisted toggle
-- [ ] 6.7 Theme provider using NativeWind dark variants; persists choice
-- [ ] 6.8 Auth flow: login screen, session persistence, sign-out
-- [ ] 6.9 Bottom tab nav per HANDOFF: Home, Capture, Inspections, Settings
-- [ ] 6.10 Home screen with sync pill, "+ New inspection" hero button, recent inspections
-- [ ] 6.11 Capture flow: setup → mode → camera shutter → mocked analysis (2s spinner) → results
-- [ ] 6.12 `lib/analyzer/MockSeedAnalyzer.ts` returning one of two pre-baked `AnalysisResult`s
-- [ ] 6.13 `lib/analyzer/AnalyzerProvider.tsx` exposing `useAnalyzer()`
-- [ ] 6.14 Inspections list, inspection detail, per-seed detail
-- [ ] 6.15 Varieties screen (admin write, inspector read)
-- [ ] 6.16 Batches screen (admin write, inspector read)
-- [ ] 6.17 Reports screen with filter sheet + CSV share via `expo-sharing`
-- [ ] 6.18 Settings: locale, theme, calibration view (read-only), profile, sign-out
-- [ ] 6.19 Calibration screen: shows px/mm value, LiDAR vs ArUco, honest fallback message
-- [ ] 6.20 Empty / loading / error states for every primary screen
+- [x] 6.1 `npx create-expo-app -t default` with TS, RN 0.76 New Architecture
+- [x] 6.2 Install NativeWind; tailwind config consuming `packages/tokens` preset
+- [x] 6.3 Expo Router setup; folder structure per design layout
+- [x] 6.4 Supabase client at `lib/supabase.ts`; AsyncStorage for session
+- [x] 6.5 `.env.example` and Expo `extra` config wiring
+- [x] 6.6 i18n bootstrap with `expo-localization` for default + persisted toggle
+- [x] 6.7 Theme provider using NativeWind dark variants; persists choice
+- [x] 6.8 Auth flow: login screen, session persistence, sign-out
+- [x] 6.9 Bottom tab nav per HANDOFF: Home, Capture, Inspections, Settings
+- [x] 6.10 Home screen with sync pill, "+ New inspection" hero button, recent inspections
+- [x] 6.11 Capture flow: setup → mode → camera shutter → mocked analysis (2s spinner) → results
+- [x] 6.12 `lib/analyzer/MockSeedAnalyzer.ts` returning one of two pre-baked `AnalysisResult`s
+- [x] 6.13 `lib/analyzer/AnalyzerProvider.tsx` exposing `useAnalyzer()`
+- [x] 6.14 Inspections list, inspection detail, per-seed detail
+- [x] 6.15 Varieties screen (admin write, inspector read)
+- [x] 6.16 Batches screen (admin write, inspector read)
+- [x] 6.17 Reports screen with filter sheet + CSV share via `expo-sharing`
+- [x] 6.18 Settings: locale, theme, calibration view (read-only), profile, sign-out
+- [x] 6.19 Calibration screen: shows px/mm value, LiDAR vs ArUco, honest fallback message
+- [x] 6.20 Empty / loading / error states for every primary screen
 - [ ] 6.21 Manual smoke test on iOS Expo Go and Android Expo Go as Jane and Alex
 
 ## 7. CI / Deploy
