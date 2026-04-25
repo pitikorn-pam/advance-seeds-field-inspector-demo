@@ -1,0 +1,166 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "metadata": {
+    "name": "Advance Seeds Field Inspector",
+    "version": "1.0.0",
+    "description": "Canonical design tokens for the Advance Seeds mobile inspector and web dashboard."
+  },
+
+  "color": {
+    "brand": {
+      "primary":   { "value": "#0F6E56", "darkValue": "#5DCAA5", "description": "Primary brand color. Use for primary actions, active tabs, key accents." },
+      "soft":      { "value": "#E1F5EE", "darkValue": "#04342C", "description": "Brand-tinted surface. Use for tinted cards, success-on-brand backgrounds." },
+      "deep":      { "value": "#04342C", "darkValue": "#9FE1CB", "description": "Deepest brand stop. Use for hero card backgrounds and brand-tinted text." }
+    },
+    "background": {
+      "primary":   { "value": "#FFFFFF", "darkValue": "#0F0F11", "description": "Main surface — cards, sheets, screens." },
+      "secondary": { "value": "#F4F4F1", "darkValue": "#18181B", "description": "Page background, stat tiles, segmented control track." },
+      "tertiary":  { "value": "#FAFAF9", "darkValue": "#1F1F22", "description": "Subtle elevation behind cards." }
+    },
+    "text": {
+      "primary":   { "value": "#1A1A1A", "darkValue": "#F5F5F4", "description": "Body text and UI labels." },
+      "secondary": { "value": "#6B6B68", "darkValue": "#A1A1A0", "description": "Captions, secondary metadata." },
+      "tertiary":  { "value": "#9D9D9A", "darkValue": "#727272", "description": "Hints, placeholder text, inactive items." }
+    },
+    "border": {
+      "tertiary":  { "value": "rgba(0,0,0,0.06)", "darkValue": "rgba(255,255,255,0.08)", "description": "Default 0.5px borders on cards." },
+      "secondary": { "value": "rgba(0,0,0,0.12)", "darkValue": "rgba(255,255,255,0.16)", "description": "Stronger borders for inputs and emphasis." },
+      "primary":   { "value": "rgba(0,0,0,0.20)", "darkValue": "rgba(255,255,255,0.24)", "description": "Highest-contrast borders." }
+    },
+    "semantic": {
+      "success": {
+        "bg":   { "value": "#EAF3DE" },
+        "text": { "value": "#27500A" }
+      },
+      "warning": {
+        "bg":   { "value": "#FAEEDA" },
+        "text": { "value": "#633806" }
+      },
+      "danger": {
+        "bg":   { "value": "#FCEBEB" },
+        "text": { "value": "#791F1F" }
+      },
+      "info": {
+        "bg":   { "value": "#E6F1FB" },
+        "text": { "value": "#0C447C" }
+      }
+    },
+    "variety": {
+      "comment": "Used as thumb backgrounds in the variety library — paired text colors are darker stops of the same ramp.",
+      "corn":    { "bg": "#FAEEDA", "text": "#854F0B" },
+      "rice":    { "bg": "#EAF3DE", "text": "#3B6D11" },
+      "legume":  { "bg": "#E1F5EE", "text": "#0F6E56" },
+      "mungbean":{ "bg": "#FAECE7", "text": "#993C1D" }
+    }
+  },
+
+  "typography": {
+    "fontFamily": {
+      "sans": { "value": "system-ui, -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif" },
+      "mono": { "value": "ui-monospace, 'SF Mono', Menlo, Consolas, monospace" }
+    },
+    "scale": {
+      "display":  { "size": 30, "weight": 500, "lineHeight": 1.15, "letterSpacing": "-0.02em" },
+      "h1":       { "size": 22, "weight": 500, "lineHeight": 1.2,  "letterSpacing": "-0.01em" },
+      "h2":       { "size": 18, "weight": 500, "lineHeight": 1.3,  "letterSpacing": "0" },
+      "title":    { "size": 15, "weight": 500, "lineHeight": 1.35, "letterSpacing": "0" },
+      "body":     { "size": 14, "weight": 400, "lineHeight": 1.5,  "letterSpacing": "0" },
+      "caption":  { "size": 12, "weight": 400, "lineHeight": 1.4,  "letterSpacing": "0" },
+      "label":    { "size": 11, "weight": 500, "lineHeight": 1.3,  "letterSpacing": "0.04em" }
+    }
+  },
+
+  "spacing": {
+    "xs":  { "value": 4 },
+    "sm":  { "value": 8 },
+    "md":  { "value": 12 },
+    "lg":  { "value": 16 },
+    "xl":  { "value": 20 },
+    "2xl": { "value": 24 },
+    "3xl": { "value": 32 },
+    "4xl": { "value": 40 }
+  },
+
+  "radius": {
+    "sm":   { "value": 6 },
+    "md":   { "value": 10 },
+    "lg":   { "value": 14 },
+    "xl":   { "value": 18 },
+    "2xl":  { "value": 22 },
+    "full": { "value": 9999 }
+  },
+
+  "component": {
+    "button": {
+      "height": 48,
+      "radius": 14,
+      "paddingX": 20,
+      "fontSize": 15,
+      "fontWeight": 500
+    },
+    "input": {
+      "height": 48,
+      "radius": 12,
+      "paddingX": 14,
+      "fontSize": 15,
+      "borderWidth": 0.5,
+      "focusRingWidth": 2
+    },
+    "pill": {
+      "height": 24,
+      "radius": 12,
+      "paddingX": 11,
+      "fontSize": 12,
+      "fontWeight": 500
+    },
+    "card": {
+      "radius": 18,
+      "paddingY": 16,
+      "paddingX": 18,
+      "borderWidth": 0.5
+    },
+    "statTile": {
+      "radius": 14,
+      "paddingY": 14,
+      "paddingX": 12,
+      "valueSize": 22,
+      "labelSize": 11
+    },
+    "tabBar": {
+      "height": 80,
+      "iconSize": 22,
+      "labelSize": 10
+    },
+    "iconButton": {
+      "size": 36,
+      "radius": 9999
+    },
+    "toggle": {
+      "width": 50,
+      "height": 30,
+      "knobSize": 24,
+      "radius": 9999
+    },
+    "listRow": {
+      "minHeight": 56,
+      "paddingY": 14,
+      "paddingX": 4,
+      "thumbSize": 44,
+      "thumbRadius": 12,
+      "gap": 14
+    }
+  },
+
+  "motion": {
+    "duration": {
+      "fast":   { "value": 120 },
+      "normal": { "value": 220 },
+      "slow":   { "value": 320 }
+    },
+    "easing": {
+      "standard":   { "value": "cubic-bezier(0.4, 0.0, 0.2, 1)" },
+      "decelerate": { "value": "cubic-bezier(0.0, 0.0, 0.2, 1)" },
+      "accelerate": { "value": "cubic-bezier(0.4, 0.0, 1, 1)" }
+    }
+  }
+}

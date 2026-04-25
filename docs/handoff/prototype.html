@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advance Seeds Field Inspector — Prototype v1.0</title>
+  <style>
+    /* =========================================================
+       Anthropic-style host variables (for standalone prototype)
+       Auto-adapt to system color scheme.
+       ========================================================= */
+    :root {
+      --color-background-primary: #FFFFFF;
+      --color-background-secondary: #F4F4F1;
+      --color-background-tertiary: #FAFAF9;
+      --color-text-primary: #1A1A1A;
+      --color-text-secondary: #6B6B68;
+      --color-text-tertiary: #9D9D9A;
+      --color-border-tertiary: rgba(0,0,0,0.06);
+      --color-border-secondary: rgba(0,0,0,0.12);
+      --color-border-primary: rgba(0,0,0,0.20);
+      --color-background-success: #EAF3DE;
+      --color-text-success: #27500A;
+      --color-background-warning: #FAEEDA;
+      --color-text-warning: #633806;
+      --color-background-danger: #FCEBEB;
+      --color-text-danger: #791F1F;
+      --color-background-info: #E6F1FB;
+      --color-text-info: #0C447C;
+      --font-sans: system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --border-radius-md: 8px;
+      --border-radius-lg: 12px;
+      --border-radius-xl: 16px;
+
+      /* Brand */
+      --brand: #0F6E56;
+      --brand-soft: #E1F5EE;
+      --brand-deep: #04342C;
+      --surface: #F4F4F1;
+      --device-bezel: #0a0a0a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-background-primary: #0F0F11;
+        --color-background-secondary: #18181B;
+        --color-background-tertiary: #1F1F22;
+        --color-text-primary: #F5F5F4;
+        --color-text-secondary: #A1A1A0;
+        --color-text-tertiary: #727272;
+        --color-border-tertiary: rgba(255,255,255,0.08);
+        --color-border-secondary: rgba(255,255,255,0.16);
+        --color-border-primary: rgba(255,255,255,0.24);
+        --color-background-success: #173404;
+        --color-text-success: #C0DD97;
+        --color-background-warning: #412402;
+        --color-text-warning: #FAC775;
+        --color-background-danger: #501313;
+        --color-text-danger: #F7C1C1;
+        --color-background-info: #042C53;
+        --color-text-info: #B5D4F4;
+        --brand: #5DCAA5;
+        --brand-soft: #04342C;
+        --brand-deep: #9FE1CB;
+        --surface: #18181B;
+      }
+    }
+
+    body {
+      margin: 0;
+      padding: 24px 16px 48px;
+      background: var(--color-background-tertiary);
+      color: var(--color-text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+    }
+    .root { width: 100%; max-width: 720px; }
+
+    /* ===== Prototype shell ===== */
+    .proto-shell { padding: 1rem 0 1.5rem; }
+    .proto-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px 14px;
+      border-bottom: 0.5px solid var(--color-border-tertiary);
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .proto-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .brand-mark {
+      width: 22px; height: 22px;
+      border-radius: 7px;
+      background: var(--brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+    .proto-version { color: var(--color-text-tertiary); font-size: 11px; font-family: var(--font-mono); }
+    .proto-controls { display: flex; align-items: center; gap: 8px; }
+    .ctl-btn {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 8px;
+      background: var(--color-background-secondary);
+      border: none;
+      color: var(--color-text-primary);
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ctl-btn:active { transform: scale(0.97); }
+    .ctl-btn.ic { width: 30px; padding: 0; justify-content: center; }
+    .crumb-num { font-family: var(--font-mono); color: var(--color-text-tertiary); font-size: 11px; }
+    .crumb-name { font-size: 12px; font-weight: 500; }
+
+    .stage {
+      background: var(--surface);
+      border-radius: 24px;
+      padding: 28px 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      border: 0.5px solid var(--color-border-tertiary);
+      overflow: hidden;
+    }
+    .device {
+      width: 360px;
+      height: 760px;
+      background: var(--device-bezel);
+      border-radius: 44px;
+      padding: 9px;
+      position: relative;
+    }
+    .device::before {
+      content: '';
+      position: absolute;
+      top: 9px; left: 50%;
+      transform: translateX(-50%);
+      width: 110px; height: 28px;
+      background: var(--device-bezel);
+      border-radius: 0 0 16px 16px;
+      z-index: 60;
+    }
+    .device::after {
+      content: '';
+      position: absolute;
+      top: 17px; right: 100px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #1a1a1a;
+      z-index: 61;
+    }
+    .device-screen {
+      width: 100%; height: 100%;
+      background: var(--color-background-primary);
+      border-radius: 36px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .status-bar {
+      height: 44px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 28px 0;
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 5;
+    }
+    .status-bar .right { display: flex; align-items: center; gap: 5px; }
+    .ic { display: inline-flex; align-items: center; justify-content: center; }
+    .ic svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .ic-22 svg { width: 22px; height: 22px; }
+    .ic-20 svg { width: 20px; height: 20px; }
+    .ic-18 svg { width: 18px; height: 18px; }
+    .ic-14 svg { width: 14px; height: 14px; }
+    .ic-12 svg { width: 12px; height: 12px; }
+
+    .screen {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .screen.active { display: flex; }
+    .screen::-webkit-scrollbar { width: 0; height: 0; }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px 14px;
+      flex-shrink: 0;
+    }
+    .top-bar h1 {
+      font-size: 17px;
+      font-weight: 500;
+      margin: 0;
+      flex: 1;
+      text-align: center;
+    }
+    .icon-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: var(--color-background-secondary);
+      color: var(--color-text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    .icon-btn:active { transform: scale(0.94); }
+    .icon-btn.ghost { background: transparent; }
+
+    .body { padding: 0 20px 20px; flex: 1; }
+    .body.center {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 0 28px 24px;
+    }
+
+    .h-display { font-size: 30px; font-weight: 500; margin: 0 0 8px; line-height: 1.15; letter-spacing: -0.02em; }
+    .h-large { font-size: 22px; font-weight: 500; margin: 0 0 4px; letter-spacing: -0.01em; }
+    .h-section { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); margin: 22px 0 10px; }
+    .body-text { font-size: 14px; color: var(--color-text-secondary); line-height: 1.5; margin: 0; }
+    .meta { font-size: 12px; color: var(--color-text-tertiary); }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .col { display: flex; flex-direction: column; }
+    .grow { flex: 1; min-width: 0; }
+    .between { display: flex; align-items: center; justify-content: space-between; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 26px;
+      padding: 0 11px;
+      border-radius: 13px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .pill-brand { background: var(--brand-soft); color: var(--brand-deep); }
+    .pill-brand .dot { background: var(--brand); }
+    .pill-success { background: var(--color-background-success); color: var(--color-text-success); }
+    .pill-success .dot { background: var(--color-text-success); }
+    .pill-warning { background: var(--color-background-warning); color: var(--color-text-warning); }
+    .pill-warning .dot { background: var(--color-text-warning); }
+    .pill-info { background: var(--color-background-info); color: var(--color-text-info); }
+    .pill-info .dot { background: var(--color-text-info); }
+    .pill-neutral { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+
+    .btn {
+      width: 100%;
+      height: 52px;
+      border-radius: 16px;
+      font-size: 15px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-fill { background: var(--brand); color: white; }
+    .btn-outline {
+      background: transparent;
+      border: 0.5px solid var(--color-border-secondary);
+      color: var(--color-text-primary);
+    }
+    .btn-tinted { background: var(--color-background-secondary); color: var(--color-text-primary); }
+    .btn-danger-text {
+      background: transparent;
+      color: var(--color-text-danger);
+      border: 0.5px solid var(--color-border-secondary);
+    }
+
+    .card {
+      background: var(--color-background-primary);
+      border: 0.5px solid var(--color-border-tertiary);
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+    .card.tight { padding: 6px 16px; }
+    .card.brand-tinted { background: var(--brand-soft); border: none; }
+
+    .stat-tile {
+      background: var(--color-background-secondary);
+      border-radius: 14px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .stat-tile .v { font-size: 22px; font-weight: 500; line-height: 1.05; letter-spacing: -0.02em; }
+    .stat-tile .l { font-size: 11px; color: var(--color-text-secondary); margin-top: 4px; }
+
+    .input-field, .select-field {
+      width: 100%;
+      height: 52px;
+      border: 0.5px solid var(--color-border-secondary);
+      background: var(--color-background-primary);
+      border-radius: 14px;
+      padding: 0 16px;
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--color-text-primary);
+      box-sizing: border-box;
+      outline: none;
+    }
+    .input-field:focus { box-shadow: 0 0 0 2px var(--brand-soft); border-color: var(--brand); }
+    .select-field {
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .field-label {
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      margin: 0 0 8px;
+      font-weight: 500;
+      padding-left: 4px;
+    }
+    textarea.input-field {
+      height: auto;
+      min-height: 96px;
+      padding: 14px 16px;
+      resize: none;
+      line-height: 1.45;
+    }
+
+    .seg {
+      display: flex;
+      background: var(--color-background-secondary);
+      border-radius: 12px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .seg-opt {
+      flex: 1;
+      text-align: center;
+      padding: 8px 6px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: 9px;
+      cursor: pointer;
+      color: var(--color-text-secondary);
+      border: none;
+      background: transparent;
+      font-family: inherit;
+    }
+    .seg-opt.active {
+      background: var(--color-background-primary);
+      color: var(--color-text-primary);
+    }
+
+    .toggle {
+      width: 50px; height: 30px;
+      background: var(--color-border-secondary);
+      border-radius: 15px;
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.18s;
+    }
+    .toggle.on { background: var(--brand); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 24px; height: 24px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.18s;
+    }
+    .toggle.on::after { transform: translateX(20px); }
+
+    .list-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 4px;
+      border-bottom: 0.5px solid var(--color-border-tertiary);
+      width: 100%;
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      color: var(--color-text-primary);
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:active { background: var(--color-background-secondary); }
+
+    .thumb {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: var(--color-background-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+    }
+    .thumb.brand { background: var(--brand-soft); color: var(--brand-deep); }
+    .thumb.amber { background: #FAEEDA; color: #854F0B; }
+    .thumb.green { background: #EAF3DE; color: #3B6D11; }
+    .thumb.teal  { background: #E1F5EE; color: #0F6E56; }
+    .thumb.coral { background: #FAECE7; color: #993C1D; }
+    .chevron { color: var(--color-text-tertiary); }
+
+    .tab-bar {
+      display: flex;
+      height: 80px;
+      border-top: 0.5px solid var(--color-border-tertiary);
+      background: var(--color-background-primary);
+      padding: 6px 8px 18px;
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--color-text-tertiary);
+      background: none;
+      border: none;
+      font-family: inherit;
+      padding: 6px 0;
+    }
+    .tab.active { color: var(--brand); }
+    .tab-label { font-size: 10px; font-weight: 500; letter-spacing: -0.01em; }
+
+    .menu-group {
+      background: var(--color-background-primary);
+      border: 0.5px solid var(--color-border-tertiary);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .menu-row {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      cursor: pointer;
+      gap: 14px;
+      border-bottom: 0.5px solid var(--color-border-tertiary);
+      background: none;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+      color: var(--color-text-primary);
+      font-size: 14px;
+    }
+    .menu-row:last-child { border-bottom: none; }
+    .menu-row:active { background: var(--color-background-secondary); }
+    .menu-icon {
+      width: 32px; height: 32px;
+      border-radius: 10px;
+      background: var(--color-background-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--color-text-secondary);
+    }
+    .menu-icon.brand { background: var(--brand-soft); color: var(--brand); }
+    .menu-trail { color: var(--color-text-secondary); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+
+    .camera-stage {
+      flex: 1;
+      margin: 0 12px 12px;
+      border-radius: 24px;
+      background: #1a1816;
+      position: relative;
+      overflow: hidden;
+    }
+    .tray {
+      position: absolute;
+      inset: 28px;
+      border-radius: 18px;
+      background: #2a2622;
+      overflow: hidden;
+    }
+    .seed-shape { position: absolute; background: #8c6a4a; border-radius: 50%; }
+    .seed-shape.dim { background: #5a4530; opacity: 0.7; }
+    .detect-ring { position: absolute; border: 1.5px solid; border-radius: 50%; pointer-events: none; }
+    .detect-ring.a { border-color: #5DCAA5; box-shadow: 0 0 0 1px rgba(93,202,165,0.25); }
+    .detect-ring.b { border-color: #EF9F27; }
+    .corner-bracket {
+      position: absolute;
+      width: 22px; height: 22px;
+      border: 2px solid rgba(255,255,255,0.55);
+    }
+    .corner-bracket.tl { top: 14px; left: 14px; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+    .corner-bracket.tr { top: 14px; right: 14px; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+    .corner-bracket.bl { bottom: 14px; left: 14px; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+    .corner-bracket.br { bottom: 14px; right: 14px; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
+
+    .glass {
+      background: rgba(0,0,0,0.55);
+      color: white;
+      border-radius: 18px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .glass.icon-only { padding: 0; width: 36px; height: 36px; justify-content: center; }
+    .cam-stats {
+      position: absolute;
+      bottom: 14px; left: 14px; right: 14px;
+      background: rgba(0,0,0,0.62);
+      color: white;
+      border-radius: 18px;
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      z-index: 5;
+    }
+    .cam-stats .v { font-size: 20px; font-weight: 500; letter-spacing: -0.02em; }
+    .cam-stats .l { font-size: 10px; opacity: 0.65; margin-top: 2px; letter-spacing: 0.02em; }
+    .cam-stats .col { align-items: center; text-align: center; }
+
+    .cam-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 36px;
+      padding: 14px 0 26px;
+    }
+    .cam-side {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--color-background-secondary);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--color-text-primary);
+    }
+    .cam-shutter {
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      background: white;
+      border: 4px solid var(--color-text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cam-shutter::after {
+      content: '';
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: var(--color-text-primary);
+      transform: scale(0.92);
+    }
+    .cam-shutter.live { border-color: #DC2828; }
+    .cam-shutter.live::after { background: #DC2828; }
+
+    .progress-dots {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin: 14px 0 0;
+    }
+    .progress-dots .pd {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--color-border-tertiary);
+    }
+    .progress-dots .pd.active {
+      width: 22px;
+      border-radius: 3px;
+      background: var(--brand);
+    }
+
+    .review-photo {
+      height: 180px;
+      border-radius: 16px;
+      background: #1a1816;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .grade-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .grade-a { background: var(--color-background-success); color: var(--color-text-success); }
+    .grade-b { background: var(--color-background-warning); color: var(--color-text-warning); }
+    .grade-c { background: var(--color-background-danger); color: var(--color-text-danger); }
+
+    .histogram { height: 80px; display: flex; align-items: flex-end; gap: 5px; }
+    .histogram .bar { flex: 1; background: var(--brand); border-radius: 4px 4px 0 0; opacity: 0.85; }
+    .histogram .bar.muted { background: var(--color-border-secondary); opacity: 1; }
+
+    .ring { width: 88px; height: 88px; position: relative; flex-shrink: 0; }
+    .ring-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .ring-num { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+    .ring-sub {
+      font-size: 9px;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 2px;
+    }
+
+    .hero-card {
+      background: var(--brand-deep);
+      color: white;
+      border-radius: 22px;
+      padding: 22px;
+      margin-bottom: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    @media (prefers-color-scheme: dark) {
+      .hero-card { background: var(--brand-soft); color: var(--brand-deep); }
+    }
+    .hero-card .hlabel { font-size: 12px; opacity: 0.7; margin: 0 0 8px; letter-spacing: 0.02em; }
+    .hero-card .hnum { font-size: 44px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; margin-bottom: 4px; }
+    .hero-card .hsub { font-size: 13px; opacity: 0.7; margin: 0; }
+    .spark { height: 36px; margin-top: 12px; width: 100%; }
+
+    .processing-orb {
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      background: var(--brand-soft);
+      border: 4px solid var(--brand);
+      border-top-color: transparent;
+      animation: spin 1.4s linear infinite;
+      margin: 0 auto 28px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .jump-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 18px;
+      padding: 12px 4px 0;
+      border-top: 0.5px solid var(--color-border-tertiary);
+    }
+    .jump-btn {
+      height: 28px;
+      padding: 0 12px;
+      border-radius: 14px;
+      border: 0.5px solid var(--color-border-tertiary);
+      background: transparent;
+      color: var(--color-text-secondary);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .jump-btn.current { background: var(--brand); color: white; border-color: var(--brand); }
+    .jump-btn:active { transform: scale(0.96); }
+    .jump-section-label {
+      font-size: 10px;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      width: 100%;
+      margin: 6px 0 -2px 4px;
+    }
+    .jump-section-label:first-child { margin-top: 0; }
+  </style>
+</head>
+<body>
+<div class="root">
+  <svg width="0" height="0" style="position:absolute;">
+    <defs>
+      <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M6 18L18 6"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M8 8l4-4 4 4M5 14v5a1 1 0 001 1h12a1 1 0 001-1v-5"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M16 16l4 4"/></symbol>
+      <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+      <symbol id="i-add" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-7H10v7H4a1 1 0 01-1-1v-9z"/></symbol>
+      <symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-library" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14a1 1 0 011 1v17l-4-2-4 2-4-2-4 2V4a1 1 0 011-1z"/></symbol>
+      <symbol id="i-profile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19 12c0-.5 0-1-.1-1.5l2-1.6-2-3.4-2.4 1a7 7 0 00-2.6-1.5l-.4-2.6h-3.9l-.4 2.6a7 7 0 00-2.6 1.5l-2.4-1-2 3.4 2 1.6c-.1.5-.1 1-.1 1.5"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0112 0c0 7 3 8 3 8H3s3-1 3-8M10 21h4"/></symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 012-2h2l2-2h4l2 2h2a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6.7L21 8M21 12a9 9 0 01-15 6.7L3 16M21 4v4h-4M3 20v-4h4"/></symbol>
+      <symbol id="i-flash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></symbol>
+      <symbol id="i-flip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a8 8 0 0114-5l3 3M21 16a8 8 0 01-14 5l-3-3M14 6h7v-3M10 21h-7v-3"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M16.5 4.5a2.1 2.1 0 013 3L8 19l-4 1 1-4L16.5 4.5z"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13s-7-8-7-13a7 7 0 017-7z"/><circle cx="12" cy="9" r="2.5"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 2-2.5 2-2.5 4M12 17v.01"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></symbol>
+      <symbol id="i-signal" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="0.5"/><rect x="5" y="5" width="3" height="7" rx="0.5"/><rect x="10" y="2" width="3" height="10" rx="0.5"/><rect x="15" y="0" width="3" height="12" rx="0.5"/></symbol>
+      <symbol id="i-wifi" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M1 5a14 14 0 0116 0M3.5 8a10 10 0 0111 0M6 11a6 6 0 016 0M9 13.5l.01 0"/></symbol>
+      <symbol id="i-battery" viewBox="0 0 26 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="22" height="11" rx="2.5"/><rect x="2" y="2" width="19" height="8" rx="1.5" fill="currentColor"/><path d="M24 4v4" stroke-linecap="round" stroke-width="1.4"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="proto-shell">
+    <div class="proto-meta">
+      <div class="proto-brand">
+        <span class="brand-mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21c0-9 6-15 15-15-1 11-6 15-15 15z"/><path d="M5 21l9-9"/></svg></span>
+        <span>Advance Seeds</span>
+        <span class="proto-version">v1.0 · prototype</span>
+      </div>
+      <div class="proto-controls">
+        <span class="crumb-num" id="crumb-num">01</span>
+        <span class="crumb-name" id="crumb-name">Splash</span>
+        <button class="ctl-btn ic" onclick="prev()" title="Previous"><svg width="14" height="14"><use href="#i-back"/></svg></button>
+        <button class="ctl-btn ic" onclick="next()" title="Next"><svg width="14" height="14"><use href="#i-chevron-right"/></svg></button>
+        <button class="ctl-btn" onclick="goTo('splash')">Restart</button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="device">
+        <div class="device-screen">
+
+          <div class="status-bar">
+            <span>9:41</span>
+            <div class="right">
+              <span class="ic ic-12"><svg viewBox="0 0 18 12"><use href="#i-signal"/></svg></span>
+              <span class="ic ic-14"><svg viewBox="0 0 18 14"><use href="#i-wifi"/></svg></span>
+              <span class="ic"><svg width="22" height="11" viewBox="0 0 26 12"><use href="#i-battery"/></svg></span>
+            </div>
+          </div>
+
+          <div class="screen active" data-id="splash">
+            <div class="body center" style="padding-top: 100px;">
+              <div style="width: 78px; height: 78px; border-radius: 22px; background: var(--brand); display:flex; align-items:center; justify-content:center; color: white; margin-bottom: 28px;">
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21c0-9 6-15 15-15-1 11-6 15-15 15z"/><path d="M5 21l9-9"/></svg>
+              </div>
+              <h1 class="h-display">Advance Seeds</h1>
+              <p class="body-text">Field Inspector for QA technicians</p>
+              <div style="margin-top: 64px; display: flex; gap: 6px; align-items: center;">
+                <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--brand); opacity: 0.4;"></div>
+                <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--brand); opacity: 0.7;"></div>
+                <div style="width: 6px; height: 6px; border-radius: 50%; background: var(--brand);"></div>
+              </div>
+              <button class="btn btn-fill" style="margin-top: 80px; max-width: 240px;" onclick="goTo('welcome')">Get started</button>
+              <p class="meta" style="margin-top: 14px;">Version 1.0.0 · build 412</p>
+            </div>
+          </div>
+
+          <div class="screen" data-id="welcome">
+            <div class="body" style="padding-top: 24px;">
+              <div style="height: 200px; background: var(--brand-soft); border-radius: 22px; display:flex; align-items:center; justify-content:center; margin-bottom: 28px; position: relative; overflow: hidden;">
+                <div style="position: relative; width: 130px; height: 130px;">
+                  <div style="position:absolute; width: 38px; height: 24px; background: var(--brand); border-radius: 50%; top: 30px; left: 18px; transform: rotate(15deg);"></div>
+                  <div style="position:absolute; width: 42px; height: 26px; background: var(--brand); border-radius: 50%; top: 56px; left: 56px; transform: rotate(-12deg); opacity: 0.7;"></div>
+                  <div style="position:absolute; width: 36px; height: 22px; background: var(--brand-deep); border-radius: 50%; top: 84px; left: 28px; transform: rotate(20deg); opacity: 0.5;"></div>
+                  <div style="position:absolute; width: 60px; height: 60px; border: 2px solid var(--brand); border-radius: 50%; top: 18px; left: 60px;"></div>
+                </div>
+              </div>
+              <h1 class="h-display">Detect, measure, grade</h1>
+              <p class="body-text" style="margin-bottom: 20px;">Point your camera at a tray of seeds. Get accurate counts, dimensions, and quality grades on-device — no internet required.</p>
+              <div class="card" style="padding: 14px 16px; margin-bottom: 10px;">
+                <div class="row">
+                  <span class="menu-icon brand"><svg width="16" height="16"><use href="#i-camera"/></svg></span>
+                  <div class="grow col">
+                    <span style="font-size: 14px; font-weight: 500;">On-device inference</span>
+                    <span style="font-size: 12px; color: var(--color-text-secondary);">Real-time YOLOv8 segmentation</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card" style="padding: 14px 16px; margin-bottom: 10px;">
+                <div class="row">
+                  <span class="menu-icon brand"><svg width="16" height="16"><use href="#i-target"/></svg></span>
+                  <div class="grow col">
+                    <span style="font-size: 14px; font-weight: 500;">LiDAR calibration</span>
+                    <span style="font-size: 12px; color: var(--color-text-secondary);">Accurate to ±0.5 mm with iPhone Pro</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card" style="padding: 14px 16px;">
+                <div class="row">
+                  <span class="menu-icon brand"><svg width="16" height="16"><use href="#i-sync"/></svg></span>
+                  <div class="grow col">
+                    <span style="font-size: 14px; font-weight: 500;">Offline-first sync</span>
+                    <span style="font-size: 12px; color: var(--color-text-secondary);">Captures save locally, sync when online</span>
+                  </div>
+                </div>
+              </div>
+              <div class="progress-dots">
+                <span class="pd active"></span><span class="pd"></span><span class="pd"></span>
+              </div>
+            </div>
+            <div style="padding: 8px 20px 28px;">
+              <button class="btn btn-fill" onclick="goTo('login')">Continue</button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="login">
+            <div class="body" style="padding-top: 32px;">
+              <div style="margin-bottom: 36px;">
+                <h1 class="h-display">Welcome back</h1>
+                <p class="body-text">Sign in to continue your inspections at Saraburi R&amp;D Lab.</p>
+              </div>
+              <div style="margin-bottom: 14px;">
+                <p class="field-label">Work email</p>
+                <input type="email" class="input-field" value="jane.somchai@advanceseeds.co" />
+              </div>
+              <div style="margin-bottom: 8px;">
+                <p class="field-label">Password</p>
+                <input type="password" class="input-field" value="••••••••••••" />
+              </div>
+              <div style="text-align:right; margin-bottom: 28px;">
+                <button class="btn" style="width:auto; height:auto; padding: 4px 0; background:none; border:none; color: var(--brand); font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer;">Forgot password?</button>
+              </div>
+              <button class="btn btn-fill" onclick="goTo('home')" style="margin-bottom: 14px;">Sign in</button>
+              <div style="display:flex; align-items:center; gap:10px; margin: 22px 0;">
+                <div style="flex:1; height:0.5px; background: var(--color-border-tertiary);"></div>
+                <span class="meta">or continue with</span>
+                <div style="flex:1; height:0.5px; background: var(--color-border-tertiary);"></div>
+              </div>
+              <button class="btn btn-outline" onclick="goTo('home')">
+                <span style="width:20px; height: 20px; border-radius: 5px; background: var(--color-text-primary);"></span>
+                Single sign-on
+              </button>
+            </div>
+            <div style="padding: 8px 20px 24px; text-align: center;">
+              <span class="meta">Trouble signing in? <span style="color: var(--brand); font-weight: 500;">Contact admin</span></span>
+            </div>
+          </div>
+
+          <div class="screen" data-id="home">
+            <div style="padding: 8px 20px 0; display:flex; align-items:center; gap: 12px;">
+              <div class="grow col" style="gap: 2px;">
+                <span class="meta">Saturday, 25 April</span>
+                <span style="font-size: 22px; font-weight: 500; letter-spacing: -0.01em;">Hello, Jane</span>
+              </div>
+              <button class="icon-btn ghost"><svg width="20" height="20"><use href="#i-bell"/></svg></button>
+              <button class="icon-btn" onclick="goTo('profile')" style="background: var(--brand-soft); color: var(--brand-deep); font-weight: 500; font-size: 13px;">JS</button>
+            </div>
+
+            <div class="body" style="padding-top: 18px;">
+              <div class="hero-card">
+                <p class="hlabel">Today's inspections</p>
+                <div class="row" style="align-items: flex-end; gap: 16px;">
+                  <div class="col" style="gap: 0;">
+                    <span class="hnum">487</span>
+                    <span class="hsub">seeds across 12 batches · 88% Grade A</span>
+                  </div>
+                </div>
+                <svg class="spark" viewBox="0 0 280 36" preserveAspectRatio="none">
+                  <path d="M0,28 L25,24 L50,26 L75,18 L100,20 L125,12 L150,14 L175,8 L200,10 L225,4 L250,6 L280,2"
+                        fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+                </svg>
+              </div>
+
+              <button class="btn btn-fill" onclick="goTo('setup')" style="height: 56px; margin-bottom: 22px;">
+                <svg width="18" height="18"><use href="#i-add"/></svg>
+                New inspection
+              </button>
+
+              <div class="between" style="margin-bottom: 12px;">
+                <span style="font-size: 15px; font-weight: 500;">Recent</span>
+                <button onclick="goTo('history')" style="background:none; border:none; color: var(--brand); font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer;">View all</button>
+              </div>
+
+              <div class="card tight">
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb amber">47</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Corn — Hybrid Yellow Y28</span>
+                    <span class="meta">2 min ago · 11.4 mm avg · 83% A</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb green">52</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Rice — Jasmine Hom Mali 105</span>
+                    <span class="meta">38 min ago · 7.2 mm avg · 79% A</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb teal">38</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Soybean — SJ5</span>
+                    <span class="meta">2h ago · 6.5 mm avg · 92% A</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+              </div>
+
+              <div style="margin-top: 16px; padding: 14px 16px; background: var(--color-background-secondary); border-radius: 16px; display: flex; align-items: center; gap: 12px;">
+                <span class="ic" style="color: var(--color-text-success);"><svg width="18" height="18"><use href="#i-check"/></svg></span>
+                <div class="grow col" style="gap: 2px;">
+                  <span style="font-size: 13px; font-weight: 500;">All inspections synced</span>
+                  <span class="meta">Last sync · 2 min ago</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-bar">
+              <button class="tab active" onclick="goTo('home')"><span class="ic ic-22"><svg><use href="#i-home"/></svg></span><span class="tab-label">Home</span></button>
+              <button class="tab" onclick="goTo('history')"><span class="ic ic-22"><svg><use href="#i-history"/></svg></span><span class="tab-label">History</span></button>
+              <button class="tab" onclick="goTo('library')"><span class="ic ic-22"><svg><use href="#i-library"/></svg></span><span class="tab-label">Library</span></button>
+              <button class="tab" onclick="goTo('profile')"><span class="ic ic-22"><svg><use href="#i-profile"/></svg></span><span class="tab-label">Profile</span></button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="setup">
+            <div class="top-bar">
+              <button class="icon-btn" onclick="goTo('home')"><svg width="18" height="18"><use href="#i-back"/></svg></button>
+              <h1>New inspection</h1>
+              <button class="icon-btn ghost"></button>
+            </div>
+            <div class="body">
+              <p class="body-text" style="margin-bottom: 24px; padding: 0 4px;">Set up batch information before capturing.</p>
+              <div style="margin-bottom: 16px;">
+                <p class="field-label">Variety</p>
+                <button class="select-field" onclick="goTo('library')">
+                  <span class="row" style="gap: 10px;">
+                    <span class="thumb amber" style="width: 28px; height: 28px; border-radius: 8px; font-size: 11px;">Y</span>
+                    <span class="col" style="gap: 0;">
+                      <span style="font-size: 14px;">Corn — Hybrid Yellow Y28</span>
+                      <span class="meta" style="font-size: 11px;">11.0 × 4.5 mm reference</span>
+                    </span>
+                  </span>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-down"/></svg></span>
+                </button>
+              </div>
+              <div style="margin-bottom: 16px;">
+                <p class="field-label">Batch / lot ID</p>
+                <input type="text" class="input-field" value="AS-26-0425-001" />
+              </div>
+              <div style="margin-bottom: 16px;">
+                <p class="field-label">Notes <span style="color: var(--color-text-tertiary); font-weight: 400;">— optional</span></p>
+                <textarea class="input-field" placeholder="Field conditions, source, observations…">Sample from harvest plot 7-A. Conditions clear, low humidity.</textarea>
+              </div>
+              <div class="card" style="padding: 14px 16px; display:flex; align-items: center; gap: 12px;">
+                <span class="menu-icon brand"><svg width="16" height="16"><use href="#i-pin"/></svg></span>
+                <div class="grow col" style="gap: 2px;">
+                  <span style="font-size: 14px; font-weight: 500;">Auto-tag location</span>
+                  <span class="meta">Saraburi R&amp;D Lab · 14.50°N, 100.91°E</span>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+            </div>
+            <div style="padding: 12px 20px 28px;">
+              <button class="btn btn-fill" onclick="goTo('mode')">Continue</button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="mode">
+            <div class="top-bar">
+              <button class="icon-btn" onclick="goTo('setup')"><svg width="18" height="18"><use href="#i-back"/></svg></button>
+              <h1>Capture mode</h1>
+              <button class="icon-btn ghost"></button>
+            </div>
+            <div class="body">
+              <p class="body-text" style="margin-bottom: 22px; padding: 0 4px;">Pick how you want to capture this batch.</p>
+              <button class="card" onclick="goTo('scan')" style="width: 100%; text-align: left; cursor: pointer; margin-bottom: 14px; display:block; font-family: inherit; padding: 18px; border-radius: 20px;">
+                <div class="row" style="margin-bottom: 14px;">
+                  <div style="width: 48px; height: 48px; border-radius: 14px; background: #FCEBEB; display:flex; align-items:center; justify-content:center; color: #A32D2D;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+                  </div>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 15px; font-weight: 500;">Live scan</span>
+                    <span class="meta">Real-time count and grade</span>
+                  </div>
+                  <span class="ic chevron"><svg width="18" height="18"><use href="#i-chevron-right"/></svg></span>
+                </div>
+                <p class="body-text" style="font-size: 13px; margin: 0 0 12px; line-height: 1.5;">Continuous detection at 20–30 fps. Best for quick field checks, demos, or browsing across a tray.</p>
+                <div style="display: flex; gap: 6px;">
+                  <span class="pill pill-neutral">Fast</span>
+                  <span class="pill pill-neutral">No calibration</span>
+                </div>
+              </button>
+              <button class="card" onclick="goTo('precise')" style="width: 100%; text-align: left; cursor: pointer; display:block; font-family: inherit; padding: 18px; border-radius: 20px; border: 2px solid var(--brand);">
+                <div class="row" style="margin-bottom: 14px;">
+                  <div style="width: 48px; height: 48px; border-radius: 14px; background: var(--brand-soft); display:flex; align-items:center; justify-content:center; color: var(--brand);">
+                    <svg width="22" height="22"><use href="#i-target"/></svg>
+                  </div>
+                  <div class="grow col" style="gap: 2px;">
+                    <div class="row" style="gap: 8px;">
+                      <span style="font-size: 15px; font-weight: 500;">Precise capture</span>
+                      <span class="pill pill-brand" style="height: 22px; padding: 0 8px; font-size: 11px;">Lab grade</span>
+                    </div>
+                    <span class="meta">Single shot · LiDAR calibrated</span>
+                  </div>
+                  <span class="ic chevron"><svg width="18" height="18"><use href="#i-chevron-right"/></svg></span>
+                </div>
+                <p class="body-text" style="font-size: 13px; margin: 0 0 12px; line-height: 1.5;">Accurate to ±0.5 mm with depth-based scale. Use for measurements that go into your QA report.</p>
+                <div style="display: flex; gap: 6px;">
+                  <span class="pill pill-brand">Accurate</span>
+                  <span class="pill pill-neutral">Slower</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="scan">
+            <div style="padding: 6px 14px 12px; display: flex; align-items: center; gap: 8px;">
+              <button class="glass icon-only" onclick="goTo('mode')"><svg width="16" height="16" style="color: white;"><use href="#i-back"/></svg></button>
+              <div class="grow" style="display: flex; justify-content: center;">
+                <span class="glass">
+                  <span style="width: 6px; height: 6px; border-radius: 50%; background: #5DCAA5;"></span>
+                  Live · Corn Y28
+                </span>
+              </div>
+              <button class="glass icon-only"><svg width="16" height="16" style="color: white;"><use href="#i-flash"/></svg></button>
+            </div>
+            <div class="camera-stage">
+              <div class="tray">
+                <div class="seed-shape" style="width: 22px; height: 14px; top: 18%; left: 12%; transform: rotate(15deg);"></div>
+                <div class="seed-shape" style="width: 24px; height: 16px; top: 22%; left: 38%; transform: rotate(-10deg);"></div>
+                <div class="seed-shape" style="width: 22px; height: 14px; top: 30%; left: 62%; transform: rotate(25deg);"></div>
+                <div class="seed-shape dim" style="width: 20px; height: 12px; top: 38%; left: 14%; transform: rotate(45deg);"></div>
+                <div class="seed-shape" style="width: 24px; height: 16px; top: 42%; left: 42%; transform: rotate(5deg);"></div>
+                <div class="seed-shape" style="width: 22px; height: 14px; top: 52%; left: 22%; transform: rotate(-30deg);"></div>
+                <div class="seed-shape" style="width: 26px; height: 16px; top: 58%; left: 56%; transform: rotate(8deg);"></div>
+                <div class="seed-shape dim" style="width: 18px; height: 12px; top: 64%; left: 12%; transform: rotate(50deg);"></div>
+                <div class="seed-shape" style="width: 22px; height: 14px; top: 72%; left: 38%; transform: rotate(-18deg);"></div>
+                <div class="seed-shape" style="width: 24px; height: 16px; top: 78%; left: 62%; transform: rotate(22deg);"></div>
+                <div class="detect-ring a" style="width: 36px; height: 28px; top: 16%; left: 8%;"></div>
+                <div class="detect-ring a" style="width: 38px; height: 30px; top: 20%; left: 34%;"></div>
+                <div class="detect-ring a" style="width: 36px; height: 28px; top: 28%; left: 58%;"></div>
+                <div class="detect-ring b" style="width: 32px; height: 26px; top: 36%; left: 10%;"></div>
+                <div class="detect-ring a" style="width: 38px; height: 30px; top: 40%; left: 38%;"></div>
+                <div class="detect-ring a" style="width: 36px; height: 28px; top: 50%; left: 18%;"></div>
+                <div class="detect-ring a" style="width: 40px; height: 30px; top: 56%; left: 52%;"></div>
+                <div class="detect-ring a" style="width: 36px; height: 28px; top: 70%; left: 34%;"></div>
+                <div class="detect-ring a" style="width: 38px; height: 30px; top: 76%; left: 58%;"></div>
+              </div>
+              <div class="cam-stats">
+                <div class="col"><span class="v">47</span><span class="l">Count</span></div>
+                <div class="col"><span class="v">11.4</span><span class="l">Avg mm</span></div>
+                <div class="col"><span class="v">83%</span><span class="l">Grade A</span></div>
+              </div>
+            </div>
+            <div class="cam-action-bar">
+              <button class="cam-side"><svg width="20" height="20"><use href="#i-grid"/></svg></button>
+              <button class="cam-shutter live" onclick="goTo('processing')"></button>
+              <button class="cam-side"><svg width="20" height="20"><use href="#i-flip"/></svg></button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="precise">
+            <div style="padding: 6px 14px 12px; display: flex; align-items: center; gap: 8px;">
+              <button class="glass icon-only" onclick="goTo('mode')"><svg width="16" height="16" style="color: white;"><use href="#i-back"/></svg></button>
+              <div class="grow" style="display: flex; justify-content: center;">
+                <span class="glass">
+                  <span style="width: 6px; height: 6px; border-radius: 50%; background: #B5D4F4;"></span>
+                  Precise · Corn Y28
+                </span>
+              </div>
+              <button class="glass icon-only"><svg width="16" height="16" style="color: white;"><use href="#i-flash"/></svg></button>
+            </div>
+            <div class="camera-stage">
+              <div class="tray">
+                <div class="seed-shape" style="width: 22px; height: 14px; top: 30%; left: 22%; transform: rotate(15deg);"></div>
+                <div class="seed-shape" style="width: 24px; height: 16px; top: 36%; left: 50%; transform: rotate(-10deg);"></div>
+                <div class="seed-shape" style="width: 22px; height: 14px; top: 48%; left: 32%; transform: rotate(25deg);"></div>
+                <div class="seed-shape" style="width: 24px; height: 16px; top: 56%; left: 58%; transform: rotate(5deg);"></div>
+                <div class="seed-shape" style="width: 22px; height: 14px; top: 64%; left: 24%; transform: rotate(-30deg);"></div>
+              </div>
+              <div class="corner-bracket tl"></div>
+              <div class="corner-bracket tr"></div>
+              <div class="corner-bracket bl"></div>
+              <div class="corner-bracket br"></div>
+              <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.5); font-size: 12px; font-weight: 500; text-align: center;">
+                Hold steady<br>
+                <span style="font-size: 28px; font-weight: 500; color: rgba(255,255,255,0.85); display:block; margin-top: 4px; letter-spacing: -0.02em;">28 cm</span>
+              </div>
+              <div style="position: absolute; bottom: 14px; left: 14px; right: 14px; background: rgba(15, 110, 86, 0.92); color: white; border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; z-index: 5;">
+                <span class="ic" style="color: white;"><svg width="18" height="18"><use href="#i-check"/></svg></span>
+                <div class="grow col" style="gap: 1px;">
+                  <span style="font-size: 13px; font-weight: 500;">LiDAR locked</span>
+                  <span style="font-size: 11px; opacity: 0.85;">24.7 px/mm at 28 cm distance</span>
+                </div>
+              </div>
+            </div>
+            <div class="cam-action-bar">
+              <button class="cam-side"><svg width="20" height="20"><use href="#i-grid"/></svg></button>
+              <button class="cam-shutter" onclick="goTo('processing')"></button>
+              <button class="cam-side"><svg width="20" height="20"><use href="#i-flip"/></svg></button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="processing">
+            <div class="body center" style="padding-top: 120px;">
+              <div class="processing-orb"></div>
+              <h1 class="h-large">Analyzing</h1>
+              <p class="body-text" style="margin-bottom: 32px;">Detecting seeds, measuring dimensions, and grading quality.</p>
+              <div style="width: 100%; max-width: 240px; display: flex; flex-direction: column; gap: 10px; text-align: left;">
+                <div class="row" style="gap: 10px;">
+                  <span class="ic" style="color: var(--brand);"><svg width="16" height="16"><use href="#i-check"/></svg></span>
+                  <span style="font-size: 13px;">Frame captured</span>
+                </div>
+                <div class="row" style="gap: 10px;">
+                  <span class="ic" style="color: var(--brand);"><svg width="16" height="16"><use href="#i-check"/></svg></span>
+                  <span style="font-size: 13px;">Calibration applied</span>
+                </div>
+                <div class="row" style="gap: 10px;">
+                  <span class="ic" style="color: var(--brand);"><svg width="16" height="16"><use href="#i-check"/></svg></span>
+                  <span style="font-size: 13px;">Detected 47 seeds</span>
+                </div>
+                <div class="row" style="gap: 10px;">
+                  <span style="width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--brand); border-top-color: transparent; animation: spin 1s linear infinite;"></span>
+                  <span style="font-size: 13px; color: var(--color-text-secondary);">Grading quality…</span>
+                </div>
+              </div>
+              <button class="btn btn-tinted" style="margin-top: 56px; max-width: 240px;" onclick="goTo('review')">View results</button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="review">
+            <div class="top-bar">
+              <button class="icon-btn" onclick="goTo('home')"><svg width="18" height="18"><use href="#i-close"/></svg></button>
+              <h1>Inspection result</h1>
+              <button class="icon-btn"><svg width="18" height="18"><use href="#i-share"/></svg></button>
+            </div>
+            <div class="body">
+              <div class="review-photo">
+                <div class="tray" style="inset: 16px;">
+                  <div class="seed-shape" style="width: 22px; height: 14px; top: 25%; left: 18%; transform: rotate(15deg);"></div>
+                  <div class="seed-shape" style="width: 24px; height: 16px; top: 35%; left: 48%; transform: rotate(-10deg);"></div>
+                  <div class="seed-shape" style="width: 22px; height: 14px; top: 50%; left: 28%; transform: rotate(25deg);"></div>
+                  <div class="seed-shape dim" style="width: 20px; height: 12px; top: 60%; left: 60%; transform: rotate(8deg);"></div>
+                  <div class="seed-shape" style="width: 26px; height: 16px; top: 68%; left: 35%; transform: rotate(-22deg);"></div>
+                  <div class="detect-ring a" style="width: 36px; height: 28px; top: 22%; left: 14%;"></div>
+                  <div class="detect-ring a" style="width: 38px; height: 30px; top: 32%; left: 44%;"></div>
+                  <div class="detect-ring a" style="width: 36px; height: 28px; top: 47%; left: 24%;"></div>
+                  <div class="detect-ring b" style="width: 32px; height: 26px; top: 58%; left: 56%;"></div>
+                  <div class="detect-ring a" style="width: 40px; height: 30px; top: 64%; left: 30%;"></div>
+                </div>
+              </div>
+              <div class="row" style="gap: 16px; margin-bottom: 22px; align-items: center;">
+                <div class="ring">
+                  <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-background-secondary)" stroke-width="8"/>
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--brand)" stroke-width="8" stroke-linecap="round" stroke-dasharray="219" stroke-dashoffset="37"/>
+                  </svg>
+                  <div class="ring-label">
+                    <span class="ring-num">83%</span>
+                    <span class="ring-sub">Grade A</span>
+                  </div>
+                </div>
+                <div class="grow col" style="gap: 12px;">
+                  <div class="col" style="gap: 0;">
+                    <span class="meta">Total seeds</span>
+                    <span style="font-size: 22px; font-weight: 500; letter-spacing: -0.02em;">47</span>
+                  </div>
+                  <div class="col" style="gap: 0;">
+                    <span class="meta">Avg dimensions</span>
+                    <span style="font-size: 16px; font-weight: 500;">11.4 × 4.6 mm</span>
+                  </div>
+                </div>
+              </div>
+              <div class="between" style="margin-bottom: 10px;">
+                <span style="font-size: 14px; font-weight: 500;">Per-seed results</span>
+                <button style="background:none; border:none; color: var(--brand); font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer;">Sort</button>
+              </div>
+              <div class="card tight">
+                <button class="list-row" onclick="goTo('seed')">
+                  <span class="grade-pill grade-a">A</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Seed #1</span>
+                    <span class="meta">11.4 × 4.6 mm · area 42.3 mm²</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="list-row" onclick="goTo('seed')">
+                  <span class="grade-pill grade-a">A</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Seed #2</span>
+                    <span class="meta">11.0 × 4.5 mm · area 39.8 mm²</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="list-row" onclick="goTo('seed')">
+                  <span class="grade-pill grade-b">B</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Seed #3</span>
+                    <span class="meta">10.2 × 4.0 mm · area 32.1 mm²</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="list-row" onclick="goTo('seed')">
+                  <span class="grade-pill grade-a">A</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Seed #4</span>
+                    <span class="meta">11.6 × 4.7 mm · area 43.0 mm²</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+              </div>
+            </div>
+            <div style="padding: 12px 20px 28px; display: flex; gap: 10px;">
+              <button class="btn btn-outline grow" onclick="goTo('home')">Save draft</button>
+              <button class="btn btn-fill grow" onclick="goTo('home')">
+                <svg width="16" height="16"><use href="#i-check"/></svg>
+                Save and sync
+              </button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="seed">
+            <div class="top-bar">
+              <button class="icon-btn" onclick="goTo('review')"><svg width="18" height="18"><use href="#i-back"/></svg></button>
+              <h1>Seed #1</h1>
+              <button class="icon-btn"><svg width="18" height="18"><use href="#i-more"/></svg></button>
+            </div>
+            <div class="body">
+              <div style="height: 200px; border-radius: 18px; background: #1a1816; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; position: relative; overflow: hidden;">
+                <div style="position: relative;">
+                  <div style="width: 100px; height: 64px; background: #8c6a4a; border-radius: 50%; transform: rotate(-15deg);"></div>
+                  <div style="position: absolute; inset: -8px; border: 2px solid #5DCAA5; border-radius: 50%; transform: rotate(-15deg); box-shadow: 0 0 0 1px rgba(93, 202, 165, 0.3);"></div>
+                </div>
+              </div>
+              <div class="between" style="margin-bottom: 22px;">
+                <div class="col" style="gap: 4px;">
+                  <span class="meta">Quality grade</span>
+                  <span style="font-size: 26px; font-weight: 500; letter-spacing: -0.02em;">Grade A</span>
+                </div>
+                <span class="pill pill-success">
+                  <span class="dot"></span>
+                  Passed
+                </span>
+              </div>
+              <div class="card tight">
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Length</span><span style="font-size: 14px; font-weight: 500;">11.4 mm</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Width</span><span style="font-size: 14px; font-weight: 500;">4.6 mm</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Area</span><span style="font-size: 14px; font-weight: 500;">42.3 mm²</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Aspect ratio</span><span style="font-size: 14px; font-weight: 500;">2.48</span></div>
+                <div class="list-row" style="cursor: default;">
+                  <span class="grow meta" style="font-size: 13px;">Color (HSV)</span>
+                  <span style="font-size: 14px; font-weight: 500; display:flex; align-items:center; gap: 6px;">
+                    <span style="width: 14px; height: 14px; border-radius: 4px; background: #d4a850;"></span>
+                    42 · 180 · 200
+                  </span>
+                </div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Confidence</span><span style="font-size: 14px; font-weight: 500;">98.4%</span></div>
+              </div>
+              <h2 class="h-section">Reference comparison</h2>
+              <div class="card brand-tinted" style="padding: 14px 16px;">
+                <div class="row" style="gap: 8px; margin-bottom: 6px;">
+                  <span class="ic" style="color: var(--brand);"><svg width="16" height="16"><use href="#i-check"/></svg></span>
+                  <span style="font-size: 13px; font-weight: 500; color: var(--brand-deep);">Within Y28 specification</span>
+                </div>
+                <p style="font-size: 12px; color: var(--brand-deep); opacity: 0.8; margin: 0;">Reference: 11.0 ± 0.8 mm length, 4.5 ± 0.5 mm width</p>
+              </div>
+            </div>
+            <div style="padding: 12px 20px 28px; display: flex; gap: 10px;">
+              <button class="btn btn-outline grow"><svg width="14" height="14"><use href="#i-edit"/></svg> Edit grade</button>
+              <button class="btn btn-danger-text grow">Reject</button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="history">
+            <div style="padding: 8px 20px 0; display: flex; align-items: flex-end; gap: 12px;">
+              <h1 style="font-size: 28px; font-weight: 500; letter-spacing: -0.02em; margin: 0; flex: 1;">History</h1>
+              <button class="icon-btn ghost"><svg width="20" height="20"><use href="#i-search"/></svg></button>
+              <button class="icon-btn ghost"><svg width="20" height="20"><use href="#i-filter"/></svg></button>
+            </div>
+            <div class="body" style="padding-top: 18px;">
+              <div class="seg" style="margin-bottom: 18px;">
+                <button class="seg-opt active">All</button>
+                <button class="seg-opt">Today</button>
+                <button class="seg-opt">Synced</button>
+                <button class="seg-opt">Pending</button>
+              </div>
+              <span class="meta" style="display: block; margin-bottom: 8px; padding: 0 4px;">Today · 3 inspections</span>
+              <div class="card tight" style="margin-bottom: 18px;">
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb amber">47</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Corn — Hybrid Yellow Y28</span>
+                    <span class="meta">2 min ago · AS-26-0425-001</span>
+                  </div>
+                  <span class="pill pill-success" style="height: 22px; padding: 0 8px; font-size: 11px;"><span class="dot"></span>Synced</span>
+                </button>
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb green">52</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Rice — Jasmine Hom Mali 105</span>
+                    <span class="meta">38 min ago · AS-26-0425-002</span>
+                  </div>
+                  <span class="pill pill-warning" style="height: 22px; padding: 0 8px; font-size: 11px;"><span class="dot"></span>Pending</span>
+                </button>
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb teal">38</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Soybean — SJ5</span>
+                    <span class="meta">2h ago · AS-26-0425-003</span>
+                  </div>
+                  <span class="pill pill-success" style="height: 22px; padding: 0 8px; font-size: 11px;"><span class="dot"></span>Synced</span>
+                </button>
+              </div>
+              <span class="meta" style="display: block; margin-bottom: 8px; padding: 0 4px;">Yesterday · 8 inspections</span>
+              <div class="card tight">
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb amber">61</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Corn — Hybrid Yellow Y28</span>
+                    <span class="meta">Yesterday · AS-26-0424-008</span>
+                  </div>
+                  <span class="pill pill-success" style="height: 22px; padding: 0 8px; font-size: 11px;"><span class="dot"></span>Synced</span>
+                </button>
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb coral">44</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Mungbean — KP2</span>
+                    <span class="meta">Yesterday · AS-26-0424-007</span>
+                  </div>
+                  <span class="pill pill-success" style="height: 22px; padding: 0 8px; font-size: 11px;"><span class="dot"></span>Synced</span>
+                </button>
+                <button class="list-row" onclick="goTo('detail')">
+                  <span class="thumb green">55</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Rice — Riceberry RD69</span>
+                    <span class="meta">Yesterday · AS-26-0424-006</span>
+                  </div>
+                  <span class="pill pill-success" style="height: 22px; padding: 0 8px; font-size: 11px;"><span class="dot"></span>Synced</span>
+                </button>
+              </div>
+            </div>
+            <div class="tab-bar">
+              <button class="tab" onclick="goTo('home')"><span class="ic ic-22"><svg><use href="#i-home"/></svg></span><span class="tab-label">Home</span></button>
+              <button class="tab active" onclick="goTo('history')"><span class="ic ic-22"><svg><use href="#i-history"/></svg></span><span class="tab-label">History</span></button>
+              <button class="tab" onclick="goTo('library')"><span class="ic ic-22"><svg><use href="#i-library"/></svg></span><span class="tab-label">Library</span></button>
+              <button class="tab" onclick="goTo('profile')"><span class="ic ic-22"><svg><use href="#i-profile"/></svg></span><span class="tab-label">Profile</span></button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="detail">
+            <div class="top-bar">
+              <button class="icon-btn" onclick="goTo('history')"><svg width="18" height="18"><use href="#i-back"/></svg></button>
+              <h1>Corn — Y28</h1>
+              <button class="icon-btn"><svg width="18" height="18"><use href="#i-share"/></svg></button>
+            </div>
+            <div class="body">
+              <div class="review-photo">
+                <div class="tray" style="inset: 16px;">
+                  <div class="seed-shape" style="width: 20px; height: 13px; top: 18%; left: 14%; transform: rotate(15deg);"></div>
+                  <div class="seed-shape" style="width: 22px; height: 14px; top: 28%; left: 38%; transform: rotate(-10deg);"></div>
+                  <div class="seed-shape" style="width: 20px; height: 13px; top: 38%; left: 62%; transform: rotate(25deg);"></div>
+                  <div class="seed-shape" style="width: 22px; height: 14px; top: 48%; left: 22%; transform: rotate(45deg);"></div>
+                  <div class="seed-shape" style="width: 24px; height: 15px; top: 56%; left: 50%; transform: rotate(5deg);"></div>
+                  <div class="seed-shape" style="width: 20px; height: 13px; top: 68%; left: 30%; transform: rotate(-30deg);"></div>
+                  <div class="seed-shape" style="width: 22px; height: 14px; top: 76%; left: 58%; transform: rotate(8deg);"></div>
+                  <div class="detect-ring a" style="width: 30px; height: 23px; top: 16%; left: 11%;"></div>
+                  <div class="detect-ring a" style="width: 32px; height: 24px; top: 26%; left: 35%;"></div>
+                  <div class="detect-ring a" style="width: 30px; height: 23px; top: 36%; left: 59%;"></div>
+                  <div class="detect-ring b" style="width: 30px; height: 24px; top: 46%; left: 19%;"></div>
+                  <div class="detect-ring a" style="width: 32px; height: 25px; top: 54%; left: 47%;"></div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 22px;">
+                <div class="stat-tile"><div class="v">47</div><div class="l">Total</div></div>
+                <div class="stat-tile"><div class="v">11.4</div><div class="l">Avg mm</div></div>
+                <div class="stat-tile"><div class="v">83%</div><div class="l">Grade A</div></div>
+              </div>
+              <div class="between" style="margin-bottom: 8px;">
+                <span style="font-size: 14px; font-weight: 500;">Length distribution</span>
+                <span class="meta">9 — 13 mm</span>
+              </div>
+              <div class="card" style="padding: 16px;">
+                <div class="histogram">
+                  <div class="bar muted" style="height: 18%;"></div>
+                  <div class="bar muted" style="height: 32%;"></div>
+                  <div class="bar" style="height: 48%;"></div>
+                  <div class="bar" style="height: 78%;"></div>
+                  <div class="bar" style="height: 100%;"></div>
+                  <div class="bar" style="height: 88%;"></div>
+                  <div class="bar" style="height: 56%;"></div>
+                  <div class="bar muted" style="height: 30%;"></div>
+                  <div class="bar muted" style="height: 14%;"></div>
+                </div>
+              </div>
+              <h2 class="h-section">Inspection metadata</h2>
+              <div class="card tight">
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Batch ID</span><span style="font-size: 13px; font-weight: 500; font-family: var(--font-mono);">AS-26-0425-001</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Captured at</span><span style="font-size: 13px; font-weight: 500;">25 Apr · 14:32</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Operator</span><span style="font-size: 13px; font-weight: 500;">Jane Somchai</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Calibration</span><span style="font-size: 13px; font-weight: 500;">LiDAR · 24.7 px/mm</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Model version</span><span style="font-size: 13px; font-weight: 500;">yolov8n-seg v1.2</span></div>
+              </div>
+            </div>
+            <div style="padding: 12px 20px 28px; display: flex; gap: 10px;">
+              <button class="btn btn-outline grow">Export CSV</button>
+              <button class="btn btn-tinted grow">Reanalyze</button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="library">
+            <div style="padding: 8px 20px 0; display: flex; align-items: flex-end; gap: 12px;">
+              <h1 style="font-size: 28px; font-weight: 500; letter-spacing: -0.02em; margin: 0; flex: 1;">Library</h1>
+              <button class="icon-btn ghost"><svg width="20" height="20"><use href="#i-search"/></svg></button>
+            </div>
+            <div class="body" style="padding-top: 18px;">
+              <div class="seg" style="margin-bottom: 22px;">
+                <button class="seg-opt active">All</button>
+                <button class="seg-opt">Corn</button>
+                <button class="seg-opt">Rice</button>
+                <button class="seg-opt">Legumes</button>
+              </div>
+              <span class="meta" style="display: block; margin-bottom: 8px; padding: 0 4px;">Corn varieties</span>
+              <div class="card tight" style="margin-bottom: 18px;">
+                <button class="list-row" onclick="goTo('variety')">
+                  <span class="thumb amber">Y</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Hybrid Yellow Y28</span>
+                    <span class="meta">11.0 × 4.5 mm · ±0.8 tolerance</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="list-row">
+                  <span class="thumb amber">S</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Sweet Yellow K1</span>
+                    <span class="meta">10.2 × 4.8 mm · ±0.6 tolerance</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+              </div>
+              <span class="meta" style="display: block; margin-bottom: 8px; padding: 0 4px;">Rice varieties</span>
+              <div class="card tight" style="margin-bottom: 18px;">
+                <button class="list-row">
+                  <span class="thumb green">J</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Jasmine Hom Mali 105</span>
+                    <span class="meta">7.2 × 1.8 mm · ±0.3 tolerance</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="list-row">
+                  <span class="thumb green">R</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Riceberry RD69</span>
+                    <span class="meta">6.8 × 2.1 mm · ±0.3 tolerance</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+              </div>
+              <span class="meta" style="display: block; margin-bottom: 8px; padding: 0 4px;">Legume varieties</span>
+              <div class="card tight">
+                <button class="list-row">
+                  <span class="thumb teal">S</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Soybean SJ5</span>
+                    <span class="meta">6.5 × 5.8 mm · ±0.4 tolerance</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="list-row">
+                  <span class="thumb coral">M</span>
+                  <div class="grow col" style="gap: 2px;">
+                    <span style="font-size: 14px; font-weight: 500;">Mungbean KP2</span>
+                    <span class="meta">4.0 × 3.2 mm · ±0.2 tolerance</span>
+                  </div>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+              </div>
+            </div>
+            <div class="tab-bar">
+              <button class="tab" onclick="goTo('home')"><span class="ic ic-22"><svg><use href="#i-home"/></svg></span><span class="tab-label">Home</span></button>
+              <button class="tab" onclick="goTo('history')"><span class="ic ic-22"><svg><use href="#i-history"/></svg></span><span class="tab-label">History</span></button>
+              <button class="tab active" onclick="goTo('library')"><span class="ic ic-22"><svg><use href="#i-library"/></svg></span><span class="tab-label">Library</span></button>
+              <button class="tab" onclick="goTo('profile')"><span class="ic ic-22"><svg><use href="#i-profile"/></svg></span><span class="tab-label">Profile</span></button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="variety">
+            <div class="top-bar">
+              <button class="icon-btn" onclick="goTo('library')"><svg width="18" height="18"><use href="#i-back"/></svg></button>
+              <h1>Hybrid Yellow Y28</h1>
+              <button class="icon-btn"><svg width="18" height="18"><use href="#i-more"/></svg></button>
+            </div>
+            <div class="body">
+              <div style="height: 160px; border-radius: 18px; background: #FAEEDA; display:flex; align-items:center; justify-content:center; margin-bottom: 18px; position: relative; overflow: hidden;">
+                <div style="display: flex; gap: 8px;">
+                  <div style="width: 36px; height: 22px; background: #EF9F27; border-radius: 50%; transform: rotate(-15deg);"></div>
+                  <div style="width: 40px; height: 26px; background: #BA7517; border-radius: 50%; transform: rotate(8deg);"></div>
+                  <div style="width: 34px; height: 22px; background: #EF9F27; border-radius: 50%; transform: rotate(-22deg);"></div>
+                </div>
+              </div>
+              <h2 style="font-size: 22px; font-weight: 500; letter-spacing: -0.01em; margin: 0 0 6px;">Corn — Hybrid Yellow Y28</h2>
+              <p class="body-text" style="margin-bottom: 22px;">High-yield hybrid corn variety bred for Thai tropical conditions. Uniform kernel size with characteristic deep yellow coloration and high starch content.</p>
+              <h2 class="h-section" style="margin-top: 0;">Reference dimensions</h2>
+              <div class="card tight">
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Length</span><span style="font-size: 14px; font-weight: 500;">11.0 ± 0.8 mm</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Width</span><span style="font-size: 14px; font-weight: 500;">4.5 ± 0.5 mm</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Grade A threshold</span><span style="font-size: 14px; font-weight: 500;">≥ 10.2 mm length</span></div>
+                <div class="list-row" style="cursor: default;">
+                  <span class="grow meta" style="font-size: 13px;">Color reference</span>
+                  <span style="font-size: 14px; font-weight: 500; display:flex; align-items:center; gap: 6px;">
+                    <span style="width: 14px; height: 14px; border-radius: 4px; background: #d4a850;"></span>
+                    Deep yellow
+                  </span>
+                </div>
+              </div>
+              <h2 class="h-section">Recent inspections</h2>
+              <div class="card tight">
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">This week</span><span style="font-size: 14px; font-weight: 500;">8 inspections · 392 seeds</span></div>
+                <div class="list-row" style="cursor: default;"><span class="grow meta" style="font-size: 13px;">Average grade</span><span style="font-size: 14px; font-weight: 500;">85% Grade A</span></div>
+              </div>
+            </div>
+            <div style="padding: 12px 20px 28px;">
+              <button class="btn btn-fill" onclick="goTo('setup')">
+                <svg width="16" height="16"><use href="#i-camera"/></svg>
+                Start inspection
+              </button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="profile">
+            <div style="padding: 8px 20px 0; display: flex; align-items: flex-end; gap: 12px;">
+              <h1 style="font-size: 28px; font-weight: 500; letter-spacing: -0.02em; margin: 0; flex: 1;">Profile</h1>
+              <button class="icon-btn ghost" onclick="goTo('settings')"><svg width="20" height="20"><use href="#i-settings"/></svg></button>
+            </div>
+            <div class="body" style="padding-top: 18px;">
+              <div class="card" style="padding: 22px; text-align: center; margin-bottom: 18px;">
+                <div style="width: 72px; height: 72px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-deep); display:flex; align-items:center; justify-content:center; font-size: 24px; font-weight: 500; margin: 0 auto 14px;">JS</div>
+                <h2 style="font-size: 19px; font-weight: 500; margin: 0 0 4px;">Jane Somchai</h2>
+                <p class="meta" style="margin: 0 0 16px;">QA Technician · Saraburi R&amp;D Lab</p>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                  <div class="stat-tile"><div class="v">487</div><div class="l">This month</div></div>
+                  <div class="stat-tile"><div class="v">52</div><div class="l">Day streak</div></div>
+                  <div class="stat-tile"><div class="v">86%</div><div class="l">Avg A</div></div>
+                </div>
+              </div>
+              <div class="menu-group">
+                <button class="menu-row" onclick="goTo('settings')">
+                  <span class="menu-icon"><svg width="16" height="16"><use href="#i-settings"/></svg></span>
+                  <span class="grow">Settings</span>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="menu-row">
+                  <span class="menu-icon"><svg width="16" height="16"><use href="#i-sync"/></svg></span>
+                  <span class="grow">Sync now</span>
+                  <span class="menu-trail"><span class="pill pill-success" style="height: 20px; padding: 0 7px; font-size: 10px;"><span class="dot"></span>Up to date</span></span>
+                </button>
+                <button class="menu-row">
+                  <span class="menu-icon"><svg width="16" height="16"><use href="#i-help"/></svg></span>
+                  <span class="grow">Help and support</span>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+              </div>
+              <div class="menu-group">
+                <button class="menu-row" style="color: var(--color-text-danger);" onclick="goTo('login')">
+                  <span class="grow">Sign out</span>
+                </button>
+              </div>
+            </div>
+            <div class="tab-bar">
+              <button class="tab" onclick="goTo('home')"><span class="ic ic-22"><svg><use href="#i-home"/></svg></span><span class="tab-label">Home</span></button>
+              <button class="tab" onclick="goTo('history')"><span class="ic ic-22"><svg><use href="#i-history"/></svg></span><span class="tab-label">History</span></button>
+              <button class="tab" onclick="goTo('library')"><span class="ic ic-22"><svg><use href="#i-library"/></svg></span><span class="tab-label">Library</span></button>
+              <button class="tab active" onclick="goTo('profile')"><span class="ic ic-22"><svg><use href="#i-profile"/></svg></span><span class="tab-label">Profile</span></button>
+            </div>
+          </div>
+
+          <div class="screen" data-id="settings">
+            <div class="top-bar">
+              <button class="icon-btn" onclick="goTo('profile')"><svg width="18" height="18"><use href="#i-back"/></svg></button>
+              <h1>Settings</h1>
+              <button class="icon-btn ghost"></button>
+            </div>
+            <div class="body">
+              <h2 class="h-section" style="margin-top: 0;">Measurement</h2>
+              <div class="menu-group">
+                <div class="menu-row" style="cursor: default;">
+                  <span class="grow">Unit</span>
+                  <div class="seg" style="width: 110px; padding: 2px;">
+                    <button class="seg-opt active" style="padding: 5px;">mm</button>
+                    <button class="seg-opt" style="padding: 5px;">in</button>
+                  </div>
+                </div>
+                <button class="menu-row">
+                  <span class="grow">Default mode</span>
+                  <span class="menu-trail">Precise <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span></span>
+                </button>
+              </div>
+              <h2 class="h-section">Sync</h2>
+              <div class="menu-group">
+                <div class="menu-row" style="cursor: default;"><span class="grow">Auto-sync over Wi-Fi</span><div class="toggle on"></div></div>
+                <div class="menu-row" style="cursor: default;"><span class="grow">Sync over cellular</span><div class="toggle"></div></div>
+                <div class="menu-row" style="cursor: default;"><span class="grow">Upload original images</span><div class="toggle on"></div></div>
+              </div>
+              <h2 class="h-section">Detection model</h2>
+              <div class="menu-group">
+                <button class="menu-row">
+                  <span class="grow col" style="gap: 2px;">
+                    <span>Active model</span>
+                    <span class="meta">yolov8n-seg v1.2 · 6.4 MB</span>
+                  </span>
+                  <span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span>
+                </button>
+                <button class="menu-row">
+                  <span class="grow">Check for updates</span>
+                  <span class="menu-trail"><span class="pill pill-info" style="height: 20px; padding: 0 7px; font-size: 10px;">v1.3 available</span></span>
+                </button>
+              </div>
+              <h2 class="h-section">About</h2>
+              <div class="menu-group">
+                <div class="menu-row" style="cursor: default;"><span class="grow">App version</span><span class="menu-trail">1.0.0 · build 412</span></div>
+                <button class="menu-row"><span class="grow">Diagnostics</span><span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span></button>
+                <button class="menu-row"><span class="grow">Privacy policy</span><span class="ic chevron"><svg width="16" height="16"><use href="#i-chevron-right"/></svg></span></button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="jump-bar" id="jump-bar"></div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const flow = [
+      { section: 'Onboarding', items: [['splash','Splash'],['welcome','Welcome'],['login','Login']]},
+      { section: 'Core',       items: [['home','Home'],['setup','Setup'],['mode','Mode'],['scan','Live scan'],['precise','Precise'],['processing','Processing'],['review','Review'],['seed','Seed detail']]},
+      { section: 'Records',    items: [['history','History'],['detail','Inspection']]},
+      { section: 'Library',    items: [['library','Library'],['variety','Variety']]},
+      { section: 'Account',    items: [['profile','Profile'],['settings','Settings']]}
+    ];
+    const order = flow.flatMap(s => s.items.map(i => i[0]));
+    const titles = Object.fromEntries(flow.flatMap(s => s.items));
+    let current = 'splash';
+
+    window.goTo = function(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const next = document.querySelector('[data-id="' + id + '"]');
+      if (next) {
+        next.classList.add('active');
+        next.scrollTop = 0;
+        current = id;
+        updateMeta();
+      }
+    };
+    window.next = function() {
+      const idx = order.indexOf(current);
+      goTo(order[(idx + 1) % order.length]);
+    };
+    window.prev = function() {
+      const idx = order.indexOf(current);
+      goTo(order[(idx - 1 + order.length) % order.length]);
+    };
+    function updateMeta() {
+      const idx = order.indexOf(current);
+      document.getElementById('crumb-num').textContent = String(idx + 1).padStart(2, '0') + ' / ' + String(order.length).padStart(2, '0');
+      document.getElementById('crumb-name').textContent = titles[current] || current;
+      document.querySelectorAll('.jump-btn').forEach(b => {
+        b.classList.toggle('current', b.dataset.target === current);
+      });
+    }
+
+    const bar = document.getElementById('jump-bar');
+    flow.forEach(section => {
+      const label = document.createElement('span');
+      label.className = 'jump-section-label';
+      label.textContent = section.section;
+      bar.appendChild(label);
+      section.items.forEach(([id, title]) => {
+        const btn = document.createElement('button');
+        btn.className = 'jump-btn';
+        btn.dataset.target = id;
+        btn.textContent = title;
+        btn.onclick = () => goTo(id);
+        bar.appendChild(btn);
+      });
+    });
+    updateMeta();
+  })();
+</script>
+</body>
+</html>
