@@ -1,0 +1,39 @@
+{
+  "title": "การตรวจสอบ",
+  "list": {
+    "searchPlaceholder": "ค้นหาการตรวจสอบ",
+    "filters": {
+      "variety": "พันธุ์",
+      "batch": "ล็อต",
+      "inspector": "ผู้ตรวจ",
+      "dateRange": "ช่วงวันที่"
+    },
+    "empty": "ยังไม่มีการตรวจสอบ แตะ \"การตรวจสอบใหม่\" เพื่อเริ่มต้น"
+  },
+  "detail": {
+    "summary": {
+      "totalSeeds": "จำนวนเมล็ดทั้งหมด",
+      "meanLength": "ความยาวเฉลี่ย",
+      "meanWidth": "ความกว้างเฉลี่ย",
+      "meanArea": "พื้นที่เฉลี่ย"
+    },
+    "perSeedTitle": "ค่าวัดต่อเมล็ด",
+    "deleteConfirm": "ลบการตรวจสอบนี้? ไม่สามารถกู้คืนได้"
+  },
+  "capture": {
+    "setup": "ตั้งค่า",
+    "mode": "โหมดถ่าย",
+    "modeSingle": "เดี่ยว",
+    "modeBatch": "ชุด",
+    "shutter": "ถ่าย",
+    "analyzing": "กำลังวิเคราะห์…",
+    "saving": "กำลังบันทึก…",
+    "successToast": "บันทึกการตรวจสอบแล้ว"
+  },
+  "seedGrade": {
+    "A": "เกรด A",
+    "B": "เกรด B",
+    "C": "เกรด C",
+    "reject": "ตกเกรด"
+  }
+}

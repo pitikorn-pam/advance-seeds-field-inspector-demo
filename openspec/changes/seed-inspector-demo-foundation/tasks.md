@@ -22,11 +22,11 @@
 
 ## 3. Shared Types & i18n (`packages/types`, `packages/i18n`)
 
-- [ ] 3.1 `packages/types`: define `Role`, `Inspection`, `Seed`, `Variety`, `Batch`, `CalibrationProfile`, `AnalysisResult`
-- [ ] 3.2 Define `SeedAnalyzer` interface with `analyze(image, opts): Promise<AnalysisResult>`
-- [ ] 3.3 Add Supabase generated types placeholder; `pnpm supabase:types` regenerates
-- [ ] 3.4 `packages/i18n`: `en/common.json`, `th/common.json`; namespaces per screen group
-- [ ] 3.5 Translation key linter: forbid raw English strings in `apps/**/*.tsx` outside i18n bundle
+- [x] 3.1 `packages/types`: define `Role`, `Inspection`, `Seed`, `Variety`, `Batch`, `CalibrationProfile`, `AnalysisResult`
+- [x] 3.2 Define `SeedAnalyzer` interface with `analyze(image, opts): Promise<AnalysisResult>`
+- [x] 3.3 Add Supabase generated types placeholder; `pnpm supabase:types` regenerates
+- [x] 3.4 `packages/i18n`: `en/common.json`, `th/common.json`; namespaces per screen group
+- [x] 3.5 Translation key linter: forbid raw English strings in `apps/**/*.tsx` outside i18n bundle
 
 ## 4. Supabase Backend (`supabase/`)
 

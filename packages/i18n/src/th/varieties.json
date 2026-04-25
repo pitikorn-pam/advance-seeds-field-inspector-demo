@@ -1,0 +1,14 @@
+{
+  "title": "พันธุ์",
+  "newVariety": "เพิ่มพันธุ์",
+  "editVariety": "แก้ไขพันธุ์",
+  "fields": {
+    "name": "ชื่อ",
+    "scientificName": "ชื่อวิทยาศาสตร์",
+    "description": "คำอธิบาย",
+    "imageUrl": "URL รูปภาพ",
+    "colorKey": "ธีมสี"
+  },
+  "deleteConfirm": "ลบพันธุ์นี้? การตรวจสอบที่อ้างอิงจะไม่ได้รับผลกระทบ",
+  "empty": "ยังไม่มีพันธุ์"
+}

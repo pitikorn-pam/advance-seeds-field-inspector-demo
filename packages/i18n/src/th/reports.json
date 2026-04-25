@@ -1,0 +1,37 @@
+{
+  "title": "รายงาน",
+  "filters": {
+    "dateRange": "ช่วงวันที่",
+    "variety": "พันธุ์",
+    "inspector": "ผู้ตรวจ",
+    "preset": {
+      "last7": "7 วันที่ผ่านมา",
+      "last30": "30 วันที่ผ่านมา",
+      "last90": "90 วันที่ผ่านมา",
+      "custom": "กำหนดเอง"
+    }
+  },
+  "kpis": {
+    "inspections": "การตรวจสอบ",
+    "totalSeeds": "เมล็ดที่วิเคราะห์",
+    "meanLength": "ความยาวเฉลี่ย (มม.)",
+    "meanArea": "พื้นที่เฉลี่ย (มม.²)"
+  },
+  "csvHeaders": {
+    "id": "รหัส",
+    "captured_at": "ถ่ายเมื่อ",
+    "inspector_email": "อีเมลผู้ตรวจ",
+    "inspector_name": "ชื่อผู้ตรวจ",
+    "variety": "พันธุ์",
+    "batch_code": "รหัสล็อต",
+    "batch_location": "สถานที่ล็อต",
+    "calibration_source": "แหล่งการสอบเทียบ",
+    "calibration_px_per_mm": "การสอบเทียบ (พิกเซล/มม.)",
+    "total_seeds": "จำนวนเมล็ด",
+    "mean_length_mm": "ความยาวเฉลี่ย (มม.)",
+    "mean_width_mm": "ความกว้างเฉลี่ย (มม.)",
+    "mean_area_mm2": "พื้นที่เฉลี่ย (มม.²)",
+    "notes": "บันทึก",
+    "created_at": "สร้างเมื่อ"
+  }
+}

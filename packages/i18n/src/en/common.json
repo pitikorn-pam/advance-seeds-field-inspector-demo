@@ -1,0 +1,55 @@
+{
+  "appName": "Advance Seeds Field Inspector",
+  "actions": {
+    "save": "Save",
+    "saveAndSync": "Save and sync",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "continue": "Continue",
+    "back": "Back",
+    "retry": "Retry",
+    "search": "Search",
+    "filter": "Filter",
+    "exportCsv": "Export CSV",
+    "newInspection": "New inspection",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "states": {
+    "loading": "Loading…",
+    "empty": "Nothing here yet",
+    "error": "Something went wrong",
+    "noResults": "No results"
+  },
+  "sync": {
+    "allSynced": "All synced",
+    "pending": "{{count}} pending",
+    "offline": "Offline"
+  },
+  "fields": {
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "role": "Role",
+    "language": "Language",
+    "theme": "Theme",
+    "notes": "Notes",
+    "createdAt": "Created",
+    "capturedAt": "Captured"
+  },
+  "roles": {
+    "inspector": "Inspector",
+    "admin": "Admin"
+  },
+  "themes": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "languages": {
+    "en": "English",
+    "th": "ภาษาไทย"
+  }
+}

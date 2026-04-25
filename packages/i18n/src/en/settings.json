@@ -1,0 +1,12 @@
+{
+  "title": "Settings",
+  "sections": {
+    "profile": "Profile",
+    "appearance": "Appearance",
+    "language": "Language",
+    "calibration": "Calibration",
+    "about": "About"
+  },
+  "appearanceHint": "Choose Light, Dark, or follow your device.",
+  "version": "Version {{version}}"
+}

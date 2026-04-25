@@ -1,0 +1,39 @@
+{
+  "title": "Inspections",
+  "list": {
+    "searchPlaceholder": "Search inspections",
+    "filters": {
+      "variety": "Variety",
+      "batch": "Batch",
+      "inspector": "Inspector",
+      "dateRange": "Date range"
+    },
+    "empty": "No inspections yet. Tap “New inspection” to begin."
+  },
+  "detail": {
+    "summary": {
+      "totalSeeds": "Total seeds",
+      "meanLength": "Mean length",
+      "meanWidth": "Mean width",
+      "meanArea": "Mean area"
+    },
+    "perSeedTitle": "Per-seed measurements",
+    "deleteConfirm": "Delete this inspection? This cannot be undone."
+  },
+  "capture": {
+    "setup": "Set up",
+    "mode": "Capture mode",
+    "modeSingle": "Single",
+    "modeBatch": "Batch",
+    "shutter": "Capture",
+    "analyzing": "Analyzing…",
+    "saving": "Saving…",
+    "successToast": "Inspection saved"
+  },
+  "seedGrade": {
+    "A": "Grade A",
+    "B": "Grade B",
+    "C": "Grade C",
+    "reject": "Reject"
+  }
+}

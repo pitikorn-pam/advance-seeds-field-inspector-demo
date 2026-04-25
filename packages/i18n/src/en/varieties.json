@@ -1,0 +1,14 @@
+{
+  "title": "Varieties",
+  "newVariety": "New variety",
+  "editVariety": "Edit variety",
+  "fields": {
+    "name": "Name",
+    "scientificName": "Scientific name",
+    "description": "Description",
+    "imageUrl": "Image URL",
+    "colorKey": "Color theme"
+  },
+  "deleteConfirm": "Delete this variety? Inspections referencing it will be unaffected.",
+  "empty": "No varieties yet."
+}

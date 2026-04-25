@@ -1,0 +1,13 @@
+{
+  "title": "Calibration",
+  "fields": {
+    "name": "Profile name",
+    "pxPerMm": "Pixels per millimeter",
+    "source": "Source"
+  },
+  "sources": {
+    "lidar": "LiDAR",
+    "aruco": "ArUco marker"
+  },
+  "honestFallback": "Calibration unavailable. Measurements may be inaccurate."
+}

@@ -20,6 +20,9 @@ importers:
       eslint:
         specifier: ^9.13.0
         version: 9.39.4(jiti@2.6.1)
+      eslint-plugin-i18next:
+        specifier: ^6.1.0
+        version: 6.1.4
       husky:
         specifier: ^9.1.6
         version: 9.1.7
@@ -36,6 +39,8 @@ importers:
         specifier: ^8.12.0
         version: 8.59.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
 
+  packages/i18n: {}
+
   packages/tokens:
     devDependencies:
       '@types/node':
@@ -44,6 +49,8 @@ importers:
       tsx:
         specifier: ^4.19.1
         version: 4.21.0
+
+  packages/types: {}
 
 packages:
 
@@ -604,6 +611,10 @@ packages:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
     engines: {node: '>=10'}
 
+  eslint-plugin-i18next@6.1.4:
+    resolution: {integrity: sha512-BekXQu1VaVFkREepQGsntBYoKuPsf89V16n/s2xpKMtsw0/lDseds1wBhj3RtO1dKnHsfTPaG+xul1vF0R7LEQ==}
+    engines: {node: '>=18.10.0'}
+
   eslint-scope@8.4.0:
     resolution: {integrity: sha512-sNXOfKCn74rt8RICKMvJS7XKV/Xk9kA7DyJr8mJik3S7Cwgy3qlkkmyS2uQB3jiJg6VNdZd/pDBJu0nvG2NlTg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -905,6 +916,9 @@ packages:
   lodash.upperfirst@4.3.1:
     resolution: {integrity: sha512-sReKOYJIJf74dhJONhU4e0/shzi1trVbSWDOhKYE5XV2O+H7Sb2Dihwuc7xWxVl+DgFPyTqIN3zMfT9cq5iWDg==}
 
+  lodash@4.18.1:
+    resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
+
   log-update@6.1.0:
     resolution: {integrity: sha512-9ie8ItPR6tjY5uYJh8K/Zrv/RMZ5VOlOWvtZdEHYSTFKZfIBPQa9tOAEeAWhd+AnIneLJ22w5fjOYtoutpWq5w==}
     engines: {node: '>=18'}
@@ -1036,6 +1050,10 @@ packages:
   require-from-string@2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
+
+  requireindex@1.1.0:
+    resolution: {integrity: sha512-LBnkqsDE7BZKvqylbmn7lTIVdpx4K/QCduRATpO5R+wtPmky/a8pN1bO2D6wXppn1497AJF9mNjqAXr6bdl9jg==}
+    engines: {node: '>=0.10.5'}
 
   resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
@@ -1779,6 +1797,11 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
+  eslint-plugin-i18next@6.1.4:
+    dependencies:
+      lodash: 4.18.1
+      requireindex: 1.1.0
+
   eslint-scope@8.4.0:
     dependencies:
       esrecurse: 4.3.0
@@ -2062,6 +2085,8 @@ snapshots:
 
   lodash.upperfirst@4.3.1: {}
 
+  lodash@4.18.1: {}
+
   log-update@6.1.0:
     dependencies:
       ansi-escapes: 7.3.0
@@ -2170,6 +2195,8 @@ snapshots:
   require-directory@2.1.1: {}
 
   require-from-string@2.0.2: {}
+
+  requireindex@1.1.0: {}
 
   resolve-from@4.0.0: {}
 

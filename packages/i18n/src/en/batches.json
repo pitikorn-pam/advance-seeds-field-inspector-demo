@@ -1,0 +1,13 @@
+{
+  "title": "Batches",
+  "newBatch": "New batch",
+  "editBatch": "Edit batch",
+  "fields": {
+    "code": "Batch code",
+    "location": "Location",
+    "sownAt": "Sown date",
+    "notes": "Notes"
+  },
+  "deleteConfirm": "Delete this batch?",
+  "empty": "No batches yet."
+}

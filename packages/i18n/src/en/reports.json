@@ -1,0 +1,37 @@
+{
+  "title": "Reports",
+  "filters": {
+    "dateRange": "Date range",
+    "variety": "Variety",
+    "inspector": "Inspector",
+    "preset": {
+      "last7": "Last 7 days",
+      "last30": "Last 30 days",
+      "last90": "Last 90 days",
+      "custom": "Custom"
+    }
+  },
+  "kpis": {
+    "inspections": "Inspections",
+    "totalSeeds": "Seeds analyzed",
+    "meanLength": "Avg length (mm)",
+    "meanArea": "Avg area (mm²)"
+  },
+  "csvHeaders": {
+    "id": "ID",
+    "captured_at": "Captured at",
+    "inspector_email": "Inspector email",
+    "inspector_name": "Inspector name",
+    "variety": "Variety",
+    "batch_code": "Batch code",
+    "batch_location": "Batch location",
+    "calibration_source": "Calibration source",
+    "calibration_px_per_mm": "Calibration (px/mm)",
+    "total_seeds": "Total seeds",
+    "mean_length_mm": "Mean length (mm)",
+    "mean_width_mm": "Mean width (mm)",
+    "mean_area_mm2": "Mean area (mm²)",
+    "notes": "Notes",
+    "created_at": "Created at"
+  }
+}

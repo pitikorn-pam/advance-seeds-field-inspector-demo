@@ -1,0 +1,55 @@
+{
+  "appName": "ผู้ตรวจเมล็ดพันธุ์ Advance Seeds",
+  "actions": {
+    "save": "บันทึก",
+    "saveAndSync": "บันทึกและซิงก์",
+    "cancel": "ยกเลิก",
+    "delete": "ลบ",
+    "edit": "แก้ไข",
+    "create": "สร้าง",
+    "continue": "ถัดไป",
+    "back": "ย้อนกลับ",
+    "retry": "ลองใหม่",
+    "search": "ค้นหา",
+    "filter": "กรอง",
+    "exportCsv": "ส่งออก CSV",
+    "newInspection": "การตรวจสอบใหม่",
+    "signIn": "เข้าสู่ระบบ",
+    "signOut": "ออกจากระบบ"
+  },
+  "states": {
+    "loading": "กำลังโหลด…",
+    "empty": "ยังไม่มีข้อมูล",
+    "error": "เกิดข้อผิดพลาด",
+    "noResults": "ไม่พบข้อมูล"
+  },
+  "sync": {
+    "allSynced": "ซิงก์ครบแล้ว",
+    "pending": "ค้าง {{count}} รายการ",
+    "offline": "ออฟไลน์"
+  },
+  "fields": {
+    "name": "ชื่อ",
+    "email": "อีเมล",
+    "password": "รหัสผ่าน",
+    "role": "บทบาท",
+    "language": "ภาษา",
+    "theme": "ธีม",
+    "notes": "บันทึก",
+    "createdAt": "สร้างเมื่อ",
+    "capturedAt": "ถ่ายเมื่อ"
+  },
+  "roles": {
+    "inspector": "ผู้ตรวจ",
+    "admin": "ผู้ดูแลระบบ"
+  },
+  "themes": {
+    "light": "สว่าง",
+    "dark": "มืด",
+    "system": "ตามระบบ"
+  },
+  "languages": {
+    "en": "English",
+    "th": "ภาษาไทย"
+  }
+}
