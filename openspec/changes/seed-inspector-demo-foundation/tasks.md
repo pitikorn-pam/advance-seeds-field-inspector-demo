@@ -12,13 +12,13 @@
 
 ## 2. Token Pipeline (`packages/tokens`)
 
-- [ ] 2.1 Create `packages/tokens` package
-- [ ] 2.2 Write `build.ts` reading `docs/handoff/design-tokens.json`
-- [ ] 2.3 Emit `dist/tailwind.preset.cjs` (colors, spacing, radii, fonts mapped from JSON)
-- [ ] 2.4 Emit `dist/css-vars.css` matching `docs/handoff/design-tokens.css` semantics
-- [ ] 2.5 Emit `dist/tokens.ts` runtime export
-- [ ] 2.6 Wire `prepare` script so install always rebuilds tokens
-- [ ] 2.7 Snapshot test: built CSS matches handoff CSS for every token
+- [x] 2.1 Create `packages/tokens` package
+- [x] 2.2 Write `build.ts` reading `docs/handoff/design-tokens.json`
+- [x] 2.3 Emit `dist/tailwind.preset.cjs` (colors, spacing, radii, fonts mapped from JSON)
+- [x] 2.4 Emit `dist/css-vars.css` matching `docs/handoff/design-tokens.css` semantics
+- [x] 2.5 Emit `dist/tokens.ts` runtime export
+- [x] 2.6 Wire `prepare` script so install always rebuilds tokens
+- [x] 2.7 Snapshot test: built CSS matches handoff CSS for every token
 
 ## 3. Shared Types & i18n (`packages/types`, `packages/i18n`)
 

@@ -1,5 +1,6 @@
 // Flat config — root-level rules. Per-app rules layered in apps/*/eslint.config.mjs.
 import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 
 export default [
   {
@@ -17,6 +18,7 @@ export default [
     ],
   },
   js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
     rules: {
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
@@ -24,6 +26,10 @@ export default [
       eqeqeq: ["error", "always"],
       "prefer-const": "error",
       "no-var": "error",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
 ];
