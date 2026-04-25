@@ -1,0 +1,29 @@
+{
+  "name": "@advance-seeds/supabase",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Supabase backend: migrations, seed data, codegen, smoke tests.",
+  "type": "module",
+  "scripts": {
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "status": "supabase status",
+    "reset": "supabase db reset",
+    "types": "supabase gen types typescript --local --schema public > ../packages/types/src/supabase.gen.ts",
+    "types:remote": "supabase gen types typescript --linked --schema public > ../packages/types/src/supabase.gen.ts",
+    "seed-users": "tsx scripts/seed-users.ts",
+    "seed-inspections": "tsx scripts/seed-inspections.ts",
+    "seed-all": "tsx scripts/seed-all.ts",
+    "smoke": "node --test scripts/smoke.test.mjs",
+    "lint": "eslint scripts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
+  "devDependencies": {
+    "@advance-seeds/types": "workspace:*",
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1"
+  }
+}

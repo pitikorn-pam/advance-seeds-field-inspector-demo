@@ -16,8 +16,12 @@
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "supabase:types": "pnpm -F supabase types",
-    "supabase:seed-users": "pnpm -F supabase seed-users",
+    "supabase:types": "pnpm -F @advance-seeds/supabase types",
+    "supabase:seed-users": "pnpm -F @advance-seeds/supabase seed-users",
+    "supabase:seed-all": "pnpm -F @advance-seeds/supabase seed-all",
+    "supabase:start": "pnpm -F @advance-seeds/supabase start",
+    "supabase:stop": "pnpm -F @advance-seeds/supabase stop",
+    "supabase:smoke": "pnpm -F @advance-seeds/supabase smoke",
     "prepare": "husky"
   },
   "devDependencies": {

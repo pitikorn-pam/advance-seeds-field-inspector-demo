@@ -30,20 +30,20 @@
 
 ## 4. Supabase Backend (`supabase/`)
 
-- [ ] 4.1 Install Supabase CLI; `supabase init`
-- [ ] 4.2 Migration: `profiles` (id FK auth.users, role enum, full_name, locale)
-- [ ] 4.3 Migration: `varieties` (id, name, scientific_name, description, image_url, created_by, created_at)
-- [ ] 4.4 Migration: `batches` (id, code, location, sown_at, notes, created_by, created_at)
-- [ ] 4.5 Migration: `calibration_profiles` (id, name, px_per_mm, source enum lidar/aruco, created_at)
-- [ ] 4.6 Migration: `inspections` (id, inspector_id FK profiles, variety_id FK, batch_id FK, calibration_id FK, image_url, captured_at, status enum, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2, notes)
-- [ ] 4.7 Migration: `seeds` (id, inspection_id FK, index, length_mm, width_mm, area_mm2, grade enum, defects jsonb, bbox jsonb)
-- [ ] 4.8 Migration: enable RLS on all tables; add policies for inspector vs admin per design D5
-- [ ] 4.9 Migration: storage bucket `inspection-images` (public read, authenticated write)
-- [ ] 4.10 `supabase/seed.sql`: 6 varieties, 4 batches, 2 calibration profiles
-- [ ] 4.11 `supabase/scripts/seed-users.ts`: creates Jane (inspector) and Alex (admin) via service role; idempotent
-- [ ] 4.12 `supabase/scripts/seed-inspections.ts`: 5 inspections for Jane, 2 for Alex with seeds children and uploaded sample images
-- [ ] 4.13 RLS smoke test script: sign-in-as-Jane, attempt-read-Alex, expect deny
-- [ ] 4.14 README in `supabase/` explaining how to apply schema to the live project
+- [x] 4.1 Install Supabase CLI; `supabase init`
+- [x] 4.2 Migration: `profiles` (id FK auth.users, role enum, full_name, locale)
+- [x] 4.3 Migration: `varieties` (id, name, scientific_name, description, image_url, created_by, created_at)
+- [x] 4.4 Migration: `batches` (id, code, location, sown_at, notes, created_by, created_at)
+- [x] 4.5 Migration: `calibration_profiles` (id, name, px_per_mm, source enum lidar/aruco, created_at)
+- [x] 4.6 Migration: `inspections` (id, inspector_id FK profiles, variety_id FK, batch_id FK, calibration_id FK, image_url, captured_at, status enum, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2, notes)
+- [x] 4.7 Migration: `seeds` (id, inspection_id FK, index, length_mm, width_mm, area_mm2, grade enum, defects jsonb, bbox jsonb)
+- [x] 4.8 Migration: enable RLS on all tables; add policies for inspector vs admin per design D5
+- [x] 4.9 Migration: storage bucket `inspection-images` (public read, authenticated write)
+- [x] 4.10 `supabase/seed.sql`: 6 varieties, 4 batches, 2 calibration profiles
+- [x] 4.11 `supabase/scripts/seed-users.ts`: creates Jane (inspector) and Alex (admin) via service role; idempotent
+- [x] 4.12 `supabase/scripts/seed-inspections.ts`: 5 inspections for Jane, 2 for Alex with seeds children and uploaded sample images
+- [x] 4.13 RLS smoke test script: sign-in-as-Jane, attempt-read-Alex, expect deny
+- [x] 4.14 README in `supabase/` explaining how to apply schema to the live project
 
 ## 5. Web Dashboard (`apps/dashboard`)
 
