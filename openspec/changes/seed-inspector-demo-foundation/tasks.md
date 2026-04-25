@@ -2,13 +2,13 @@
 
 ## 1. Repo & Tooling Scaffold
 
-- [ ] 1.1 Create `pnpm-workspace.yaml` with `apps/*`, `packages/*` patterns
-- [ ] 1.2 Root `package.json` with shared scripts: `dev`, `build`, `lint`, `typecheck`, `format`, `supabase:types`, `supabase:seed-users`
-- [ ] 1.3 Root `tsconfig.base.json` (strict) and per-package `tsconfig.json` extending it
-- [ ] 1.4 Root ESLint + Prettier config; add format-on-save VS Code settings
-- [ ] 1.5 Husky + lint-staged for pre-commit lint/format; commitlint for conventional commits
-- [ ] 1.6 Root `README.md` with quickstart, env setup, demo run instructions
-- [ ] 1.7 Add `.nvmrc` pinning Node 20.19+ and `engines` in package.json
+- [x] 1.1 Create `pnpm-workspace.yaml` with `apps/*`, `packages/*` patterns
+- [x] 1.2 Root `package.json` with shared scripts: `dev`, `build`, `lint`, `typecheck`, `format`, `supabase:types`, `supabase:seed-users`
+- [x] 1.3 Root `tsconfig.base.json` (strict) and per-package `tsconfig.json` extending it
+- [x] 1.4 Root ESLint + Prettier config; add format-on-save VS Code settings
+- [x] 1.5 Husky + lint-staged for pre-commit lint/format; commitlint for conventional commits
+- [x] 1.6 Root `README.md` with quickstart, env setup, demo run instructions
+- [x] 1.7 Add `.nvmrc` pinning Node 20.19+ and `engines` in package.json
 
 ## 2. Token Pipeline (`packages/tokens`)
 

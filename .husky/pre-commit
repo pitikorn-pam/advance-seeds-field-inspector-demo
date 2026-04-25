@@ -1,1 +1,10 @@
-pnpm lint-staged
+#!/usr/bin/env sh
+# Ensure pnpm is on PATH when invoked by git GUIs / IDEs that don't load shell rc files.
+[ -d "$HOME/Library/pnpm" ] && export PATH="$HOME/Library/pnpm:$PATH"
+[ -d "$HOME/.local/share/pnpm" ] && export PATH="$HOME/.local/share/pnpm:$PATH"
+
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm lint-staged
+else
+  npx --yes lint-staged
+fi

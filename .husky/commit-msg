@@ -1,1 +1,9 @@
-pnpm exec commitlint --edit "$1"
+#!/usr/bin/env sh
+[ -d "$HOME/Library/pnpm" ] && export PATH="$HOME/Library/pnpm:$PATH"
+[ -d "$HOME/.local/share/pnpm" ] && export PATH="$HOME/.local/share/pnpm:$PATH"
+
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm exec commitlint --edit "$1"
+else
+  npx --yes commitlint --edit "$1"
+fi
