@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.next/
+.expo/
+ios/
+android/
+docs/handoff/
+openspec/
+*.gen.ts
+pnpm-lock.yaml
+.husky/_/
