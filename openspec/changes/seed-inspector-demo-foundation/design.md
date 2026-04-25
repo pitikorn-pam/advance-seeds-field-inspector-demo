@@ -132,9 +132,15 @@ This is the project's first change — no migration. After merge:
 4. `pnpm i && pnpm dev` brings up dashboard at `http://localhost:5173` and Expo dev server for mobile.
 5. Demo day: open the GH Pages URL and Expo Go QR.
 
+## Resolved Decisions
+
+1. **GitHub Pages URL**: `https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/`. Repo lives at `github.com/phongsakorn-ipassion/advance-seeds-field-inspector-demo`. No vanity domain.
+2. **Demo phone**: client brings their own — we hand them an Expo Go QR. Implication: README must include "Install Expo Go from App Store / Play Store, scan QR" instructions; Expo SDK pinned and tested on at least one iPhone and one Android phone before demo.
+3. **CSV export columns**: designed freely. v1 column set:
+   `id, captured_at, inspector_email, inspector_name, variety, batch_code, batch_location, calibration_source, calibration_px_per_mm, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2, notes, created_at`.
+   Locale of headers follows the user's current i18n locale (EN headers when EN, TH headers when TH).
+4. **Storage privacy**: `inspection-images` bucket is **public read**, authenticated write. Object keys are unguessable UUIDs, so URLs aren't trivially enumerable, but content is not protected by auth — acceptable for the demo, flagged for change in build-phase if client requires private storage.
+
 ## Open Questions
 
-1. **Custom domain for GH Pages?** Default is `https://<user>.github.io/advance-seeds-field-inspector-demo/`. Acceptable for demo, or do you want a vanity domain?
-2. **Demo phone provisioning** — is the client bringing their own phone (we hand them the QR) or are we bringing a demo phone with the app pre-launched?
-3. **CSV export columns** — do you have a target Excel template from the existing R&D workflow, or do we design freely?
-4. **Storage privacy** — public read on the `inspection-images` bucket is simplest for the demo. If the client expects "all data is private," we switch to signed URLs (one extra Supabase call per image render). Default is public unless you say otherwise.
+None at the start of implementation. Reopen this section if new ambiguity surfaces during the apply phase.

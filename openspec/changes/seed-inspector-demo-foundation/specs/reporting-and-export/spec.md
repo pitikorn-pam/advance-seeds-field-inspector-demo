@@ -20,7 +20,13 @@ Both apps SHALL allow exporting the currently filtered inspections list as a CSV
 #### Scenario: Dashboard CSV download
 - **WHEN** Alex clicks "Export CSV" on the Reports screen with current filters
 - **THEN** a `inspections-YYYYMMDD.csv` file downloads
-- **AND** the file's first row is a header containing at minimum: `id, captured_at, inspector_email, variety, batch, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2`
+- **AND** the file's first row is a header in this exact column order:
+  `id, captured_at, inspector_email, inspector_name, variety, batch_code, batch_location, calibration_source, calibration_px_per_mm, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2, notes, created_at`
+
+#### Scenario: CSV header follows current locale
+- **GIVEN** the user has Thai selected as their locale
+- **WHEN** they export CSV
+- **THEN** the header row is rendered in Thai (column keys remain stable; only the human-readable header labels translate)
 
 #### Scenario: Mobile CSV share sheet
 - **WHEN** Jane taps "Export CSV" on mobile
