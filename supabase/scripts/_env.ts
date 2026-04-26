@@ -48,7 +48,10 @@ function fromEnv(): SupabaseEnv | null {
 }
 
 export function loadEnv(): SupabaseEnv {
-  const env = fromCli() ?? fromEnv();
+  // Explicit env vars take precedence so cloud seeding works even when the
+  // local Docker stack is running. Falling back to local CLI is the dev
+  // ergonomic — `pnpm supabase:start` is enough to start scripting locally.
+  const env = fromEnv() ?? fromCli();
   if (!env) {
     throw new Error(
       "Supabase env not found. Either run `pnpm -F @advance-seeds/supabase start` " +

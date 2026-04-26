@@ -20,6 +20,11 @@ const ALEX = "alex@advanceseeds.com";
 const supabaseDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function loadEnv() {
+  // Explicit env vars first — lets us point the smoke test at cloud
+  // even when local Docker is up. Local CLI is the fallback.
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+    return { url: process.env.SUPABASE_URL, anonKey: process.env.SUPABASE_ANON_KEY };
+  }
   try {
     const out = execFileSync("supabase", ["status", "--output", "env"], {
       encoding: "utf8",
@@ -34,9 +39,6 @@ function loadEnv() {
     if (map.API_URL && map.ANON_KEY) return { url: map.API_URL, anonKey: map.ANON_KEY };
   } catch {
     /* fall through */
-  }
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-    return { url: process.env.SUPABASE_URL, anonKey: process.env.SUPABASE_ANON_KEY };
   }
   throw new Error("Cannot resolve Supabase env. Start the local stack or export env vars.");
 }
