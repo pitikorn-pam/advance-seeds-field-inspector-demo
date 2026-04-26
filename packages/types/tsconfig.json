@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": "./src"
+    "rootDir": "./src",
+    // DOM lib pulls in AbortSignal, which both web and RN runtimes provide
+    // (AbortSignal is in Node 18+ too, but TS surfaces it via DOM/dom.iterable).
+    "lib": ["ES2022", "DOM"]
   },
   "include": ["src/**/*.ts"]
 }
