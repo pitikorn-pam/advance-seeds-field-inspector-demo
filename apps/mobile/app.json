@@ -11,9 +11,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.advanceseeds.fieldinspector",
       "infoPlist": {
-        "NSCameraUsageDescription": "Advance Seeds uses the camera to capture and measure seeds.",
+        "NSCameraUsageDescription": "Advance Seeds needs camera access to detect and measure seeds.",
         "NSPhotoLibraryAddUsageDescription": "Advance Seeds saves snapshots and recordings to your photo library when you ask it to.",
-        "NSMicrophoneUsageDescription": "Advance Seeds records audio with videos so field notes can be captured during inspection.",
+        "NSMicrophoneUsageDescription": "Advance Seeds records audio with videos to capture field notes.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -39,7 +39,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#FFFFFF",
-          "dark": { "backgroundColor": "#0F0F11" }
+          "dark": {
+            "backgroundColor": "#0F0F11"
+          }
         }
       ],
       "expo-router",
@@ -55,6 +57,19 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1783aa09-3848-4373-9a3b-7c1e23205388"
+      }
+    },
+    "owner": "phongsakorn.p",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/1783aa09-3848-4373-9a3b-7c1e23205388"
     }
   }
 }
