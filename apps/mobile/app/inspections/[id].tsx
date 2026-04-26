@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ScrollView, View, Text, Pressable, Alert, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -7,7 +6,7 @@ import type { Seed } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useInspection, useDeleteInspection } from "@/lib/queries";
-import { Card, StatTile } from "@/components/ui/Card";
+import { StatTile } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { LoadingState, ErrorState } from "@/components/ui/States";
@@ -27,7 +26,6 @@ export default function InspectionDetail() {
   const policy = policyFor(profile);
   const { data, isLoading, isError, refetch } = useInspection(id);
   const del = useDeleteInspection();
-  const [seed, setSeed] = useState<Seed | null>(null);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
     dateStyle: "medium",
@@ -89,7 +87,7 @@ export default function InspectionDetail() {
             {seeds.map((s) => (
               <Pressable
                 key={s.id}
-                onPress={() => setSeed(s)}
+                onPress={() => router.push(`/seed/${inspection.id}/${s.index}`)}
                 className="basis-[31%] grow items-center gap-xs rounded-lg bg-bg-primary border border-line-tertiary px-md py-md"
               >
                 <Text className="text-h2 font-medium text-fg-primary">{s.index}</Text>
@@ -101,35 +99,6 @@ export default function InspectionDetail() {
             ))}
           </View>
         </View>
-
-        {seed ? (
-          <Card>
-            <Text className="text-h2 font-medium text-fg-primary mb-md">
-              {t("inspections:detail.perSeedTitle")} #{seed.index}
-            </Text>
-            <View className="gap-sm">
-              <Row
-                label={t("inspections:detail.summary.meanLength")}
-                value={`${Number(seed.length_mm).toFixed(2)} mm`}
-              />
-              <Row
-                label={t("inspections:detail.summary.meanWidth")}
-                value={`${Number(seed.width_mm).toFixed(2)} mm`}
-              />
-              <Row
-                label={t("inspections:detail.summary.meanArea")}
-                value={`${Number(seed.area_mm2).toFixed(2)} mm²`}
-              />
-            </View>
-            <Button
-              className="mt-md"
-              variant="outline"
-              size="sm"
-              label={t("common:actions.cancel")}
-              onPress={() => setSeed(null)}
-            />
-          </Card>
-        ) : null}
 
         {policy.canDeleteInspection(inspection) ? (
           <Button
@@ -152,14 +121,5 @@ export default function InspectionDetail() {
         ) : null}
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-row items-center justify-between">
-      <Text className="text-body text-fg-secondary">{label}</Text>
-      <Text className="text-title text-fg-primary">{value}</Text>
-    </View>
   );
 }

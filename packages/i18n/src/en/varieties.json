@@ -10,5 +10,14 @@
     "colorKey": "Color theme"
   },
   "deleteConfirm": "Delete this variety? Inspections referencing it will be unaffected.",
-  "empty": "No varieties yet."
+  "empty": "No varieties yet.",
+  "detail": {
+    "referenceTitle": "Reference dimensions",
+    "recentTitle": "Recent inspections",
+    "thisWeek": "This week",
+    "averageGrade": "Average grade",
+    "gradeAPct": "{{percent}}% Grade A",
+    "inspectionsCount": "{{count}} inspections · {{seeds}} seeds",
+    "startInspection": "Start inspection"
+  }
 }

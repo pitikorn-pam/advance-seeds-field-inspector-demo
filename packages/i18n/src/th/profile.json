@@ -1,0 +1,15 @@
+{
+  "title": "โปรไฟล์",
+  "stats": {
+    "thisMonth": "เดือนนี้",
+    "dayStreak": "สตรีค",
+    "avgA": "เกรด A เฉลี่ย"
+  },
+  "menu": {
+    "settings": "การตั้งค่า",
+    "syncNow": "ซิงค์เลย",
+    "syncStatusUpToDate": "ทันสมัย",
+    "help": "ช่วยเหลือและสนับสนุน",
+    "signOut": "ออกจากระบบ"
+  }
+}

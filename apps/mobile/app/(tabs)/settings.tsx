@@ -12,7 +12,15 @@ import type { Theme } from "@advance-seeds/types";
 import type { SupportedLocale } from "@advance-seeds/i18n";
 
 export default function SettingsTab() {
-  const { t, i18n } = useTranslation(["common", "settings", "calibration"]);
+  const { t, i18n } = useTranslation([
+    "common",
+    "settings",
+    "calibration",
+    "varieties",
+    "batches",
+    "reports",
+    "profile",
+  ]);
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
@@ -101,6 +109,7 @@ export default function SettingsTab() {
           </Text>
           <Card className="p-0">
             {[
+              { href: "/profile", label: t("profile:title") },
               { href: "/calibration", label: t("settings:sections.calibration") },
               { href: "/varieties", label: t("varieties:title") },
               { href: "/batches", label: t("batches:title") },

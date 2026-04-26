@@ -10,5 +10,14 @@
     "colorKey": "ธีมสี"
   },
   "deleteConfirm": "ลบพันธุ์นี้? การตรวจสอบที่อ้างอิงจะไม่ได้รับผลกระทบ",
-  "empty": "ยังไม่มีพันธุ์"
+  "empty": "ยังไม่มีพันธุ์",
+  "detail": {
+    "referenceTitle": "ขนาดอ้างอิง",
+    "recentTitle": "การตรวจสอบล่าสุด",
+    "thisWeek": "สัปดาห์นี้",
+    "averageGrade": "เกรดเฉลี่ย",
+    "gradeAPct": "เกรด A {{percent}}%",
+    "inspectionsCount": "{{count}} ครั้ง · {{seeds}} เมล็ด",
+    "startInspection": "เริ่มตรวจสอบ"
+  }
 }

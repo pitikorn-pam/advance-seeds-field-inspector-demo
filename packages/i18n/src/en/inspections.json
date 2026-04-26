@@ -83,5 +83,21 @@
     "B": "Grade B",
     "C": "Grade C",
     "reject": "Reject"
+  },
+  "seed": {
+    "qualityGrade": "Quality grade",
+    "passed": "Passed",
+    "rejected": "Rejected",
+    "fields": {
+      "length": "Length",
+      "width": "Width",
+      "area": "Area",
+      "aspectRatio": "Aspect ratio",
+      "confidence": "Confidence"
+    },
+    "actions": {
+      "editGrade": "Edit grade",
+      "reject": "Reject"
+    }
   }
 }

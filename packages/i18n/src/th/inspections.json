@@ -83,5 +83,21 @@
     "B": "เกรด B",
     "C": "เกรด C",
     "reject": "ตกเกรด"
+  },
+  "seed": {
+    "qualityGrade": "เกรดคุณภาพ",
+    "passed": "ผ่าน",
+    "rejected": "ไม่ผ่าน",
+    "fields": {
+      "length": "ความยาว",
+      "width": "ความกว้าง",
+      "area": "พื้นที่",
+      "aspectRatio": "อัตราส่วน",
+      "confidence": "ความเชื่อมั่น"
+    },
+    "actions": {
+      "editGrade": "แก้ไขเกรด",
+      "reject": "ตกเกรด"
+    }
   }
 }

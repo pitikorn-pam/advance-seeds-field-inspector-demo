@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { ThemeProvider } from "@/lib/theme";
 import { AnalyzerProvider } from "@/lib/analyzer/AnalyzerProvider";
 import { bootstrapI18n } from "@/lib/i18n";
+import { useOnboarded } from "@/lib/onboarding";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -17,22 +18,49 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
 
-function AuthRedirect() {
+/**
+ * Combined onboarding + auth gate.
+ *
+ * On every render we check three pieces of state — auth session, onboarding
+ * flag, and the current route segment — and route once when transitions are
+ * needed. Order of precedence:
+ *
+ *   1. If onboarding flag hasn't loaded yet, wait (no redirect).
+ *   2. If user has never finished onboarding, force them onto /splash unless
+ *      they're already in the onboarding stack (/splash or /welcome).
+ *   3. If onboarded but signed out, force them to /login (unless already
+ *      there, or in onboarding — onboarding's last step takes them to login
+ *      itself).
+ *   4. If onboarded and signed in, they belong in (tabs); only redirect them
+ *      out of /login or /splash or /welcome — let them keep navigating
+ *      anywhere else.
+ */
+function StartupGate() {
   const { session, loading } = useAuth();
+  const onboarded = useOnboarded();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
-    const inAuthGroup = segments[0] === "login";
-    if (!session && !inAuthGroup) {
+    if (loading || onboarded === null) return;
+    const top = segments[0] ?? "";
+    const inOnboarding = top === "splash" || top === "welcome";
+    const inAuth = top === "login";
+
+    if (!onboarded) {
+      if (!inOnboarding) router.replace("/splash");
+      return;
+    }
+    if (!session && !inAuth) {
       router.replace("/login");
-    } else if (session && inAuthGroup) {
+      return;
+    }
+    if (session && (inAuth || inOnboarding)) {
       router.replace("/(tabs)");
     }
-  }, [session, loading, segments, router]);
+  }, [session, loading, onboarded, segments, router]);
 
-  if (loading) {
+  if (loading || onboarded === null) {
     return (
       <View className="flex-1 items-center justify-center bg-bg-secondary">
         <ActivityIndicator />
@@ -64,12 +92,19 @@ export default function RootLayout() {
             <AuthProvider>
               <AnalyzerProvider>
                 <StatusBar style="auto" />
-                <AuthRedirect />
+                <StartupGate />
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="(tabs)" />
                   <Stack.Screen name="login" options={{ animation: "fade" }} />
+                  <Stack.Screen name="splash" options={{ animation: "fade" }} />
+                  <Stack.Screen name="welcome" options={{ animation: "slide_from_right" }} />
+                  <Stack.Screen name="profile" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen
                     name="inspections/[id]"
+                    options={{ headerShown: true, title: "" }}
+                  />
+                  <Stack.Screen
+                    name="seed/[inspection]/[index]"
                     options={{ headerShown: true, title: "" }}
                   />
                   {/* `(tabs)/capture` is the tab landing that redirects into

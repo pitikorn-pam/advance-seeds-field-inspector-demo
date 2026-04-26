@@ -1,0 +1,15 @@
+{
+  "title": "Profile",
+  "stats": {
+    "thisMonth": "This month",
+    "dayStreak": "Day streak",
+    "avgA": "Avg A"
+  },
+  "menu": {
+    "settings": "Settings",
+    "syncNow": "Sync now",
+    "syncStatusUpToDate": "Up to date",
+    "help": "Help and support",
+    "signOut": "Sign out"
+  }
+}

@@ -104,17 +104,17 @@
 
 ## 8. Per-seed detail, variety detail, profile screens
 
-- [ ] 8.1 `app/inspections/seed/[index].tsx` — full screen with cropped seed thumbnail (from bbox), measurements, defects, prev/next nav
-- [ ] 8.2 `app/varieties/[id].tsx` — hero image, scientific name, description, recent inspections list (RLS-scoped)
-- [ ] 8.3 `app/profile.tsx` — standalone read-only profile mirroring the prototype
-- [ ] 8.4 Wire navigation: inspections detail → tap seed → seed/[index]; varieties → tap card → varieties/[id]; settings → profile row → profile
+- [x] 8.1 `app/seed/[inspection]/[index].tsx` — full screen with seed thumbnail placeholder, measurements (length/width/area/aspect/confidence), grade pill, edit/reject actions. Path uses both inspection-id + seed-index in the URL since seed-index alone isn't meaningful (deviates from spec's `app/inspections/seed/[index].tsx` for routing clarity)
+- [x] 8.2 `app/varieties/[id].tsx` — hero image, scientific name, description, reference dimensions, recent-inspections summary (RLS-scoped via `useInspections` filter), "Start inspection" CTA pre-selects variety
+- [x] 8.3 `app/profile.tsx` — standalone read-only profile: avatar (initials), name, role pill + email, three stat tiles, menu group (Settings, Sync, Help), Sign out
+- [x] 8.4 Wire navigation: inspection detail → seed tile → `/seed/[inspection]/[index]`; varieties index → card → `/varieties/[id]`; settings → profile row → `/profile`
 
 ## 9. Onboarding
 
-- [ ] 9.1 `app/splash.tsx` — 1.5 s logo screen; routes to welcome (first launch) or login
-- [ ] 9.2 `app/welcome.tsx` — three-card carousel: Camera / Target / Sync; "Continue" routes to login
-- [ ] 9.3 Persist `as.mobile.onboarded` in AsyncStorage; skip welcome on subsequent launches
-- [ ] 9.4 First-launch permission request: camera before reaching login
+- [x] 9.1 `app/splash.tsx` — logo + tagline + 3 dots; auto-route to welcome after 1.5 s (or immediate on "Get started" tap). Only shown on first launch
+- [x] 9.2 `app/welcome.tsx` — hero + headline + body + three feature cards (Camera / Target / Sync) + Continue → marks onboarded → /login
+- [x] 9.3 Persist `as.mobile.onboarded` in AsyncStorage via `lib/onboarding.ts`; `StartupGate` reads it and skips splash/welcome on subsequent launches
+- [x] 9.4 First-launch permission request: `VCCamera.requestCameraPermission()` fires from welcome's Continue. Best-effort — Continue proceeds whether granted or denied (capture/scan re-asks)
 
 ## 10. Theme tokens for camera surfaces
 

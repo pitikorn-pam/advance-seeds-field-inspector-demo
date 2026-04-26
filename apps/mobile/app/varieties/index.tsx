@@ -2,7 +2,8 @@ import { useState } from "react";
 import { ScrollView, View, Text, Alert, Image, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { Plus, Pencil, Trash2 } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Plus, Pencil, Trash2, ChevronRight } from "lucide-react-native";
 import type { Variety } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
@@ -33,6 +34,7 @@ export default function VarietiesRoute() {
   const { t } = useTranslation(["common", "varieties"]);
   const { profile } = useAuth();
   const policy = policyFor(profile);
+  const router = useRouter();
   const { data, isLoading, isError, refetch } = useVarieties();
   const upsert = useUpsertVariety();
   const del = useDeleteVariety();
@@ -76,25 +78,36 @@ export default function VarietiesRoute() {
         ) : (
           data.map((v) => (
             <Card key={v.id}>
-              {v.image_url ? (
-                <Image
-                  source={{ uri: v.image_url }}
-                  className="h-32 w-full rounded-lg mb-md"
-                  resizeMode="cover"
-                />
-              ) : null}
-              <View className="flex-row items-center justify-between">
-                <Text className="text-title font-medium text-fg-primary">{v.name}</Text>
-                <Pill tone="brand" label={v.color_key ?? "—"} />
-              </View>
-              {v.scientific_name ? (
-                <Text className="text-caption italic text-fg-secondary mt-xs">
-                  {v.scientific_name}
-                </Text>
-              ) : null}
-              {v.description ? (
-                <Text className="text-body text-fg-secondary mt-sm">{v.description}</Text>
-              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={v.name}
+                onPress={() => router.push(`/varieties/${v.id}`)}
+              >
+                {v.image_url ? (
+                  <Image
+                    source={{ uri: v.image_url }}
+                    className="h-32 w-full rounded-lg mb-md"
+                    resizeMode="cover"
+                  />
+                ) : null}
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-title font-medium text-fg-primary">{v.name}</Text>
+                  <View className="flex-row items-center gap-sm">
+                    <Pill tone="brand" label={v.color_key ?? "—"} />
+                    <ChevronRight color="#9D9D9A" size={16} />
+                  </View>
+                </View>
+                {v.scientific_name ? (
+                  <Text className="text-caption italic text-fg-secondary mt-xs">
+                    {v.scientific_name}
+                  </Text>
+                ) : null}
+                {v.description ? (
+                  <Text className="text-body text-fg-secondary mt-sm" numberOfLines={2}>
+                    {v.description}
+                  </Text>
+                ) : null}
+              </Pressable>
               {policy.canEditVariety() ? (
                 <View className="flex-row gap-sm mt-md">
                   <Button
@@ -191,6 +204,3 @@ export default function VarietiesRoute() {
     </SafeAreaView>
   );
 }
-
-// Pressable import kept silent — used in the per-row interactive areas.
-void Pressable;
