@@ -79,9 +79,12 @@ export function Viewfinder({ active = true, cameraRef, children, cameraProps, cl
         device={device}
         isActive={active}
         photo
-        video
-        audio
         style={{ flex: 1 }}
+        // `video` + `audio` deliberately omitted from defaults — they spin up
+        // additional native surfaces (encoder, mic stream) that we don't need
+        // for photo capture and that contribute to the rnscreens
+        // `getChildDrawingOrder` crash on stack transitions. Phase 7b's
+        // recording flow opts in via `cameraProps={{ video: true, audio: true }}`.
         {...cameraProps}
       />
       <View className="absolute inset-0">{children}</View>

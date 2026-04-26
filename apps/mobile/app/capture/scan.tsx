@@ -30,6 +30,7 @@ export default function CaptureScan() {
   const session = useCaptureSession();
   const cameraRef = useRef<VCCamera>(null);
   const [busy, setBusy] = useState(false);
+  const [cameraActive, setCameraActive] = useState(true);
 
   // Drives the bottom KPI strip with mock detections every ~200 ms.
   const frameResult = useFrameTicker(!busy);
@@ -45,7 +46,13 @@ export default function CaptureScan() {
       const photo = await cameraRef.current.takePhoto({ flash: "off" });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       session.set({ capturedImageUri: uri, uploadedImageUrl: null });
-      router.push("/capture/processing");
+
+      // Deactivate the camera, then wait a frame before navigating so Android
+      // releases the SurfaceView before react-native-screens draws the
+      // transition. Without this gap we hit IndexOutOfBoundsException in
+      // ScreenStack.performDraw on certain devices (Z Flip 7 FE among them).
+      setCameraActive(false);
+      setTimeout(() => router.push("/capture/processing"), 60);
     } catch (err) {
       console.error("[scan] takePhoto failed", err);
       setBusy(false);
@@ -54,7 +61,7 @@ export default function CaptureScan() {
 
   return (
     <View className="flex-1 bg-black">
-      <Viewfinder active cameraRef={cameraRef}>
+      <Viewfinder active={cameraActive} cameraRef={cameraRef}>
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel={`${t("inspections:capture.live.pillLabel")} · ${t("inspections:capture.shutter")}`}

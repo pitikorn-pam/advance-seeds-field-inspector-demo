@@ -29,6 +29,7 @@ export default function CapturePrecise() {
   const session = useCaptureSession();
   const cameraRef = useRef<VCCamera>(null);
   const [busy, setBusy] = useState(false);
+  const [cameraActive, setCameraActive] = useState(true);
 
   const onShutter = async () => {
     if (busy || !cameraRef.current) return;
@@ -38,7 +39,11 @@ export default function CapturePrecise() {
       const photo = await cameraRef.current.takePhoto({ flash: "off" });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       session.set({ capturedImageUri: uri, uploadedImageUrl: null });
-      router.push("/capture/processing");
+
+      // Deactivate the camera before pushing — same rnscreens-vs-camera-surface
+      // race as scan mode (see scan.tsx for context).
+      setCameraActive(false);
+      setTimeout(() => router.push("/capture/processing"), 60);
     } catch (err) {
       console.error("[precise] takePhoto failed", err);
       setBusy(false);
@@ -47,7 +52,7 @@ export default function CapturePrecise() {
 
   return (
     <View className="flex-1 bg-black">
-      <Viewfinder active cameraRef={cameraRef}>
+      <Viewfinder active={cameraActive} cameraRef={cameraRef}>
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel={`${t("inspections:capture.precise.pillLabel")} · ${t("inspections:capture.shutter")}`}
