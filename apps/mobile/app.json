@@ -4,29 +4,32 @@
     "slug": "advance-seeds-field-inspector",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "scheme": "advanceseeds",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.advanceseeds.fieldinspector"
     },
     "android": {
+      "package": "com.advanceseeds.fieldinspector",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F6E56"
-      },
-      "package": "com.advanceseeds.fieldinspector"
+      }
     },
     "web": {
       "bundler": "metro"
     },
-    "plugins": ["expo-router", "expo-localization"],
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "dark": { "backgroundColor": "#0F0F11" }
+        }
+      ],
+      "expo-router",
+      "expo-localization"
+    ],
     "experiments": {
       "typedRoutes": true
     },
