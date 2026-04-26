@@ -1,6 +1,6 @@
 {
   "name": "@advance-seeds/types",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Shared TypeScript types: domain entities, SeedAnalyzer interface, Supabase generated types.",
   "type": "module",
@@ -14,6 +14,7 @@
   },
   "scripts": {
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/analyzer.test.mjs"
   }
 }
