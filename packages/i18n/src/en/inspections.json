@@ -44,7 +44,38 @@
       "pillLabel": "Live"
     },
     "precise": {
-      "pillLabel": "Precise"
+      "pillLabel": "Precise",
+      "holdSteady": "Hold steady",
+      "distanceUnknown": "— cm",
+      "distanceCm": "{{cm}} cm"
+    },
+    "kpi": {
+      "count": "Count",
+      "avgMm": "Avg mm",
+      "gradeA": "Grade A"
+    },
+    "calibration": {
+      "lockedTitle": "Calibration locked",
+      "lockedHint": "{{pxPerMm}} px/mm at {{distance}}",
+      "unavailableTitle": "Calibration unavailable",
+      "unavailableHint": "Measurements may be approximate"
+    },
+    "processing": {
+      "title": "Analyzing",
+      "subtitle": "Detecting seeds, measuring dimensions, and grading quality.",
+      "stepCaptured": "Frame captured",
+      "stepCalibration": "Calibration applied",
+      "stepDetected": "Detected {{count}} seeds",
+      "stepGrading": "Grading quality…",
+      "viewResults": "View results"
+    },
+    "review": {
+      "title": "Inspection result",
+      "perSeedTitle": "Per-seed results",
+      "sort": "Sort",
+      "saveDraft": "Save draft",
+      "saveAndSync": "Save and sync",
+      "missing": "Result not available — return to capture and try again."
     }
   },
   "seedGrade": {

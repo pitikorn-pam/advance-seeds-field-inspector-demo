@@ -27,10 +27,10 @@
 
 ## 3. SeedAnalyzer interface evolution (BREAKING)
 
-- [ ] 3.1 Edit `packages/types/src/analyzer.ts` — add `analyzeFrame(frame, options)` and supporting `Frame`, `AnalysisFrameResult` types
-- [ ] 3.2 `MockSeedAnalyzer` adds an `analyzeFrame` impl emitting deterministic detections every ~200 ms
-- [ ] 3.3 Bump `@advance-seeds/types` to 0.2.0; update consumers in dashboard + mobile (no behavioral change in dashboard since it doesn't use frames)
-- [ ] 3.4 Add a unit test for `analyzeFrame` shape conformance (frame ref → result with bbox array)
+- [x] 3.1 Edit `packages/types/src/analyzer.ts` — add `analyzeFrame(frame, options)` and supporting `Frame`, `AnalysisFrameResult` types (also added `LiveCalibrator` + `CalibrationReading` per D3)
+- [x] 3.2 `MockSeedAnalyzer` adds an `analyzeFrame` impl emitting deterministic detections every ~200 ms (with sinusoidal bbox drift for live feel)
+- [x] 3.3 Bump `@advance-seeds/types` to 0.2.0; consumers in dashboard + mobile typecheck without changes (dashboard doesn't use frames; mobile reuses the new types)
+- [x] 3.4 Add a unit test for `analyzeFrame` shape conformance (frame ref → result with bbox array) — `packages/types/src/analyzer.test.mjs`
 
 ## 4. TFLite analyzer
 
@@ -58,11 +58,11 @@
 
 ## 6. Camera UI build-out (prototype fidelity)
 
-- [ ] 6.1 `components/camera/DetectionOverlay.tsx` — Skia overlay drawing detection rings + bounding boxes from `analyzeFrame` output
-- [ ] 6.2 `components/camera/KpiStrip.tsx` — live "Count / Avg mm / Grade A%" pill bar
-- [ ] 6.3 Calibration pill ("ArUco locked" / "Calibration unavailable") in glass style; LiDAR pill is feature-detected (won't show on iPhone Air or Z Flip 7 FE)
-- [ ] 6.4 Shutter haptic + capture animation
-- [ ] 6.5 Precise mode: corner brackets, crosshair, distance indicator, success ring on lock
+- [ ] 6.1 `components/camera/DetectionOverlay.tsx` — Skia overlay drawing detection rings + bounding boxes from `analyzeFrame` output (deferred to Phase 4 — needs real frame source)
+- [x] 6.2 `components/camera/KpiStrip.tsx` — live "Count / Avg mm / Grade A%" pill bar bound to `useFrameTicker(analyzeFrame)`
+- [x] 6.3 Calibration pill (`CalibrationPill.tsx`) + banner (`CalibrationBanner.tsx`) in glass style; LiDAR pill is feature-detected (won't show on iPhone Air or Z Flip 7 FE)
+- [x] 6.4 Shutter haptic + capture animation (spring scale on press) + corrected live ring color (#DC2828)
+- [x] 6.5 Precise mode: corner brackets, "Hold steady" guidance, distance indicator placeholder, calibration banner pinned to stage bottom (success ring lands once LiveCalibrator does — Phase 5)
 - [ ] 6.6 Test on iPhone Air (Dynamic Island safe area) and Z Flip 7 FE (folded + unfolded layouts)
 
 ## 6b. Flexible ROI tools
@@ -79,11 +79,11 @@
 
 ## 7. Processing & review screens
 
-- [ ] 7.1 `app/capture/processing.tsx` — analysis-on-captured-image UI (image with progress overlay + spinner)
-- [ ] 7.2 `app/capture/review.tsx` — captured image at top, bounding boxes + grade colors overlaid via SVG, summary stat tiles below, action buttons "Save" / "Discard"
-- [ ] 7.3 Save flow: persist inspection + seeds rows; nav to inspection detail
-- [ ] 7.4 Discard flow: delete uploaded image from storage, return to setup
-- [ ] 7.5 Both screens follow the four-state pattern (loaded / loading / error)
+- [x] 7.1 `app/capture/processing.tsx` — prototype-faithful: spinning brand orb + headline + 4-step checklist (captured/calibration/detected/grading) + "View results" CTA, gated on real upload+analyze completion
+- [x] 7.2 `app/capture/review.tsx` — top bar (close + title + share), captured photo, GradeRing (SVG, % Grade A) + Total seeds + Avg dimensions, Per-seed list (grade pill + dims + chevron), Save draft + Save and sync
+- [x] 7.3 Save flow: persist inspection + seeds rows; nav to inspection detail
+- [x] 7.4 Discard flow: delete uploaded image from storage, return home
+- [x] 7.5 Both screens follow the four-state pattern (loaded / loading / error)
 
 ## 7b. Video recording + in-session snapshots
 

@@ -8,15 +8,20 @@ import { Camera as VCCamera } from "react-native-vision-camera";
 import { Viewfinder } from "@/components/camera/Viewfinder";
 import { GlassTopBar } from "@/components/camera/GlassTopBar";
 import { ShutterBar } from "@/components/camera/ShutterBar";
+import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
 import { useCaptureSession } from "@/lib/capture/session";
 
 /**
  * Precise capture mode.
  *
- * Phase 2 scope: same shutter behaviour as scan, but with corner brackets and
- * "Hold steady" guidance overlays. The calibration-lock UX (LiDAR distance
- * pill, gating shutter on lock) lands in Phase 5 once LiveCalibrator exists.
- * Until then, the shutter is enabled — same fallback as live mode.
+ * Adds corner brackets, "Hold steady" guidance, distance indicator, and a
+ * calibration banner pinned to the bottom of the camera stage. Today the
+ * banner shows "Calibration unavailable" because LiveCalibrator (Phase 5)
+ * isn't wired yet — the layout is exact so Phase 5 just provides a real
+ * `CalibrationReading` object.
+ *
+ * The shutter remains enabled even without a lock (same fallback as live
+ * mode) so the screen is testable end-to-end on hardware that lacks LiDAR.
  */
 export default function CapturePrecise() {
   const { t } = useTranslation(["common", "inspections"]);
@@ -52,17 +57,28 @@ export default function CapturePrecise() {
             centerDotColor="#B5D4F4"
           />
 
-          {/* Corner brackets + "Hold steady" guidance — purely cosmetic in
-              Phase 2; Phase 5 hooks calibration distance into the live label. */}
+          {/* Corner brackets + "Hold steady" guidance. Phase 5 hooks the
+              calibrator's distance reading into the live label below. */}
           <View className="flex-1 items-center justify-center" pointerEvents="none">
-            <View className="absolute inset-0 m-2xl border-2 border-transparent">
-              <View className="absolute top-0 left-0 h-6 w-6 border-t-2 border-l-2 border-white" />
-              <View className="absolute top-0 right-0 h-6 w-6 border-t-2 border-r-2 border-white" />
-              <View className="absolute bottom-0 left-0 h-6 w-6 border-b-2 border-l-2 border-white" />
-              <View className="absolute bottom-0 right-0 h-6 w-6 border-b-2 border-r-2 border-white" />
+            <View className="absolute inset-0 m-2xl">
+              <View className="absolute top-0 left-0 h-6 w-6 rounded-tl-md border-t-2 border-l-2 border-white/55" />
+              <View className="absolute top-0 right-0 h-6 w-6 rounded-tr-md border-t-2 border-r-2 border-white/55" />
+              <View className="absolute bottom-0 left-0 h-6 w-6 rounded-bl-md border-b-2 border-l-2 border-white/55" />
+              <View className="absolute bottom-0 right-0 h-6 w-6 rounded-br-md border-b-2 border-r-2 border-white/55" />
             </View>
-            <Text className="text-white/60 text-caption">Hold steady</Text>
-            <Text className="text-white/85 text-display font-medium tracking-tight">— cm</Text>
+            <Text className="text-white/60" style={{ fontSize: 12, fontWeight: "500" }}>
+              {t("inspections:capture.precise.holdSteady")}
+            </Text>
+            <Text
+              className="text-white/85 mt-xs font-medium"
+              style={{ fontSize: 28, letterSpacing: -0.6 }}
+            >
+              {t("inspections:capture.precise.distanceUnknown")}
+            </Text>
+          </View>
+
+          <View className="mx-md mb-md" pointerEvents="box-none">
+            <CalibrationBanner reading={null} />
           </View>
 
           <ShutterBar onShutter={onShutter} disabled={busy} />

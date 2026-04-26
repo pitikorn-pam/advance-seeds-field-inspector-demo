@@ -1,4 +1,5 @@
-import { Pressable, View } from "react-native";
+import { useRef } from "react";
+import { Animated, Pressable, View } from "react-native";
 import type { GestureResponderEvent } from "react-native";
 import { Grid3x3, RotateCw, Camera as CameraIcon, Aperture } from "lucide-react-native";
 
@@ -15,18 +16,27 @@ interface Props {
   onFlip?: () => void;
   /** When true, the shutter renders as a recording state. */
   isRecording?: boolean;
-  /** When true, the shutter shows a "live" green ring (live mode only). */
+  /** When true, the shutter shows a "live" red ring (live mode). */
   isLive?: boolean;
   /** When true, the shutter is disabled (e.g. precise mode without lock). */
   disabled?: boolean;
 }
 
 /**
- * Bottom action bar with shutter, side icons, and snapshot. The shutter is the
- * canonical big-circle camera button; `onLongPress` will start video recording
- * once Phase 7b lands. We accept the long-press handler now so the visual
- * affordance is complete and the hook isn't a breaking change later.
+ * Bottom action bar with shutter, side icons, and snapshot. The shutter is
+ * the canonical big-circle camera button; `onLongPress` will start video
+ * recording once Phase 7b lands.
+ *
+ * Visual states (matches prototype `.cam-shutter` family):
+ *   • default   — white ring + white inner (reads against a dark camera feed)
+ *   • live      — red (#DC2828) ring + red inner (analyzer is producing frames)
+ *   • recording — red ring + red square inner (Phase 7b)
+ *
+ * Tap triggers a quick scale-down + spring-back animation so users get a
+ * tactile confirmation even before the photo finishes.
  */
+const LIVE_RED = "#DC2828";
+
 export function ShutterBar({
   onShutter,
   onLongPress,
@@ -37,13 +47,28 @@ export function ShutterBar({
   isLive = false,
   disabled = false,
 }: Props) {
-  const ringClass = isRecording
-    ? "border-danger-text"
-    : isLive
-      ? "border-[#5DCAA5]"
-      : "border-white";
+  const scale = useRef(new Animated.Value(1)).current;
 
-  const shutterFillClass = isRecording ? "bg-danger-text" : "bg-white";
+  const ringClass = isRecording || isLive ? "" : "border-white";
+  const ringStyle = isRecording || isLive ? { borderColor: LIVE_RED } : undefined;
+
+  const innerClass = isRecording ? `h-7 w-7 rounded-md` : `h-[64px] w-[64px] rounded-full`;
+  const innerStyle = isRecording || isLive ? { backgroundColor: LIVE_RED } : undefined;
+  const innerColor = isRecording || isLive ? "" : "bg-white";
+
+  const animatePress = (toValue: number) => {
+    Animated.spring(scale, {
+      toValue,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 180,
+    }).start();
+  };
+
+  const handlePress = () => {
+    if (disabled) return;
+    onShutter();
+  };
 
   return (
     <View
@@ -60,23 +85,24 @@ export function ShutterBar({
       </Pressable>
 
       <View className="items-center gap-sm">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Capture"
-          disabled={disabled}
-          delayLongPress={600}
-          onPress={onShutter}
-          onLongPress={onLongPress}
-          className={`h-[78px] w-[78px] items-center justify-center rounded-full border-[3px] ${ringClass} ${
-            disabled ? "opacity-40" : ""
-          }`}
-        >
-          <View
-            className={`${
-              isRecording ? "h-7 w-7 rounded-md" : "h-[64px] w-[64px] rounded-full"
-            } ${shutterFillClass}`}
-          />
-        </Pressable>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Capture"
+            disabled={disabled}
+            delayLongPress={600}
+            onPressIn={() => animatePress(0.92)}
+            onPressOut={() => animatePress(1)}
+            onPress={handlePress}
+            onLongPress={onLongPress}
+            style={ringStyle}
+            className={`h-[78px] w-[78px] items-center justify-center rounded-full border-[3px] ${ringClass} ${
+              disabled ? "opacity-40" : ""
+            }`}
+          >
+            <View className={`${innerClass} ${innerColor}`} style={innerStyle} />
+          </Pressable>
+        </Animated.View>
 
         {onSnapshot ? (
           <Pressable

@@ -44,7 +44,38 @@
       "pillLabel": "สด"
     },
     "precise": {
-      "pillLabel": "แม่นยำ"
+      "pillLabel": "แม่นยำ",
+      "holdSteady": "ถือนิ่ง",
+      "distanceUnknown": "— ซม.",
+      "distanceCm": "{{cm}} ซม."
+    },
+    "kpi": {
+      "count": "จำนวน",
+      "avgMm": "ยาวเฉลี่ย",
+      "gradeA": "เกรด A"
+    },
+    "calibration": {
+      "lockedTitle": "สอบเทียบล็อกแล้ว",
+      "lockedHint": "{{pxPerMm}} px/mm ที่ระยะ {{distance}}",
+      "unavailableTitle": "ยังไม่ได้สอบเทียบ",
+      "unavailableHint": "ค่าวัดอาจไม่แม่นยำ"
+    },
+    "processing": {
+      "title": "กำลังวิเคราะห์",
+      "subtitle": "ตรวจจับเมล็ด วัดขนาด และจัดเกรดคุณภาพ",
+      "stepCaptured": "ถ่ายภาพแล้ว",
+      "stepCalibration": "ใช้ค่าสอบเทียบแล้ว",
+      "stepDetected": "ตรวจพบ {{count}} เมล็ด",
+      "stepGrading": "กำลังจัดเกรด…",
+      "viewResults": "ดูผลลัพธ์"
+    },
+    "review": {
+      "title": "ผลการตรวจสอบ",
+      "perSeedTitle": "ผลรายเมล็ด",
+      "sort": "เรียง",
+      "saveDraft": "บันทึกร่าง",
+      "saveAndSync": "บันทึกและซิงค์",
+      "missing": "ไม่มีผลให้แสดง — กลับไปถ่ายใหม่อีกครั้ง"
     }
   },
   "seedGrade": {
