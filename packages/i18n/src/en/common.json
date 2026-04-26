@@ -23,7 +23,8 @@
     "exportCsv": "Export CSV",
     "newInspection": "New inspection",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "openSettings": "Open Settings"
   },
   "states": {
     "loading": "Loading…",

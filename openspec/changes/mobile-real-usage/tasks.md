@@ -2,28 +2,28 @@
 
 ## 1. Distribution & dev-client foundation
 
-- [ ] 1.1 Start Apple Developer Program enrollment (manual, ~5 business days; iPassion organization preferred over individual)
-- [ ] 1.2 Create a Firebase project for App Distribution; install `firebase-tools` CLI
-- [ ] 1.3 Add `eas-cli` as a dev dependency on `apps/mobile`; `eas init`
-- [ ] 1.4 Author `apps/mobile/eas.json` with `development`, `preview`, `production` profiles + Firebase upload hook
-- [ ] 1.5 Run `eas build --profile development --platform ios` once → install dev client on iPhone Air
-- [ ] 1.6 Same for Android; install dev client on Z Flip 7 FE
-- [ ] 1.7 Update `apps/mobile/app.json` plugin list to include the dev-client plugin and reserve room for camera + photo library permission strings (`NSCameraUsageDescription`, `NSPhotoLibraryAddUsageDescription`, `NSMicrophoneUsageDescription`, `android.permission.CAMERA`, `android.permission.RECORD_AUDIO`)
-- [ ] 1.8 Document the Firebase invite flow + dev-client install flow in `apps/mobile/README.md`
+- [ ] 1.1 Start Apple Developer Program enrollment (iPassion org; in progress)
+- [ ] 1.2 Create a Firebase project for App Distribution; install `firebase-tools` CLI (deferred until first preview build)
+- [x] 1.3 Install `eas-cli` (global, v18.8.1); EAS init deferred to first build run
+- [x] 1.4 Author `apps/mobile/eas.json` with `development`, `preview`, `production` profiles
+- [ ] 1.5 Run `eas build --profile development --platform ios` once → install dev client on iPhone Air (waits for Apple cert)
+- [ ] 1.6 Run `eas build --profile development --platform android` → install dev client on Z Flip 7 FE
+- [x] 1.7 Update `apps/mobile/app.json` plugin list to include the dev-client plugin and reserve room for camera + photo library permission strings (`NSCameraUsageDescription`, `NSPhotoLibraryAddUsageDescription`, `NSMicrophoneUsageDescription`, `android.permission.CAMERA`, `android.permission.RECORD_AUDIO`)
+- [x] 1.8 Document the Firebase invite flow + dev-client install flow in root `README.md`
 
 ## 2. Camera migration (Vision Camera, mock analyzer still)
 
-- [ ] 2.1 Remove `expo-camera` (currently unused) and any references; install `react-native-vision-camera`
-- [ ] 2.2 Add the camera config plugin to `app.json` with iOS + Android permission strings
-- [ ] 2.3 Build `components/camera/Viewfinder.tsx` — fullscreen camera preview with safe-area handling
-- [ ] 2.4 Build `components/camera/ShutterBar.tsx` — shutter / flip / flash / grid actions
-- [ ] 2.5 Add the glass-style top bar (back button, mode pill, action button) per prototype
-- [ ] 2.6 Capture flow `app/capture/setup.tsx` — variety, batch, mode picker (live / precise)
-- [ ] 2.7 `app/capture/scan.tsx` — viewfinder rendering live preview (no detection yet)
-- [ ] 2.8 `app/capture/precise.tsx` — viewfinder with crosshair brackets and "Hold steady" guidance
-- [ ] 2.9 Shutter capture: high-res photo to a local temp file via `useCameraDevice` + `takePhoto`
-- [ ] 2.10 Upload captured photo to Supabase Storage (`inspection-images/<uuid>.jpg`) before navigating to processing
-- [ ] 2.11 Permissions flow: pre-flight check on first capture; deep link to Settings if denied
+- [x] 2.1 Remove `expo-camera` (was never installed); install `react-native-vision-camera`
+- [x] 2.2 Add the camera config plugin to `app.json` with iOS + Android permission strings
+- [x] 2.3 Build `components/camera/Viewfinder.tsx` — fullscreen camera preview with safe-area handling
+- [x] 2.4 Build `components/camera/ShutterBar.tsx` — shutter / flip / flash / grid actions
+- [x] 2.5 Add the glass-style top bar (back button, mode pill, action button) per prototype
+- [x] 2.6 Capture flow `app/capture/setup.tsx` — variety, batch, mode picker (live / precise)
+- [x] 2.7 `app/capture/scan.tsx` — viewfinder rendering live preview (no detection yet)
+- [x] 2.8 `app/capture/precise.tsx` — viewfinder with crosshair brackets and "Hold steady" guidance
+- [x] 2.9 Shutter capture: high-res photo to a local temp file via `useCameraDevice` + `takePhoto`
+- [x] 2.10 Upload captured photo to Supabase Storage (`inspection-images/<uuid>.jpg`) before navigating to processing
+- [x] 2.11 Permissions flow: pre-flight check on first capture; deep link to Settings if denied
 
 ## 3. SeedAnalyzer interface evolution (BREAKING)
 

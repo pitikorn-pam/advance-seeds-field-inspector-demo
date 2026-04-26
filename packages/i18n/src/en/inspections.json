@@ -23,12 +23,29 @@
   "capture": {
     "setup": "Set up",
     "mode": "Capture mode",
+    "modeLive": "Live",
+    "modeLiveHint": "Real-time detection over a tray of seeds.",
+    "modePrecise": "Precise",
+    "modePreciseHint": "Hold steady at a fixed distance for lab-grade measurement.",
     "modeSingle": "Single",
     "modeBatch": "Batch",
     "shutter": "Capture",
     "analyzing": "Analyzing…",
     "saving": "Saving…",
-    "successToast": "Inspection saved"
+    "successToast": "Inspection saved",
+    "permissionRequired": "Camera permission required",
+    "permissionHint": "Advance Seeds needs camera access to detect and measure seeds. Grant permission in Settings.",
+    "cameraStarting": "Starting camera…",
+    "startCapture": "Start capture",
+    "selectVariety": "Select a variety",
+    "selectBatch": "Select a batch (optional)",
+    "selectCalibration": "Select calibration",
+    "live": {
+      "pillLabel": "Live"
+    },
+    "precise": {
+      "pillLabel": "Precise"
+    }
   },
   "seedGrade": {
     "A": "Grade A",

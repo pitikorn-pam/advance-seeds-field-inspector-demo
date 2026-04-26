@@ -23,7 +23,8 @@
     "exportCsv": "ส่งออก CSV",
     "newInspection": "การตรวจสอบใหม่",
     "signIn": "เข้าสู่ระบบ",
-    "signOut": "ออกจากระบบ"
+    "signOut": "ออกจากระบบ",
+    "openSettings": "เปิดการตั้งค่า"
   },
   "states": {
     "loading": "กำลังโหลด…",

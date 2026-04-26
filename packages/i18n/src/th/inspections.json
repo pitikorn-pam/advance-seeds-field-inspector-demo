@@ -23,12 +23,29 @@
   "capture": {
     "setup": "ตั้งค่า",
     "mode": "โหมดถ่าย",
+    "modeLive": "สด",
+    "modeLiveHint": "ตรวจจับเมล็ดในถาดแบบเรียลไทม์",
+    "modePrecise": "แม่นยำ",
+    "modePreciseHint": "ถือนิ่งที่ระยะคงที่เพื่อค่าวัดระดับห้องแล็บ",
     "modeSingle": "เดี่ยว",
     "modeBatch": "ชุด",
     "shutter": "ถ่าย",
     "analyzing": "กำลังวิเคราะห์…",
     "saving": "กำลังบันทึก…",
-    "successToast": "บันทึกการตรวจสอบแล้ว"
+    "successToast": "บันทึกการตรวจสอบแล้ว",
+    "permissionRequired": "ต้องอนุญาตใช้กล้อง",
+    "permissionHint": "Advance Seeds ต้องเข้าถึงกล้องเพื่อตรวจจับและวัดเมล็ด เปิดใช้งานในการตั้งค่า",
+    "cameraStarting": "กำลังเปิดกล้อง…",
+    "startCapture": "เริ่มถ่าย",
+    "selectVariety": "เลือกพันธุ์",
+    "selectBatch": "เลือกล็อต (ไม่บังคับ)",
+    "selectCalibration": "เลือกการสอบเทียบ",
+    "live": {
+      "pillLabel": "สด"
+    },
+    "precise": {
+      "pillLabel": "แม่นยำ"
+    }
   },
   "seedGrade": {
     "A": "เกรด A",
