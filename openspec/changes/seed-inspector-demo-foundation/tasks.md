@@ -102,10 +102,10 @@
 
 ## 8. Demo Polish & Dry-run
 
-- [ ] 8.1 Final pass on copy (EN + TH) for all screens
-- [ ] 8.2 Verify all screens hit the four states (loaded / empty / loading / error)
+- [x] 8.1 Final pass on copy (EN + TH) for all screens — variety images switched to branded placeholders that match design-token color pairs; copy verified during smoke
+- [x] 8.2 Verify all screens hit the four states (loaded / empty / loading / error) — audit done; one gap recorded: mobile `capture.tsx` lacks an explicit error branch on `create.mutateAsync` failure, queue for next change
 - [ ] 8.3 Pre-load Jane and Alex sessions on demo devices; verify role differences are visible
 - [ ] 8.4 Record a 60s screen-capture backup video (in case demo wifi fails)
-- [ ] 8.5 Stage the demo flow script (the 5 things you'll click)
-- [ ] 8.6 Mark `MockSeedAnalyzer` as warned-on-startup in dev mode
-- [ ] 8.7 Resolve all four Open Questions in design.md
+- [x] 8.5 Stage the demo flow script (the 5 things you'll click) — see [`docs/demo-script.md`](../../../docs/demo-script.md)
+- [x] 8.6 Mark `MockSeedAnalyzer` as warned-on-startup in dev mode
+- [x] 8.7 Resolve all four Open Questions in design.md

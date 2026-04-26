@@ -9,14 +9,18 @@
 -- Varieties — six grain/legume crops common in Thailand
 -- ============================================================================
 
+-- Variety images use placehold.co with the design-system color pairs (matches
+-- color_key tone). Branded placeholders are deliberately preferred over random
+-- stock photos for the demo: they always render, never look "wrong" for the
+-- variety, and signal honestly that real photos belong in production.
 insert into public.varieties (name, scientific_name, description, image_url, color_key)
 values
-  ('Rice — Hom Mali',     'Oryza sativa',         'Premium Thai jasmine rice. Aromatic long grain.',          'https://images.pexels.com/photos/4110251/pexels-photo-4110251.jpeg', 'rice'),
-  ('Rice — Riceberry',    'Oryza sativa',         'Anthocyanin-rich purple rice. Smaller grain, high yield.', 'https://images.pexels.com/photos/4110252/pexels-photo-4110252.jpeg', 'rice'),
-  ('Corn — Sweet Hybrid', 'Zea mays saccharata',  'F1 hybrid sweet corn for fresh market.',                   'https://images.pexels.com/photos/547263/pexels-photo-547263.jpeg',   'corn'),
-  ('Soybean — Chiang Mai 60', 'Glycine max',      'High-protein cultivar bred for upland conditions.',         'https://images.pexels.com/photos/4110249/pexels-photo-4110249.jpeg', 'legume'),
-  ('Mung bean — KU#2',    'Vigna radiata',        'Short-season summer crop. Used for sprouts and dessert.',  'https://images.pexels.com/photos/4110248/pexels-photo-4110248.jpeg', 'mungbean'),
-  ('Sunflower — Pacific 88', 'Helianthus annuus', 'Oilseed and ornamental dual-use cultivar.',                 'https://images.pexels.com/photos/4110247/pexels-photo-4110247.jpeg', 'rice')
+  ('Rice — Hom Mali',         'Oryza sativa',        'Premium Thai jasmine rice. Aromatic long grain.',         'https://placehold.co/1024x768/EAF3DE/3B6D11/png?text=Rice+%E2%80%94+Hom+Mali',         'rice'),
+  ('Rice — Riceberry',        'Oryza sativa',        'Anthocyanin-rich purple rice. Smaller grain, high yield.','https://placehold.co/1024x768/EAF3DE/3B6D11/png?text=Rice+%E2%80%94+Riceberry',        'rice'),
+  ('Corn — Sweet Hybrid',     'Zea mays saccharata', 'F1 hybrid sweet corn for fresh market.',                  'https://placehold.co/1024x768/FAEEDA/854F0B/png?text=Corn+%E2%80%94+Sweet+Hybrid',     'corn'),
+  ('Soybean — Chiang Mai 60', 'Glycine max',         'High-protein cultivar bred for upland conditions.',       'https://placehold.co/1024x768/E1F5EE/0F6E56/png?text=Soybean+%E2%80%94+CM+60',         'legume'),
+  ('Mung bean — KU#2',        'Vigna radiata',       'Short-season summer crop. Used for sprouts and dessert.', 'https://placehold.co/1024x768/FAECE7/993C1D/png?text=Mung+bean+%E2%80%94+KU%232',      'mungbean'),
+  ('Sunflower — Pacific 88',  'Helianthus annuus',   'Oilseed and ornamental dual-use cultivar.',               'https://placehold.co/1024x768/FAEEDA/854F0B/png?text=Sunflower+%E2%80%94+Pacific+88',  'corn')
 on conflict (name) do update
   set scientific_name = excluded.scientific_name,
       description     = excluded.description,
