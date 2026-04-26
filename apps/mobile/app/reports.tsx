@@ -3,7 +3,10 @@ import { ScrollView, View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react-native";
-import * as FileSystem from "expo-file-system";
+// expo-file-system v19 (Expo SDK 54) introduced a new Paths/File API and
+// moved the previous API behind /legacy. Using legacy here keeps the diff
+// minimal — migrating to the new API is a polish task for next change.
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { useInspections, useVarieties } from "@/lib/queries";
 import { Card, StatTile } from "@/components/ui/Card";
