@@ -67,7 +67,7 @@
 - [x] 5.18 Reports screen: filters + chart placeholder + CSV export button
 - [x] 5.19 Settings screen: locale toggle, theme toggle, profile read-only
 - [x] 5.20 Empty / loading / error states for every primary screen (per HANDOFF rule)
-- [ ] 5.21 Manual smoke test checklist run as Jane and Alex
+- [x] 5.21 Manual smoke test checklist run as Jane and Alex
 
 ## 6. Mobile App (`apps/mobile`)
 
