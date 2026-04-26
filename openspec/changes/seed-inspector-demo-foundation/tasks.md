@@ -91,7 +91,7 @@
 - [x] 6.18 Settings: locale, theme, calibration view (read-only), profile, sign-out
 - [x] 6.19 Calibration screen: shows px/mm value, LiDAR vs ArUco, honest fallback message
 - [x] 6.20 Empty / loading / error states for every primary screen
-- [ ] 6.21 Manual smoke test on iOS Expo Go and Android Expo Go as Jane and Alex
+- [x] 6.21 Manual smoke test on iOS Expo Go and Android Expo Go as Jane and Alex
 
 ## 7. CI / Deploy
 
