@@ -54,6 +54,13 @@
       "avgMm": "Avg mm",
       "gradeA": "Grade A"
     },
+    "roi": {
+      "rect": "Rect",
+      "polygon": "Polygon",
+      "circle": "Circle",
+      "closePolygon": "Close",
+      "clear": "Clear"
+    },
     "calibration": {
       "lockedTitle": "Calibration locked",
       "lockedHint": "{{pxPerMm}} px/mm at {{distance}}",

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { Roi } from "./roi";
 
 /**
  * Cross-screen capture session.
@@ -25,6 +26,13 @@ interface CaptureSessionState {
   capturedImageUri: string | null;
   /** Public URL once the captured frame uploads to Supabase Storage. */
   uploadedImageUrl: string | null;
+  /**
+   * Active region-of-interest (Phase 6b). Null when the user hasn't drawn
+   * one — KPI strip shows full-frame counts in that case. Lives on the
+   * session so it survives a scan ⇄ precise mode toggle within the same
+   * capture attempt; cleared by `session.reset()` after save (task 6b.9).
+   */
+  roi: Roi | null;
 }
 
 const initial: CaptureSessionState = {
@@ -34,6 +42,7 @@ const initial: CaptureSessionState = {
   mode: "live",
   capturedImageUri: null,
   uploadedImageUrl: null,
+  roi: null,
 };
 
 let state: CaptureSessionState = { ...initial };

@@ -1,10 +1,20 @@
+import { useMemo } from "react";
 import { View, Text } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { AnalysisFrameResult } from "@advance-seeds/types";
+import type { AnalysisFrameResult, AnalyzedSeed } from "@advance-seeds/types";
+import { isRoiCommitted, normalizeCentroid, pointInRoi } from "@/lib/capture/roi";
+import type { Roi } from "@/lib/capture/roi";
 
 interface Props {
   /** Latest per-frame analyzer output. Null when no live data is available yet. */
   frameResult: AnalysisFrameResult | null;
+  /** Active region of interest. When committed, the strip counts only the
+   *  detections whose centroid falls inside the shape. */
+  roi?: Roi | null;
+  /** Frame dimensions (used to normalize bbox centroids for the ROI test).
+   *  Defaults to 1920×1080 — matches `useFrameTicker`'s synthetic frames. */
+  frameWidth?: number;
+  frameHeight?: number;
 }
 
 /**
@@ -13,19 +23,34 @@ interface Props {
  * count, average length in mm, and percentage of Grade-A seeds.
  *
  * Renders dashes ("—") when no frame data is available so the layout never
- * jumps once the analyzer starts emitting.
+ * jumps once the analyzer starts emitting. When a committed ROI is active,
+ * counts and averages are computed only over the detections whose centroid
+ * is inside the shape (Phase 6b.7).
  */
-export function KpiStrip({ frameResult }: Props) {
+export function KpiStrip({
+  frameResult,
+  roi = null,
+  frameWidth = 1920,
+  frameHeight = 1080,
+}: Props) {
   const { t } = useTranslation("inspections");
 
-  const count = frameResult?.summary.total_seeds ?? null;
-  const avgMm = frameResult?.summary.mean_length_mm ?? null;
+  const filtered = useMemo<AnalyzedSeed[]>(() => {
+    if (!frameResult) return [];
+    if (!isRoiCommitted(roi) || !roi) return frameResult.seeds;
+    return frameResult.seeds.filter((s) =>
+      pointInRoi(normalizeCentroid(s.bbox, frameWidth, frameHeight), roi),
+    );
+  }, [frameResult, roi, frameWidth, frameHeight]);
+
+  const count = frameResult ? filtered.length : null;
+  const avgMm =
+    filtered.length > 0
+      ? filtered.reduce((sum, s) => sum + s.length_mm, 0) / filtered.length
+      : null;
   const gradeAPct =
-    frameResult && frameResult.seeds.length > 0
-      ? Math.round(
-          (frameResult.seeds.filter((s) => s.grade === "A").length / frameResult.seeds.length) *
-            100,
-        )
+    filtered.length > 0
+      ? Math.round((filtered.filter((s) => s.grade === "A").length / filtered.length) * 100)
       : null;
 
   return (

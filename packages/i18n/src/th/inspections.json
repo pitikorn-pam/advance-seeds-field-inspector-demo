@@ -54,6 +54,13 @@
       "avgMm": "ยาวเฉลี่ย",
       "gradeA": "เกรด A"
     },
+    "roi": {
+      "rect": "สี่เหลี่ยม",
+      "polygon": "หลายเหลี่ยม",
+      "circle": "วงกลม",
+      "closePolygon": "ปิดรูป",
+      "clear": "ล้าง"
+    },
     "calibration": {
       "lockedTitle": "สอบเทียบล็อกแล้ว",
       "lockedHint": "{{pxPerMm}} px/mm ที่ระยะ {{distance}}",

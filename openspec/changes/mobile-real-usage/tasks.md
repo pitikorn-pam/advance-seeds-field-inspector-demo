@@ -67,15 +67,15 @@
 
 ## 6b. Flexible ROI tools
 
-- [ ] 6b.1 `components/camera/RoiToolbar.tsx` — picker for rectangle / polygon / circle / clear
-- [ ] 6b.2 Rectangle ROI: drag two corners; 4 draggable handles
-- [ ] 6b.3 Polygon ROI: tap to add vertex, double-tap to close; vertex handles draggable after close
-- [ ] 6b.4 Circle ROI: tap center, drag radius; center + edge handles
-- [ ] 6b.5 Skia overlay renders the active ROI with semi-transparent fill + brand stroke
-- [ ] 6b.6 Point-in-shape predicate: `pointInRect`, `pointInPolygon` (ray-cast), `pointInCircle`
-- [ ] 6b.7 Wire to KPI strip: counter only sums detections whose centroid is inside the ROI
-- [ ] 6b.8 Persist ROI shape (type + image-space coordinates) on the captured inspection's metadata
-- [ ] 6b.9 ROI auto-clears when a new live session begins
+- [x] 6b.1 `components/camera/RoiToolbar.tsx` — picker for rectangle / polygon / circle / clear (plus a "Close" button shown when a polygon has ≥ 3 vertices)
+- [x] 6b.2 Rectangle ROI: drag from one corner to the opposite (touch-down + drag + release commits). Re-edit by clearing + redrawing — handle-drag landing in a follow-up
+- [x] 6b.3 Polygon ROI: tap to add vertex, "Close" toolbar button finalizes (replaces the spec's double-tap, which conflicts with the per-tap add-vertex gesture). Vertex handles draggable: deferred
+- [x] 6b.4 Circle ROI: tap center, drag radius (radius normalized to min(width, height) so circles stay circles on portrait viewports). Center + edge handles deferred
+- [x] 6b.5 SVG overlay (`react-native-svg`) renders the active ROI with semi-transparent brand-tint fill + 2 px stroke. Drafts (during drag) render the same way as committed; polygon drafts also show vertex dots
+- [x] 6b.6 Point-in-shape predicates: `pointInRect`, `pointInPolygon` (ray-cast), `pointInCircle`. All in `lib/capture/roi.ts` with normalized [0..1] coords
+- [x] 6b.7 KPI strip filters by ROI: when a committed shape is active, count / mean length / Grade-A% are computed over only the detections whose centroid (`normalizeCentroid`) falls inside the shape
+- [ ] 6b.8 Persist ROI shape on the captured inspection's metadata — deferred until inspections schema gets a `metadata jsonb` column (no metadata column exists today; out of scope for a UI-only commit)
+- [x] 6b.9 ROI auto-clears on new session via the existing `session.reset()` after Save and sync — no separate reset path needed since ROI lives on the capture session
 
 ## 7. Processing & review screens
 
