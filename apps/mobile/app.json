@@ -2,19 +2,34 @@
   "expo": {
     "name": "Advance Seeds Field Inspector",
     "slug": "advance-seeds-field-inspector",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "scheme": "advanceseeds",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.advanceseeds.fieldinspector"
+      "bundleIdentifier": "com.advanceseeds.fieldinspector",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Advance Seeds uses the camera to capture and measure seeds.",
+        "NSPhotoLibraryAddUsageDescription": "Advance Seeds saves snapshots and recordings to your photo library when you ask it to.",
+        "NSMicrophoneUsageDescription": "Advance Seeds records audio with videos so field notes can be captured during inspection.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.advanceseeds.fieldinspector",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0F6E56"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -28,7 +43,15 @@
         }
       ],
       "expo-router",
-      "expo-localization"
+      "expo-localization",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Advance Seeds needs camera access to detect and measure seeds.",
+          "enableMicrophonePermission": true,
+          "microphonePermissionText": "Advance Seeds records audio with videos to capture field notes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

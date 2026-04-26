@@ -67,25 +67,49 @@ Auto-deploys on every merge to `main` via [`.github/workflows/deploy-dashboard.y
 
 The `404.html` shim (in `apps/dashboard/public/`) handles deep-link bouncing so URLs like `/inspections/abc` survive a hard reload on GitHub Pages.
 
-### Mobile (Expo Go)
+### Mobile (custom dev client + Firebase App Distribution)
 
-The mobile app is distributed via **Expo Go** for the demo — no App Store / Play Store, no provisioning.
+> v0.2.0 introduces real camera + ML + calibration. These need native modules
+> (`react-native-vision-camera`, future TFLite + ArUco bridges) that **don't run
+> in Expo Go**. We ship a custom dev client built by EAS Build instead.
 
-**On demo day:**
+**Distribution channels:**
 
-1. Make sure Supabase is running and seeded.
-2. Run `pnpm -F @advance-seeds/mobile start` from the laptop. A QR code appears in the terminal and in Metro Studio.
-3. Have the client install **Expo Go** from the App Store / Play Store on their phone.
-4. They scan the QR with the iPhone Camera app or Expo Go (Android). The app loads in ~10 seconds.
+| Platform | Channel                                         | Apple Developer needed? |
+| -------- | ----------------------------------------------- | ----------------------- |
+| Android  | Firebase App Distribution (signed APK download) | No                      |
+| iOS      | Firebase App Distribution (signed `.ipa`)       | **Yes — $99/yr**        |
 
-**Troubleshooting:**
+iOS signing always requires the paid Apple Developer Program; Firebase only changes the _delivery_ channel, not the signing requirement. Android has no equivalent restriction — any signed APK installs.
 
-- The phone and laptop must be on the same Wi-Fi (Expo dev server uses LAN by default). For airline / coffee-shop Wi-Fi that blocks LAN, run with `--tunnel`:
-  ```bash
-  pnpm -F @advance-seeds/mobile start -- --tunnel
-  ```
-- Pin the Expo SDK on the demo phone — newer Expo Go can refuse older SDKs and vice-versa. This project pins SDK 51.
-- For an iPhone older than iPhone 12, Expo Go works, but the LiDAR-related calibration profile won't have a real meaning post-demo (the production app would skip those).
+**Build a dev client** (one-time per device, ~15-20 minutes for the EAS build):
+
+```bash
+# 1. Log in to your Expo account
+eas login
+
+# 2. Initialize the EAS project (first time only)
+cd apps/mobile
+eas init
+
+# 3. Build a dev client APK for Android (Z Flip 7 FE / any Android phone)
+eas build --profile development --platform android
+
+# 4. (When Apple cert is ready) build the iOS dev client
+eas build --profile development --platform ios
+```
+
+EAS prints a build URL when finished. Install the resulting APK on your phone (enable "install from unknown sources" once), or open the iOS link via TestFlight / Firebase.
+
+**Run the dev server** (every time you start coding):
+
+```bash
+pnpm -F @advance-seeds/mobile start
+```
+
+The dev client on your phone reconnects to Metro automatically — no QR scan needed after the first install.
+
+**Smoke test** (no native build needed): run `pnpm -F @advance-seeds/mobile typecheck` to confirm everything resolves before kicking off an EAS build.
 
 ## Workspace scripts
 
