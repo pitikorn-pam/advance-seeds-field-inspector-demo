@@ -35,15 +35,6 @@
       "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#FFFFFF",
-          "dark": {
-            "backgroundColor": "#0F0F11"
-          }
-        }
-      ],
       "expo-router",
       "expo-localization",
       [
