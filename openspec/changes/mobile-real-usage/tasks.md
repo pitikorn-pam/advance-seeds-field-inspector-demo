@@ -2,13 +2,14 @@
 
 ## 1. Distribution & dev-client foundation
 
-- [ ] 1.1 Enroll in Apple Developer Program (manual, ~5 business days)
-- [ ] 1.2 Add `eas-cli` as a dev dependency on `apps/mobile`; `eas init`
-- [ ] 1.3 Author `apps/mobile/eas.json` with `development`, `preview`, `production` profiles
-- [ ] 1.4 Run `eas build --profile development --platform ios` once → install dev client on test phone
-- [ ] 1.5 Same for Android; signed APK installable on a Pixel test device
-- [ ] 1.6 Update `apps/mobile/app.json` plugin list to include the dev-client plugin and reserve room for `react-native-vision-camera` permissions strings (`NSCameraUsageDescription`, `android.permission.CAMERA`)
-- [ ] 1.7 Document the dev-client install flow in `apps/mobile/README.md`
+- [ ] 1.1 Start Apple Developer Program enrollment (manual, ~5 business days; iPassion organization preferred over individual)
+- [ ] 1.2 Create a Firebase project for App Distribution; install `firebase-tools` CLI
+- [ ] 1.3 Add `eas-cli` as a dev dependency on `apps/mobile`; `eas init`
+- [ ] 1.4 Author `apps/mobile/eas.json` with `development`, `preview`, `production` profiles + Firebase upload hook
+- [ ] 1.5 Run `eas build --profile development --platform ios` once → install dev client on iPhone Air
+- [ ] 1.6 Same for Android; install dev client on Z Flip 7 FE
+- [ ] 1.7 Update `apps/mobile/app.json` plugin list to include the dev-client plugin and reserve room for camera + photo library permission strings (`NSCameraUsageDescription`, `NSPhotoLibraryAddUsageDescription`, `NSMicrophoneUsageDescription`, `android.permission.CAMERA`, `android.permission.RECORD_AUDIO`)
+- [ ] 1.8 Document the Firebase invite flow + dev-client install flow in `apps/mobile/README.md`
 
 ## 2. Camera migration (Vision Camera, mock analyzer still)
 
@@ -59,11 +60,22 @@
 
 - [ ] 6.1 `components/camera/DetectionOverlay.tsx` — Skia overlay drawing detection rings + bounding boxes from `analyzeFrame` output
 - [ ] 6.2 `components/camera/KpiStrip.tsx` — live "Count / Avg mm / Grade A%" pill bar
-- [ ] 6.3 Calibration pill ("LiDAR locked / 24.7 px/mm at 28 cm" / "ArUco locked" / "Calibration unavailable") in glass style
-- [ ] 6.4 Tray ROI rectangle overlay for live mode (count seeds inside ROI only)
-- [ ] 6.5 Shutter haptic + capture animation
-- [ ] 6.6 Precise mode: corner brackets, crosshair, distance indicator, success ring on lock
-- [ ] 6.7 Test on iPhone (Dynamic Island safe area) and Android (cutout phones)
+- [ ] 6.3 Calibration pill ("ArUco locked" / "Calibration unavailable") in glass style; LiDAR pill is feature-detected (won't show on iPhone Air or Z Flip 7 FE)
+- [ ] 6.4 Shutter haptic + capture animation
+- [ ] 6.5 Precise mode: corner brackets, crosshair, distance indicator, success ring on lock
+- [ ] 6.6 Test on iPhone Air (Dynamic Island safe area) and Z Flip 7 FE (folded + unfolded layouts)
+
+## 6b. Flexible ROI tools
+
+- [ ] 6b.1 `components/camera/RoiToolbar.tsx` — picker for rectangle / polygon / circle / clear
+- [ ] 6b.2 Rectangle ROI: drag two corners; 4 draggable handles
+- [ ] 6b.3 Polygon ROI: tap to add vertex, double-tap to close; vertex handles draggable after close
+- [ ] 6b.4 Circle ROI: tap center, drag radius; center + edge handles
+- [ ] 6b.5 Skia overlay renders the active ROI with semi-transparent fill + brand stroke
+- [ ] 6b.6 Point-in-shape predicate: `pointInRect`, `pointInPolygon` (ray-cast), `pointInCircle`
+- [ ] 6b.7 Wire to KPI strip: counter only sums detections whose centroid is inside the ROI
+- [ ] 6b.8 Persist ROI shape (type + image-space coordinates) on the captured inspection's metadata
+- [ ] 6b.9 ROI auto-clears when a new live session begins
 
 ## 7. Processing & review screens
 
@@ -72,6 +84,23 @@
 - [ ] 7.3 Save flow: persist inspection + seeds rows; nav to inspection detail
 - [ ] 7.4 Discard flow: delete uploaded image from storage, return to setup
 - [ ] 7.5 Both screens follow the four-state pattern (loaded / loading / error)
+
+## 7b. Video recording + in-session snapshots
+
+- [ ] 7b.1 Migration: `recordings` table (id, inspector_id FK, video_url, duration_ms, captured_at, notes); `recordings` storage bucket with same RLS pattern as inspection-images
+- [ ] 7b.2 `lib/queries.ts` add `useRecordings`, `useDeleteRecording` (mobile only)
+- [ ] 7b.3 `components/camera/RecordButton.tsx` — long-press shutter alternative + dedicated icon button
+- [ ] 7b.4 `useRecordingState` hook tracks { isRecording, durationMs, sizeMB }; updates 10×/sec
+- [ ] 7b.5 Vision Camera `startRecording` / `stopRecording`; codec h264, hi-res preset, 30 fps
+- [ ] 7b.6 Recording timer overlay (top of viewfinder, red dot + MM:SS)
+- [ ] 7b.7 Upload to `recordings` bucket on stop; show progress toast
+- [ ] 7b.8 Size guard: > 100 MB local file → alert, save-to-Photos / discard, no cloud upload
+- [ ] 7b.9 App-backgrounded > 2 s during recording → auto-stop + save
+- [ ] 7b.10 `components/camera/SnapshotButton.tsx` — separate icon button (camera + sparkle)
+- [ ] 7b.11 Snapshot saves frame to device Photos library via `MediaLibrary.saveToLibraryAsync`
+- [ ] 7b.12 First-time snapshot triggers Photos permission prompt; denied → inline error with deep link
+- [ ] 7b.13 Snapshot does NOT create an inspection row; toast "Snapshot saved" on success
+- [ ] 7b.14 Recordings tab on `/profile` showing the user's videos list with thumbnail + duration
 
 ## 8. Per-seed detail, variety detail, profile screens
 
@@ -95,10 +124,10 @@
 
 ## 11. Distribution & rollout
 
-- [ ] 11.1 `eas build --profile preview --platform ios` → TestFlight upload
-- [ ] 11.2 `eas build --profile preview --platform android` → signed APK
-- [ ] 11.3 Internal testers: invite Jane + Alex (and any pilot users) to TestFlight
-- [ ] 11.4 Update `docs/demo-script.md` — Expo Go QR section becomes "TestFlight invite" section
+- [ ] 11.1 `eas build --profile preview --platform ios` → upload to Firebase App Distribution
+- [ ] 11.2 `eas build --profile preview --platform android` → upload to Firebase App Distribution
+- [ ] 11.3 Configure Firebase tester groups: `internal`, `pilot`. Invite Jane + Alex into `pilot`
+- [ ] 11.4 Update `docs/demo-script.md` — Expo Go QR section becomes "Firebase email invite" section (~10 min iOS, ~3 min Android)
 - [ ] 11.5 Update root `README.md` mobile section
 - [ ] 11.6 Update `docs/HANDOFF.md` with v0.2.0 capabilities and what unlocks v0.3.0
 

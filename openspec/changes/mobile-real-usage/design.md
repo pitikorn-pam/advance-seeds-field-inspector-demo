@@ -99,15 +99,16 @@ interface SeedAnalyzer {
 ### D6. Bounding-box overlay rendering
 Live mode draws boxes via `react-native-skia` over the camera surface — Skia keeps the worklet → UI bridge tight (~16ms). Static review screen renders boxes via `react-native-svg` over an `<Image>` since the source is static. Both consume the same `bbox: { x, y, width, height }` shape from the analyzer.
 
-### D7. Distribution: EAS Build internal + Apple Developer Team
-- Apple Developer Program account ($99/year) is the gate. Once enrolled, `eas build --profile preview --platform ios` produces a TestFlight-ready build.
-- Android uses `eas build --profile preview --platform android` → APK download URL or Google Play internal track (optional, requires Play Console account).
+### D7. Distribution: EAS Build + Firebase App Distribution
+- Apple Developer Program account ($99/year) remains the gate for any iOS install on a non-developer device — Firebase doesn't escape this. Build signing requires a valid developer cert.
+- **Firebase App Distribution** replaces TestFlight as the iOS delivery channel: free, no 90-day build expiry, no Apple build review, polished install flow on both platforms. EAS Build's Firebase integration uploads automatically.
+- **Android: APK distribution via Firebase** — no Play Console required (Play Console is for store distribution, not signing). Same install flow as iOS for tester parity.
 - EAS profiles in `eas.json`:
   - `development` — dev client for local Metro
-  - `preview` — internal distribution (TestFlight + APK)
-  - `production` — App Store / Play Store (deferred)
-- Code signing uses EAS-managed credentials (auto-generated certs / keystores stored in EAS secret store).
-- README and demo script update from "scan QR with Expo Go" to "accept TestFlight invite".
+  - `preview` — Firebase App Distribution upload (iOS + Android)
+  - `production` — App Store / Play Store (deferred to a later milestone)
+- Code signing uses EAS-managed credentials. The Apple Developer Team ID is the only blocking external dependency; Firebase project setup is ~10 minutes.
+- README and demo script update from "Expo Go QR" to "accept Firebase email invite, install on phone".
 
 ### D8. Onboarding pattern (matches prototype)
 - `splash` — brief logo screen, 1.5s, then route to `welcome` (first launch only) or login.
@@ -198,14 +199,18 @@ apps/mobile/
 
 Rollback: if any phase blocks for > 3 days, revert that phase, ship the increment, queue the rest. The `SeedAnalyzer` interface evolution means partial work can still ship — `MockSeedAnalyzer` continues to satisfy the contract while real impls land.
 
+## Resolved Decisions
+
+All seven open questions are resolved as of 2026-04-26; carrying the answers into the architecture below.
+
+1. **Distribution**: Apple Developer Program enrollment proceeds in parallel with code work. **Firebase App Distribution** is the delivery channel for both platforms (free, no Play Console needed for Android, no TestFlight review for iOS). Apple Developer cert remains the unavoidable iOS signing requirement.
+2. **Android**: Firebase App Distribution. No Play Console.
+3. **Test hardware**: iPhone Air + Samsung Z Flip 7 FE. **Neither has LiDAR** — iPhone Air is the slim tier of the iPhone 17 line; LiDAR remains iPhone Pro-exclusive. The LiDAR calibrator ships as feature-detected dormant code; ArUco is the validated production calibration path on the team's hardware. LiDAR validation deferred to a later milestone with Pro hardware.
+4. **Training data**: none available. Ship the pre-trained generic YOLOv11n. Document the precision floor (~70–80% on Thai rice/mungbean) and queue fine-tuning as a follow-up change once Advance Seeds provides labeled images.
+5. **ArUco marker**: ship a generic printable PDF at `docs/calibration/aruco-5cm.pdf` (DICT_4X4_50, marker ID 0). Branded card is a v0.3 nice-to-have.
+6. **Live mode KPI / ROI**: ROI is **flexible — rectangle, polygon, or circle**. User picks an ROI tool from the camera toolbar; counter logic uses point-in-shape on each detection's centroid. Default is full-frame (no ROI applied) on first capture; once an ROI is drawn, it persists per-session.
+7. **Live mode shutter**: store the last frame (no shutter latency, matches the prototype). Precise mode captures a fresh high-res photo. Plus two new orthogonal features: **video recording** (long-press shutter or dedicated record button → MP4 upload to Supabase Storage) and **snapshot while live** (separate snapshot button → saves current frame to local Photos library + optional auxiliary upload, without ending the live session).
+
 ## Open Questions
 
-These need answers before implementation kicks off — they shape the architecture and the calendar:
-
-1. **Apple Developer Program**: do you already have an enrollment in your name or the company's? If not, start it today (5–10 business day approval); without it we can't sign builds for TestFlight. iPhone hardware can sideload via signed dev builds locally but TestFlight invites require a paid team.
-2. **Android distribution**: Google Play internal track (requires Play Console account, $25 one-time) or just signed APK download links? APK is faster; Play track is more professional.
-3. **Test hardware**: which physical phones do you have access to for testing? The LiDAR path needs an iPhone 12 Pro / Pro Max or newer Pro model. ArUco path works on any phone with a camera.
-4. **YOLOv11n training data**: does Advance Seeds have a labeled dataset of seed images (any quantity)? If yes, we ship a fine-tuned model in v0.2.0 and the precision is much higher. If no, we ship a generic pre-trained model and queue fine-tuning as v0.3.
-5. **ArUco marker form factor**: 5 cm × 5 cm is the prototype's reference. Is that the production reference, or do you have an existing branded calibration card? We can ship a printable PDF in `docs/calibration/`.
-6. **Live mode KPI bar**: the prototype shows "Count / Avg mm / Grade A %" updating live. Do you want it to count only seeds inside a target ROI rectangle, or all seeds in the frame? ROI counting is more honest (avoids accidentally counting the inspector's hand).
-7. **First-frame storage**: when the user taps shutter in live mode, do we store the last frame (cheap, low-quality) or capture a fresh high-res photo (~300 ms delay before result)? The prototype implies the former; precise mode definitely uses the latter.
+None at the start of implementation. Reopen if the LiDAR path becomes testable (acquire a Pro device) or if Firebase App Distribution caps surface in real use.

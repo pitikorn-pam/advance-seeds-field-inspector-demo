@@ -70,3 +70,37 @@ The frame processor that drives live detection SHALL not block the UI thread; vi
 - **WHEN** the user scrolls or interacts with overlay elements
 - **THEN** the UI animates smoothly without dropped frames in the visible layer
 - **AND** the inference loop runs on a separate worklet thread
+
+### Requirement: Flexible ROI (region of interest) for live counting
+The mobile app SHALL allow the user to draw an ROI on the live preview using rectangle, polygon, or circle shapes. When an ROI is active, only detections whose centroid lies inside the shape contribute to the KPI strip and to the saved inspection's `total_seeds` / mean measurements.
+
+#### Scenario: Default behavior when no ROI is drawn
+- **GIVEN** no ROI has been drawn in the current session
+- **WHEN** live mode runs
+- **THEN** every detection in the frame contributes to the KPI strip
+- **AND** the captured inspection on shutter includes all detected seeds
+
+#### Scenario: Rectangle ROI
+- **WHEN** the user picks the rectangle tool and drags two corners
+- **THEN** a rectangle overlay appears with draggable handles at each corner
+- **AND** the KPI strip recomputes to count only detections whose centroid falls inside the rectangle
+
+#### Scenario: Polygon ROI
+- **WHEN** the user picks the polygon tool, taps to add vertices, then double-taps to close the shape
+- **THEN** the polygon overlay closes and is rendered with draggable vertex handles
+- **AND** point-in-polygon test gates the KPI counter
+
+#### Scenario: Circle ROI
+- **WHEN** the user picks the circle tool, taps a center point, and drags outward to set the radius
+- **THEN** a circle overlay renders with a center handle (move) and an edge handle (resize)
+- **AND** point-in-circle test gates the KPI counter
+
+#### Scenario: ROI persists per-session, clears on capture
+- **GIVEN** a user has drawn a polygon ROI
+- **WHEN** they tap shutter and save the inspection, then start a new live session
+- **THEN** the ROI is cleared (each session starts ROI-free)
+
+#### Scenario: ROI persists in saved inspection metadata
+- **GIVEN** an active ROI is in use when shutter fires
+- **WHEN** the inspection is saved
+- **THEN** the ROI shape (type + coordinates in image space) is stored on the inspection row's `notes` or a new `roi` JSON column for traceability

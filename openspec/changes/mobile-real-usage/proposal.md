@@ -20,9 +20,10 @@ The v0.1.0 demo proves the architecture, but the mobile app is functionally a CR
 
 ### New Capabilities
 - `mobile-onboarding`: splash + welcome flow shown on first launch; permission requests batched here.
-- `live-camera-capture`: `react-native-vision-camera` integration, viewfinder UI, frame processors, capture pipeline including upload to Supabase Storage.
-- `live-calibration`: ArUco marker detection from frames (cross-platform), iOS LiDAR distance lock, per-frame `pxPerMm` computation feeding the analyzer.
-- `mobile-distribution`: EAS Build pipeline, internal-distribution profile, code-signing config, demo-day install instructions.
+- `live-camera-capture`: `react-native-vision-camera` integration, viewfinder UI, frame processors, **flexible ROI tools (rectangle / polygon / circle)** for honest counting, capture pipeline including upload to Supabase Storage.
+- `live-calibration`: ArUco marker detection from frames (cross-platform). LiDAR distance lock ships as feature-detected dormant code; not validated on current test hardware (iPhone Air + Z Flip 7 FE both lack LiDAR).
+- `live-recording-and-snapshots`: long-press / dedicated button records video to MP4 in Supabase Storage; an in-session snapshot button saves a frame to the device Photos library without ending live mode. Both are orthogonal to the inspection flow.
+- `mobile-distribution`: EAS Build pipeline + **Firebase App Distribution** for both platforms (free, no Play Console; Apple Developer Program $99/yr remains required for iOS signing).
 
 ### Modified Capabilities
 - `inspections-management`: capture stage now operates on real camera frames, persists the actual frame to storage, applies real measurements. The mocked-analysis scenario is removed; live + precise modes added.
@@ -36,7 +37,7 @@ The v0.1.0 demo proves the architecture, but the mobile app is functionally a CR
 - **Dependencies (new)**: `react-native-vision-camera`, `react-native-fast-tflite`, `vision-camera-resize-plugin`, possibly a custom Expo Module for ArUco/LiDAR; `eas-cli` for builds.
 - **Assets**: bundled `yolo11n-seeds.tflite` (~6 MB) + `yolo11n-seeds.mlpackage` for iOS; an ArUco marker reference card PDF for the field kit.
 - **External services**: Apple Developer Program enrollment (~$99/year) for TestFlight; Google Play optional for internal track; EAS account with build minutes (free tier covers internal use).
-- **Demo distribution**: shifts from Expo Go QR (10 sec) to TestFlight invite (~30 min for first install). README and demo script update accordingly.
+- **Demo distribution**: shifts from Expo Go QR (10 sec) to **Firebase App Distribution** email invite (~10 min for first install on iOS, ~3 min on Android). README and demo script update accordingly.
 - **Out of scope (non-goals)**:
   - Offline-first sync queue (separate `mobile-offline-sync` change later)
   - Push notifications and background sync
