@@ -97,7 +97,7 @@
 
 - [x] 7.1 `.github/workflows/ci.yml`: install, lint, typecheck, build all apps on PR
 - [x] 7.2 `.github/workflows/deploy-dashboard.yml`: build dashboard and publish `dist` to `gh-pages` on push to main
-- [ ] 7.3 Verify GH Pages URL serves correctly with the configured base path
+- [x] 7.3 Verify GH Pages URL serves correctly with the configured base path
 - [x] 7.4 Document Expo Go QR distribution in README
 
 ## 8. Demo Polish & Dry-run
