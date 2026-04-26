@@ -53,8 +53,39 @@ pnpm dev
 
 ## Demo distribution
 
-- **Dashboard**: https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/
-- **Mobile**: install Expo Go on the demo phone, scan the QR shown by `pnpm -F mobile start`
+### Dashboard (web)
+
+Live URL: <https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/>
+
+Auto-deploys on every merge to `main` via [`.github/workflows/deploy-dashboard.yml`](.github/workflows/deploy-dashboard.yml). The workflow builds with `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` from repo settings, then publishes `apps/dashboard/dist/` to the `gh-pages` branch.
+
+**One-time setup on the GitHub repo:**
+
+1. **Settings → Pages** → Source: `Deploy from a branch` → Branch: `gh-pages` / `(root)`.
+2. **Settings → Variables → Actions** → add `VITE_SUPABASE_URL` (= `https://gqsxiohxokgwwugeoxmy.supabase.co`).
+3. **Settings → Secrets → Actions** → add `VITE_SUPABASE_ANON_KEY` (the anon key — yes, it's safe in client bundles, but keeping it as a secret keeps it out of action logs).
+
+The `404.html` shim (in `apps/dashboard/public/`) handles deep-link bouncing so URLs like `/inspections/abc` survive a hard reload on GitHub Pages.
+
+### Mobile (Expo Go)
+
+The mobile app is distributed via **Expo Go** for the demo — no App Store / Play Store, no provisioning.
+
+**On demo day:**
+
+1. Make sure Supabase is running and seeded.
+2. Run `pnpm -F @advance-seeds/mobile start` from the laptop. A QR code appears in the terminal and in Metro Studio.
+3. Have the client install **Expo Go** from the App Store / Play Store on their phone.
+4. They scan the QR with the iPhone Camera app or Expo Go (Android). The app loads in ~10 seconds.
+
+**Troubleshooting:**
+
+- The phone and laptop must be on the same Wi-Fi (Expo dev server uses LAN by default). For airline / coffee-shop Wi-Fi that blocks LAN, run with `--tunnel`:
+  ```bash
+  pnpm -F @advance-seeds/mobile start -- --tunnel
+  ```
+- Pin the Expo SDK on the demo phone — newer Expo Go can refuse older SDKs and vice-versa. This project pins SDK 51.
+- For an iPhone older than iPhone 12, Expo Go works, but the LiDAR-related calibration profile won't have a real meaning post-demo (the production app would skip those).
 
 ## Workspace scripts
 
@@ -67,6 +98,9 @@ pnpm dev
 | `pnpm format`              | Prettier-format every file                      |
 | `pnpm supabase:types`      | regenerate `packages/types/src/supabase.gen.ts` |
 | `pnpm supabase:seed-users` | create Jane + Alex users in Supabase            |
+| `pnpm supabase:start`      | start the local Supabase stack (Docker)         |
+| `pnpm supabase:stop`       | stop the local Supabase stack                   |
+| `pnpm supabase:smoke`      | run RLS smoke tests against the local stack     |
 
 ## Spec-driven development with OpenSpec
 
