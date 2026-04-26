@@ -1,3 +1,70 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+  Tokens preset emits Tailwind utilities that resolve to var(--as-*).
+  Browsers handle CSS variables natively; NativeWind 4 needs them defined
+  in this file to translate them at bundle time. Mirrors
+  packages/tokens/dist/css-vars.css with NativeWind's `.dark` selector
+  (the web dashboard uses `[data-theme="dark"]`).
+*/
+@layer base {
+  :root {
+    --as-brand: #0f6e56;
+    --as-brand-soft: #e1f5ee;
+    --as-brand-deep: #04342c;
+    --as-brand-on: #ffffff;
+    --as-bg-primary: #ffffff;
+    --as-bg-secondary: #f4f4f1;
+    --as-bg-tertiary: #fafaf9;
+    --as-text-primary: #1a1a1a;
+    --as-text-secondary: #6b6b68;
+    --as-text-tertiary: #9d9d9a;
+    --as-border-primary: rgba(0, 0, 0, 0.2);
+    --as-border-secondary: rgba(0, 0, 0, 0.12);
+    --as-border-tertiary: rgba(0, 0, 0, 0.06);
+    --as-success-bg: #eaf3de;
+    --as-success-text: #27500a;
+    --as-warning-bg: #faeeda;
+    --as-warning-text: #633806;
+    --as-danger-bg: #fcebeb;
+    --as-danger-text: #791f1f;
+    --as-info-bg: #e6f1fb;
+    --as-info-text: #0c447c;
+    --as-corn-bg: #faeeda;
+    --as-corn-text: #854f0b;
+    --as-rice-bg: #eaf3de;
+    --as-rice-text: #3b6d11;
+    --as-legume-bg: #e1f5ee;
+    --as-legume-text: #0f6e56;
+    --as-mungbean-bg: #faece7;
+    --as-mungbean-text: #993c1d;
+  }
+
+  :root.dark,
+  .dark:root,
+  .dark {
+    --as-brand: #5dcaa5;
+    --as-brand-soft: #04342c;
+    --as-brand-deep: #9fe1cb;
+    --as-brand-on: #04342c;
+    --as-bg-primary: #0f0f11;
+    --as-bg-secondary: #18181b;
+    --as-bg-tertiary: #1f1f22;
+    --as-text-primary: #f5f5f4;
+    --as-text-secondary: #a1a1a0;
+    --as-text-tertiary: #727272;
+    --as-border-primary: rgba(255, 255, 255, 0.24);
+    --as-border-secondary: rgba(255, 255, 255, 0.16);
+    --as-border-tertiary: rgba(255, 255, 255, 0.08);
+    --as-success-bg: #173404;
+    --as-success-text: #c0dd97;
+    --as-warning-bg: #412402;
+    --as-warning-text: #fac775;
+    --as-danger-bg: #501313;
+    --as-danger-text: #f7c1c1;
+    --as-info-bg: #042c53;
+    --as-info-text: #b5d4f4;
+  }
+}

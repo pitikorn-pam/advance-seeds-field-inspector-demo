@@ -10,7 +10,6 @@ import { useVarieties, useBatches, useCalibrations, useCreateInspection } from "
 import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Pill } from "@/components/ui/Pill";
 import { LoadingState } from "@/components/ui/States";
 
 type Stage = "setup" | "mode" | "analyzing" | "saving" | "done";
@@ -90,11 +89,6 @@ export default function CaptureScreen() {
               <Text className="text-caption text-fg-secondary mb-xs">
                 {t("inspections:list.filters.variety")}
               </Text>
-              <View className="flex-row flex-wrap gap-xs mb-md">
-                {varieties.data?.map((v) => (
-                  <Pill key={v.id} tone={varietyId === v.id ? "brand" : "neutral"} label={v.name} />
-                ))}
-              </View>
               <View className="flex-row flex-wrap gap-xs mb-md">
                 {varieties.data?.map((v) => (
                   <Button
