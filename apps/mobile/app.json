@@ -56,9 +56,7 @@
       }
     },
     "owner": "phongsakorn.p",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "0.2.0",
     "updates": {
       "url": "https://u.expo.dev/1783aa09-3848-4373-9a3b-7c1e23205388"
     }
