@@ -1,0 +1,111 @@
+# Tasks — Seed Inspector Demo Foundation
+
+## 1. Repo & Tooling Scaffold
+
+- [x] 1.1 Create `pnpm-workspace.yaml` with `apps/*`, `packages/*` patterns
+- [x] 1.2 Root `package.json` with shared scripts: `dev`, `build`, `lint`, `typecheck`, `format`, `supabase:types`, `supabase:seed-users`
+- [x] 1.3 Root `tsconfig.base.json` (strict) and per-package `tsconfig.json` extending it
+- [x] 1.4 Root ESLint + Prettier config; add format-on-save VS Code settings
+- [x] 1.5 Husky + lint-staged for pre-commit lint/format; commitlint for conventional commits
+- [x] 1.6 Root `README.md` with quickstart, env setup, demo run instructions
+- [x] 1.7 Add `.nvmrc` pinning Node 20.19+ and `engines` in package.json
+
+## 2. Token Pipeline (`packages/tokens`)
+
+- [x] 2.1 Create `packages/tokens` package
+- [x] 2.2 Write `build.ts` reading `docs/handoff/design-tokens.json`
+- [x] 2.3 Emit `dist/tailwind.preset.cjs` (colors, spacing, radii, fonts mapped from JSON)
+- [x] 2.4 Emit `dist/css-vars.css` matching `docs/handoff/design-tokens.css` semantics
+- [x] 2.5 Emit `dist/tokens.ts` runtime export
+- [x] 2.6 Wire `prepare` script so install always rebuilds tokens
+- [x] 2.7 Snapshot test: built CSS matches handoff CSS for every token
+
+## 3. Shared Types & i18n (`packages/types`, `packages/i18n`)
+
+- [x] 3.1 `packages/types`: define `Role`, `Inspection`, `Seed`, `Variety`, `Batch`, `CalibrationProfile`, `AnalysisResult`
+- [x] 3.2 Define `SeedAnalyzer` interface with `analyze(image, opts): Promise<AnalysisResult>`
+- [x] 3.3 Add Supabase generated types placeholder; `pnpm supabase:types` regenerates
+- [x] 3.4 `packages/i18n`: `en/common.json`, `th/common.json`; namespaces per screen group
+- [x] 3.5 Translation key linter: forbid raw English strings in `apps/**/*.tsx` outside i18n bundle
+
+## 4. Supabase Backend (`supabase/`)
+
+- [x] 4.1 Install Supabase CLI; `supabase init`
+- [x] 4.2 Migration: `profiles` (id FK auth.users, role enum, full_name, locale)
+- [x] 4.3 Migration: `varieties` (id, name, scientific_name, description, image_url, created_by, created_at)
+- [x] 4.4 Migration: `batches` (id, code, location, sown_at, notes, created_by, created_at)
+- [x] 4.5 Migration: `calibration_profiles` (id, name, px_per_mm, source enum lidar/aruco, created_at)
+- [x] 4.6 Migration: `inspections` (id, inspector_id FK profiles, variety_id FK, batch_id FK, calibration_id FK, image_url, captured_at, status enum, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2, notes)
+- [x] 4.7 Migration: `seeds` (id, inspection_id FK, index, length_mm, width_mm, area_mm2, grade enum, defects jsonb, bbox jsonb)
+- [x] 4.8 Migration: enable RLS on all tables; add policies for inspector vs admin per design D5
+- [x] 4.9 Migration: storage bucket `inspection-images` (public read, authenticated write)
+- [x] 4.10 `supabase/seed.sql`: 6 varieties, 4 batches, 2 calibration profiles
+- [x] 4.11 `supabase/scripts/seed-users.ts`: creates Jane (inspector) and Alex (admin) via service role; idempotent
+- [x] 4.12 `supabase/scripts/seed-inspections.ts`: 5 inspections for Jane, 2 for Alex with seeds children and uploaded sample images
+- [x] 4.13 RLS smoke test script: sign-in-as-Jane, attempt-read-Alex, expect deny
+- [x] 4.14 README in `supabase/` explaining how to apply schema to the live project
+
+## 5. Web Dashboard (`apps/dashboard`)
+
+- [x] 5.1 Vite + React + TS scaffold with `base: '/advance-seeds-field-inspector-demo/'`
+- [x] 5.2 Tailwind config extending `packages/tokens` preset
+- [x] 5.3 Install shadcn/ui; configure to use token CSS vars
+- [x] 5.4 Supabase client at `src/lib/supabase.ts` reading `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+- [x] 5.5 `.env.example` with placeholders; `.env.local` gitignored
+- [x] 5.6 React Router setup with `basename` matching Vite base
+- [x] 5.7 i18n provider (react-i18next) loaded with shared resources
+- [x] 5.8 Theme provider (light/dark) toggling `data-theme` on `<html>`; persists to localStorage
+- [x] 5.9 AuthGate route component; redirects unauthenticated → `/login`
+- [x] 5.10 Login screen (email + password)
+- [x] 5.11 App shell: top bar with sync pill, locale + theme switchers, user menu
+- [x] 5.12 Home screen: KPI tiles, recent inspections list (admin sees all, inspector sees own)
+- [x] 5.13 Inspections list: filter by variety/batch/inspector (admin only)/date range; search; delete
+- [x] 5.14 Inspection detail: per-seed grid, measurements summary, image with overlay placeholder
+- [x] 5.15 Per-seed detail dialog
+- [x] 5.16 Varieties screen: list + create + edit + delete (admin write; inspector read)
+- [x] 5.17 Batches screen: list + create + edit + delete (admin write; inspector read)
+- [x] 5.18 Reports screen: filters + chart placeholder + CSV export button
+- [x] 5.19 Settings screen: locale toggle, theme toggle, profile read-only
+- [x] 5.20 Empty / loading / error states for every primary screen (per HANDOFF rule)
+- [x] 5.21 Manual smoke test checklist run as Jane and Alex
+
+## 6. Mobile App (`apps/mobile`)
+
+- [x] 6.1 `npx create-expo-app -t default` with TS, RN 0.76 New Architecture
+- [x] 6.2 Install NativeWind; tailwind config consuming `packages/tokens` preset
+- [x] 6.3 Expo Router setup; folder structure per design layout
+- [x] 6.4 Supabase client at `lib/supabase.ts`; AsyncStorage for session
+- [x] 6.5 `.env.example` and Expo `extra` config wiring
+- [x] 6.6 i18n bootstrap with `expo-localization` for default + persisted toggle
+- [x] 6.7 Theme provider using NativeWind dark variants; persists choice
+- [x] 6.8 Auth flow: login screen, session persistence, sign-out
+- [x] 6.9 Bottom tab nav per HANDOFF: Home, Capture, Inspections, Settings
+- [x] 6.10 Home screen with sync pill, "+ New inspection" hero button, recent inspections
+- [x] 6.11 Capture flow: setup → mode → camera shutter → mocked analysis (2s spinner) → results
+- [x] 6.12 `lib/analyzer/MockSeedAnalyzer.ts` returning one of two pre-baked `AnalysisResult`s
+- [x] 6.13 `lib/analyzer/AnalyzerProvider.tsx` exposing `useAnalyzer()`
+- [x] 6.14 Inspections list, inspection detail, per-seed detail
+- [x] 6.15 Varieties screen (admin write, inspector read)
+- [x] 6.16 Batches screen (admin write, inspector read)
+- [x] 6.17 Reports screen with filter sheet + CSV share via `expo-sharing`
+- [x] 6.18 Settings: locale, theme, calibration view (read-only), profile, sign-out
+- [x] 6.19 Calibration screen: shows px/mm value, LiDAR vs ArUco, honest fallback message
+- [x] 6.20 Empty / loading / error states for every primary screen
+- [x] 6.21 Manual smoke test on iOS Expo Go and Android Expo Go as Jane and Alex
+
+## 7. CI / Deploy
+
+- [x] 7.1 `.github/workflows/ci.yml`: install, lint, typecheck, build all apps on PR
+- [x] 7.2 `.github/workflows/deploy-dashboard.yml`: build dashboard and publish `dist` to `gh-pages` on push to main
+- [x] 7.3 Verify GH Pages URL serves correctly with the configured base path
+- [x] 7.4 Document Expo Go QR distribution in README
+
+## 8. Demo Polish & Dry-run
+
+- [x] 8.1 Final pass on copy (EN + TH) for all screens — variety images switched to branded placeholders that match design-token color pairs; copy verified during smoke
+- [x] 8.2 Verify all screens hit the four states (loaded / empty / loading / error) — audit done; one gap recorded: mobile `capture.tsx` lacks an explicit error branch on `create.mutateAsync` failure, queue for next change
+- [ ] 8.3 Pre-load Jane and Alex sessions on demo devices; verify role differences are visible
+- [ ] 8.4 Record a 60s screen-capture backup video (in case demo wifi fails)
+- [x] 8.5 Stage the demo flow script (the 5 things you'll click) — see [`docs/demo-script.md`](../../../docs/demo-script.md)
+- [x] 8.6 Mark `MockSeedAnalyzer` as warned-on-startup in dev mode
+- [x] 8.7 Resolve all four Open Questions in design.md
