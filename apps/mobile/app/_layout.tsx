@@ -72,7 +72,9 @@ export default function RootLayout() {
                     name="inspections/[id]"
                     options={{ headerShown: true, title: "" }}
                   />
-                  <Stack.Screen name="capture" options={{ presentation: "modal" }} />
+                  {/* `capture` lives inside (tabs)/ — it's a tab route, not a
+                      root Stack route. Declaring it here triggers a router
+                      warning. */}
                   <Stack.Screen name="varieties" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="batches" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="reports" options={{ headerShown: true, title: "" }} />

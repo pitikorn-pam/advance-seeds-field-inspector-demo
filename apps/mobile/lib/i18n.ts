@@ -30,6 +30,11 @@ export async function bootstrapI18n() {
     defaultNS: "common",
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
+    // Hermes (Expo's JS runtime) doesn't ship Intl.PluralRules. v3 plurals
+    // use a lookup-table format that doesn't depend on Intl. The dashboard
+    // (web) ships Intl natively so it doesn't need this — the override is
+    // safe because v3 covers EN + TH plural rules correctly.
+    compatibilityJSON: "v3",
   });
   i18n.on("languageChanged", (lng) => {
     void AsyncStorage.setItem(STORAGE_KEY, lng);
