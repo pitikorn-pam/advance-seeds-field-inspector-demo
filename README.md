@@ -25,6 +25,12 @@ openspec/               → spec-driven dev artifacts
 - **Node.js** 20.19+ (see [`.nvmrc`](./.nvmrc))
 - **pnpm** 9+ — install via `corepack enable` then `corepack prepare pnpm@10.33.2 --activate`,
   or via the standalone installer: `curl -fsSL https://get.pnpm.io/install.sh | bash`
+- **Watchman** (macOS) — `brew install watchman`. Required for Metro on this
+  workspace. Without it, Metro's filesystem walker deadlocks against
+  iCloud Drive's File Provider when this repo is checked out under
+  `~/Library/Mobile Documents/`. The deadlock is silent — Metro answers
+  `/status` but never returns bundles. Symptom: "Reloading…" forever in
+  the dev client.
 
 ## Quickstart
 
