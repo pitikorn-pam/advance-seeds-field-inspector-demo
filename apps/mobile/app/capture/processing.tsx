@@ -117,8 +117,16 @@ export default function CaptureProcessing() {
         }, 350);
       } catch (err) {
         if (cancelledRef.current) return;
+        // Surface as much detail as possible — Network failures often arrive
+        // as bare "Network request failed" with the real cause on .cause.
+        const detail =
+          err instanceof Error
+            ? `${err.name}: ${err.message}${err.cause ? `\nCause: ${String(err.cause)}` : ""}`
+            : typeof err === "object" && err !== null
+              ? JSON.stringify(err, null, 2)
+              : String(err);
         console.error("[processing] failed", err);
-        setError(err instanceof Error ? err.message : String(err));
+        setError(detail);
       }
     })();
 

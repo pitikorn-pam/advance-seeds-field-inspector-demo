@@ -39,10 +39,10 @@ export default function CaptureScan() {
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const photo = await cameraRef.current.takePhoto({
-        flash: "auto",
-        enableShutterSound: true,
-      });
+      // flash: "off" is the safest default cross-device. Some Android cameras
+      // throw on flash: "auto" if the lens doesn't expose auto mode; we'll
+      // wire a UI flash toggle in Phase 6 once we read `device.hasFlash`.
+      const photo = await cameraRef.current.takePhoto({ flash: "off" });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       session.set({ capturedImageUri: uri, uploadedImageUrl: null });
       router.push("/capture/processing");

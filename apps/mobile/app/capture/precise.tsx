@@ -35,10 +35,7 @@ export default function CapturePrecise() {
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     try {
-      const photo = await cameraRef.current.takePhoto({
-        flash: "off",
-        enableShutterSound: true,
-      });
+      const photo = await cameraRef.current.takePhoto({ flash: "off" });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       session.set({ capturedImageUri: uri, uploadedImageUrl: null });
       router.push("/capture/processing");

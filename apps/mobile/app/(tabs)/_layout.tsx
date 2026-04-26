@@ -1,18 +1,28 @@
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Home, Camera, ListChecks, Settings } from "lucide-react-native";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+
+  // Android gesture navigation reports its inset via `insets.bottom`. The
+  // previous hardcoded paddingBottom: 24 overlapped the system nav on Z Flip
+  // (and any device with a non-24 gesture pill). Computing height + padding
+  // from the runtime inset keeps the tab bar above the system nav on every
+  // device.
+  const bottomPadding = Math.max(insets.bottom, 8);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#0F6E56",
         tabBarStyle: {
-          height: 80,
+          height: 56 + bottomPadding,
           paddingTop: 8,
-          paddingBottom: 24,
+          paddingBottom: bottomPadding,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "500" },
       }}
