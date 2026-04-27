@@ -113,3 +113,18 @@ export interface InspectionWithDetail extends Inspection {
   inspector: Pick<Profile, "id" | "full_name" | "email">;
   seeds: Seed[];
 }
+
+// ----- Recordings (Phase 7b) ---------------------------------------------
+// Orthogonal to inspections: a session may produce zero or more recordings
+// independent of any inspection row. video_url is the public Supabase
+// Storage URL; duration_ms is captured client-side from the recording API.
+
+export interface Recording {
+  id: string;
+  inspector_id: string;
+  video_url: string;
+  duration_ms: number;
+  captured_at: string;
+  notes: string | null;
+  created_at: string;
+}

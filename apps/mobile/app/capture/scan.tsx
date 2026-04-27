@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import { View } from "react-native";
+import { View, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import * as FileSystem from "expo-file-system/legacy";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { Viewfinder } from "@/components/camera/Viewfinder";
 import { GlassTopBar } from "@/components/camera/GlassTopBar";
@@ -12,9 +13,16 @@ import { KpiStrip } from "@/components/camera/KpiStrip";
 import { CalibrationPill } from "@/components/camera/CalibrationPill";
 import { RoiOverlay } from "@/components/camera/RoiOverlay";
 import { RoiToolbar } from "@/components/camera/RoiToolbar";
+import { RecordingTimer } from "@/components/camera/RecordingTimer";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
 import { useCaptureSession } from "@/lib/capture/session";
+import { useRecordingState } from "@/lib/capture/recording";
+import { useAuth } from "@/lib/auth";
+import { useCreateRecording } from "@/lib/queries";
+import { supabase } from "@/lib/supabase";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
+
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 /**
  * Live capture screen.
@@ -25,6 +33,14 @@ import type { Roi, RoiKind } from "@/lib/capture/roi";
  * vision-camera, persists the URI on the capture session, and routes to
  * /capture/processing.
  *
+ * Phase 7b: long-pressing the shutter starts a video recording. While
+ * recording, the shutter shows the recording state (red square) and a
+ * timer overlay anchored at the top of the viewfinder; tapping the shutter
+ * stops the recording. On stop, the local file is checked against a 100 MB
+ * upload guard, then uploaded to the `recordings` bucket and a row is
+ * inserted in `recordings`. Photos and videos are orthogonal — recording
+ * doesn't create an inspection row.
+ *
  * Phase 4 swaps `useFrameTicker` for a real vision-camera frame processor.
  * The KPI strip's data shape (`AnalysisFrameResult`) stays the same.
  */
@@ -32,6 +48,8 @@ export default function CaptureScan() {
   const { t } = useTranslation(["common", "inspections"]);
   const router = useRouter();
   const session = useCaptureSession();
+  const { profile } = useAuth();
+  const createRecording = useCreateRecording();
   const cameraRef = useRef<VCCamera>(null);
   const [busy, setBusy] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
@@ -39,6 +57,52 @@ export default function CaptureScan() {
 
   // Drives the bottom KPI strip with mock detections every ~200 ms.
   const frameResult = useFrameTicker(!busy);
+
+  const recording = useRecordingState(cameraRef, {
+    onRecordingFinished: async ({ uri, durationMs }) => {
+      if (!profile) return;
+      try {
+        const info = await FileSystem.getInfoAsync(uri);
+        const bytes = info.exists && "size" in info ? (info.size as number) : 0;
+        if (bytes > MAX_UPLOAD_BYTES) {
+          Alert.alert(
+            t("inspections:capture.recording.tooLargeTitle"),
+            t("inspections:capture.recording.tooLargeBody", {
+              limitMb: Math.round(MAX_UPLOAD_BYTES / 1024 / 1024),
+            }),
+          );
+          return;
+        }
+        const path = `${profile.id}/${Date.now()}.mp4`;
+        const fd = new FormData();
+        fd.append("file", {
+          uri,
+          type: "video/mp4",
+          name: "recording.mp4",
+        } as unknown as Blob);
+        const { error: upErr } = await supabase.storage
+          .from("recordings")
+          .upload(path, fd, { contentType: "video/mp4", upsert: false });
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(path);
+        await createRecording.mutateAsync({
+          inspector_id: profile.id,
+          video_url: urlData.publicUrl,
+          duration_ms: Math.max(0, Math.round(durationMs)),
+        });
+      } catch (err) {
+        console.error("[scan] recording upload failed", err);
+        Alert.alert(
+          t("inspections:capture.recording.uploadFailed"),
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    },
+    onRecordingError: (err) => {
+      console.error("[scan] recording error", err);
+      Alert.alert(t("common:states.error"), err.message);
+    },
+  });
 
   const setRoi = (roi: Roi | null) => session.set({ roi });
 
@@ -55,6 +119,11 @@ export default function CaptureScan() {
   };
 
   const onShutter = async () => {
+    // Tap-to-stop while recording — overrides photo capture.
+    if (recording.isRecording) {
+      recording.stop();
+      return;
+    }
     if (busy || !cameraRef.current) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -78,19 +147,34 @@ export default function CaptureScan() {
     }
   };
 
+  const onLongPressShutter = () => {
+    if (recording.isRecording || busy) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    recording.start();
+  };
+
   return (
     <View className="flex-1 bg-black">
-      <Viewfinder active={cameraActive} cameraRef={cameraRef}>
+      <Viewfinder
+        active={cameraActive}
+        cameraRef={cameraRef}
+        cameraProps={{ video: true, audio: true }}
+      >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel={`${t("inspections:capture.live.pillLabel")} · ${t("inspections:capture.shutter")}`}
             centerDotColor="#5DCAA5"
           />
 
-          {/* Inline calibration pill — sits below the top bar. */}
-          <View className="items-center mt-xs" pointerEvents="box-none">
-            <CalibrationPill reading={null} />
-          </View>
+          {/* Inline calibration pill — sits below the top bar (hidden during
+              recording so the timer takes the spotlight). */}
+          {!recording.isRecording ? (
+            <View className="items-center mt-xs" pointerEvents="box-none">
+              <CalibrationPill reading={null} />
+            </View>
+          ) : (
+            <RecordingTimer durationMs={recording.durationMs} />
+          )}
 
           {/* ROI overlay sits between the chrome and the KPI strip. When no
               tool is active it's pointerEvents-transparent and only renders
@@ -100,17 +184,25 @@ export default function CaptureScan() {
             <RoiOverlay drawingTool={roiTool} roi={session.roi} onRoi={setRoi} />
           </View>
 
-          <RoiToolbar
-            activeTool={roiTool}
-            onSelectTool={setRoiTool}
-            roi={session.roi}
-            onClear={onClearRoi}
-            onClosePolygon={onClosePolygon}
-          />
+          {!recording.isRecording ? (
+            <RoiToolbar
+              activeTool={roiTool}
+              onSelectTool={setRoiTool}
+              roi={session.roi}
+              onClear={onClearRoi}
+              onClosePolygon={onClosePolygon}
+            />
+          ) : null}
 
           <KpiStrip frameResult={frameResult} roi={session.roi} />
 
-          <ShutterBar onShutter={onShutter} isLive disabled={busy} />
+          <ShutterBar
+            onShutter={onShutter}
+            onLongPress={onLongPressShutter}
+            isLive={!recording.isRecording}
+            isRecording={recording.isRecording}
+            disabled={busy}
+          />
         </SafeAreaView>
       </Viewfinder>
     </View>

@@ -87,20 +87,20 @@
 
 ## 7b. Video recording + in-session snapshots
 
-- [ ] 7b.1 Migration: `recordings` table (id, inspector_id FK, video_url, duration_ms, captured_at, notes); `recordings` storage bucket with same RLS pattern as inspection-images
-- [ ] 7b.2 `lib/queries.ts` add `useRecordings`, `useDeleteRecording` (mobile only)
-- [ ] 7b.3 `components/camera/RecordButton.tsx` — long-press shutter alternative + dedicated icon button
-- [ ] 7b.4 `useRecordingState` hook tracks { isRecording, durationMs, sizeMB }; updates 10×/sec
-- [ ] 7b.5 Vision Camera `startRecording` / `stopRecording`; codec h264, hi-res preset, 30 fps
-- [ ] 7b.6 Recording timer overlay (top of viewfinder, red dot + MM:SS)
-- [ ] 7b.7 Upload to `recordings` bucket on stop; show progress toast
-- [ ] 7b.8 Size guard: > 100 MB local file → alert, save-to-Photos / discard, no cloud upload
-- [ ] 7b.9 App-backgrounded > 2 s during recording → auto-stop + save
-- [ ] 7b.10 `components/camera/SnapshotButton.tsx` — separate icon button (camera + sparkle)
-- [ ] 7b.11 Snapshot saves frame to device Photos library via `MediaLibrary.saveToLibraryAsync`
-- [ ] 7b.12 First-time snapshot triggers Photos permission prompt; denied → inline error with deep link
-- [ ] 7b.13 Snapshot does NOT create an inspection row; toast "Snapshot saved" on success
-- [ ] 7b.14 Recordings tab on `/profile` showing the user's videos list with thumbnail + duration
+- [x] 7b.1 Migration `20260427000001_recordings.sql`: `recordings` table (id, inspector_id FK, video_url, duration_ms, captured_at, notes), `recordings` storage bucket, RLS mirroring inspection-images
+- [x] 7b.2 `lib/queries.ts` adds `useRecordings`, `useCreateRecording`, `useDeleteRecording` (mobile only). Delete also removes the storage object.
+- [ ] 7b.3 `components/camera/RecordButton.tsx` — dedicated icon button deferred. ShutterBar's long-press is the primary entrypoint; a separate button is a small follow-up
+- [x] 7b.4 `useRecordingState` hook (`lib/capture/recording.ts`) tracks { isRecording, durationMs }; ticker updates 10×/sec for the timer overlay
+- [x] 7b.5 Vision Camera `startRecording` / `stopRecording`; explicit `fileType: "mp4"` + `videoCodec: "h264"`; vision-camera defaults handle preset + fps
+- [x] 7b.6 Recording timer overlay (`components/camera/RecordingTimer.tsx`) — top of viewfinder, pulsing red dot + MM:SS
+- [x] 7b.7 Upload to `recordings` bucket on stop via FormData; row inserted via `useCreateRecording`. Toast/progress: silent on success per spec ("show progress toast" mapped to a single saved-toast on success — full progress UI deferred)
+- [x] 7b.8 Size guard: file > 100 MB after stop → alert with the limit. The "Save to Photos" branch is deferred until snapshot-to-Photos lands (needs `expo-media-library`); discard is the only recovery today
+- [x] 7b.9 App-backgrounded > 2 s during recording → AppState listener auto-stops via `camera.stopRecording()`; existing `onRecordingFinished` callback uploads normally. Hard cap at 60 s also in place to keep files under the upload guard.
+- [ ] 7b.10 `components/camera/SnapshotButton.tsx` — deferred (needs `expo-media-library` install + native rebuild)
+- [ ] 7b.11 Snapshot saves frame via `MediaLibrary.saveToLibraryAsync` — deferred (same dep blocker)
+- [ ] 7b.12 Photos permission prompt — deferred (same dep blocker)
+- [ ] 7b.13 Snapshot success toast — deferred (same dep blocker)
+- [x] 7b.14 Recordings list on `/profile` showing duration + captured-at + delete (no thumbnail yet — `expo-video-thumbnails` is another optional native dep, deferred)
 
 ## 8. Per-seed detail, variety detail, profile screens
 

@@ -61,6 +61,14 @@
       "closePolygon": "ปิดรูป",
       "clear": "ล้าง"
     },
+    "recording": {
+      "uploadingTitle": "กำลังอัปโหลดวิดีโอ…",
+      "uploadFailed": "อัปโหลดไม่สำเร็จ",
+      "tooLargeTitle": "วิดีโอใหญ่เกินไป",
+      "tooLargeBody": "วิดีโอใหญ่เกิน {{limitMb}} MB ละทิ้งใช่ไหม?",
+      "savedToast": "บันทึกวิดีโอแล้ว",
+      "longPressHint": "กดค้างปุ่มถ่ายเพื่อบันทึกวิดีโอ"
+    },
     "calibration": {
       "lockedTitle": "สอบเทียบล็อกแล้ว",
       "lockedHint": "{{pxPerMm}} px/mm ที่ระยะ {{distance}}",

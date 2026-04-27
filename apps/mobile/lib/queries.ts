@@ -9,6 +9,7 @@ import type {
   Batch,
   CalibrationProfile,
   Profile,
+  Recording,
 } from "@advance-seeds/types";
 import { supabase } from "./supabase";
 
@@ -19,6 +20,7 @@ const keys = {
   batches: ["batches"] as const,
   calibrations: ["calibrations"] as const,
   profiles: ["profiles"] as const,
+  recordings: ["recordings"] as const,
 };
 
 export type InspectionRow = Inspection & {
@@ -182,6 +184,69 @@ export function useInspectors() {
       if (error) throw error;
       return (data ?? []) as unknown as Pick<Profile, "id" | "full_name" | "email" | "role">[];
     },
+  });
+}
+
+// ----- Recordings (Phase 7b) ---------------------------------------------
+
+export function useRecordings() {
+  return useQuery({
+    queryKey: keys.recordings,
+    queryFn: async (): Promise<Recording[]> => {
+      const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("recordings" as any)
+        .select("*")
+        .order("captured_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Recording[];
+    },
+  });
+}
+
+export function useCreateRecording() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      inspector_id: string;
+      video_url: string;
+      duration_ms: number;
+      notes?: string | null;
+    }) => {
+      const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("recordings" as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(args as any)
+        .select("id")
+        .single();
+      if (error || !data) throw error ?? new Error("recording insert failed");
+      return (data as unknown as { id: string }).id;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.recordings }),
+  });
+}
+
+export function useDeleteRecording() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (rec: Recording) => {
+      // Best-effort: delete the storage object too. Failure here is logged
+      // and the row deletion proceeds — orphaned objects are recoverable
+      // via the bucket's owner-delete policy.
+      const path = rec.video_url.split("/recordings/")[1];
+      if (path) {
+        const { error: objErr } = await supabase.storage.from("recordings").remove([path]);
+        if (objErr) console.warn("[recordings] storage delete failed", objErr);
+      }
+      const { error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("recordings" as any)
+        .delete()
+        .eq("id", rec.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.recordings }),
   });
 }
 

@@ -61,6 +61,14 @@
       "closePolygon": "Close",
       "clear": "Clear"
     },
+    "recording": {
+      "uploadingTitle": "Uploading recording…",
+      "uploadFailed": "Upload failed",
+      "tooLargeTitle": "Recording too large",
+      "tooLargeBody": "The video exceeds the {{limitMb}} MB upload limit. Discard?",
+      "savedToast": "Recording saved",
+      "longPressHint": "Hold the shutter to record"
+    },
     "calibration": {
       "lockedTitle": "Calibration locked",
       "lockedHint": "{{pxPerMm}} px/mm at {{distance}}",

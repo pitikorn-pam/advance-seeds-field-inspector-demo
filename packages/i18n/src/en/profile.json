@@ -11,5 +11,11 @@
     "syncStatusUpToDate": "Up to date",
     "help": "Help and support",
     "signOut": "Sign out"
+  },
+  "recordings": {
+    "title": "Recordings",
+    "empty": "No recordings yet. Hold the shutter on Capture to record.",
+    "durationFormat": "{{m}}:{{s}}",
+    "deleteConfirm": "Delete this recording? This cannot be undone."
   }
 }
