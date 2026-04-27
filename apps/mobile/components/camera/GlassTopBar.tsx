@@ -54,21 +54,36 @@ export function GlassTopBar({
     </Pressable>
   );
 
+  // Active state gets a tinted background + brighter icon so a tap is
+  // unambiguously "something happened" — a 1 px icon swap on a glass surface
+  // reads as a no-op even when state is updating correctly.
+  const flashActive = flashMode === "on" || flashMode === "auto";
+  const flashLabel = flashMode === "on" ? "ON" : flashMode === "auto" ? "AUTO" : null;
   const flash = (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Toggle flash"
-      className="h-9 w-9 items-center justify-center rounded-full bg-black/50"
+      style={{
+        backgroundColor: flashActive ? "rgba(255, 214, 107, 0.85)" : "rgba(0, 0, 0, 0.5)",
+      }}
+      className={`h-9 items-center justify-center rounded-full flex-row gap-[3px] ${
+        flashLabel ? "px-md" : "w-9"
+      }`}
       onPress={onFlashPress}
       // When no handler is wired, render but disable so the icon still
       // reads — keeps the layout balanced on screens that haven't opted in.
       disabled={!onFlashPress}
     >
-      {flashMode === "on" || flashMode === "auto" ? (
-        <Zap color={flashMode === "auto" ? "#5DCAA5" : "#FFD66B"} size={18} />
+      {flashActive ? (
+        <Zap color="#1A1A1A" size={16} fill="#1A1A1A" />
       ) : (
         <ZapOff color="white" size={18} />
       )}
+      {flashLabel ? (
+        <Text style={{ color: "#1A1A1A", fontSize: 10, fontWeight: "600", letterSpacing: 0.4 }}>
+          {flashLabel}
+        </Text>
+      ) : null}
     </Pressable>
   );
 
