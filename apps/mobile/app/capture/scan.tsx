@@ -58,6 +58,10 @@ export default function CaptureScan() {
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
+  // Torch is the LED-as-flashlight control. Vision Camera's `flash: 'on'`
+  // option is unreliable on iOS 26 + iPhone 17 series, so we briefly toggle
+  // the torch around `takePhoto` instead. See onShutter for the bracket.
+  const [torch, setTorch] = useState<"off" | "on">("off");
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
@@ -136,6 +140,18 @@ export default function CaptureScan() {
     if (busy || !cameraRef.current) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Bracket takePhoto with torch-on for explicit "flash: on" + back camera.
+    // Auto stays system-decided; off and front-camera (no LED hardware) skip
+    // the bracket entirely.
+    const wantFlash = flashMode === "on" && position === "back";
+    if (wantFlash) {
+      setTorch("on");
+      // Give the native side ~80 ms to honour the new prop. setState ➜ render
+      // ➜ Camera receives torch="on" ➜ AVCaptureDevice toggles the LED — three
+      // hops, each ~one frame. Without this gap, takePhoto often runs before
+      // the LED is on.
+      await new Promise((r) => setTimeout(r, 80));
+    }
     try {
       const photo = await cameraRef.current.takePhoto({ flash: flashMode });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
@@ -150,6 +166,8 @@ export default function CaptureScan() {
     } catch (err) {
       console.error("[scan] takePhoto failed", err);
       setBusy(false);
+    } finally {
+      if (wantFlash) setTorch("off");
     }
   };
 
@@ -166,7 +184,7 @@ export default function CaptureScan() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        cameraProps={{ video: true, audio: true }}
+        cameraProps={{ video: true, audio: true, torch }}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar

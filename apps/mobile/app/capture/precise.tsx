@@ -37,6 +37,9 @@ export default function CapturePrecise() {
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
+  // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
+  // iPhone 17 series — see scan.tsx for the rationale.
+  const [torch, setTorch] = useState<"off" | "on">("off");
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
@@ -47,6 +50,11 @@ export default function CapturePrecise() {
     if (busy || !cameraRef.current) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    const wantFlash = flashMode === "on" && position === "back";
+    if (wantFlash) {
+      setTorch("on");
+      await new Promise((r) => setTimeout(r, 80));
+    }
     try {
       const photo = await cameraRef.current.takePhoto({ flash: flashMode });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
@@ -59,6 +67,8 @@ export default function CapturePrecise() {
     } catch (err) {
       console.error("[precise] takePhoto failed", err);
       setBusy(false);
+    } finally {
+      if (wantFlash) setTorch("off");
     }
   };
 
@@ -69,6 +79,7 @@ export default function CapturePrecise() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
+        cameraProps={{ torch }}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
