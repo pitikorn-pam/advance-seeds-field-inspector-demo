@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import type { ReactNode, RefObject } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
-import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
+import { View, Text, ActivityIndicator, Linking } from "react-native";
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission,
+} from "react-native-vision-camera";
 import type { CameraProps } from "react-native-vision-camera";
-import { Linking } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button";
 
@@ -11,6 +15,10 @@ interface Props {
   active?: boolean;
   /** Forwarded to the underlying Camera so callers can invoke `takePhoto` etc. */
   cameraRef?: RefObject<Camera | null>;
+  /** Lens to use. "back" by default; "front" for selfie / flip. */
+  position?: "back" | "front";
+  /** Renders a 3×3 rule-of-thirds grid over the preview when true. */
+  showGrid?: boolean;
   /**
    * Children render OVER the camera preview — used for detection rings,
    * ROI overlays, glass-style chrome, etc. They sit at the same flex layer
@@ -20,7 +28,9 @@ interface Props {
   /**
    * Optional Camera-component props passed through. Useful for setting fps,
    * format, photo / video flags. Vision-camera will pick the closest match
-   * to the requested options on the selected device.
+   * to the requested options on the selected device. If `audio: true` is
+   * requested but the mic permission is denied, we silently downgrade to
+   * audio: false rather than crashing the camera mount.
    */
   cameraProps?: Omit<Partial<CameraProps>, "ref" | "device" | "isActive">;
   /** Wrapper-level className (NativeWind). Default: flex-1 black. */
@@ -29,23 +39,37 @@ interface Props {
 
 /**
  * A thin wrapper around `react-native-vision-camera`'s `<Camera>` that
- * adds permission gating, device-not-found handling, and a slot for
- * children rendered over the live preview.
+ * adds permission gating, device-not-found handling, position swap,
+ * grid overlay, and a slot for children rendered over the live preview.
  */
-export function Viewfinder({ active = true, cameraRef, children, cameraProps, className }: Props) {
+export function Viewfinder({
+  active = true,
+  cameraRef,
+  position = "back",
+  showGrid = false,
+  children,
+  cameraProps,
+  className,
+}: Props) {
   const { t } = useTranslation();
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice("back");
+  const camPerm = useCameraPermission();
+  const micPerm = useMicrophonePermission();
+  const device = useCameraDevice(position);
   const [requested, setRequested] = useState(false);
 
   useEffect(() => {
-    if (!hasPermission && !requested) {
+    if (!camPerm.hasPermission && !requested) {
       setRequested(true);
-      void requestPermission();
+      void camPerm.requestPermission();
+      // Also kick off mic permission so audio-enabled recordings don't fail
+      // later. Best-effort; vision-camera silently no-ops on already-denied.
+      if (!micPerm.hasPermission) {
+        void micPerm.requestPermission();
+      }
     }
-  }, [hasPermission, requested, requestPermission]);
+  }, [camPerm, micPerm, requested]);
 
-  if (!hasPermission) {
+  if (!camPerm.hasPermission) {
     return (
       <View className={`flex-1 items-center justify-center bg-black gap-md ${className ?? ""}`}>
         <Text className="text-white text-h2 font-medium">
@@ -72,6 +96,12 @@ export function Viewfinder({ active = true, cameraRef, children, cameraProps, cl
     );
   }
 
+  // Strip `audio: true` if mic permission is missing — Vision Camera throws
+  // a microphone-permission-denied error on mount otherwise. Recording will
+  // re-request permission on demand if the user tries it.
+  const safeCameraProps =
+    cameraProps?.audio && !micPerm.hasPermission ? { ...cameraProps, audio: false } : cameraProps;
+
   return (
     <View className={`flex-1 bg-black ${className ?? ""}`}>
       <Camera
@@ -85,9 +115,63 @@ export function Viewfinder({ active = true, cameraRef, children, cameraProps, cl
         // for photo capture and that contribute to the rnscreens
         // `getChildDrawingOrder` crash on stack transitions. Phase 7b's
         // recording flow opts in via `cameraProps={{ video: true, audio: true }}`.
-        {...cameraProps}
+        {...safeCameraProps}
       />
+      {showGrid ? <GridOverlay /> : null}
       <View className="absolute inset-0">{children}</View>
+    </View>
+  );
+}
+
+/**
+ * Rule-of-thirds grid. Rendered as four 0.5px lines at 33% and 66% of the
+ * viewport in each axis. White at 35% opacity reads against most scenes
+ * without competing with detection rings or the KPI strip.
+ */
+function GridOverlay() {
+  const stroke = "rgba(255,255,255,0.35)";
+  return (
+    <View className="absolute inset-0" pointerEvents="none">
+      <View
+        style={{
+          position: "absolute",
+          left: "33.333%",
+          top: 0,
+          bottom: 0,
+          width: 0.5,
+          backgroundColor: stroke,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          left: "66.666%",
+          top: 0,
+          bottom: 0,
+          width: 0.5,
+          backgroundColor: stroke,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: "33.333%",
+          left: 0,
+          right: 0,
+          height: 0.5,
+          backgroundColor: stroke,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: "66.666%",
+          left: 0,
+          right: 0,
+          height: 0.5,
+          backgroundColor: stroke,
+        }}
+      />
     </View>
   );
 }

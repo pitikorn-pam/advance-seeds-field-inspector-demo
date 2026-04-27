@@ -8,6 +8,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { Viewfinder } from "@/components/camera/Viewfinder";
 import { GlassTopBar } from "@/components/camera/GlassTopBar";
+import type { FlashMode } from "@/components/camera/GlassTopBar";
 import { ShutterBar } from "@/components/camera/ShutterBar";
 import { KpiStrip } from "@/components/camera/KpiStrip";
 import { CalibrationPill } from "@/components/camera/CalibrationPill";
@@ -54,6 +55,14 @@ export default function CaptureScan() {
   const [busy, setBusy] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
   const [roiTool, setRoiTool] = useState<RoiKind | null>(null);
+  const [position, setPosition] = useState<"back" | "front">("back");
+  const [flashMode, setFlashMode] = useState<FlashMode>("off");
+  const [showGrid, setShowGrid] = useState(false);
+
+  const cycleFlash = () =>
+    setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
+  const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
+  const toggleGrid = () => setShowGrid((g) => !g);
 
   // Drives the bottom KPI strip with mock detections every ~200 ms.
   const frameResult = useFrameTicker(!busy);
@@ -128,10 +137,7 @@ export default function CaptureScan() {
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      // flash: "off" is the safest default cross-device. Some Android cameras
-      // throw on flash: "auto" if the lens doesn't expose auto mode; we'll
-      // wire a UI flash toggle in Phase 6 once we read `device.hasFlash`.
-      const photo = await cameraRef.current.takePhoto({ flash: "off" });
+      const photo = await cameraRef.current.takePhoto({ flash: flashMode });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       session.set({ capturedImageUri: uri, uploadedImageUrl: null });
 
@@ -158,12 +164,16 @@ export default function CaptureScan() {
       <Viewfinder
         active={cameraActive}
         cameraRef={cameraRef}
+        position={position}
+        showGrid={showGrid}
         cameraProps={{ video: true, audio: true }}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel={`${t("inspections:capture.live.pillLabel")} · ${t("inspections:capture.shutter")}`}
             centerDotColor="#5DCAA5"
+            flashMode={flashMode}
+            onFlashPress={cycleFlash}
           />
 
           {/* Inline calibration pill — sits below the top bar (hidden during
@@ -199,6 +209,8 @@ export default function CaptureScan() {
           <ShutterBar
             onShutter={onShutter}
             onLongPress={onLongPressShutter}
+            onFlip={toggleFlip}
+            onGrid={toggleGrid}
             isLive={!recording.isRecording}
             isRecording={recording.isRecording}
             disabled={busy}

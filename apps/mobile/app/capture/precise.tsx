@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { Viewfinder } from "@/components/camera/Viewfinder";
 import { GlassTopBar } from "@/components/camera/GlassTopBar";
+import type { FlashMode } from "@/components/camera/GlassTopBar";
 import { ShutterBar } from "@/components/camera/ShutterBar";
 import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
 import { useCaptureSession } from "@/lib/capture/session";
@@ -22,6 +23,9 @@ import { useCaptureSession } from "@/lib/capture/session";
  *
  * The shutter remains enabled even without a lock (same fallback as live
  * mode) so the screen is testable end-to-end on hardware that lacks LiDAR.
+ *
+ * Camera controls (flash / flip / grid) mirror scan mode but live as local
+ * state — there's no value carrying them across modes.
  */
 export default function CapturePrecise() {
   const { t } = useTranslation(["common", "inspections"]);
@@ -30,13 +34,21 @@ export default function CapturePrecise() {
   const cameraRef = useRef<VCCamera>(null);
   const [busy, setBusy] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
+  const [position, setPosition] = useState<"back" | "front">("back");
+  const [flashMode, setFlashMode] = useState<FlashMode>("off");
+  const [showGrid, setShowGrid] = useState(false);
+
+  const cycleFlash = () =>
+    setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
+  const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
+  const toggleGrid = () => setShowGrid((g) => !g);
 
   const onShutter = async () => {
     if (busy || !cameraRef.current) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     try {
-      const photo = await cameraRef.current.takePhoto({ flash: "off" });
+      const photo = await cameraRef.current.takePhoto({ flash: flashMode });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       session.set({ capturedImageUri: uri, uploadedImageUrl: null });
 
@@ -52,11 +64,18 @@ export default function CapturePrecise() {
 
   return (
     <View className="flex-1 bg-black">
-      <Viewfinder active={cameraActive} cameraRef={cameraRef}>
+      <Viewfinder
+        active={cameraActive}
+        cameraRef={cameraRef}
+        position={position}
+        showGrid={showGrid}
+      >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel={`${t("inspections:capture.precise.pillLabel")} · ${t("inspections:capture.shutter")}`}
             centerDotColor="#B5D4F4"
+            flashMode={flashMode}
+            onFlashPress={cycleFlash}
           />
 
           {/* Corner brackets + "Hold steady" guidance. Phase 5 hooks the
@@ -83,7 +102,12 @@ export default function CapturePrecise() {
             <CalibrationBanner reading={null} />
           </View>
 
-          <ShutterBar onShutter={onShutter} disabled={busy} />
+          <ShutterBar
+            onShutter={onShutter}
+            onFlip={toggleFlip}
+            onGrid={toggleGrid}
+            disabled={busy}
+          />
         </SafeAreaView>
       </Viewfinder>
     </View>

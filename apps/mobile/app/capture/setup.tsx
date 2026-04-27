@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ScrollView, View, Text } from "react-native";
+import { ScrollView, View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Camera } from "lucide-react-native";
+import { Camera, X } from "lucide-react-native";
 import { useVarieties, useBatches, useCalibrations } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -42,12 +42,28 @@ export default function CaptureSetup() {
     router.push(mode === "live" ? "/capture/scan" : "/capture/precise");
   };
 
+  // Close goes to the (tabs) home rather than router.back() — the user
+  // typically lands here from the Capture tab, and after saving we
+  // session.reset(), so there's no meaningful "back" target. Closing to
+  // home is the predictable behaviour.
+  const onClose = () => router.replace("/");
+
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <ScrollView contentContainerClassName="px-xl py-xl gap-xl">
-        <Text className="text-h1 font-medium text-fg-primary">
-          {t("common:actions.newInspection")}
-        </Text>
+        <View className="flex-row items-center gap-md">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("common:actions.cancel")}
+            className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
+            onPress={onClose}
+          >
+            <X color="#1A1A1A" size={18} />
+          </Pressable>
+          <Text className="flex-1 text-h1 font-medium text-fg-primary">
+            {t("common:actions.newInspection")}
+          </Text>
+        </View>
 
         <Card>
           <Text className="text-h2 font-medium text-fg-primary mb-md">

@@ -23,12 +23,17 @@ export default function Welcome() {
   const router = useRouter();
 
   const onContinue = async () => {
-    // Pre-flight camera permission: best-effort. We don't gate Continue on
-    // grant — the user can still sign in, and capture/scan re-asks if needed.
+    // Pre-flight camera + microphone permissions in parallel. Best-effort:
+    // we don't gate Continue on grant — the user can still sign in. Camera
+    // is mandatory before /capture/scan does anything; mic only matters
+    // for video recording (Phase 7b) and degrades gracefully if denied.
     try {
-      await VCCamera.requestCameraPermission();
+      await Promise.all([
+        VCCamera.requestCameraPermission(),
+        VCCamera.requestMicrophonePermission(),
+      ]);
     } catch {
-      // ignore — permission request can throw on emulators or denied states
+      // permission request can throw on emulators or denied states
     }
     await setOnboarded();
     router.replace("/login");

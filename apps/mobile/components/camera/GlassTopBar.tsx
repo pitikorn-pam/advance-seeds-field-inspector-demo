@@ -1,18 +1,25 @@
 import type { ReactNode } from "react";
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Zap } from "lucide-react-native";
+import { ArrowLeft, Zap, ZapOff } from "lucide-react-native";
+
+export type FlashMode = "off" | "on" | "auto";
 
 interface Props {
   /** Left content. Defaults to a back button. */
   left?: ReactNode;
-  /** Center pill content (e.g. "Live · Rice — Hom Mali"). */
+  /** Center pill content. */
   center?: ReactNode;
-  /** Right content. Defaults to a flash toggle (placeholder; wired in Phase 6). */
+  /** Right content. Defaults to a flash toggle when `flashMode` is provided,
+   *  otherwise a no-op flash icon for visual completeness. */
   right?: ReactNode;
   /** Optional dot color for the center pill (status indicator). */
   centerDotColor?: string;
   centerLabel?: string;
+  /** Flash state for the default right slot. */
+  flashMode?: FlashMode;
+  /** Tap handler for the default flash button. */
+  onFlashPress?: () => void;
 }
 
 /**
@@ -20,12 +27,26 @@ interface Props {
  * white icons — matches the prototype's `.glass` element. Sits over a live
  * camera preview so it must be self-contained (no token-color dependency
  * other than the brand-on accents).
+ *
+ * The right slot defaults to a flash button. Pass `flashMode` + `onFlashPress`
+ * to make it interactive (the icon swaps Zap ↔ ZapOff). Pass a custom
+ * `right` node to override entirely.
  */
-export function GlassTopBar({ left, center, right, centerDotColor, centerLabel }: Props) {
+export function GlassTopBar({
+  left,
+  center,
+  right,
+  centerDotColor,
+  centerLabel,
+  flashMode,
+  onFlashPress,
+}: Props) {
   const router = useRouter();
 
   const back = (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Back"
       className="h-9 w-9 items-center justify-center rounded-full bg-black/50"
       onPress={() => router.back()}
     >
@@ -34,8 +55,20 @@ export function GlassTopBar({ left, center, right, centerDotColor, centerLabel }
   );
 
   const flash = (
-    <Pressable className="h-9 w-9 items-center justify-center rounded-full bg-black/50">
-      <Zap color="white" size={18} />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Toggle flash"
+      className="h-9 w-9 items-center justify-center rounded-full bg-black/50"
+      onPress={onFlashPress}
+      // When no handler is wired, render but disable so the icon still
+      // reads — keeps the layout balanced on screens that haven't opted in.
+      disabled={!onFlashPress}
+    >
+      {flashMode === "on" || flashMode === "auto" ? (
+        <Zap color={flashMode === "auto" ? "#5DCAA5" : "#FFD66B"} size={18} />
+      ) : (
+        <ZapOff color="white" size={18} />
+      )}
     </Pressable>
   );
 
