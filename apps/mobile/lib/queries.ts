@@ -29,15 +29,26 @@ export type InspectionRow = Inspection & {
   inspector: { id: string; full_name: string | null; email: string } | null;
 };
 
-const inspectionSelect = `
+// Two projection strings:
+//   • inspectionListSelect — used by useInspections() for list views (Home,
+//     History). Excludes `metadata` so that list pages don't break on
+//     environments where the Phase 6b.8 migration hasn't been applied.
+//   • inspectionDetailSelect — used by useInspection() for the detail page
+//     where the ROI badge needs `metadata`.
+//
+// If the metadata column is missing from the schema, useInspection still
+// fails — that's the user's signal to apply the migration. Lists keep
+// working in the meantime, which keeps the rest of the app navigable.
+const inspectionListSelect = `
   id, inspector_id, variety_id, batch_id, calibration_id,
   image_url, captured_at, status, total_seeds,
   mean_length_mm, mean_width_mm, mean_area_mm2,
-  notes, metadata, created_at,
+  notes, created_at,
   variety:varieties ( id, name, color_key ),
   batch:batches ( id, code ),
   inspector:profiles!inspections_inspector_id_fkey ( id, full_name, email )
 `;
+const inspectionDetailSelect = `${inspectionListSelect.replace("notes,", "notes, metadata,")}`;
 
 export function useInspections() {
   return useQuery({
@@ -45,7 +56,7 @@ export function useInspections() {
     queryFn: async (): Promise<InspectionRow[]> => {
       const { data, error } = await supabase
         .from("inspections")
-        .select(inspectionSelect)
+        .select(inspectionListSelect)
         .order("captured_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as InspectionRow[];
@@ -60,7 +71,7 @@ export function useInspection(id: string | undefined) {
     queryFn: async (): Promise<{ inspection: InspectionRow; seeds: Seed[] } | null> => {
       if (!id) return null;
       const [insp, seeds] = await Promise.all([
-        supabase.from("inspections").select(inspectionSelect).eq("id", id).single(),
+        supabase.from("inspections").select(inspectionDetailSelect).eq("id", id).single(),
         supabase.from("seeds").select("*").eq("inspection_id", id).order("index"),
       ]);
       if (insp.error) throw insp.error;

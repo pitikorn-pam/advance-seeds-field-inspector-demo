@@ -35,7 +35,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="camera"
         options={{
-          title: t("common:nav.camera"),
+          title: t("common:nav.inspect"),
           tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
         }}
       />

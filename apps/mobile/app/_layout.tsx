@@ -93,7 +93,20 @@ export default function RootLayout() {
               <AnalyzerProvider>
                 <StatusBar style="auto" />
                 <StartupGate />
-                <Stack screenOptions={{ headerShown: false }}>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    // iOS falls back to the previous screen's `title` for the
+                    // header back-button label. Tab landings have no title
+                    // (the tab bar IS their identity), so iOS reads the
+                    // route group "(tabs)" as the back label and renders it
+                    // verbatim. Forcing an empty backTitle hides it on iOS
+                    // and keeps the back chevron alone — matches the
+                    // prototype's icon-only back button.
+                    headerBackTitle: " ",
+                    headerBackButtonDisplayMode: "minimal",
+                  }}
+                >
                   <Stack.Screen name="(tabs)" />
                   <Stack.Screen name="login" options={{ animation: "fade" }} />
                   <Stack.Screen name="splash" options={{ animation: "fade" }} />

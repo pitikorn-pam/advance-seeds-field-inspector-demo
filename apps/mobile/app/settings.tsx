@@ -1,8 +1,6 @@
-import { ScrollView, View, Text, Pressable } from "react-native";
+import { ScrollView, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { Link, useRouter } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { Card } from "@/components/ui/Card";
@@ -11,19 +9,19 @@ import { Button } from "@/components/ui/Button";
 import type { Theme } from "@advance-seeds/types";
 import type { SupportedLocale } from "@advance-seeds/i18n";
 
-export default function SettingsTab() {
-  const { t, i18n } = useTranslation([
-    "common",
-    "settings",
-    "calibration",
-    "varieties",
-    "batches",
-    "reports",
-    "profile",
-  ]);
-  const { profile, signOut } = useAuth();
+/**
+ * App-level settings only — appearance and language. The previous
+ * everything-bag (Profile / Calibration / Library / Batches / Reports /
+ * Sign out) moved to /more in the prototype-fidelity-pass tab restructure.
+ *
+ * Profile section here is read-only; profile editing remains a future
+ * surface and Sign out lives under /more → Manage to give it a single
+ * canonical access path.
+ */
+export default function SettingsScreen() {
+  const { t, i18n } = useTranslation(["common", "settings"]);
+  const { profile } = useAuth();
   const { theme, setTheme } = useTheme();
-  const router = useRouter();
 
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
@@ -103,40 +101,18 @@ export default function SettingsTab() {
           </Card>
         </View>
 
-        <View className="gap-md">
-          <Text className="text-caption uppercase text-fg-secondary">
-            {t("settings:sections.about")}
-          </Text>
-          <Card className="p-0">
-            {[
-              { href: "/profile", label: t("profile:title") },
-              { href: "/calibration", label: t("settings:sections.calibration") },
-              { href: "/library", label: t("varieties:title") },
-              { href: "/batches", label: t("batches:title") },
-              { href: "/reports", label: t("reports:title") },
-            ].map((row, idx) => (
-              <Link key={row.href} href={row.href as never} asChild>
-                <Pressable
-                  className={`flex-row items-center justify-between px-xl py-md ${
-                    idx > 0 ? "border-t border-line-tertiary" : ""
-                  }`}
-                >
-                  <Text className="text-title text-fg-primary">{row.label}</Text>
-                  <ChevronRight color="#9D9D9A" size={18} />
-                </Pressable>
-              </Link>
-            ))}
-          </Card>
-        </View>
+        {/*
+          The "About" menu (Profile / Calibration / Library / Batches / Reports)
+          previously lived here when Settings was the catch-all hub. After
+          the prototype-fidelity-pass tab restructure, those entries belong
+          to /more's Manage / Reference / Insights sections — listing them
+          here too is a duplicate access path that breaks discoverability
+          ("which one is the canonical entry?"). Settings is now scoped to
+          appearance + language only.
 
-        <Button
-          variant="outline"
-          label={t("common:actions.signOut")}
-          onPress={async () => {
-            await signOut();
-            router.replace("/login");
-          }}
-        />
+          Sign out also lives in /more under Manage; we drop it here for
+          the same reason.
+         */}
       </ScrollView>
     </SafeAreaView>
   );
