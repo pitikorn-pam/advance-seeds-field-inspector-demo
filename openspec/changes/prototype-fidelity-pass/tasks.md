@@ -33,39 +33,39 @@
 
 ## 4. Home dashboard rebuild
 
-- [ ] 4.1 New `apps/mobile/app/(tabs)/index.tsx` layout. Sections: greeting, hero card, primary CTA, recent list, sync banner.
-- [ ] 4.2 `components/home/HeroCard.tsx` — brand-deep background, today's KPIs (total seeds, % Grade A, batches), small SVG sparkline derived from per-hour seed-count of today's inspections.
-- [ ] 4.3 `components/home/RecentInspections.tsx` — three rows max, variety-tinted thumb (color_key → bg/text), seed count as the thumb label, "{{relative}} · {{mm}} avg · {{pct}}% A" caption.
-- [ ] 4.4 `components/home/SyncBanner.tsx` — green pill "All inspections synced" / "Last sync · {{when}}". Pure UI; sync queue is a future feature.
-- [ ] 4.5 i18n: `home.{greeting,today,allSynced,lastSync,viewAll,recent,heroLabel,heroSubtitle,heroSubtitleEmpty}` (en + th).
-- [ ] 4.6 Greeting uses `profile.full_name` first-token only ("Hello, Jane") and a localized weekday + day ("Saturday, 25 April").
+- [x] 4.1 New `(tabs)/index.tsx` composes greeting + hero card + primary CTA + recent list (or empty state) + sync banner.
+- [x] 4.2 `components/home/HeroCard.tsx` — brand-deep background (#04342C) with today's total seeds as the headline number, "{N} seeds across {M} batches" sub-caption, decorative SVG sparkline. Empty state ("Today: 0") falls back to encouragement copy. % Grade A intentionally omitted from the hero — it would require a per-grade aggregation query (Supabase RPC or all-seeds-fetch); deferred until that infrastructure lands.
+- [x] 4.3 `components/home/RecentInspections.tsx` — up to 3 most recent rows with variety-tinted thumbs (corn=amber, rice=green, legume=teal, mungbean=coral), seed count as thumb label, "{relative} · {mm} mm avg" caption. "View all" link routes to /more/history.
+- [x] 4.4 `components/home/SyncBanner.tsx` — green-check pill anchored at bottom. Always shows "Up to date" for v0.2.
+- [x] 4.5 i18n: `home.{greeting,heroLabel,heroSubtitle,heroSubtitleEmpty,recent,viewAll,allSynced,lastSync,now}` (en + th, parity green).
+- [x] 4.6 Greeting uses `profile.full_name` first-token only ("Hello, Jane") and a localized weekday + day ("Wednesday, 29 April") via Intl.DateTimeFormat.
 
 ## 5. Library segmentation
 
-- [ ] 5.1 `apps/mobile/app/(tabs)/library.tsx` (formerly varieties/index.tsx) wraps the data in a Segmented control: All / Corn / Rice / Legumes / Mungbean.
-- [ ] 5.2 `components/ui/Segmented.tsx` — small horizontal segmented control, shared with future use cases.
-- [ ] 5.3 Group rows by `color_key` (corn/rice/legume/mungbean) into sections with `meta` headers ("Corn varieties", "Rice varieties").
-- [ ] 5.4 Each row uses a colored thumb (variety token bg + text) showing the variety's first letter, name, "{{ref_l}} × {{ref_w}} mm · ±{{tol}} tolerance" caption, chevron. Tap routes to `/varieties/[id]` unless `?select=variety` is set (then dismisses).
-- [ ] 5.5 i18n: `library.{title,segments.{all,corn,rice,legume,mungbean},sections.{corn,rice,legume,mungbean}}` (en + th).
-- [ ] 5.6 Reference dimensions (`{{ref_l}} × {{ref_w}} mm`) — derived from the variety's recent-inspections mean since the schema doesn't yet store reference values. Mark with a small "(observed)" qualifier.
+- [x] 5.1 `(tabs)/library.tsx` wraps the data in a horizontal segmented control: All / Corn / Rice / Legumes / Mungbean.
+- [x] 5.2 `components/ui/Segmented.tsx` — generic horizontal segmented control with `scrollable` opt-in. Reusable; History (Phase 6) reuses it.
+- [x] 5.3 Rows grouped by `color_key` into sections with caption-typography headers ("Corn varieties", etc.). Empty families collapse silently.
+- [x] 5.4 Each row uses a colored thumb (variety token bg + fg) showing the first letter of the variety name, name, dimension caption, chevron. Tap routes to `/varieties/[id]`. Variety-selection mode (the prototype's `?select=variety` pattern) lives in the dedicated `/capture/variety-picker` route from Phase 3 instead.
+- [x] 5.5 i18n: `library.{title,segments.*,sections.*,dimensionsObserved,dimensionsPending}` (en + th, parity green).
+- [x] 5.6 Reference dimensions are observed averages from `useInspections` data — caption marked "observed" so demo viewers don't mistake derived means for spec values. Future migration can add `reference_length_mm` / `reference_width_mm` and the row will auto-prefer those.
 
-## 6. History polish (deferrable)
+## 6. History polish
 
-- [ ] 6.1 `apps/mobile/app/more/history.tsx` adds a Segmented control: All / Today / Synced / Pending.
-- [ ] 6.2 Group rows by date: Today / Yesterday / Earlier this week / Earlier (each as a section with a "{{label}} · {{N}} inspections" header).
-- [ ] 6.3 Per-row sync pill — green "Synced" by default. "Pending" branch reserved for the offline queue feature.
-- [ ] 6.4 i18n: `history.{title,segments.{all,today,synced,pending},groups.{today,yesterday,earlierThisWeek,earlier},syncStatus.{synced,pending}}` (en + th).
+- [x] 6.1 `more/history.tsx` adds a horizontal Segmented control: All / Today / Synced / Pending. Pending branch returns empty until the offline queue lands.
+- [x] 6.2 Rows grouped by date: Today / Yesterday / Earlier this week / Earlier — each section has a "{{label}} · {{N}} inspections" header.
+- [x] 6.3 Per-row sync pill — green "Synced" pill rendering on every row today; "Pending" reserved.
+- [x] 6.4 i18n: `history.{title,segments,groups,syncStatus}` (en + th, parity green).
 
 ## 7. Spec deltas
 
-- [ ] 7.1 New capability `mobile-navigation` — see `specs/mobile-navigation/spec.md` (added in this change).
-- [ ] 7.2 Modified `inspections-management` — capture-flow scenario gains a Mode-picker step. See `specs/inspections-management/spec.md` (delta).
-- [ ] 7.3 `openspec validate prototype-fidelity-pass` passes.
+- [x] 7.1 New `mobile-navigation` capability shipped in `f813a0c` — 5 requirements (tab bar / More menu / capture entry / 3-step flow / variety picker / Home composition).
+- [x] 7.2 Modified `inspections-management` — `f813a0c` adds the 3-step capture scenario; existing scenarios untouched.
+- [x] 7.3 `openspec validate prototype-fidelity-pass` is valid (verified post-Phase-1).
 
 ## 8. QA
 
-- [ ] 8.1 Walk every navigation path on iOS (clean clone build): Home → Camera tab → setup → mode → scan/precise → shutter → processing → review → save. Then Home → recent list row → detail → seed detail.
-- [ ] 8.2 Walk More → every row → expected screen renders → back button returns to More.
-- [ ] 8.3 Library: segment between All / Corn / Rice → grouped sections render correctly. Tap a variety → detail. From Capture's variety selector, tap a variety → returns to setup with selection.
-- [ ] 8.4 i18n parity test green; typecheck + lint green; existing tests still pass.
-- [ ] 8.5 Tag commit hashes in `tasks.md` ticks for traceability.
+- [ ] 8.1 Walk every navigation path on iOS (clean clone build): Home → Inspect tab → setup → mode → scan/precise → shutter → processing → review → save. Then Home → recent list row → detail → seed detail. *(user-driven)*
+- [ ] 8.2 Walk More → every row → expected screen renders → back button returns to More with no "(tabs)" leak. *(user-driven)*
+- [ ] 8.3 Library: segment between All / Corn / Rice → grouped sections render correctly. Tap a variety → detail → "Start inspection" → setup with variety pre-selected. *(user-driven)*
+- [x] 8.4 i18n parity test green (`pnpm -F @advance-seeds/i18n test`); typecheck + lint green across the workspace.
+- [x] 8.5 Commit hashes recorded in tasks.md ticks: `c45a209` (Phase 1), `a9bb278` (Phase 2 tick), `207e5b7` (Phase 3), `bfff364` (Phase 4), `e135670` (Phase 5).

@@ -11,6 +11,7 @@ import profile from "./profile.json" with { type: "json" };
 import more from "./more.json" with { type: "json" };
 import home from "./home.json" with { type: "json" };
 import library from "./library.json" with { type: "json" };
+import history from "./history.json" with { type: "json" };
 
 export const en = {
   common,
@@ -26,6 +27,7 @@ export const en = {
   more,
   home,
   library,
+  history,
 };
 
 export type Resources = typeof en;
