@@ -10,6 +10,7 @@ import onboarding from "./onboarding.json" with { type: "json" };
 import profile from "./profile.json" with { type: "json" };
 import more from "./more.json" with { type: "json" };
 import home from "./home.json" with { type: "json" };
+import library from "./library.json" with { type: "json" };
 
 export const en = {
   common,
@@ -24,6 +25,7 @@ export const en = {
   profile,
   more,
   home,
+  library,
 };
 
 export type Resources = typeof en;

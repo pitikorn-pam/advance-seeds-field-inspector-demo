@@ -1,0 +1,18 @@
+{
+  "title": "ห้องสมุด",
+  "segments": {
+    "all": "ทั้งหมด",
+    "corn": "ข้าวโพด",
+    "rice": "ข้าว",
+    "legume": "ถั่ว",
+    "mungbean": "ถั่วเขียว"
+  },
+  "sections": {
+    "corn": "พันธุ์ข้าวโพด",
+    "rice": "พันธุ์ข้าว",
+    "legume": "พันธุ์ถั่ว",
+    "mungbean": "พันธุ์ถั่วเขียว"
+  },
+  "dimensionsObserved": "{{l}} × {{w}} mm · ค่าวัดจริง",
+  "dimensionsPending": "ยังไม่มีขนาดอ้างอิง"
+}

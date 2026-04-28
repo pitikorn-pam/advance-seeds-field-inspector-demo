@@ -1,0 +1,18 @@
+{
+  "title": "Library",
+  "segments": {
+    "all": "All",
+    "corn": "Corn",
+    "rice": "Rice",
+    "legume": "Legumes",
+    "mungbean": "Mungbean"
+  },
+  "sections": {
+    "corn": "Corn varieties",
+    "rice": "Rice varieties",
+    "legume": "Legume varieties",
+    "mungbean": "Mungbean varieties"
+  },
+  "dimensionsObserved": "{{l}} × {{w}} mm · observed",
+  "dimensionsPending": "Reference dimensions not yet measured"
+}
