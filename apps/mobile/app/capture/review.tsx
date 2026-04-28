@@ -66,6 +66,9 @@ export default function CaptureReview() {
     if (!profile || !session.uploadedImageUrl || !session.varietyId) return;
     setSaving(true);
     try {
+      // Persist the active ROI (if any) on inspection metadata. Future fields
+      // (calibration confidence, model version) join this same bag.
+      const metadata = session.roi ? { roi: session.roi } : null;
       const id = await create.mutateAsync({
         inspector_id: profile.id,
         variety_id: session.varietyId,
@@ -74,6 +77,7 @@ export default function CaptureReview() {
         image_url: session.uploadedImageUrl,
         ...result.summary,
         seeds: result.seeds,
+        metadata,
       });
       session.reset();
       router.replace(`/inspections/${id}`);

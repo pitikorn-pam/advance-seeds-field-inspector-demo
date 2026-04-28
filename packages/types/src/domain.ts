@@ -88,6 +88,27 @@ export interface Seed {
   bbox: BoundingBox;
 }
 
+/**
+ * Capture-time context attached to an inspection. Open-ended bag — keys
+ * documented here as they're added; the DB-level constraint just verifies
+ * the column is a JSON object (or null).
+ */
+export interface InspectionMetadata {
+  /**
+   * Active region of interest at the moment the user pressed Save. The
+   * shape is normalized to the viewfinder's [0..1] coords (rect/poly use
+   * x/y/w/h or vertex points; circle uses cx/cy + radius normalized to
+   * min-dimension). Mirrors the `Roi` discriminated union in
+   * apps/mobile/lib/capture/roi.ts.
+   */
+  roi?: unknown;
+  /** Reserved for Phase 5 LiveCalibrator output captured at shutter. */
+  calibration?: unknown;
+  /** Reserved for Phase 4 — TFLite or CoreML model identifier. */
+  analyzer_id?: string;
+  [key: string]: unknown;
+}
+
 export interface Inspection {
   id: string;
   inspector_id: string;
@@ -102,6 +123,7 @@ export interface Inspection {
   mean_width_mm: number | null;
   mean_area_mm2: number | null;
   notes: string | null;
+  metadata: InspectionMetadata | null;
   created_at: string;
 }
 

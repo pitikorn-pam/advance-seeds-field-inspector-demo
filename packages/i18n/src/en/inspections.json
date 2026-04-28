@@ -18,7 +18,12 @@
       "meanArea": "Mean area"
     },
     "perSeedTitle": "Per-seed measurements",
-    "deleteConfirm": "Delete this inspection? This cannot be undone."
+    "deleteConfirm": "Delete this inspection? This cannot be undone.",
+    "roiBadge": {
+      "rect": "ROI · Rect",
+      "polygon": "ROI · Polygon ({{vertices}}v)",
+      "circle": "ROI · Circle"
+    }
   },
   "capture": {
     "setup": "Set up",

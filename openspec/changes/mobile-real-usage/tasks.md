@@ -74,7 +74,7 @@
 - [x] 6b.5 SVG overlay (`react-native-svg`) renders the active ROI with semi-transparent brand-tint fill + 2 px stroke. Drafts (during drag) render the same way as committed; polygon drafts also show vertex dots
 - [x] 6b.6 Point-in-shape predicates: `pointInRect`, `pointInPolygon` (ray-cast), `pointInCircle`. All in `lib/capture/roi.ts` with normalized [0..1] coords
 - [x] 6b.7 KPI strip filters by ROI: when a committed shape is active, count / mean length / Grade-A% are computed over only the detections whose centroid (`normalizeCentroid`) falls inside the shape
-- [ ] 6b.8 Persist ROI shape on the captured inspection's metadata — deferred until inspections schema gets a `metadata jsonb` column (no metadata column exists today; out of scope for a UI-only commit)
+- [x] 6b.8 Persist ROI shape on the captured inspection's metadata. Migration `20260427000002_inspections_metadata.sql` adds a generic `metadata jsonb` column with a `jsonb_typeof = 'object'` guard. `InspectionMetadata` type in `packages/types/src/domain.ts` documents the shape; review-screen save writes `{ roi: session.roi }` when a shape is active, and inspection detail surfaces an "ROI · Rect / Polygon (Nv) / Circle" badge.
 - [x] 6b.9 ROI auto-clears on new session via the existing `session.reset()` after Save and sync — no separate reset path needed since ROI lives on the capture session
 
 ## 7. Processing & review screens

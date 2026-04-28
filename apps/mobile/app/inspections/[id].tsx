@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type { Seed } from "@advance-seeds/types";
+import type { Roi } from "@/lib/capture/roi";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useInspection, useDeleteInspection } from "@/lib/queries";
@@ -17,6 +18,28 @@ const gradeToTone: Record<Seed["grade"], "success" | "info" | "warning" | "dange
   C: "warning",
   reject: "danger",
 };
+
+/**
+ * Read the captured ROI off of `inspection.metadata.roi`. Returns the
+ * shape kind + a translation-friendly arg bag, or null when no ROI was
+ * persisted with this inspection. The roi shape is whatever the capture
+ * session held at save-time — see lib/capture/roi.ts.
+ */
+function readRoiBadge(metadata: unknown): { kind: Roi["kind"]; vertices?: number } | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const roi = (metadata as { roi?: unknown }).roi;
+  if (!roi || typeof roi !== "object") return null;
+  const kind = (roi as { kind?: unknown }).kind;
+  if (kind === "rect" || kind === "circle") return { kind };
+  if (kind === "polygon") {
+    const pts = (roi as { points?: unknown }).points;
+    return {
+      kind,
+      vertices: Array.isArray(pts) ? pts.length : 0,
+    };
+  }
+  return null;
+}
 
 export default function InspectionDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,6 +58,7 @@ export default function InspectionDetail() {
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => void refetch()} />;
   const { inspection, seeds } = data;
+  const roiBadge = readRoiBadge((inspection as { metadata?: unknown }).metadata);
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
@@ -48,6 +72,16 @@ export default function InspectionDetail() {
             {inspection.inspector?.full_name ?? inspection.inspector?.email}
             {inspection.batch?.code ? ` · ${inspection.batch.code}` : ""}
           </Text>
+          {roiBadge ? (
+            <View className="mt-sm flex-row">
+              <Pill
+                tone="brand"
+                label={t(`inspections:detail.roiBadge.${roiBadge.kind}`, {
+                  vertices: roiBadge.vertices ?? 0,
+                })}
+              />
+            </View>
+          ) : null}
         </View>
 
         {inspection.image_url ? (

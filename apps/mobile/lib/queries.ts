@@ -33,7 +33,7 @@ const inspectionSelect = `
   id, inspector_id, variety_id, batch_id, calibration_id,
   image_url, captured_at, status, total_seeds,
   mean_length_mm, mean_width_mm, mean_area_mm2,
-  notes, created_at,
+  notes, metadata, created_at,
   variety:varieties ( id, name, color_key ),
   batch:batches ( id, code ),
   inspector:profiles!inspections_inspector_id_fkey ( id, full_name, email )
@@ -263,6 +263,9 @@ export function useCreateInspection() {
       mean_length_mm: number;
       mean_width_mm: number;
       mean_area_mm2: number;
+      /** Optional capture-time context (Phase 6b.8). Stringify-roundtripped
+       *  so domain types pass cleanly through Supabase's Json column. */
+      metadata?: Record<string, unknown> | null;
       seeds: {
         index: number;
         length_mm: number;
@@ -273,10 +276,16 @@ export function useCreateInspection() {
         bbox: Seed["bbox"];
       }[];
     }) => {
-      const { seeds, ...inspection } = args;
+      const { seeds, metadata, ...inspection } = args;
+      const insertRow = {
+        ...inspection,
+        status: "complete" as const,
+        metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null,
+      };
       const { data, error } = await supabase
         .from("inspections")
-        .insert({ ...inspection, status: "complete" })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(insertRow as any)
         .select("id")
         .single();
       if (error || !data) throw error ?? new Error("inspection insert failed");

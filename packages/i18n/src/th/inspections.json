@@ -18,7 +18,12 @@
       "meanArea": "พื้นที่เฉลี่ย"
     },
     "perSeedTitle": "ค่าวัดต่อเมล็ด",
-    "deleteConfirm": "ลบการตรวจสอบนี้? ไม่สามารถกู้คืนได้"
+    "deleteConfirm": "ลบการตรวจสอบนี้? ไม่สามารถกู้คืนได้",
+    "roiBadge": {
+      "rect": "ROI · สี่เหลี่ยม",
+      "polygon": "ROI · หลายเหลี่ยม ({{vertices}} จุด)",
+      "circle": "ROI · วงกลม"
+    }
   },
   "capture": {
     "setup": "ตั้งค่า",
