@@ -13,12 +13,12 @@
 
 ## 2. More screen sections
 
-- [ ] 2.1 `apps/mobile/app/(tabs)/more.tsx` rebuilds with sections: Manage / Reference / Insights / App.
-- [ ] 2.2 Each section uses `<Card className="p-0">` with stacked `MenuRow`s separated by 0.5px dividers (mirror the existing settings list).
-- [ ] 2.3 Rows: Profile / Recordings / Sign out (Manage); Batches / Calibration (Reference); History / Reports (Insights); Settings / About (App).
-- [ ] 2.4 Sign out row mirrors the existing Profile sign-out logic (router.replace("/login") after signOut).
-- [ ] 2.5 i18n: `more.sections.{manage,reference,insights,app}` + `more.menu.{profile,recordings,signOut,batches,calibration,history,reports,settings,about}` (en + th, parity green).
-- [ ] 2.6 New `apps/mobile/app/more/recordings.tsx` — pulls the recordings list from the existing profile screen into its own route. Profile screen drops the recordings list.
+- [x] 2.1 `(tabs)/more.tsx` shipped with all four sections — Manage / Reference / Insights / App — landed in the Phase 1 commit since the section structure was straightforward.
+- [x] 2.2 Each section uses `<Card className="p-0">` + stacked `MenuRow`s + 0.5 px `Divider`s (`bg-line-tertiary mx-lg`).
+- [x] 2.3 Rows in place: Profile / Recordings / Sign out (Manage); Batches / Calibration (Reference); History / Reports (Insights); Settings / About (App).
+- [x] 2.4 Sign out wraps the existing `useAuth().signOut` + `router.replace("/login")`, gated by an Alert confirmation.
+- [x] 2.5 i18n: `more.{title,sections,menu}` (en + th) registered in `packages/i18n/src/{en,th}/index.ts` + `namespaces` array.
+- [x] 2.6 `more/recordings.tsx` ships the recordings list as a standalone route. Profile retains its inline list for now; Phase 4 (Home rebuild) is when Profile gets simplified.
 
 ## 3. Capture flow split
 
