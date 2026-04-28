@@ -66,9 +66,14 @@ export default function CaptureReview() {
     if (!profile || !session.uploadedImageUrl || !session.varietyId) return;
     setSaving(true);
     try {
-      // Persist the active ROI (if any) on inspection metadata. Future fields
+      // Persist capture-time context on inspection metadata: ROI shape (if
+      // drawn), notes, and the auto-tag-location intent. Future fields
       // (calibration confidence, model version) join this same bag.
-      const metadata = session.roi ? { roi: session.roi } : null;
+      const metadataParts: Record<string, unknown> = {};
+      if (session.roi) metadataParts.roi = session.roi;
+      if (session.locationTagEnabled) metadataParts.location_capture_enabled = true;
+      const trimmedNotes = session.notes.trim();
+      const metadata = Object.keys(metadataParts).length > 0 ? metadataParts : null;
       const id = await create.mutateAsync({
         inspector_id: profile.id,
         variety_id: session.varietyId,
@@ -78,6 +83,7 @@ export default function CaptureReview() {
         ...result.summary,
         seeds: result.seeds,
         metadata,
+        notes: trimmedNotes.length > 0 ? trimmedNotes : null,
       });
       session.reset();
       router.replace(`/inspections/${id}`);

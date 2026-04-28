@@ -277,6 +277,7 @@ export function useCreateInspection() {
       /** Optional capture-time context (Phase 6b.8). Stringify-roundtripped
        *  so domain types pass cleanly through Supabase's Json column. */
       metadata?: Record<string, unknown> | null;
+      notes?: string | null;
       seeds: {
         index: number;
         length_mm: number;

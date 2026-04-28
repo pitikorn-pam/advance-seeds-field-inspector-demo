@@ -22,14 +22,14 @@
 
 ## 3. Capture flow split
 
-- [ ] 3.1 New `apps/mobile/app/capture/mode.tsx` — Live scan vs Precise capture as bordered cards. Live: tinted-red icon + "Fast" / "No calibration" pills. Precise: brand-bordered + "Lab grade" badge + "Accurate" / "Slower" pills.
-- [ ] 3.2 Refactor `apps/mobile/app/capture/setup.tsx` — drop the inline mode picker, drop the calibration buttons. Keep variety selector (now opens Library in selection mode), batch input, notes textarea. Add auto-tag location toggle (UI-only). Continue button routes to `/capture/mode`.
-- [ ] 3.3 Variety selector wires to `/capture/library?select=variety` (a new transient route OR a query param on the existing Library tab — see D3).
-- [ ] 3.4 `apps/mobile/app/(tabs)/library.tsx` honours `?select=variety` — tap a variety dismisses to setup with `varietyId` set on session.
-- [ ] 3.5 i18n: `capture.setup.{varietyHint,batchHint,notesHint,autoTagTitle,autoTagSubtitle,continue}` + `capture.mode.{title,subtitle,liveTitle,liveBody,liveTagFast,liveTagNoCalib,preciseTitle,preciseBody,preciseTagAccurate,preciseTagSlower,preciseLabGrade}` (en + th).
-- [ ] 3.6 Capture session adds `notes: string | null` and `locationTagEnabled: boolean` fields.
-- [ ] 3.7 Save flow (review.tsx onSave) writes `{ ...metadata, location_capture_enabled, notes }` into the inspection metadata (extends the Phase 6b.8 metadata bag).
-- [ ] 3.8 Wire Camera tab → `/capture/setup` via `Tabs.Screen` redirect.
+- [x] 3.1 `app/capture/mode.tsx` ships with two bordered cards — Live scan (red icon + Fast/No-calibration pills) and Precise capture (brand-bordered, "Lab grade" badge, Accurate/Slower pills).
+- [x] 3.2 `app/capture/setup.tsx` refactored: drops the inline mode picker and calibration section; keeps variety selector (opens variety-picker), keeps batch button list (admin-write RLS makes free-form batch input awkward — deferred), adds notes textarea, adds auto-tag location toggle. Continue → `/capture/mode`.
+- [x] 3.3 Variety selector wires to a dedicated `app/capture/variety-picker.tsx` route — chosen over `?select=variety` on the Library tab so the dismiss target is unambiguous and a stray tab tap can't strand the user (D3).
+- [x] 3.4 N/A — superseded by 3.3. Library tab stays in browse-mode for everyone; selection happens in the dedicated picker route.
+- [x] 3.5 i18n: `capture.setupSubtitle`, `capture.varietyPlaceholder`, `capture.notesLabel`, `capture.notesOptional`, `capture.notesPlaceholder`, `capture.autoTagTitle`, `capture.autoTagSubtitle`, `capture.modePicker.{subtitle,liveSubtitle,liveBody,preciseSubtitle,preciseBody,preciseLabGrade,tagFast,tagNoCalib,tagAccurate,tagSlower}` — en + th, parity green.
+- [x] 3.6 Capture session adds `notes: string` and `locationTagEnabled: boolean` fields with `""`/`false` defaults; both reset in `session.reset()`.
+- [x] 3.7 review.tsx onSave writes `notes` to the inspection's `notes` column and extends the metadata bag with `location_capture_enabled` when the toggle was on. ROI keeps its existing key in metadata.
+- [x] 3.8 Camera tab (renamed Inspect in Phase 1's polish) routes to `/capture/setup` via the existing `useFocusEffect` redirect in `(tabs)/camera.tsx`.
 
 ## 4. Home dashboard rebuild
 

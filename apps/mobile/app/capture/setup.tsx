@@ -1,17 +1,39 @@
-import { useState } from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
+import { ScrollView, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Camera, X } from "lucide-react-native";
-import { useVarieties, useBatches, useCalibrations } from "@/lib/queries";
+import { ChevronDown, X, MapPin } from "lucide-react-native";
+import { useVarieties, useBatches } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/States";
 import { useCaptureSession } from "@/lib/capture/session";
 
-type Mode = "live" | "precise";
+const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
+  corn: { bg: "#FAEEDA", fg: "#854F0B" },
+  rice: { bg: "#EAF3DE", fg: "#3B6D11" },
+  legume: { bg: "#E1F5EE", fg: "#0F6E56" },
+  mungbean: { bg: "#FAECE7", fg: "#993C1D" },
+};
 
+/**
+ * /capture/setup — first step of the three-step capture journey.
+ *
+ * Per prototype-fidelity-pass D2 / D3, this screen captures only inspection
+ * metadata (variety, batch, notes, location toggle). Mode selection moved
+ * to /capture/mode in the Continue flow. Calibration profile selection
+ * moved out entirely — it's becoming a Settings-side concern.
+ *
+ * The variety selector opens /capture/variety-picker (a dedicated screen
+ * scoped to selection rather than reusing the Library tab) so dismiss
+ * back to setup is unambiguous.
+ *
+ * Batch is still a button-list because admin-only RLS on the batches
+ * table means an inspector can't free-form add a batch row. The
+ * prototype's free-form text input would need either an admin-create
+ * fallback or a separate "request a new batch" workflow — out of scope
+ * for this commit.
+ */
 export default function CaptureSetup() {
   const { t } = useTranslation(["common", "inspections"]);
   const router = useRouter();
@@ -19,38 +41,28 @@ export default function CaptureSetup() {
 
   const varieties = useVarieties();
   const batches = useBatches();
-  const calibrations = useCalibrations();
 
-  const [varietyId, setVarietyId] = useState<string | null>(session.varietyId);
-  const [batchId, setBatchId] = useState<string | null>(session.batchId);
-  const [calibrationId, setCalibrationId] = useState<string | null>(session.calibrationId);
-  const [mode, setMode] = useState<Mode>(session.mode ?? "live");
-
-  if (varieties.isLoading || batches.isLoading || calibrations.isLoading) {
+  if (varieties.isLoading || batches.isLoading) {
     return <LoadingState />;
   }
 
-  const canStart = !!varietyId;
+  const selectedVariety = varieties.data?.find((v) => v.id === session.varietyId) ?? null;
+  const tint = selectedVariety
+    ? (VARIETY_TINTS[selectedVariety.color_key ?? ""] ?? VARIETY_TINTS.rice)
+    : null;
+  const canContinue = !!session.varietyId;
 
-  const startCapture = () => {
-    session.set({
-      varietyId,
-      batchId,
-      calibrationId: calibrationId ?? calibrations.data?.[0]?.id ?? null,
-      mode,
-    });
-    router.push(mode === "live" ? "/capture/scan" : "/capture/precise");
+  const onContinue = () => {
+    // typedRoutes regenerates these path types when Metro starts; cast
+    // until then so typecheck doesn't block on a fresh route file.
+    router.push("/capture/mode" as never);
   };
 
-  // Close goes to the (tabs) home rather than router.back() — the user
-  // typically lands here from the Capture tab, and after saving we
-  // session.reset(), so there's no meaningful "back" target. Closing to
-  // home is the predictable behaviour.
   const onClose = () => router.replace("/");
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-      <ScrollView contentContainerClassName="px-xl py-xl gap-xl">
+      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
         <View className="flex-row items-center gap-md">
           <Pressable
             accessibilityRole="button"
@@ -65,118 +77,155 @@ export default function CaptureSetup() {
           </Text>
         </View>
 
-        <Card>
-          <Text className="text-h2 font-medium text-fg-primary mb-md">
-            {t("inspections:capture.setup")}
-          </Text>
+        <Text className="text-body text-fg-secondary px-xs">
+          {t("inspections:capture.setupSubtitle")}
+        </Text>
 
-          <Text className="text-caption uppercase text-fg-secondary mb-xs">
+        {/* Variety selector — opens /capture/variety-picker. */}
+        <View className="gap-xs">
+          <Text className="text-caption uppercase text-fg-secondary px-xs">
             {t("inspections:capture.selectVariety")}
           </Text>
-          <View className="flex-row flex-wrap gap-xs mb-md">
-            {varieties.data?.map((v) => (
-              <Button
-                key={v.id}
-                size="sm"
-                variant={varietyId === v.id ? "primary" : "outline"}
-                label={v.name}
-                onPress={() => setVarietyId(v.id)}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/capture/variety-picker" as never)}
+            className="flex-row items-center gap-md rounded-xl bg-bg-primary border border-line-tertiary px-md py-md"
+          >
+            {selectedVariety && tint ? (
+              <View
+                className="items-center justify-center"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  backgroundColor: tint.bg,
+                }}
+              >
+                <Text className="font-medium" style={{ color: tint.fg, fontSize: 13 }}>
+                  {selectedVariety.name.charAt(0)}
+                </Text>
+              </View>
+            ) : (
+              <View
+                className="items-center justify-center bg-bg-secondary"
+                style={{ width: 32, height: 32, borderRadius: 10 }}
               />
-            ))}
-          </View>
+            )}
+            <View className="flex-1">
+              <Text className="text-body text-fg-primary">
+                {selectedVariety?.name ?? t("inspections:capture.varietyPlaceholder")}
+              </Text>
+              {selectedVariety?.scientific_name ? (
+                <Text className="text-caption text-fg-secondary italic">
+                  {selectedVariety.scientific_name}
+                </Text>
+              ) : null}
+            </View>
+            <ChevronDown color="#9D9D9A" size={16} />
+          </Pressable>
+        </View>
 
-          <Text className="text-caption uppercase text-fg-secondary mb-xs mt-md">
+        {/* Batch — see file header on why this stays a button list. */}
+        <View className="gap-xs">
+          <Text className="text-caption uppercase text-fg-secondary px-xs">
             {t("inspections:capture.selectBatch")}
           </Text>
           <View className="flex-row flex-wrap gap-xs">
             <Button
               size="sm"
-              variant={batchId === null ? "primary" : "outline"}
+              variant={session.batchId === null ? "primary" : "outline"}
               label="—"
-              onPress={() => setBatchId(null)}
+              onPress={() => session.set({ batchId: null })}
             />
             {batches.data?.map((b) => (
               <Button
                 key={b.id}
                 size="sm"
-                variant={batchId === b.id ? "primary" : "outline"}
+                variant={session.batchId === b.id ? "primary" : "outline"}
                 label={b.code}
-                onPress={() => setBatchId(b.id)}
+                onPress={() => session.set({ batchId: b.id })}
               />
             ))}
           </View>
+        </View>
 
-          <Text className="text-caption uppercase text-fg-secondary mb-xs mt-md">
-            {t("inspections:capture.selectCalibration")}
+        {/* Notes textarea — free-form, persisted on the inspection. */}
+        <View className="gap-xs">
+          <Text className="text-caption uppercase text-fg-secondary px-xs">
+            {t("inspections:capture.notesLabel")}{" "}
+            <Text className="text-caption text-fg-tertiary">
+              · {t("inspections:capture.notesOptional")}
+            </Text>
           </Text>
-          <View className="flex-row flex-wrap gap-xs">
-            {calibrations.data?.map((c) => (
-              <Button
-                key={c.id}
-                size="sm"
-                variant={calibrationId === c.id ? "primary" : "outline"}
-                label={c.name}
-                onPress={() => setCalibrationId(c.id)}
-              />
-            ))}
-          </View>
-        </Card>
+          <TextInput
+            placeholder={t("inspections:capture.notesPlaceholder")}
+            placeholderTextColor="#9D9D9A"
+            value={session.notes}
+            onChangeText={(notes) => session.set({ notes })}
+            multiline
+            textAlignVertical="top"
+            className="rounded-xl bg-bg-primary border border-line-tertiary px-md py-md text-body text-fg-primary"
+            style={{ minHeight: 96 }}
+          />
+        </View>
 
-        <Card>
-          <Text className="text-h2 font-medium text-fg-primary mb-md">
-            {t("inspections:capture.mode")}
-          </Text>
-          <View className="gap-sm">
-            <ModeOption
-              active={mode === "live"}
-              title={t("inspections:capture.modeLive")}
-              hint={t("inspections:capture.modeLiveHint")}
-              onPress={() => setMode("live")}
-            />
-            <ModeOption
-              active={mode === "precise"}
-              title={t("inspections:capture.modePrecise")}
-              hint={t("inspections:capture.modePreciseHint")}
-              onPress={() => setMode("precise")}
-            />
+        {/* Auto-tag location — UI-only toggle for now. */}
+        <Card className="flex-row items-center gap-md">
+          <View
+            className="items-center justify-center bg-brand-soft"
+            style={{ width: 32, height: 32, borderRadius: 10 }}
+          >
+            <MapPin color="#0F6E56" size={16} />
           </View>
+          <View className="flex-1">
+            <Text className="text-title text-fg-primary font-medium">
+              {t("inspections:capture.autoTagTitle")}
+            </Text>
+            <Text className="text-caption text-fg-secondary">
+              {t("inspections:capture.autoTagSubtitle")}
+            </Text>
+          </View>
+          <Toggle
+            value={session.locationTagEnabled}
+            onChange={(v) => session.set({ locationTagEnabled: v })}
+          />
         </Card>
-
-        <Button
-          label={t("inspections:capture.startCapture")}
-          leadingIcon={<Camera color="#FFFFFF" size={18} />}
-          disabled={!canStart}
-          onPress={startCapture}
-        />
       </ScrollView>
+
+      <View className="px-xl pb-xl pt-sm">
+        <Button label={t("common:actions.continue")} disabled={!canContinue} onPress={onContinue} />
+      </View>
     </SafeAreaView>
   );
 }
 
-function ModeOption({
-  active,
-  title,
-  hint,
-  onPress,
-}: {
-  active: boolean;
-  title: string;
-  hint: string;
-  onPress: () => void;
-}) {
-  const ringClass = active ? "border-brand bg-brand-soft" : "border-line-tertiary bg-bg-primary";
+/**
+ * Small inline toggle. Uses Pressable + animated translate for a clean
+ * iOS/Android-neutral look without pulling in @react-native-community/slider.
+ */
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <View className={`rounded-lg border ${ringClass}`}>
-      <Button variant="ghost" className="items-start justify-start py-md" onPress={onPress}>
-        <View className="flex-1 gap-xs">
-          <Text
-            className={`text-title font-medium ${active ? "text-brand-deep" : "text-fg-primary"}`}
-          >
-            {title}
-          </Text>
-          <Text className="text-caption text-fg-secondary">{hint}</Text>
-        </View>
-      </Button>
-    </View>
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      onPress={() => onChange(!value)}
+      style={{
+        width: 50,
+        height: 30,
+        borderRadius: 15,
+        padding: 3,
+        backgroundColor: value ? "#0F6E56" : "rgba(0,0,0,0.16)",
+      }}
+    >
+      <View
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: 12,
+          backgroundColor: "white",
+          transform: [{ translateX: value ? 20 : 0 }],
+        }}
+      />
+    </Pressable>
   );
 }

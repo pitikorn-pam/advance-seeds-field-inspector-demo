@@ -122,7 +122,10 @@ export default function RootLayout() {
                     options={{ headerShown: true, title: "" }}
                   />
                   {/* `(tabs)/camera` is the tab landing that redirects into
-                      the fullscreen `/capture/*` group below. */}
+                      the fullscreen `/capture/*` group below. The capture
+                      stack itself sets headerShown false; the inner mode
+                      and variety-picker screens opt into headers from
+                      their own Stack.Screen options. */}
                   <Stack.Screen name="capture" options={{ headerShown: false }} />
                   <Stack.Screen name="more/history" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="more/recordings" options={{ headerShown: true, title: "" }} />

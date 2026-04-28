@@ -22,6 +22,15 @@ interface CaptureSessionState {
   batchId: string | null;
   calibrationId: string | null;
   mode: CaptureMode;
+  /** Free-form notes captured at setup time. Persisted on the inspection. */
+  notes: string;
+  /**
+   * UI-only flag for the auto-tag location toggle on /capture/setup.
+   * Real geolocation capture lands when expo-location is wired; for now
+   * the value is stashed into inspection.metadata.location_capture_enabled
+   * so the intent is on the record.
+   */
+  locationTagEnabled: boolean;
   /** Local file URI of the most recent capture (set by scan/precise). */
   capturedImageUri: string | null;
   /** Public URL once the captured frame uploads to Supabase Storage. */
@@ -40,6 +49,8 @@ const initial: CaptureSessionState = {
   batchId: null,
   calibrationId: null,
   mode: "live",
+  notes: "",
+  locationTagEnabled: false,
   capturedImageUri: null,
   uploadedImageUrl: null,
   roi: null,
