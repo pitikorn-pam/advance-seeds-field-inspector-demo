@@ -30,11 +30,8 @@ interface Props {
  * tied to the recent list — user clicks it to "see more of these."
  */
 export function RecentInspections({ rows }: Props) {
-  const { t, i18n } = useTranslation(["home", "inspections"]);
+  const { t } = useTranslation(["home", "inspections"]);
   const router = useRouter();
-  const relativeFmt = new Intl.RelativeTimeFormat(i18n.language === "th" ? "th" : "en", {
-    numeric: "auto",
-  });
 
   return (
     <View className="gap-md">
@@ -76,7 +73,7 @@ export function RecentInspections({ rows }: Props) {
                     {row.variety?.name ?? "—"}
                   </Text>
                   <Text className="text-caption text-fg-secondary mt-xs" numberOfLines={1}>
-                    {formatRelative(row.captured_at, relativeFmt)}
+                    {formatRelative(row.captured_at)}
                     {row.mean_length_mm !== null
                       ? ` · ${Number(row.mean_length_mm).toFixed(1)} mm avg`
                       : ""}
@@ -92,13 +89,19 @@ export function RecentInspections({ rows }: Props) {
   );
 }
 
-function formatRelative(iso: string, fmt: Intl.RelativeTimeFormat): string {
-  const then = new Date(iso).getTime();
-  const now = Date.now();
-  const diffMin = Math.round((then - now) / 60_000);
-  if (Math.abs(diffMin) < 60) return fmt.format(diffMin, "minute");
+/**
+ * Manual relative-time formatter — Hermes' default ICU subset doesn't
+ * include `Intl.RelativeTimeFormat`, so we string-build instead. Matches
+ * the same pattern used in `more/history.tsx` and `SyncBanner.tsx`.
+ *
+ * Loses proper Thai localization (always English output) — acceptable
+ * for v0.2; a follow-up can add @formatjs/intl-relativetimeformat
+ * polyfill or translate units via i18n keys when localization matters.
+ */
+function formatRelative(iso: string): string {
+  const diffMin = Math.round((new Date(iso).getTime() - Date.now()) / 60_000);
+  if (Math.abs(diffMin) < 60) return `${Math.abs(diffMin)} min ago`;
   const diffHr = Math.round(diffMin / 60);
-  if (Math.abs(diffHr) < 24) return fmt.format(diffHr, "hour");
-  const diffDay = Math.round(diffHr / 24);
-  return fmt.format(diffDay, "day");
+  if (Math.abs(diffHr) < 24) return `${Math.abs(diffHr)}h ago`;
+  return new Date(iso).toLocaleDateString();
 }
