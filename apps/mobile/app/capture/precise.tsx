@@ -50,13 +50,19 @@ export default function CapturePrecise() {
     if (busy || !cameraRef.current) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    // Torch bracket for explicit "flash: on" + back camera. See scan.tsx
+    // for the full rationale; key constraint is that takePhoto must use
+    // flash:"off" while the torch is on, otherwise AVFoundation kills the
+    // torch and the proper flash sequence doesn't fire on iOS 26.
     const wantFlash = flashMode === "on" && position === "back";
     if (wantFlash) {
       setTorch("on");
-      await new Promise((r) => setTimeout(r, 80));
+      await new Promise((r) => setTimeout(r, 120));
     }
     try {
-      const photo = await cameraRef.current.takePhoto({ flash: flashMode });
+      const photo = await cameraRef.current.takePhoto({
+        flash: wantFlash ? "off" : flashMode,
+      });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       session.set({ capturedImageUri: uri, uploadedImageUrl: null });
 

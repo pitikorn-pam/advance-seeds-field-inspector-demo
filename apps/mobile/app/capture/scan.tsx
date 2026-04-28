@@ -144,20 +144,28 @@ export default function CaptureScan() {
     if (busy || !cameraRef.current) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Bracket takePhoto with torch-on for explicit "flash: on" + back camera.
-    // Auto stays system-decided; off and front-camera (no LED hardware) skip
-    // the bracket entirely.
+    // Torch bracket for explicit "flash: on" + back camera. Auto stays
+    // system-decided; off and front-camera skip the bracket.
+    //
+    // CRITICAL: when bracketing with torch, pass `flash: "off"` to takePhoto.
+    // AVFoundation's AVCapturePhotoSettings.flashMode = .on does a pre-flash
+    // sequence that *turns off any active torch first*, then fires the proper
+    // flash — and on iOS 26 + iPhone 17, that proper-flash step doesn't
+    // reliably land. Result: torch off, no flash, no light. Telling takePhoto
+    // not to touch the flash leaves our torch as the sole illumination
+    // source through the entire capture.
     const wantFlash = flashMode === "on" && position === "back";
     if (wantFlash) {
       setTorch("on");
-      // Give the native side ~80 ms to honour the new prop. setState ➜ render
-      // ➜ Camera receives torch="on" ➜ AVCaptureDevice toggles the LED — three
-      // hops, each ~one frame. Without this gap, takePhoto often runs before
-      // the LED is on.
-      await new Promise((r) => setTimeout(r, 80));
+      // 120 ms: setState → render → Camera receives torch="on" →
+      // AVCaptureDevice toggles the LED. Empirically reliable; <16 ms
+      // sometimes fires before the LED is on, especially on cold launches.
+      await new Promise((r) => setTimeout(r, 120));
     }
     try {
-      const photo = await cameraRef.current.takePhoto({ flash: flashMode });
+      const photo = await cameraRef.current.takePhoto({
+        flash: wantFlash ? "off" : flashMode,
+      });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       session.set({ capturedImageUri: uri, uploadedImageUrl: null });
 
