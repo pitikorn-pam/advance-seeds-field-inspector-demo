@@ -2,6 +2,8 @@
   "appName": "Advance Seeds Field Inspector",
   "nav": {
     "home": "Home",
+    "camera": "Camera",
+    "more": "More",
     "inspections": "Inspections",
     "varieties": "Varieties",
     "batches": "Batches",

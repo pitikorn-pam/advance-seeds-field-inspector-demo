@@ -7,7 +7,12 @@ import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
-export default function InspectionsTab() {
+/**
+ * History — flat reverse-chron list of inspections, reachable from /more.
+ * Renamed from the old (tabs)/inspections.tsx in the prototype-fidelity
+ * pass; segmented filter and date grouping land in phase 6.
+ */
+export default function HistoryScreen() {
   const { t, i18n } = useTranslation(["common", "inspections"]);
   const { data, isLoading, isError, refetch, isRefetching } = useInspections();
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
@@ -17,7 +22,7 @@ export default function InspectionsTab() {
   });
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
       <View className="px-xl py-md">
         <Text className="text-h1 font-medium text-fg-primary">{t("inspections:title")}</Text>
       </View>

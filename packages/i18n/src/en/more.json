@@ -1,0 +1,21 @@
+{
+  "title": "More",
+  "sections": {
+    "manage": "Manage",
+    "reference": "Reference",
+    "insights": "Insights",
+    "app": "App"
+  },
+  "menu": {
+    "profile": "Profile",
+    "recordings": "Recordings",
+    "signOut": "Sign out",
+    "signOutConfirm": "Sign out of Advance Seeds?",
+    "batches": "Batches",
+    "calibration": "Calibration",
+    "history": "History",
+    "reports": "Reports",
+    "settings": "Settings",
+    "about": "About"
+  }
+}

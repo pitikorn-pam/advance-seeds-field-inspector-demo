@@ -2,6 +2,8 @@
   "appName": "ผู้ตรวจเมล็ดพันธุ์ Advance Seeds",
   "nav": {
     "home": "หน้าแรก",
+    "camera": "กล้อง",
+    "more": "เพิ่มเติม",
     "inspections": "การตรวจสอบ",
     "varieties": "พันธุ์",
     "batches": "ล็อต",

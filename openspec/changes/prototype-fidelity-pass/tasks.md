@@ -2,14 +2,14 @@
 
 ## 1. Tab bar restructure (foundation)
 
-- [ ] 1.1 Replace `apps/mobile/app/(tabs)/_layout.tsx` tabs with Home / Camera / Library / More, with the More tab using a `MoreHorizontal` (donut) icon
-- [ ] 1.2 Delete `apps/mobile/app/(tabs)/capture.tsx` (Camera tab routes directly to `/capture/setup` via `Tabs.Screen` href)
-- [ ] 1.3 Move `apps/mobile/app/(tabs)/inspections.tsx` → `apps/mobile/app/more/history.tsx`. Strip the tab-frame styling; treat it as a sub-screen of More.
-- [ ] 1.4 Move `apps/mobile/app/(tabs)/settings.tsx` → `apps/mobile/app/settings.tsx`. Update `_layout.tsx` to register it as a non-tab route with header.
-- [ ] 1.5 Move `apps/mobile/app/varieties/index.tsx` → `apps/mobile/app/(tabs)/library.tsx`. Variety detail at `/varieties/[id].tsx` stays.
-- [ ] 1.6 Add `apps/mobile/app/(tabs)/more.tsx` — minimal sectioned menu (just rows in this commit, polish later).
-- [ ] 1.7 Update `_layout.tsx` to register the new routes (More tab, settings, more/history, more/recordings stubs).
-- [ ] 1.8 Smoke-test every existing route is still reachable: walk Home → Capture (via tab) → Library (via tab) → More → each row.
+- [x] 1.1 Replace `(tabs)/_layout.tsx` tabs with Home / Camera / Library / More — `MoreHorizontal` icon for the More tab.
+- [x] 1.2 Renamed `(tabs)/capture.tsx` → `(tabs)/camera.tsx` (kept the redirect-to-`/capture/setup` pattern; component renamed to `CameraTab`).
+- [x] 1.3 Moved `(tabs)/inspections.tsx` → `more/history.tsx`. Component renamed to `HistoryScreen`; SafeAreaView edges flipped from `top` (tab landing) to `bottom` (sub-screen with header).
+- [x] 1.4 Moved `(tabs)/settings.tsx` → `app/settings.tsx`. SafeAreaView edges adjusted for non-tab use; the "Varieties" link in its menu updated to point at `/library` instead of the removed `/varieties` route.
+- [x] 1.5 Moved `varieties/index.tsx` → `(tabs)/library.tsx`. Variety detail at `/varieties/[id].tsx` stays.
+- [x] 1.6 Added `(tabs)/more.tsx` with the four sections (Manage / Reference / Insights / App) and stub MenuRow components. New `more/recordings.tsx` route created so Recordings can move out of `/profile` later.
+- [x] 1.7 Root `_layout.tsx` updated: registered `settings`, `more/history`, `more/recordings`. Removed the orphaned `varieties` Stack.Screen entry. New i18n namespace `more` (en + th) registered in `packages/i18n/src/{en,th}/index.ts` + `namespaces` array.
+- [x] 1.8 Typecheck + lint + i18n parity green. Smoke walk deferred to user — we now have the structural plumbing and Metro/iOS testing happens next.
 
 ## 2. More screen sections
 

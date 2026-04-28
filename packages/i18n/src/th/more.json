@@ -1,0 +1,21 @@
+{
+  "title": "เพิ่มเติม",
+  "sections": {
+    "manage": "จัดการ",
+    "reference": "ข้อมูลอ้างอิง",
+    "insights": "ข้อมูลเชิงลึก",
+    "app": "แอป"
+  },
+  "menu": {
+    "profile": "โปรไฟล์",
+    "recordings": "วิดีโอที่บันทึก",
+    "signOut": "ออกจากระบบ",
+    "signOutConfirm": "ออกจากระบบ Advance Seeds?",
+    "batches": "ล็อต",
+    "calibration": "การสอบเทียบ",
+    "history": "ประวัติ",
+    "reports": "รายงาน",
+    "settings": "การตั้งค่า",
+    "about": "เกี่ยวกับ"
+  }
+}

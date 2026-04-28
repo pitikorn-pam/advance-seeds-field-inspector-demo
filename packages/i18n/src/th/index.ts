@@ -8,6 +8,7 @@ import settings from "./settings.json" with { type: "json" };
 import calibration from "./calibration.json" with { type: "json" };
 import onboarding from "./onboarding.json" with { type: "json" };
 import profile from "./profile.json" with { type: "json" };
+import more from "./more.json" with { type: "json" };
 
 export const th = {
   common,
@@ -20,4 +21,5 @@ export const th = {
   calibration,
   onboarding,
   profile,
+  more,
 };

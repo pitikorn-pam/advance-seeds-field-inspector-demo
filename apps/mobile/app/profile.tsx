@@ -89,7 +89,7 @@ export default function ProfileScreen() {
           <MenuRow
             icon={<Settings color="#1A1A1A" size={16} />}
             label={t("profile:menu.settings")}
-            onPress={() => router.push("/(tabs)/settings")}
+            onPress={() => router.push("/settings")}
           />
           <Divider />
           <MenuRow

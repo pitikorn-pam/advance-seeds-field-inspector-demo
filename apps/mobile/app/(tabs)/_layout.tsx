@@ -1,17 +1,15 @@
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Home, Camera, ListChecks, Settings } from "lucide-react-native";
+import { Home, Camera, Library, MoreHorizontal } from "lucide-react-native";
 
 export default function TabsLayout() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(["common", "varieties"]);
   const insets = useSafeAreaInsets();
 
-  // Android gesture navigation reports its inset via `insets.bottom`. The
-  // previous hardcoded paddingBottom: 24 overlapped the system nav on Z Flip
-  // (and any device with a non-24 gesture pill). Computing height + padding
-  // from the runtime inset keeps the tab bar above the system nav on every
-  // device.
+  // Android gesture navigation reports its inset via insets.bottom. Hardcoding
+  // paddingBottom would overlap the system nav on Z Flip and other gesture
+  // devices; computing from runtime keeps the bar above it everywhere.
   const bottomPadding = Math.max(insets.bottom, 8);
 
   return (
@@ -30,29 +28,29 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t("nav.home"),
+          title: t("common:nav.home"),
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="capture"
+        name="camera"
         options={{
-          title: t("inspections:capture.shutter"),
+          title: t("common:nav.camera"),
           tabBarIcon: ({ color, size }) => <Camera color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="inspections"
+        name="library"
         options={{
-          title: t("nav.inspections"),
-          tabBarIcon: ({ color, size }) => <ListChecks color={color} size={size} />,
+          title: t("varieties:title"),
+          tabBarIcon: ({ color, size }) => <Library color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="more"
         options={{
-          title: t("nav.settings"),
-          tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
+          title: t("common:nav.more"),
+          tabBarIcon: ({ color, size }) => <MoreHorizontal color={color} size={size} />,
         }}
       />
     </Tabs>

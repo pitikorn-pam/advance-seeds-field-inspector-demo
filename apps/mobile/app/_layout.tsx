@@ -99,6 +99,7 @@ export default function RootLayout() {
                   <Stack.Screen name="splash" options={{ animation: "fade" }} />
                   <Stack.Screen name="welcome" options={{ animation: "slide_from_right" }} />
                   <Stack.Screen name="profile" options={{ headerShown: true, title: "" }} />
+                  <Stack.Screen name="settings" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen
                     name="inspections/[id]"
                     options={{ headerShown: true, title: "" }}
@@ -107,9 +108,11 @@ export default function RootLayout() {
                     name="seed/[inspection]/[index]"
                     options={{ headerShown: true, title: "" }}
                   />
-                  {/* `(tabs)/capture` is the tab landing that redirects into
+                  {/* `(tabs)/camera` is the tab landing that redirects into
                       the fullscreen `/capture/*` group below. */}
                   <Stack.Screen name="capture" options={{ headerShown: false }} />
+                  <Stack.Screen name="more/history" options={{ headerShown: true, title: "" }} />
+                  <Stack.Screen name="more/recordings" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="varieties" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="batches" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="reports" options={{ headerShown: true, title: "" }} />

@@ -3,18 +3,18 @@ import { View, ActivityIndicator } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 /**
- * Tab landing — pushes immediately into the /capture/* fullscreen flow.
+ * Camera tab landing — pushes immediately into the /capture/* fullscreen flow.
  *
  * Why a redirect tab instead of inlining the setup screen here?
- * The capture flow is fullscreen (no bottom tab bar) per the prototype.
- * Keeping it as a separate Stack at /capture/* lets us render scan / precise
- * over the camera without bottom-tab visual noise. The (tabs) tab still
- * appears in the tab bar so "Capture" is one tap from anywhere.
+ * The capture flow is fullscreen (no bottom tab bar). Keeping it as a separate
+ * Stack at /capture/* lets us render scan / precise over the camera without
+ * bottom-tab visual noise. The Camera tab in the bottom bar still puts
+ * "start capture" one tap from anywhere.
  *
  * `useFocusEffect` (not `useEffect`) ensures the redirect runs every time
  * the tab is focused, including on return from a deeper screen.
  */
-export default function CaptureTab() {
+export default function CameraTab() {
   const router = useRouter();
 
   useFocusEffect(

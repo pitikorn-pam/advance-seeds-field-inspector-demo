@@ -29,7 +29,7 @@ export default function SettingsTab() {
   const localeOpts: SupportedLocale[] = ["en", "th"];
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
       <ScrollView contentContainerClassName="px-xl py-xl gap-xl">
         <Text className="text-h1 font-medium text-fg-primary">{t("settings:title")}</Text>
 
@@ -111,7 +111,7 @@ export default function SettingsTab() {
             {[
               { href: "/profile", label: t("profile:title") },
               { href: "/calibration", label: t("settings:sections.calibration") },
-              { href: "/varieties", label: t("varieties:title") },
+              { href: "/library", label: t("varieties:title") },
               { href: "/batches", label: t("batches:title") },
               { href: "/reports", label: t("reports:title") },
             ].map((row, idx) => (
