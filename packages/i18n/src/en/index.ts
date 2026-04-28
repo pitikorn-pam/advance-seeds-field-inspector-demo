@@ -9,6 +9,7 @@ import calibration from "./calibration.json" with { type: "json" };
 import onboarding from "./onboarding.json" with { type: "json" };
 import profile from "./profile.json" with { type: "json" };
 import more from "./more.json" with { type: "json" };
+import home from "./home.json" with { type: "json" };
 
 export const en = {
   common,
@@ -22,6 +23,7 @@ export const en = {
   onboarding,
   profile,
   more,
+  home,
 };
 
 export type Resources = typeof en;

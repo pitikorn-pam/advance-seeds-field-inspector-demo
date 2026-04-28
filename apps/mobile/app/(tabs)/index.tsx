@@ -1,102 +1,113 @@
-import { ScrollView, View, Text, RefreshControl, Pressable } from "react-native";
+import { useMemo } from "react";
+import { ScrollView, View, Text, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useRouter, Link } from "expo-router";
-import { Camera } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Plus } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { useInspections } from "@/lib/queries";
-import { Card, StatTile } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
-import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 import { Button } from "@/components/ui/Button";
+import { LoadingState, ErrorState } from "@/components/ui/States";
+import { HeroCard } from "@/components/home/HeroCard";
+import { RecentInspections } from "@/components/home/RecentInspections";
+import { SyncBanner } from "@/components/home/SyncBanner";
 
+/**
+ * Home dashboard. Mirrors the prototype's home layout (prototype-fidelity-pass
+ * D4): greeting + brand-deep hero card with today's KPIs + sparkline + big
+ * primary CTA + recent inspections list + sync banner.
+ *
+ * Today's inspections are filtered client-side from the same `useInspections`
+ * query the History screen uses — RLS guarantees only the user's own rows.
+ * Recent shows up to 3 most recent regardless of date so the section never
+ * empties immediately after onboarding.
+ *
+ * The "+ New inspection" CTA routes to /capture/setup, matching the Inspect
+ * tab destination — two access paths to the same flow as documented in the
+ * mobile-navigation spec.
+ */
 export default function HomeScreen() {
-  const { t, i18n } = useTranslation(["common", "inspections"]);
+  const { t, i18n } = useTranslation(["common", "home", "inspections"]);
   const { profile } = useAuth();
   const router = useRouter();
   const { data, isLoading, isError, refetch, isRefetching } = useInspections();
 
-  const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const firstName = (profile?.full_name ?? profile?.email ?? "").split(/\s+|@/)[0];
+
+  const dateLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      }).format(new Date()),
+    [i18n.language],
+  );
+
+  // Filter to today's inspections for the hero card. recent = top-3
+  // overall (most recent), so the recent list still renders something
+  // sensible immediately after a new install when "today" is empty.
+  const { todayInspections, recent } = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const today = (data ?? []).filter((row) => new Date(row.captured_at) >= startOfToday);
+    const top3 = (data ?? []).slice(0, 3);
+    return { todayInspections: today, recent: top3 };
+  }, [data]);
+
+  if (isLoading) return <LoadingState />;
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
       <ScrollView
-        contentContainerClassName="px-xl py-xl gap-xl"
+        contentContainerClassName="px-xl py-md gap-lg"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
         }
       >
-        <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-display font-medium text-fg-primary tracking-tight">
-              {t("common:appName")}
-            </Text>
-            <Text className="text-body text-fg-secondary mt-xs">
-              {profile?.full_name ?? profile?.email}
-              {profile ? ` · ${t(`common:roles.${profile.role}`)}` : ""}
+        {/* Greeting + initials chip */}
+        <View className="flex-row items-center gap-md">
+          <View className="flex-1">
+            <Text className="text-caption text-fg-secondary">{dateLabel}</Text>
+            <Text
+              className="text-fg-primary font-medium mt-xs"
+              style={{ fontSize: 22, letterSpacing: -0.4 }}
+            >
+              {firstName ? t("home:greeting", { name: firstName }) : t("common:appName")}
             </Text>
           </View>
-          <Pill tone="success" dot label={t("common:sync.allSynced")} />
+          {profile?.role ? (
+            <Pill
+              tone={profile.role === "admin" ? "brand" : "info"}
+              label={t(`common:roles.${profile.role}`)}
+            />
+          ) : null}
         </View>
+
+        <HeroCard todayInspections={todayInspections} />
 
         <Button
           label={t("common:actions.newInspection")}
-          leadingIcon={<Camera color="#FFFFFF" size={18} />}
-          onPress={() => router.push("/capture")}
+          leadingIcon={<Plus color="#FFFFFF" size={18} />}
+          onPress={() => router.push("/capture/setup")}
         />
 
-        {isLoading ? (
-          <LoadingState />
-        ) : isError ? (
-          <ErrorState onRetry={() => void refetch()} />
-        ) : !data ? null : (
-          <>
-            <View className="flex-row gap-sm">
-              <StatTile value={data.length} label={t("inspections:title")} />
-              <StatTile
-                value={data.reduce((a, b) => a + (b.total_seeds ?? 0), 0)}
-                label={t("inspections:detail.summary.totalSeeds")}
-              />
-            </View>
-
-            <View>
-              <Text className="text-h2 font-medium text-fg-primary mb-sm">
-                {t("inspections:title")}
-              </Text>
-              {data.length === 0 ? (
-                <EmptyState hint={t("inspections:list.empty")} />
-              ) : (
-                <Card className="p-0">
-                  {data.slice(0, 5).map((row, idx) => (
-                    <Link key={row.id} href={`/inspections/${row.id}`} asChild>
-                      <Pressable
-                        className={`flex-row items-center gap-md px-xl py-md ${
-                          idx > 0 ? "border-t border-line-tertiary" : ""
-                        }`}
-                      >
-                        <View className="flex-1">
-                          <Text className="text-title text-fg-primary">
-                            {row.variety?.name ?? "—"}
-                          </Text>
-                          <Text className="text-caption text-fg-secondary mt-xs">
-                            {dateFmt.format(new Date(row.captured_at))}
-                            {row.batch?.code ? ` · ${row.batch.code}` : ""}
-                          </Text>
-                        </View>
-                        <Pill tone="brand" label={`${row.total_seeds}`} />
-                      </Pressable>
-                    </Link>
-                  ))}
-                </Card>
-              )}
-            </View>
-          </>
+        {recent.length > 0 ? (
+          <RecentInspections rows={recent} />
+        ) : (
+          <Pressable
+            onPress={() => router.push("/capture/setup")}
+            className="rounded-2xl border border-line-tertiary bg-bg-primary px-lg py-2xl items-center"
+          >
+            <Text className="text-body text-fg-secondary text-center">
+              {t("inspections:list.empty")}
+            </Text>
+          </Pressable>
         )}
+
+        <SyncBanner lastSyncIso={recent[0]?.created_at ?? null} />
       </ScrollView>
     </SafeAreaView>
   );

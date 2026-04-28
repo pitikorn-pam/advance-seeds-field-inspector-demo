@@ -1,0 +1,11 @@
+{
+  "greeting": "Hello, {{name}}",
+  "heroLabel": "Today's inspections",
+  "heroSubtitle": "{{seeds}} seeds across {{batches}} batches",
+  "heroSubtitleEmpty": "No inspections today yet — tap + to start.",
+  "recent": "Recent",
+  "viewAll": "View all",
+  "allSynced": "All inspections synced",
+  "lastSync": "Last sync · {{when}}",
+  "now": "just now"
+}

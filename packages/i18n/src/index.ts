@@ -26,6 +26,7 @@ export const namespaces = [
   "onboarding",
   "profile",
   "more",
+  "home",
 ] as const;
 export type Namespace = (typeof namespaces)[number];
 

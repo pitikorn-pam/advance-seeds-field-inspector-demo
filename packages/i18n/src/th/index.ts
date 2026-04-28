@@ -9,6 +9,7 @@ import calibration from "./calibration.json" with { type: "json" };
 import onboarding from "./onboarding.json" with { type: "json" };
 import profile from "./profile.json" with { type: "json" };
 import more from "./more.json" with { type: "json" };
+import home from "./home.json" with { type: "json" };
 
 export const th = {
   common,
@@ -22,4 +23,5 @@ export const th = {
   onboarding,
   profile,
   more,
+  home,
 };
