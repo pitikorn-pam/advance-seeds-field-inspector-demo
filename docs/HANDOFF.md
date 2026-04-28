@@ -1,16 +1,16 @@
 # Project Hand-off — Advance Seeds Field Inspector Demo
 
-**Status: presale demo complete (v0.1.0).** Two surfaces ship to a real user, one Supabase backend serves both, ML is mocked behind a stable interface, and every requirement has a testable scenario archived in `openspec/specs/`.
+**Status: production-shaped mobile demo (v0.2.0).** Mobile is now a custom dev-client (no longer Expo Go) running on real camera hardware with prototype-faithful navigation, the full three-step capture journey, ROI tools, video recording, snapshots to Photos, and manual calibration. Web dashboard unchanged. ML is still mocked behind the same `SeedAnalyzer` interface — Phase 4 (TFLite) is the next planned uplift.
 
 ---
 
 ## What's running today
 
-| Surface              | URL / How to run                                                             | Notes                                                    |
-| -------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------- |
-| **Web dashboard**    | <https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/> | Auto-deploys on every merge to `main` via GitHub Actions |
-| **Mobile app**       | `pnpm -F @advance-seeds/mobile start` → scan QR with Expo Go                 | iOS + Android, SDK 54, mocked YOLOv11n                   |
-| **Supabase backend** | `gqsxiohxokgwwugeoxmy.supabase.co` (cloud) + local Docker                    | 6 tables, RLS, 7 seeded inspections, 2 users             |
+| Surface              | URL / How to run                                                             | Notes                                                                                |
+| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Web dashboard**    | <https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/> | Auto-deploys on every merge to `main` via GitHub Actions                             |
+| **Mobile app**       | `npx expo run:ios --device` (one-time) → JS reload over Metro for daily work | iOS + Android via custom dev-client APK / IPA. SDK 54, mocked YOLOv11n, manual calib |
+| **Supabase backend** | `gqsxiohxokgwwugeoxmy.supabase.co` (cloud) + local Docker                    | 7 tables, RLS, 7 seeded inspections, 2 users, recordings + inspection metadata       |
 
 ### Demo accounts
 
@@ -61,7 +61,7 @@
 │   ├── types/              ← shared TS types incl. SeedAnalyzer interface, Supabase generated types
 │   └── i18n/               ← en + th translation resources
 ├── supabase/
-│   ├── migrations/         ← 3 migrations: schema, RLS, storage
+│   ├── migrations/         ← 5 migrations: schema, RLS, storage, recordings, inspection metadata
 │   ├── seed.sql            ← reference data
 │   └── scripts/            ← seed-users, seed-inspections, RLS smoke
 ├── docs/
@@ -69,27 +69,42 @@
 │   ├── demo-script.md      ← demo day playbook
 │   └── HANDOFF.md          ← this file
 ├── openspec/
-│   ├── specs/              ← 9 durable capability specs (35 requirements)
-│   └── changes/archive/    ← 2026-04-26-seed-inspector-demo-foundation
+│   ├── specs/              ← 10 durable capability specs (now incl. mobile-navigation)
+│   └── changes/            ← active: mobile-real-usage, prototype-fidelity-pass
 ├── .github/workflows/      ← ci.yml + deploy-dashboard.yml
 └── .npmrc, pnpm-workspace.yaml, …
 ```
 
 ---
 
-## What ships in v0.1.0
+## What ships in v0.2.0
+
+### What's new since v0.1.0
+
+The mobile app moved from "CRUD over a sample image in Expo Go" to **production-shaped capture** in a custom dev-client:
+
+- **Three-step capture journey** — Setup (variety / batch / calibration / notes / location toggle) → Mode picker (Live vs Precise) → Camera. Mirrors the prototype.
+- **Live mode** — `react-native-vision-camera` preview + KPI strip ticking in real time, ROI tools (rect / polygon / circle), per-seed centroid filtering.
+- **Precise mode** — corner brackets, "Hold steady", calibration banner with px/mm + profile name (manual calibration via Phase 5 partial).
+- **Capture chrome** — flash with torch-bracket workaround for iOS 26, camera flip, rule-of-thirds grid, recording timer overlay.
+- **Recording + snapshots** — long-press shutter records video to Supabase Storage; snapshot button saves the current frame to Photos.
+- **Processing + review** — orb-and-checklist analyzer ceremony, GradeRing + per-seed list on review, two-button save (Save draft / Save and sync).
+- **Detail screens** — per-seed detail (`/seed/[inspection]/[index]`), variety detail with hero + reference dimensions, recordings list, profile.
+- **Bottom tab bar** — `Home / Inspect / Library / More` (prototype-fidelity-pass D1) with a hero-card Home, family-segmented Library, and a "More" overflow menu collapsing every secondary destination.
+- **Phase 5 — manual calibration** — Inspector picks a calibration profile in Setup; precise mode banner reads "Calibration locked · 24.7 px/mm · Lab tray". ArUco / LiDAR are dormant pending native modules.
 
 ### Capabilities (each is a testable spec in `openspec/specs/`)
 
 1. **`project-foundation`** — pnpm monorepo, token pipeline, strict TS, conventional commits (4 reqs)
 2. **`supabase-backend`** — schema, RLS, seeded data, storage, generated types (5 reqs)
 3. **`authentication`** — email/password sign-in, role-based gating, session persistence (4 reqs)
-4. **`inspections-management`** — capture flow, mocked ML, list/detail/per-seed, role-aware delete (6 reqs)
+4. **`inspections-management`** — three-step capture, mocked ML, list/detail/per-seed, role-aware delete (6 reqs)
 5. **`reference-data-management`** — varieties + batches CRUD, calibration + profiles read-only (4 reqs)
 6. **`reporting-and-export`** — filters, KPIs, CSV export with locked column order (3 reqs)
 7. **`internationalization`** — EN + TH parity, device-locale default, no raw English in JSX (3 reqs)
 8. **`theming`** — light + dark mode, tokens-only (no inline hex), system-following toggle (3 reqs)
 9. **`web-dashboard-deployment`** — auto-deploy to GH Pages, 404 SPA fallback, base-path safe (3 reqs)
+10. **`mobile-navigation`** — bottom tab bar shape, More menu groupings, three-step capture journey, Home dashboard composition (5 reqs, added by `prototype-fidelity-pass`)
 
 ### Quality gates that ship
 
@@ -113,17 +128,19 @@
 
 ### What needs follow-up before production
 
-| Item                                                        | Where                                                                                      | Estimated effort          |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------- |
-| Real YOLOv11n integration                                   | swap `MockSeedAnalyzer` for TFLite + CoreML in `apps/mobile/lib/analyzer/`                 | 3–5 days                  |
-| Native iOS / Android                                        | regenerate from `docs/handoff/DesignTokens.swift` + `Theme.kt`                             | 4–6 weeks single platform |
-| Offline-first sync queue                                    | Mobile only — wire a queue against the sync pill                                           | ~2 weeks                  |
-| Calibration capture pipeline                                | LiDAR + ArUco marker live calibration                                                      | ~2 weeks                  |
-| Capture error branch                                        | `apps/mobile/app/(tabs)/capture.tsx` lacks an error state on `useCreateInspection` failure | 1 hour                    |
-| Migrate `expo-file-system` `/legacy` → new `Paths/File` API | `apps/mobile/app/reports.tsx`                                                              | 1 hour                    |
-| Real seed photos                                            | replace branded placeholders in `supabase/seed.sql`                                        | 1 hour                    |
+| Item                                             | Where                                                                               | Estimated effort |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------- | ---------------- |
+| Real YOLOv11n integration (Phase 4)              | swap `MockSeedAnalyzer` for TFLite + CoreML in `apps/mobile/lib/analyzer/`          | 3–5 days         |
+| Live calibration (ArUco + LiDAR; Phase 5 part-2) | custom Expo Modules wrapping OpenCV (Swift / Kotlin) + ARKit                        | 1–2 weeks        |
+| iOS distribution                                 | Apple Developer Program enrollment then EAS preview profile + Firebase App Dist     | 2 days           |
+| Skia detection-overlay rings on Live mode (6.1)  | needs Phase 4 frame source                                                          | 1 day            |
+| Polygon vertex drag + circle radius drag         | extend `RoiOverlay`'s rect handle pattern to other shapes                           | 4 hours          |
+| Offline-first sync queue                         | mobile — wire a queue against the sync pill placeholder                             | ~2 weeks         |
+| Reference dimensions on `varieties`              | migration adds `reference_length_mm` / `reference_width_mm`; Library row uses these | 2 hours          |
+| Real seed photos                                 | replace branded placeholders in `supabase/seed.sql`                                 | 1 hour           |
+| `expo-file-system` `/legacy` → new `Paths/File`  | `apps/mobile/app/reports.tsx` + capture upload paths                                | 2 hours          |
 
-### Total to production beta: **8–12 weeks**
+### Total to production beta: **6–10 weeks** (down from v0.1's 8–12 because three-step capture, ROI tools, recording, snapshot, profile/library/history surfaces are all now demo-shipped)
 
 ---
 
@@ -143,8 +160,17 @@ pnpm supabase:seed-all
 # Run dashboard at :5173
 pnpm -F @advance-seeds/dashboard dev
 
-# Run mobile via Expo Go
+# Run mobile via custom dev client
+# First-time per device: builds + installs the dev-client APK / IPA.
+cd apps/mobile && npx expo run:ios --device   # or --device for Android via EAS
+# Daily: just start Metro and reload over LAN. The installed dev-client
+# fetches the JS bundle on each reload.
 pnpm -F @advance-seeds/mobile start
+
+# Heads-up: this repo lives on iCloud Drive on Mac. CocoaPods and
+# Metro both have issues with iCloud paths (emoji in path, file
+# eviction). Build from a clean clone outside iCloud, e.g.
+#   git clone <repo> ~/Code/seed-demo
 
 # Verify everything
 pnpm -r typecheck
@@ -188,10 +214,13 @@ The first change `seed-inspector-demo-foundation` is archived. Future work follo
 ## Decisions worth remembering (full rationale in `openspec/changes/archive/.../design.md`)
 
 - **D1 — Vite over Next.js**: GH Pages is static; we don't need API routes.
-- **D2 — Expo over native**: one codebase, both platforms, Expo Go on demo day. Native rebuild is a Phase 2 decision; the design tokens are already shipped for it.
+- **D2 — Expo over native**: one codebase, both platforms. Started on Expo Go in v0.1; v0.2 moved to a custom dev-client because we needed Vision Camera + Photos library + future TFLite. The design tokens are still the contract for an eventual native rebuild.
 - **D3 — Supabase**: BaaS with Postgres + Auth + Storage + RLS. Free tier covers the demo; self-host is a Docker compose if compliance demands.
 - **D4 — `SeedAnalyzer` adapter**: ML lives behind an interface. Mock for demo, real for production, no screen changes between them.
 - **D5 — Two roles only**: inspector + admin, enforced in RLS not just UI.
+- **D6 — Bottom tabs adapt prototype, not copy it** (v0.2): prototype is `Home / History / Library / Profile`; we ship `Home / Inspect / Library / More`. Camera is elevated to a tab because it's the primary action; More collapses the breadth of admin screens (Profile / Settings / History / Reports / Batches / Calibration / Recordings) that the prototype's lone Profile tab couldn't comfortably absorb. Spec'd in `openspec/specs/mobile-navigation/`.
+- **D7 — `metadata jsonb` over typed columns** (v0.2): inspections gain a generic metadata bag instead of one column per capture-time field. ROI shape lives there today; calibration confidence + analyzer ID + frame format will join. Trade-off: less DB-level type safety; mitigated by `InspectionMetadata` TS type as the source-of-truth shape.
+- **D8 — Manual calibration before automatic** (v0.2 Phase 5 partial): inspector picks a profile; banner reads its static px/mm. ArUco / LiDAR (automatic) are deferred to a separate sprint with custom Expo Modules. Manual gets us 80% of the demo value at 5% of the cost.
 
 ---
 
@@ -208,4 +237,4 @@ The first change `seed-inspector-demo-foundation` is archived. Future work follo
 
 ---
 
-_Hand-off authored at v0.1.0. Update this file at every major milestone._
+_Hand-off updated at v0.2.0 (2026-04-29). Update this file at every major milestone._
