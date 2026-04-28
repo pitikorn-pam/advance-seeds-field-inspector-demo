@@ -101,6 +101,9 @@
     "calibration": {
       "lockedTitle": "สอบเทียบล็อกแล้ว",
       "lockedHint": "{{pxPerMm}} px/mm ที่ระยะ {{distance}}",
+      "lockedHintWithDistance": "{{pxPerMm}} px/mm ที่ระยะ {{distance}}",
+      "lockedHintWithProfile": "{{pxPerMm}} px/mm · {{profile}}",
+      "lockedHintBare": "{{pxPerMm}} px/mm",
       "unavailableTitle": "ยังไม่ได้สอบเทียบ",
       "unavailableHint": "ค่าวัดอาจไม่แม่นยำ"
     },

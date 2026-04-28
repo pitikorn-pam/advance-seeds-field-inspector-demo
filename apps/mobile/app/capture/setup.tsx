@@ -3,7 +3,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { ChevronDown, X, MapPin } from "lucide-react-native";
-import { useVarieties, useBatches } from "@/lib/queries";
+import { useEffect } from "react";
+import { useVarieties, useBatches, useCalibrations } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/States";
@@ -19,20 +20,21 @@ const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
 /**
  * /capture/setup — first step of the three-step capture journey.
  *
- * Per prototype-fidelity-pass D2 / D3, this screen captures only inspection
- * metadata (variety, batch, notes, location toggle). Mode selection moved
- * to /capture/mode in the Continue flow. Calibration profile selection
- * moved out entirely — it's becoming a Settings-side concern.
+ * Per prototype-fidelity-pass D2 / D3, this screen captures inspection
+ * metadata (variety, batch, calibration profile, notes, location toggle).
+ * Mode selection moved to /capture/mode in the Continue flow.
  *
  * The variety selector opens /capture/variety-picker (a dedicated screen
  * scoped to selection rather than reusing the Library tab) so dismiss
  * back to setup is unambiguous.
  *
  * Batch is still a button-list because admin-only RLS on the batches
- * table means an inspector can't free-form add a batch row. The
- * prototype's free-form text input would need either an admin-create
- * fallback or a separate "request a new batch" workflow — out of scope
- * for this commit.
+ * table means an inspector can't free-form add a batch row.
+ *
+ * Calibration selector returns in this commit (Phase 5 manual): the
+ * chosen profile drives the precise-mode CalibrationBanner via the
+ * `useCalibrator` hook. Defaults to the first available profile so the
+ * banner reads "locked" out of the box; user can switch.
  */
 export default function CaptureSetup() {
   const { t } = useTranslation(["common", "inspections"]);
@@ -41,8 +43,20 @@ export default function CaptureSetup() {
 
   const varieties = useVarieties();
   const batches = useBatches();
+  const calibrations = useCalibrations();
 
-  if (varieties.isLoading || batches.isLoading) {
+  // Default to the first calibration profile so manual calibration is
+  // active out of the box. Without this, every fresh capture session
+  // would show "Calibration unavailable" until the user tapped a profile.
+  // Run-once on profile-data arrival; intentionally don't list session
+  // in deps to avoid re-firing after the user clears the selection.
+  useEffect(() => {
+    if (!session.calibrationId && calibrations.data && calibrations.data.length > 0) {
+      session.set({ calibrationId: calibrations.data[0].id });
+    }
+  }, [calibrations.data, session]);
+
+  if (varieties.isLoading || batches.isLoading || calibrations.isLoading) {
     return <LoadingState />;
   }
 
@@ -144,6 +158,24 @@ export default function CaptureSetup() {
                 variant={session.batchId === b.id ? "primary" : "outline"}
                 label={b.code}
                 onPress={() => session.set({ batchId: b.id })}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Calibration profile (manual). Drives the precise-mode banner. */}
+        <View className="gap-xs">
+          <Text className="text-caption uppercase text-fg-secondary px-xs">
+            {t("inspections:capture.selectCalibration")}
+          </Text>
+          <View className="flex-row flex-wrap gap-xs">
+            {calibrations.data?.map((c) => (
+              <Button
+                key={c.id}
+                size="sm"
+                variant={session.calibrationId === c.id ? "primary" : "outline"}
+                label={c.name}
+                onPress={() => session.set({ calibrationId: c.id })}
               />
             ))}
           </View>

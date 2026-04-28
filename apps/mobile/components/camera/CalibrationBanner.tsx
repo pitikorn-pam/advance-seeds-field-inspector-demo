@@ -5,30 +5,36 @@ import type { CalibrationReading } from "@advance-seeds/types";
 
 interface Props {
   reading: CalibrationReading | null;
-  /** Optional override for the human distance label (e.g. "28 cm"). */
-  distanceLabel?: string;
+  /** Calibration profile name when source is manual (e.g. "Lab tray 5cm marker"). */
+  profileName?: string | null;
+  /** Optional distance label populated by LiDAR / ArUco (e.g. "28 cm"). */
+  distanceLabel?: string | null;
 }
 
 /**
  * Bottom-of-stage banner used by precise mode. Two visual states:
  *
- *   • locked    — green (#0F6E56) surface, check icon, "Calibration locked"
- *                 + "{px/mm} px/mm at {distance}". Mirrors the prototype's
- *                 LiDAR locked banner; we generalize the title since the
- *                 source can be aruco / lidar / manual.
+ *   • locked    — green (#0F6E56) surface with a check icon. Title:
+ *                 "Calibration locked". Hint:
+ *                   "{px/mm} px/mm · {profileName}"  (manual source)
+ *                   "{px/mm} px/mm at {distance}"     (lidar / aruco)
+ *                   "{px/mm} px/mm"                    (no extra info)
  *   • unavailable — neutral glass surface with an alert icon, hints that
- *                   measurements may be approximate. Default state on test
- *                   hardware (iPhone Air + Z Flip 7 FE — neither has LiDAR).
+ *                   measurements may be approximate. Shown when no
+ *                   calibration profile is selected on the session and
+ *                   no automatic source is producing readings.
  *
- * The banner does not gate the shutter; that's a Phase 5 decision once
- * LiveCalibrator is wired. Today it's a passive indicator.
+ * The banner is passive — it doesn't gate the shutter. Phase 5's full
+ * implementation (with ArUco confidence < 0.6 fallback to manual) will
+ * keep that behavior; even an "unavailable" state stays non-blocking.
  */
-export function CalibrationBanner({ reading, distanceLabel }: Props) {
+export function CalibrationBanner({ reading, profileName, distanceLabel }: Props) {
   const { t } = useTranslation("inspections");
 
   const locked = reading !== null && reading.confidence >= 0.6;
 
   if (locked && reading) {
+    const hint = formatHint(t, reading.pxPerMm, profileName, distanceLabel);
     return (
       <View
         className="flex-row items-center gap-sm rounded-xl px-lg py-md"
@@ -40,10 +46,7 @@ export function CalibrationBanner({ reading, distanceLabel }: Props) {
             {t("capture.calibration.lockedTitle")}
           </Text>
           <Text className="text-white/85" style={{ fontSize: 11 }}>
-            {t("capture.calibration.lockedHint", {
-              pxPerMm: reading.pxPerMm.toFixed(1),
-              distance: distanceLabel ?? "—",
-            })}
+            {hint}
           </Text>
         </View>
       </View>
@@ -63,4 +66,26 @@ export function CalibrationBanner({ reading, distanceLabel }: Props) {
       </View>
     </View>
   );
+}
+
+function formatHint(
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  pxPerMm: number,
+  profileName?: string | null,
+  distanceLabel?: string | null,
+): string {
+  const px = pxPerMm.toFixed(1);
+  if (distanceLabel) {
+    return t("capture.calibration.lockedHintWithDistance", {
+      pxPerMm: px,
+      distance: distanceLabel,
+    });
+  }
+  if (profileName) {
+    return t("capture.calibration.lockedHintWithProfile", {
+      pxPerMm: px,
+      profile: profileName,
+    });
+  }
+  return t("capture.calibration.lockedHintBare", { pxPerMm: px });
 }

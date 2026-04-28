@@ -11,6 +11,7 @@ import type { FlashMode } from "@/components/camera/GlassTopBar";
 import { ShutterBar } from "@/components/camera/ShutterBar";
 import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
 import { useCaptureSession } from "@/lib/capture/session";
+import { useCalibrator } from "@/lib/calibration/useCalibrator";
 
 /**
  * Precise capture mode.
@@ -37,6 +38,7 @@ export default function CapturePrecise() {
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
+  const calibrator = useCalibrator();
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
@@ -111,12 +113,16 @@ export default function CapturePrecise() {
               className="text-white/85 mt-xs font-medium"
               style={{ fontSize: 28, letterSpacing: -0.6 }}
             >
-              {t("inspections:capture.precise.distanceUnknown")}
+              {calibrator.distanceLabel ?? t("inspections:capture.precise.distanceUnknown")}
             </Text>
           </View>
 
           <View className="mx-md mb-md" pointerEvents="box-none">
-            <CalibrationBanner reading={null} />
+            <CalibrationBanner
+              reading={calibrator.reading}
+              profileName={calibrator.profileName}
+              distanceLabel={calibrator.distanceLabel}
+            />
           </View>
 
           <ShutterBar

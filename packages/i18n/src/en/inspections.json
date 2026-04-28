@@ -101,6 +101,9 @@
     "calibration": {
       "lockedTitle": "Calibration locked",
       "lockedHint": "{{pxPerMm}} px/mm at {{distance}}",
+      "lockedHintWithDistance": "{{pxPerMm}} px/mm at {{distance}}",
+      "lockedHintWithProfile": "{{pxPerMm}} px/mm · {{profile}}",
+      "lockedHintBare": "{{pxPerMm}} px/mm",
       "unavailableTitle": "Calibration unavailable",
       "unavailableHint": "Measurements may be approximate"
     },
