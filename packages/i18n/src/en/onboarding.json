@@ -13,6 +13,7 @@
     "cardTargetBody": "ArUco marker reference, ±5% accuracy",
     "cardSyncTitle": "Cloud sync",
     "cardSyncBody": "Captures save to Supabase for R&D",
-    "continue": "Continue"
+    "continue": "Continue",
+    "skip": "Skip for now"
   }
 }

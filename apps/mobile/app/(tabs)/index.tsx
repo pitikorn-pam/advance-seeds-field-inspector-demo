@@ -8,7 +8,8 @@ import { useAuth } from "@/lib/auth";
 import { useInspections } from "@/lib/queries";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
-import { LoadingState, ErrorState } from "@/components/ui/States";
+import { ErrorState } from "@/components/ui/States";
+import { Skeleton, SkeletonList } from "@/components/ui/Skeleton";
 import { HeroCard } from "@/components/home/HeroCard";
 import { RecentInspections } from "@/components/home/RecentInspections";
 import { SyncBanner } from "@/components/home/SyncBanner";
@@ -56,7 +57,6 @@ export default function HomeScreen() {
     return { todayInspections: today, recent: top3 };
   }, [data]);
 
-  if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
   return (
@@ -86,7 +86,11 @@ export default function HomeScreen() {
           ) : null}
         </View>
 
-        <HeroCard todayInspections={todayInspections} />
+        {isLoading ? (
+          <Skeleton style={{ height: 168 }} />
+        ) : (
+          <HeroCard todayInspections={todayInspections} />
+        )}
 
         <Button
           label={t("common:actions.newInspection")}
@@ -94,7 +98,9 @@ export default function HomeScreen() {
           onPress={() => router.push("/capture/setup")}
         />
 
-        {recent.length > 0 ? (
+        {isLoading ? (
+          <SkeletonList rows={3} rowHeight={64} />
+        ) : recent.length > 0 ? (
           <RecentInspections rows={recent} />
         ) : (
           <Pressable

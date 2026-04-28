@@ -12,7 +12,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Segmented } from "@/components/ui/Segmented";
-import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
+import { SkeletonList } from "@/components/ui/Skeleton";
+import { EmptyState, ErrorState } from "@/components/ui/States";
 
 type FamilyKey = "all" | "corn" | "rice" | "legume" | "mungbean";
 
@@ -142,7 +143,7 @@ export default function LibraryTab() {
         />
 
         {isLoading ? (
-          <LoadingState />
+          <SkeletonList rows={5} rowHeight={64} />
         ) : isError ? (
           <ErrorState onRetry={() => void refetch()} />
         ) : grouped.length === 0 ? (

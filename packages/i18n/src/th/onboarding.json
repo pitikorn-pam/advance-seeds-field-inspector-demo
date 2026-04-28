@@ -13,6 +13,7 @@
     "cardTargetBody": "มาร์กเกอร์ ArUco ความแม่นยำ ±5%",
     "cardSyncTitle": "ซิงค์ขึ้นคลาวด์",
     "cardSyncBody": "บันทึกขึ้น Supabase เพื่อใช้ในงานวิจัย",
-    "continue": "ต่อไป"
+    "continue": "ต่อไป",
+    "skip": "ข้ามไปก่อน"
   }
 }

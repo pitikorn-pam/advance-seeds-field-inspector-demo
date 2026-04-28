@@ -39,6 +39,13 @@ export default function Welcome() {
     router.replace("/login");
   };
 
+  const onSkip = async () => {
+    // Same as continue minus the permission prompts. Capture screens
+    // re-prompt if camera permission turns out to be missing.
+    await setOnboarded();
+    router.replace("/login");
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <ScrollView contentContainerClassName="px-xl pt-md pb-xl gap-md">
@@ -125,7 +132,7 @@ export default function Welcome() {
         />
       </ScrollView>
 
-      <View className="px-xl pb-xl">
+      <View className="px-xl pb-xl gap-sm">
         <Pressable
           accessibilityRole="button"
           className="h-12 items-center justify-center rounded-lg bg-brand active:opacity-90"
@@ -133,6 +140,19 @@ export default function Welcome() {
         >
           <Text className="text-brand-on font-medium" style={{ fontSize: 15 }}>
             {t("onboarding:welcome.continue")}
+          </Text>
+        </Pressable>
+        {/* Skip — for users who already understand the product (e.g. fresh
+            install on a new device). Marks the onboarded flag like Continue
+            but skips the camera + mic permission prompts. Capture re-asks
+            on demand if needed, so this is non-blocking. */}
+        <Pressable
+          accessibilityRole="button"
+          className="h-10 items-center justify-center"
+          onPress={onSkip}
+        >
+          <Text className="text-fg-secondary" style={{ fontSize: 13 }}>
+            {t("onboarding:welcome.skip")}
           </Text>
         </Pressable>
       </View>
