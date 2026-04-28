@@ -74,6 +74,11 @@
       "savedToast": "Recording saved",
       "longPressHint": "Hold the shutter to record"
     },
+    "snapshot": {
+      "savedToast": "Snapshot saved to Photos",
+      "permissionDeniedTitle": "Photos permission needed",
+      "permissionDeniedBody": "Advance Seeds needs Photos access to save snapshots. Open Settings to grant it."
+    },
     "calibration": {
       "lockedTitle": "Calibration locked",
       "lockedHint": "{{pxPerMm}} px/mm at {{distance}}",

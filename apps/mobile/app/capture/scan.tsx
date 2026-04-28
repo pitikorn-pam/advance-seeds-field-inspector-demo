@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { View, Alert } from "react-native";
+import { View, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as FileSystem from "expo-file-system/legacy";
+import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { Viewfinder } from "@/components/camera/Viewfinder";
 import { GlassTopBar } from "@/components/camera/GlassTopBar";
@@ -15,6 +16,7 @@ import { CalibrationPill } from "@/components/camera/CalibrationPill";
 import { RoiOverlay } from "@/components/camera/RoiOverlay";
 import { RoiToolbar } from "@/components/camera/RoiToolbar";
 import { RecordingTimer } from "@/components/camera/RecordingTimer";
+import { Toast } from "@/components/ui/Toast";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useRecordingState } from "@/lib/capture/recording";
@@ -62,6 +64,8 @@ export default function CaptureScan() {
   // option is unreliable on iOS 26 + iPhone 17 series, so we briefly toggle
   // the torch around `takePhoto` instead. See onShutter for the bracket.
   const [torch, setTorch] = useState<"off" | "on">("off");
+  // Snapshot toast — surfaces "Snapshot saved" for ~2 s without an Alert.
+  const [toast, setToast] = useState<string | null>(null);
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
@@ -177,6 +181,41 @@ export default function CaptureScan() {
     recording.start();
   };
 
+  /**
+   * Save the current frame to the device Photos library. Distinct from the
+   * shutter — no inspection row is created and no upload happens.
+   *
+   * Permission flow:
+   *   • If undetermined, requestPermissionsAsync() shows the system prompt.
+   *   • If denied, alert with a deep link to Settings (the system won't
+   *     re-prompt after a previous deny — only the user can flip it).
+   *   • If granted, takePhoto + saveToLibraryAsync + toast.
+   */
+  const onSnapshot = async () => {
+    if (!cameraRef.current || busy || recording.isRecording) return;
+    const perm = await MediaLibrary.requestPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(
+        t("inspections:capture.snapshot.permissionDeniedTitle"),
+        t("inspections:capture.snapshot.permissionDeniedBody"),
+        [
+          { text: t("common:actions.cancel"), style: "cancel" },
+          { text: t("common:actions.openSettings"), onPress: () => void Linking.openSettings() },
+        ],
+      );
+      return;
+    }
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const photo = await cameraRef.current.takePhoto({ flash: "off" });
+      const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
+      await MediaLibrary.saveToLibraryAsync(uri);
+      setToast(t("inspections:capture.snapshot.savedToast"));
+    } catch (err) {
+      console.error("[scan] snapshot failed", err);
+    }
+  };
+
   return (
     <View className="flex-1 bg-black">
       <Viewfinder
@@ -227,12 +266,14 @@ export default function CaptureScan() {
           <ShutterBar
             onShutter={onShutter}
             onLongPress={onLongPressShutter}
+            onSnapshot={onSnapshot}
             onFlip={toggleFlip}
             onGrid={toggleGrid}
             isLive={!recording.isRecording}
             isRecording={recording.isRecording}
             disabled={busy}
           />
+          <Toast message={toast} tone="success" />
         </SafeAreaView>
       </Viewfinder>
     </View>

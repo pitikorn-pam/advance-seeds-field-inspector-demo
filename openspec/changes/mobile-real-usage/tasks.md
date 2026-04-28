@@ -96,10 +96,10 @@
 - [x] 7b.7 Upload to `recordings` bucket on stop via FormData; row inserted via `useCreateRecording`. Toast/progress: silent on success per spec ("show progress toast" mapped to a single saved-toast on success — full progress UI deferred)
 - [x] 7b.8 Size guard: file > 100 MB after stop → alert with the limit. The "Save to Photos" branch is deferred until snapshot-to-Photos lands (needs `expo-media-library`); discard is the only recovery today
 - [x] 7b.9 App-backgrounded > 2 s during recording → AppState listener auto-stops via `camera.stopRecording()`; existing `onRecordingFinished` callback uploads normally. Hard cap at 60 s also in place to keep files under the upload guard.
-- [ ] 7b.10 `components/camera/SnapshotButton.tsx` — deferred (needs `expo-media-library` install + native rebuild)
-- [ ] 7b.11 Snapshot saves frame via `MediaLibrary.saveToLibraryAsync` — deferred (same dep blocker)
-- [ ] 7b.12 Photos permission prompt — deferred (same dep blocker)
-- [ ] 7b.13 Snapshot success toast — deferred (same dep blocker)
+- [x] 7b.10 Snapshot button reuses `ShutterBar`'s existing `onSnapshot` slot rather than a new component — keeps the bar layout stable. Tap fires a low-haptic, takes a photo via the camera ref.
+- [x] 7b.11 Snapshot saves the resulting URI via `MediaLibrary.saveToLibraryAsync` (no album, drops into Camera Roll on iOS / DCIM on Android).
+- [x] 7b.12 First-time tap calls `MediaLibrary.requestPermissionsAsync()` for the system prompt; on denied, an Alert with cancel + Open Settings deep link (the system won't re-prompt after a previous deny).
+- [x] 7b.13 New `components/ui/Toast.tsx` — a small fade-in/out pill anchored near the top of the viewfinder. Used by `setToast(t("…snapshot.savedToast"))`. Reusable for future "Recording uploaded" / similar acks.
 - [x] 7b.14 Recordings list on `/profile` showing duration + captured-at + delete (no thumbnail yet — `expo-video-thumbnails` is another optional native dep, deferred)
 
 ## 8. Per-seed detail, variety detail, profile screens

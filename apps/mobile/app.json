@@ -44,6 +44,14 @@
           "enableMicrophonePermission": true,
           "microphonePermissionText": "Advance Seeds records audio with videos to capture field notes."
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Advance Seeds saves snapshots to your Photos library when you tap the snapshot button.",
+          "savePhotosPermission": "Advance Seeds saves snapshots to your Photos library when you tap the snapshot button.",
+          "isAccessMediaLocationEnabled": false
+        }
       ]
     ],
     "experiments": {

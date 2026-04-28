@@ -74,6 +74,11 @@
       "savedToast": "บันทึกวิดีโอแล้ว",
       "longPressHint": "กดค้างปุ่มถ่ายเพื่อบันทึกวิดีโอ"
     },
+    "snapshot": {
+      "savedToast": "บันทึกภาพไปยัง Photos แล้ว",
+      "permissionDeniedTitle": "ต้องอนุญาตเข้าถึง Photos",
+      "permissionDeniedBody": "Advance Seeds ต้องใช้สิทธิ์ Photos เพื่อบันทึกภาพ เปิดในการตั้งค่า"
+    },
     "calibration": {
       "lockedTitle": "สอบเทียบล็อกแล้ว",
       "lockedHint": "{{pxPerMm}} px/mm ที่ระยะ {{distance}}",
