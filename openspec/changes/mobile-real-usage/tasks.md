@@ -45,16 +45,22 @@
 
 ## 5. Live calibration
 
-- [ ] 5.1 Add `LiveCalibrator` interface to `@advance-seeds/types`
-- [ ] 5.2 `lib/calibration/ManualCalibrator.ts` — returns the user's selected calibration profile's `pxPerMm` constant
+- [x] 5.1 Add `LiveCalibrator` interface to `@advance-seeds/types`
+- [x] 5.2 `lib/calibration/ManualCalibrator.ts` — returns the user's selected calibration profile's `pxPerMm` constant
 - [ ] 5.3 `lib/calibration/ArucoCalibrator.ts` — frame processor plugin running an OpenCV ArUco detector; native bridge
-- [ ] 5.4 ArUco native module (iOS): wrap OpenCV's iOS framework via a small Swift Expo Module
-- [ ] 5.5 ArUco native module (Android): wrap OpenCV Android (`opencv-mobile` build) via a Kotlin Expo Module
+  - [x] Captured-photo ArUco bridge is wired into `capture/processing`: if a DICT_4X4_50 marker is visible in the saved image, analysis uses the detected px/mm instead of the manual fallback.
+  - [x] Live iOS frame-processor ArUco readings are wired through Vision Camera on live and precise capture screens. The KPI and saved result metadata use the current ArUco reading once locked.
+  - [x] Live Android frame-processor ArUco readings are wired through Vision Camera with the same plugin name and result contract as iOS.
+- [x] 5.4 ArUco native module (iOS): wrap OpenCV's iOS framework via a small Swift Expo Module
+- [x] 5.5 ArUco native module (Android): wrap OpenCV Android via a Kotlin Expo Module, including captured-image detection and live Vision Camera frame-processor detection.
 - [ ] 5.6 `lib/calibration/LidarCalibrator.ts` — iOS-only, uses ARKit `ARSession` + depth map for distance
 - [ ] 5.7 LiDAR native module (iOS): Swift wrapper exposing `currentDistanceMeters` and `pxPerMm` derived from sensor parameters
 - [ ] 5.8 `lib/calibration/selectCalibrator.ts` runtime picker: feature-detect LiDAR support, prefer LiDAR for precise mode, ArUco for live, fall back to Manual
 - [ ] 5.9 Calibration confidence threshold: < 0.6 reverts to manual + UI banner "Calibration unavailable — measurements may be approximate"
-- [ ] 5.10 Author the printable ArUco reference card PDF at `docs/calibration/aruco-5cm.pdf`
+  - [x] Manual fallback is wired through `useCalibrator`, Live KPI analysis, processing analysis, result metadata, and detail metadata.
+  - [x] Live/precise capture is gated by an ArUco confidence lock before photo or video capture starts, so saved inspections do not silently use a stale manual value.
+  - [ ] LiDAR confidence fallback remains pending with the native LiDAR calibrator.
+- [x] 5.10 Author the printable ArUco reference card PDF at `docs/calibration/aruco-5cm.pdf`
 
 ## 6. Camera UI build-out (prototype fidelity)
 

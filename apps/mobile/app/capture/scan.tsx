@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { View, Alert, Linking } from "react-native";
+import { View, Text, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -19,8 +19,11 @@ import { Toast } from "@/components/ui/Toast";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useRecordingState } from "@/lib/capture/recording";
+import { useCalibrator } from "@/lib/calibration/useCalibrator";
+import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useNotify } from "@/lib/notifications";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
+import type { ArucoCalibrationResult } from "@/lib/calibration/ArucoCalibrator";
 
 /**
  * Live capture screen.
@@ -46,6 +49,7 @@ export default function CaptureScan() {
   const session = useCaptureSession();
   const notify = useNotify();
   const cameraRef = useRef<VCCamera>(null);
+  const recordingCalibrationRef = useRef<ArucoCalibrationResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
   const [roiTool, setRoiTool] = useState<RoiKind | null>(null);
@@ -58,6 +62,10 @@ export default function CaptureScan() {
   const [torch, setTorch] = useState<"off" | "on">("off");
   // Snapshot toast — surfaces "Snapshot saved" for ~2 s without an Alert.
   const [toast, setToast] = useState<string | null>(null);
+  const calibrator = useCalibrator();
+  const liveAruco = useLiveArucoCalibration(cameraActive && position === "back" && !busy);
+  const activeCalibration = liveAruco.result?.reading ?? calibrator.reading;
+  const activeCalibrationProfileName = liveAruco.result ? null : calibrator.profileName;
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
 
   const cycleFlash = () =>
@@ -66,7 +74,9 @@ export default function CaptureScan() {
   const toggleGrid = () => setShowGrid((g) => !g);
 
   // Drives the bottom KPI strip with mock detections every ~200 ms.
-  const frameResult = useFrameTicker(!busy);
+  const frameResult = useFrameTicker(!busy, {
+    pxPerMm: activeCalibration?.pxPerMm,
+  });
 
   const recording = useRecordingState(cameraRef, {
     onRecordingFinished: async ({ uri, durationMs }) => {
@@ -81,6 +91,11 @@ export default function CaptureScan() {
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
+        capturedCalibrationReading:
+          recordingCalibrationRef.current?.reading ?? liveAruco.result?.reading ?? null,
+        capturedCalibrationProfileName: recordingCalibrationRef.current
+          ? null
+          : activeCalibrationProfileName,
       });
       setCameraActive(false);
       setTimeout(() => router.push("/capture/processing"), 60);
@@ -105,6 +120,17 @@ export default function CaptureScan() {
     setRoiTool(null);
   };
 
+  const ensureCalibrationLock = () => {
+    if (liveAruco.locked && liveAruco.result) {
+      return true;
+    }
+    Alert.alert(
+      t("inspections:capture.calibration.lockRequiredTitle"),
+      t("inspections:capture.calibration.lockRequiredBody"),
+    );
+    return false;
+  };
+
   const onShutter = async () => {
     // Tap-to-stop while recording — overrides photo capture.
     if (recording.isRecording) {
@@ -112,6 +138,7 @@ export default function CaptureScan() {
       return;
     }
     if (busy || !cameraRef.current) return;
+    if (!ensureCalibrationLock()) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Torch bracket for explicit "flash: on" + back camera. Auto stays
@@ -148,6 +175,8 @@ export default function CaptureScan() {
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
+        capturedCalibrationReading: liveAruco.result?.reading ?? null,
+        capturedCalibrationProfileName: null,
       });
 
       // Deactivate the camera, then wait a frame before navigating so Android
@@ -166,6 +195,8 @@ export default function CaptureScan() {
 
   const onLongPressShutter = () => {
     if (recording.isRecording || busy) return;
+    if (!ensureCalibrationLock()) return;
+    recordingCalibrationRef.current = liveAruco.result;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     recording.start();
   };
@@ -176,6 +207,8 @@ export default function CaptureScan() {
       return;
     }
     if (busy) return;
+    if (!ensureCalibrationLock()) return;
+    recordingCalibrationRef.current = liveAruco.result;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     recording.start();
   };
@@ -227,7 +260,13 @@ export default function CaptureScan() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        cameraProps={{ video: true, audio: true, torch: cameraTorch }}
+        cameraProps={{
+          video: true,
+          audio: true,
+          torch: cameraTorch,
+          frameProcessor: liveAruco.frameProcessor,
+          pixelFormat: "yuv",
+        }}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
@@ -241,7 +280,14 @@ export default function CaptureScan() {
               recording so the timer takes the spotlight). */}
           {!recording.isRecording ? (
             <View className="items-center mt-xs" pointerEvents="box-none">
-              <CalibrationPill reading={null} />
+              <CalibrationPill reading={activeCalibration} />
+              <Text className="mt-xs rounded-full bg-black/45 px-sm py-[2px] text-white/75 text-caption">
+                {liveAruco.locked
+                  ? t("inspections:capture.calibration.lockedHintBare", {
+                      pxPerMm: liveAruco.result?.reading.pxPerMm.toFixed(1),
+                    })
+                  : t("inspections:capture.calibration.alignMarker")}
+              </Text>
             </View>
           ) : (
             <RecordingTimer durationMs={recording.durationMs} />

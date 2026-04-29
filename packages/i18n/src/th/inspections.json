@@ -26,6 +26,11 @@
       "accuracyMeters": "{{meters}} ม.",
       "gpsTimestamp": "เวลา GPS",
       "device": "อุปกรณ์",
+      "calibration": "การสอบเทียบ",
+      "calibrationValue": "{{pxPerMm}} px/mm",
+      "calibrationSource": "แหล่งการสอบเทียบ",
+      "calibrationProfile": "โปรไฟล์การสอบเทียบ",
+      "calibrationConfidence": "ความมั่นใจการสอบเทียบ",
       "platform": "แพลตฟอร์ม",
       "appVersion": "เวอร์ชันแอป",
       "buildValue": "บิลด์ {{build}}",
@@ -48,6 +53,11 @@
         "off": "ปิด",
         "auto": "อัตโนมัติ",
         "on": "เปิด"
+      },
+      "calibrationSourceValue": {
+        "manual": "โปรไฟล์กำหนดเอง",
+        "aruco": "เครื่องหมาย ArUco",
+        "lidar": "LiDAR"
       }
     },
     "summary": {
@@ -148,6 +158,9 @@
       "lockedHintWithDistance": "{{pxPerMm}} px/mm ที่ระยะ {{distance}}",
       "lockedHintWithProfile": "{{pxPerMm}} px/mm · {{profile}}",
       "lockedHintBare": "{{pxPerMm}} px/mm",
+      "alignMarker": "จัดตำแหน่งการ์ด ArUco เพื่อล็อกการสอบเทียบ",
+      "lockRequiredTitle": "ต้องล็อกการสอบเทียบก่อน",
+      "lockRequiredBody": "ให้การ์ด ArUco 5 ซม. อยู่ในภาพจนขึ้นว่าสอบเทียบล็อกแล้ว จากนั้นค่อยถ่าย",
       "unavailableTitle": "ยังไม่ได้สอบเทียบ",
       "unavailableHint": "ค่าวัดอาจไม่แม่นยำ"
     },

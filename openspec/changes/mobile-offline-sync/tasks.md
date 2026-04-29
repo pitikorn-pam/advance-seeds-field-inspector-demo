@@ -21,6 +21,8 @@
 
 - [ ] 3.1 Refactor inspection save payload assembly out of `capture/review.tsx` into a reusable queue-safe helper.
 - [ ] 3.2 On inspection save failure caused by network/service unavailability, enqueue the inspection and navigate to a pending detail state.
+  - [x] Queueable network/service save failures now enqueue without showing the blocking error alert.
+  - [ ] Pending detail navigation remains.
 - [ ] 3.3 On recording upload/create failure caused by network/service unavailability, enqueue the recording and show pending upload state.
 - [ ] 3.4 Retain local media files until their queue entries are synced or cancelled.
 - [x] 3.5 Ensure duplicate taps on Save cannot create duplicate queue entries.
@@ -38,6 +40,7 @@
 ## 5. Verification
 
 - [ ] 5.1 Unit tests for sync store and replay payload handling.
+  - [x] Queueable sync error classifier tests.
 - [x] 5.2 `pnpm -F @advance-seeds/mobile typecheck`
 - [x] 5.3 `pnpm -F @advance-seeds/mobile lint`
 - [x] 5.4 `pnpm -F @advance-seeds/i18n test`

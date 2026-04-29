@@ -13,6 +13,7 @@ import { useInspection, useDeleteInspection } from "@/lib/queries";
 import { displayInspectionNote } from "@/lib/inspections/notes";
 import {
   readCaptureMetadata,
+  readCalibrationMetadata,
   readDeviceUsageMetadata,
   readLocationMetadata,
   locationDisplayName,
@@ -120,6 +121,7 @@ export default function InspectionDetail() {
   const location = readLocationMetadata(metadata);
   const deviceUsage = readDeviceUsageMetadata(metadata);
   const captureDetail = readCaptureMetadata(metadata);
+  const calibration = readCalibrationMetadata(metadata);
 
   const saveImage = async () => {
     if (!mediaUrl) return;
@@ -201,7 +203,7 @@ export default function InspectionDetail() {
           </View>
         ) : null}
 
-        {location || deviceUsage || captureDetail ? (
+        {location || deviceUsage || captureDetail || calibration ? (
           <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
             <View className="flex-row items-center justify-between gap-md">
               <Text className="text-caption font-medium uppercase text-fg-secondary">
@@ -260,8 +262,32 @@ export default function InspectionDetail() {
                     label={t("inspections:detail.metadata.device")}
                     value={deviceUsage.device_name ?? "—"}
                   />
+                  {calibration ? (
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.calibration")}
+                      value={formatCalibrationValue(calibration.px_per_mm, t)}
+                    />
+                  ) : null}
                   {metadataExpanded ? (
                     <>
+                      {calibration ? (
+                        <>
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.calibrationSource")}
+                            value={t(
+                              `inspections:detail.metadata.calibrationSourceValue.${calibration.source}`,
+                            )}
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.calibrationProfile")}
+                            value={calibration.profile_name ?? "—"}
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.calibrationConfidence")}
+                            value={`${Math.round(calibration.confidence * 100)}%`}
+                          />
+                        </>
+                      ) : null}
                       <MetadataRow
                         label={t("inspections:detail.metadata.platform")}
                         value={`${deviceUsage.platform}${deviceUsage.os_version ? ` ${deviceUsage.os_version}` : ""}`}
@@ -420,4 +446,10 @@ function MetadataRow({ label, value }: { label: string; value: string }) {
       <Text className="text-caption text-fg-primary text-right flex-1">{value}</Text>
     </View>
   );
+}
+
+function formatCalibrationValue(pxPerMm: number, t: ReturnType<typeof useTranslation>["t"]) {
+  return t("inspections:detail.metadata.calibrationValue", {
+    pxPerMm: pxPerMm.toFixed(1),
+  });
 }

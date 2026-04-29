@@ -15,6 +15,7 @@ import { displayInspectionNote } from "@/lib/inspections/notes";
 import { buildInspectionMetadata, locationDisplayName } from "@/lib/inspections/metadata";
 import { addQueueEntry } from "@/lib/sync/store";
 import { replaySyncQueue } from "@/lib/sync/replay";
+import { isQueueableSyncError, syncErrorMessage } from "@/lib/sync/errors";
 import { useCreateInspection } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
 import { Button } from "@/components/ui/Button";
@@ -124,6 +125,7 @@ export default function CaptureReview() {
   const previewRoi = session.mode === "live" && mediaKind === "photo" ? session.roi : null;
   const note = displayInspectionNote(session.notes);
   const capturedAt = session.capturedAt ?? new Date().toISOString();
+  const calibration = session.capturedCalibrationReading;
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -186,6 +188,19 @@ export default function CaptureReview() {
         locationTagEnabled: session.locationTagEnabled,
         capturedLocation,
         deviceUsage: buildDeviceUsageMetadata(),
+        calibration: session.capturedCalibrationReading
+          ? {
+              ...session.capturedCalibrationReading,
+              profileId:
+                session.capturedCalibrationReading.source === "manual"
+                  ? session.calibrationId
+                  : null,
+              profileName:
+                session.capturedCalibrationReading.source === "manual"
+                  ? session.capturedCalibrationProfileName
+                  : null,
+            }
+          : null,
         capture: {
           mode: session.mode,
           camera_position: session.cameraPosition,
@@ -224,14 +239,7 @@ export default function CaptureReview() {
       session.reset();
       router.replace(`/inspections/${id}`);
     } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      notify({
-        kind: "error",
-        title: t("notifications:captureFailed.title"),
-        body: t("notifications:captureFailed.body", { reason }),
-      });
-      Alert.alert(t("common:states.error"), reason);
-      try {
+      if (isQueueableSyncError(err)) {
         const trimmedNotes = session.notes.trim();
         await enqueueInspection({
           inspector_id: profile.id,
@@ -250,6 +258,19 @@ export default function CaptureReview() {
             locationTagEnabled: session.locationTagEnabled,
             capturedLocation: session.capturedLocation,
             deviceUsage,
+            calibration: session.capturedCalibrationReading
+              ? {
+                  ...session.capturedCalibrationReading,
+                  profileId:
+                    session.capturedCalibrationReading.source === "manual"
+                      ? session.calibrationId
+                      : null,
+                  profileName:
+                    session.capturedCalibrationReading.source === "manual"
+                      ? session.capturedCalibrationProfileName
+                      : null,
+                }
+              : null,
             capture: {
               mode: session.mode,
               camera_position: session.cameraPosition,
@@ -259,9 +280,16 @@ export default function CaptureReview() {
           }),
           notes: trimmedNotes.length > 0 ? trimmedNotes : null,
         });
-      } catch {
-        setSaving(false);
+        return;
       }
+      const reason = syncErrorMessage(err);
+      notify({
+        kind: "error",
+        title: t("notifications:captureFailed.title"),
+        body: t("notifications:captureFailed.body", { reason }),
+      });
+      Alert.alert(t("common:states.error"), reason);
+      setSaving(false);
     }
   };
 
@@ -346,7 +374,7 @@ export default function CaptureReview() {
   };
 
   const onBack = () => {
-    router.replace("/capture/mode");
+    router.replace("/capture/mode" as never);
   };
 
   return (
@@ -444,8 +472,32 @@ export default function CaptureReview() {
               label={t("inspections:detail.metadata.device")}
               value={deviceUsage.device_name ?? "—"}
             />
+            {calibration ? (
+              <MetadataRow
+                label={t("inspections:detail.metadata.calibration")}
+                value={formatCalibrationValue(calibration.pxPerMm, t)}
+              />
+            ) : null}
             {metadataExpanded ? (
               <>
+                {calibration ? (
+                  <>
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.calibrationSource")}
+                      value={t(
+                        `inspections:detail.metadata.calibrationSourceValue.${calibration.source}`,
+                      )}
+                    />
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.calibrationProfile")}
+                      value={session.capturedCalibrationProfileName ?? "—"}
+                    />
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.calibrationConfidence")}
+                      value={`${Math.round(calibration.confidence * 100)}%`}
+                    />
+                  </>
+                ) : null}
                 <MetadataRow
                   label={t("inspections:detail.metadata.platform")}
                   value={`${deviceUsage.platform}${deviceUsage.os_version ? ` ${deviceUsage.os_version}` : ""}`}
@@ -594,6 +646,12 @@ function MetadataRow({ label, value }: { label: string; value: string }) {
       <Text className="text-caption text-fg-primary text-right flex-1">{value}</Text>
     </View>
   );
+}
+
+function formatCalibrationValue(pxPerMm: number, t: ReturnType<typeof useTranslation>["t"]) {
+  return t("inspections:detail.metadata.calibrationValue", {
+    pxPerMm: pxPerMm.toFixed(1),
+  });
 }
 
 const GRADE_BG: Record<SeedGrade, string> = {

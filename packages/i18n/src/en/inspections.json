@@ -26,6 +26,11 @@
       "accuracyMeters": "{{meters}} m",
       "gpsTimestamp": "GPS time",
       "device": "Device",
+      "calibration": "Calibration",
+      "calibrationValue": "{{pxPerMm}} px/mm",
+      "calibrationSource": "Calibration source",
+      "calibrationProfile": "Calibration profile",
+      "calibrationConfidence": "Calibration confidence",
       "platform": "Platform",
       "appVersion": "App version",
       "buildValue": "Build {{build}}",
@@ -48,6 +53,11 @@
         "off": "Off",
         "auto": "Auto",
         "on": "On"
+      },
+      "calibrationSourceValue": {
+        "manual": "Manual profile",
+        "aruco": "ArUco marker",
+        "lidar": "LiDAR"
       }
     },
     "summary": {
@@ -148,6 +158,9 @@
       "lockedHintWithDistance": "{{pxPerMm}} px/mm at {{distance}}",
       "lockedHintWithProfile": "{{pxPerMm}} px/mm · {{profile}}",
       "lockedHintBare": "{{pxPerMm}} px/mm",
+      "alignMarker": "Align the ArUco card to lock calibration",
+      "lockRequiredTitle": "Calibration lock required",
+      "lockRequiredBody": "Keep the 5 cm ArUco card visible until Calibration locked appears, then capture.",
       "unavailableTitle": "Calibration unavailable",
       "unavailableHint": "Measurements may be approximate"
     },

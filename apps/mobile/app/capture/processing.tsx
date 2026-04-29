@@ -12,6 +12,7 @@ import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
 import { useCaptureSession } from "@/lib/capture/session";
 import { getCurrentLocation } from "@/lib/capture/location";
 import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
+import { detectArucoCalibration } from "@/lib/calibration/ArucoCalibrator";
 import { useCreateRecording } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
 import { ProcessingOrb } from "@/components/camera/ProcessingOrb";
@@ -176,10 +177,27 @@ export default function CaptureProcessing() {
         }
         if (cancelledRef.current) return;
 
-        // Stage 2: analyze (mock for now; TFLite swaps in via Phase 4).
+        // Stage 2: calibrate + analyze. ArUco detection upgrades the manual
+        // fallback when the printed 50 mm marker is visible in the capture.
+        let calibrationReading = session.capturedCalibrationReading;
+        if (session.capturedMediaKind === "photo") {
+          try {
+            const aruco = await detectArucoCalibration(sourceUri);
+            if (aruco) {
+              calibrationReading = aruco.reading;
+              session.set({
+                capturedCalibrationReading: aruco.reading,
+                capturedCalibrationProfileName: null,
+              });
+            }
+          } catch (err) {
+            console.warn("[processing] aruco calibration unavailable", err);
+          }
+        }
+        const pxPerMm = calibrationReading?.pxPerMm ?? 38.4;
         const result: AnalysisResult = await analyzer.analyze(
           { kind: "uri", uri: sourceUri },
-          { pxPerMm: 38.4 },
+          { pxPerMm },
         );
         if (cancelledRef.current) return;
 

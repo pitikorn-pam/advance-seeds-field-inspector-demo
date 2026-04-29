@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["AdvanceSeedsArucoCalibratorModule"]
+  },
+  "android": {
+    "modules": ["com.advanceseeds.aruco.AdvanceSeedsArucoCalibratorModule"]
+  }
+}

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@advance-seeds/i18n": "workspace:*",
+    "@advance-seeds/aruco-calibrator": "file:./modules/aruco-calibrator",
     "@advance-seeds/roi-video-exporter": "file:./modules/roi-video-exporter",
     "@advance-seeds/tokens": "workspace:*",
     "@advance-seeds/types": "workspace:*",

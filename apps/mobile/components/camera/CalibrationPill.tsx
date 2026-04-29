@@ -14,7 +14,7 @@ interface Props {
  */
 export function CalibrationPill({ reading }: Props) {
   const { t } = useTranslation("inspections");
-  const locked = reading !== null && reading.confidence >= 0.6;
+  const locked = reading !== null && reading.source !== "manual" && reading.confidence >= 0.6;
   const label = locked
     ? t("capture.calibration.lockedTitle")
     : t("capture.calibration.unavailableTitle");

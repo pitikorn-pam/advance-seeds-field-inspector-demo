@@ -109,8 +109,15 @@ export interface InspectionMetadata {
     recording_id?: string | null;
     duration_ms?: number | null;
   };
-  /** Reserved for Phase 5 LiveCalibrator output captured at shutter. */
-  calibration?: unknown;
+  /** LiveCalibrator/manual fallback output captured at shutter for traceability. */
+  calibration?: {
+    px_per_mm: number;
+    source: CalibrationSource | "manual";
+    confidence: number;
+    observed_at_ms: number;
+    profile_id?: string | null;
+    profile_name?: string | null;
+  };
   /** Reserved for Phase 4 — TFLite or CoreML model identifier. */
   analyzer_id?: string;
   [key: string]: unknown;

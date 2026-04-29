@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { AnalysisResult } from "@advance-seeds/types";
+import type { AnalysisResult, CalibrationReading } from "@advance-seeds/types";
 import type { Roi } from "./roi";
 import type { CapturedLocation } from "./location";
 
@@ -46,6 +46,10 @@ interface CaptureSessionState {
   cameraPosition: CaptureCameraPosition | null;
   flashMode: CaptureFlashMode | null;
   capturedAt: string | null;
+  /** Calibration reading used at capture time, frozen for processing/review traceability. */
+  capturedCalibrationReading: CalibrationReading | null;
+  /** Selected profile name at capture time; persisted with calibration metadata. */
+  capturedCalibrationProfileName: string | null;
   /** Recording duration for video captures. */
   recordingDurationMs: number | null;
   /** Linked recordings row once video upload completes. */
@@ -83,6 +87,8 @@ const initial: CaptureSessionState = {
   cameraPosition: null,
   flashMode: null,
   capturedAt: null,
+  capturedCalibrationReading: null,
+  capturedCalibrationProfileName: null,
   recordingDurationMs: null,
   recordingId: null,
   uploadedImageUrl: null,

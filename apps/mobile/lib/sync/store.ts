@@ -98,8 +98,25 @@ export async function markQueueEntryFailed(id: string, error: unknown): Promise<
   await updateQueueEntry(id, {
     status: "failed",
     attempts: (entry?.attempts ?? 0) + 1,
-    lastError: error instanceof Error ? error.message : String(error),
+    lastError: syncErrorMessage(error),
   });
+}
+
+function syncErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    for (const key of ["message", "error_description", "details", "hint"]) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim().length > 0) return value;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+  return String(error);
 }
 
 export function queueCounts(rows: SyncQueueEntry[]) {

@@ -1,0 +1,12 @@
+{
+  "name": "@advance-seeds/aruco-calibrator",
+  "version": "0.1.0",
+  "description": "OpenCV ArUco calibration detector for the Advance Seeds demo.",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

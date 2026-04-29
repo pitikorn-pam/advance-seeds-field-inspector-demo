@@ -144,6 +144,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@advance-seeds/aruco-calibrator':
+        specifier: file:./modules/aruco-calibrator
+        version: file:apps/mobile/modules/aruco-calibrator(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))
       '@advance-seeds/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -337,6 +340,12 @@ packages:
     peerDependenciesMeta:
       graphql:
         optional: true
+
+  '@advance-seeds/aruco-calibrator@file:apps/mobile/modules/aruco-calibrator':
+    resolution: {directory: apps/mobile/modules/aruco-calibrator, type: directory}
+    peerDependencies:
+      expo: '*'
+      react-native: '*'
 
   '@advance-seeds/roi-video-exporter@file:apps/mobile/modules/roi-video-exporter':
     resolution: {directory: apps/mobile/modules/roi-video-exporter, type: directory}
@@ -6340,6 +6349,11 @@ snapshots:
   '@0no-co/graphql.web@1.2.0(graphql@16.8.1)':
     optionalDependencies:
       graphql: 16.8.1
+
+  '@advance-seeds/aruco-calibrator@file:apps/mobile/modules/aruco-calibrator(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))':
+    dependencies:
+      expo: 54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(graphql@16.8.1)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      react-native: 0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0)
 
   '@advance-seeds/roi-video-exporter@file:apps/mobile/modules/roi-video-exporter(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))':
     dependencies:

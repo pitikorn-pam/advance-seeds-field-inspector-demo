@@ -31,7 +31,7 @@ interface Props {
 export function CalibrationBanner({ reading, profileName, distanceLabel }: Props) {
   const { t } = useTranslation("inspections");
 
-  const locked = reading !== null && reading.confidence >= 0.6;
+  const locked = reading !== null && reading.source !== "manual" && reading.confidence >= 0.6;
 
   if (locked && reading) {
     const hint = formatHint(t, reading.pxPerMm, profileName, distanceLabel);
@@ -53,6 +53,10 @@ export function CalibrationBanner({ reading, profileName, distanceLabel }: Props
     );
   }
 
+  const fallbackHint = reading
+    ? formatHint(t, reading.pxPerMm, profileName, distanceLabel)
+    : t("capture.calibration.unavailableHint");
+
   return (
     <View className="flex-row items-center gap-sm rounded-xl bg-black/[0.62] px-lg py-md">
       <AlertCircle color="white" size={18} />
@@ -61,7 +65,7 @@ export function CalibrationBanner({ reading, profileName, distanceLabel }: Props
           {t("capture.calibration.unavailableTitle")}
         </Text>
         <Text className="text-white/70" style={{ fontSize: 11 }}>
-          {t("capture.calibration.unavailableHint")}
+          {fallbackHint}
         </Text>
       </View>
     </View>

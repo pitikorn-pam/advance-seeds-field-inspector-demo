@@ -65,6 +65,8 @@ Three implementations:
 
 The viewfinder screen subscribes to the calibrator's stream and overlays "LiDAR locked / 24.7 px/mm at 28 cm" once a reading is stable.
 
+Implementation note: `@advance-seeds/aruco-calibrator` wraps OpenCV on iOS and Android through a local Expo Module and detects a DICT_4X4_50 marker in saved images during `capture/processing`. The same module registers a Vision Camera frame processor named `detectArucoCalibration` on both platforms; live and precise capture screens require an ArUco confidence lock before photo or video capture, and saved inspection metadata records the locked px/mm reading.
+
 ### D4. SeedAnalyzer interface evolves (BREAKING)
 Current:
 ```ts

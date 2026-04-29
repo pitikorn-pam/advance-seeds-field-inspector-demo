@@ -1,5 +1,6 @@
 import type { Roi } from "@/lib/capture/roi";
 import type { CapturedLocation } from "@/lib/capture/location";
+import type { CalibrationReading } from "@advance-seeds/types";
 import type {
   CaptureCameraPosition,
   CaptureFlashMode,
@@ -25,6 +26,15 @@ export interface CaptureMetadata {
   captured_at: string;
 }
 
+export interface CalibrationMetadata {
+  px_per_mm: number;
+  source: CalibrationReading["source"];
+  confidence: number;
+  observed_at_ms: number;
+  profile_id: string | null;
+  profile_name: string | null;
+}
+
 interface BuildInspectionMetadataArgs {
   roi: Roi | null;
   mediaKind: CaptureMediaKind;
@@ -34,6 +44,12 @@ interface BuildInspectionMetadataArgs {
   locationTagEnabled: boolean;
   capturedLocation: CapturedLocation | null;
   deviceUsage: DeviceUsageMetadata;
+  calibration:
+    | (CalibrationReading & {
+        profileId: string | null;
+        profileName: string | null;
+      })
+    | null;
   capture: Omit<CaptureMetadata, "media_kind" | "roi_kind">;
 }
 
@@ -42,6 +58,16 @@ export function buildInspectionMetadata(
 ): Record<string, unknown> {
   const metadata: Record<string, unknown> = {};
   if (args.roi) metadata.roi = args.roi;
+  if (args.calibration) {
+    metadata.calibration = {
+      px_per_mm: args.calibration.pxPerMm,
+      source: args.calibration.source,
+      confidence: args.calibration.confidence,
+      observed_at_ms: args.calibration.observedAtMs,
+      profile_id: args.calibration.profileId,
+      profile_name: args.calibration.profileName,
+    } satisfies CalibrationMetadata;
+  }
   metadata.capture_media = {
     kind: args.mediaKind,
     url: args.mediaUrl,
@@ -59,6 +85,31 @@ export function buildInspectionMetadata(
     if (args.capturedLocation) metadata.location = args.capturedLocation;
   }
   return metadata;
+}
+
+export function readCalibrationMetadata(metadata: unknown): CalibrationMetadata | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const calibration = (metadata as { calibration?: unknown }).calibration;
+  if (!calibration || typeof calibration !== "object") return null;
+  const row = calibration as Partial<CalibrationMetadata>;
+  const source =
+    row.source === "manual" || row.source === "aruco" || row.source === "lidar" ? row.source : null;
+  if (
+    typeof row.px_per_mm !== "number" ||
+    typeof row.confidence !== "number" ||
+    typeof row.observed_at_ms !== "number" ||
+    !source
+  ) {
+    return null;
+  }
+  return {
+    px_per_mm: row.px_per_mm,
+    source,
+    confidence: row.confidence,
+    observed_at_ms: row.observed_at_ms,
+    profile_id: typeof row.profile_id === "string" ? row.profile_id : null,
+    profile_name: typeof row.profile_name === "string" ? row.profile_name : null,
+  };
 }
 
 export function readLocationMetadata(metadata: unknown): CapturedLocation | null {

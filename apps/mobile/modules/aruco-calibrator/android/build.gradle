@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.advanceseeds'
+version = '0.1.0'
+
+android {
+  namespace "com.advanceseeds.aruco"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  implementation "androidx.camera:camera-core:1.5.0-alpha03"
+  implementation "org.opencv:opencv:4.10.0"
+  implementation project(":react-native-vision-camera")
+}

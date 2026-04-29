@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { View, Text } from "react-native";
+import { View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -12,6 +12,7 @@ import { ShutterBar } from "@/components/camera/ShutterBar";
 import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useCalibrator } from "@/lib/calibration/useCalibrator";
+import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 
 /**
  * Precise capture mode.
@@ -22,8 +23,9 @@ import { useCalibrator } from "@/lib/calibration/useCalibrator";
  * isn't wired yet — the layout is exact so Phase 5 just provides a real
  * `CalibrationReading` object.
  *
- * The shutter remains enabled even without a lock (same fallback as live
- * mode) so the screen is testable end-to-end on hardware that lacks LiDAR.
+ * The shutter now requires an automatic ArUco lock. Manual calibration still
+ * feeds preview estimates, but persisted inspection measurements only proceed
+ * once a visible reference card has produced a live px/mm reading.
  *
  * Camera controls (flash / flip / grid) mirror scan mode but live as local
  * state — there's no value carrying them across modes.
@@ -39,6 +41,9 @@ export default function CapturePrecise() {
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
   const calibrator = useCalibrator();
+  const liveAruco = useLiveArucoCalibration(cameraActive && position === "back" && !busy);
+  const activeCalibration = liveAruco.result?.reading ?? calibrator.reading;
+  const activeCalibrationProfileName = liveAruco.result ? null : calibrator.profileName;
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
@@ -49,8 +54,20 @@ export default function CapturePrecise() {
   const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
   const toggleGrid = () => setShowGrid((g) => !g);
 
+  const ensureCalibrationLock = () => {
+    if (liveAruco.locked && liveAruco.result) {
+      return true;
+    }
+    Alert.alert(
+      t("inspections:capture.calibration.lockRequiredTitle"),
+      t("inspections:capture.calibration.lockRequiredBody"),
+    );
+    return false;
+  };
+
   const onShutter = async () => {
     if (busy || !cameraRef.current) return;
+    if (!ensureCalibrationLock()) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     // Torch bracket for explicit "flash: on" + back camera. See scan.tsx
@@ -78,6 +95,8 @@ export default function CapturePrecise() {
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
+        capturedCalibrationReading: liveAruco.result?.reading ?? null,
+        capturedCalibrationProfileName: null,
       });
 
       // Deactivate the camera before pushing — same rnscreens-vs-camera-surface
@@ -99,7 +118,11 @@ export default function CapturePrecise() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        cameraProps={{ torch: cameraTorch }}
+        cameraProps={{
+          torch: cameraTorch,
+          frameProcessor: liveAruco.frameProcessor,
+          pixelFormat: "yuv",
+        }}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
@@ -125,14 +148,18 @@ export default function CapturePrecise() {
               className="text-white/85 mt-xs font-medium"
               style={{ fontSize: 28, letterSpacing: -0.6 }}
             >
-              {calibrator.distanceLabel ?? t("inspections:capture.precise.distanceUnknown")}
+              {liveAruco.locked
+                ? t("inspections:capture.calibration.lockedHintBare", {
+                    pxPerMm: liveAruco.result?.reading.pxPerMm.toFixed(1),
+                  })
+                : t("inspections:capture.precise.distanceUnknown")}
             </Text>
           </View>
 
           <View className="mx-md mb-md" pointerEvents="box-none">
             <CalibrationBanner
-              reading={calibrator.reading}
-              profileName={calibrator.profileName}
+              reading={activeCalibration}
+              profileName={activeCalibrationProfileName}
               distanceLabel={calibrator.distanceLabel}
             />
           </View>

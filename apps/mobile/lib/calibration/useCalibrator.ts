@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { CalibrationReading } from "@advance-seeds/types";
 import { useCalibrations } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
+import { ManualCalibrator } from "./ManualCalibrator";
 
 interface CalibratorState {
   reading: CalibrationReading | null;
@@ -31,13 +32,13 @@ export function useCalibrator(): CalibratorState {
   return useMemo(() => {
     const profile = data?.find((c) => c.id === session.calibrationId) ?? null;
     if (!profile) return { reading: null, profileName: null, distanceLabel: null };
+    const calibrator = new ManualCalibrator(profile);
     return {
-      reading: {
-        pxPerMm: profile.px_per_mm,
-        source: "manual",
-        confidence: 1,
-        observedAtMs: Date.now(),
-      },
+      reading: calibrator.observe({
+        width: 1,
+        height: 1,
+        timestampMs: Date.now(),
+      }),
       profileName: profile.name,
       distanceLabel: null,
     };

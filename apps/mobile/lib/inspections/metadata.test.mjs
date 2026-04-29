@@ -5,6 +5,7 @@ import {
   buildInspectionMetadata,
   locationDisplayName,
   readCaptureMetadata,
+  readCalibrationMetadata,
   readDeviceUsageMetadata,
   readLocationMetadata,
 } from "./metadata.ts";
@@ -36,9 +37,25 @@ test("buildInspectionMetadata keeps auto-tag intent even when GPS is unavailable
       locationTagEnabled: true,
       capturedLocation: null,
       deviceUsage,
+      calibration: {
+        pxPerMm: 41.2,
+        source: "manual",
+        confidence: 1,
+        observedAtMs: 1777453200000,
+        profileId: "cal-1",
+        profileName: "Lab card",
+      },
       capture,
     }),
     {
+      calibration: {
+        px_per_mm: 41.2,
+        source: "manual",
+        confidence: 1,
+        observed_at_ms: 1777453200000,
+        profile_id: "cal-1",
+        profile_name: "Lab card",
+      },
       capture_media: {
         kind: "photo",
         url: "https://example.test/capture.jpg",
@@ -75,6 +92,7 @@ test("buildInspectionMetadata includes GPS when available", () => {
       locationTagEnabled: true,
       capturedLocation,
       deviceUsage,
+      calibration: null,
       capture: { ...capture, mode: "precise", flash_mode: "on" },
     }),
     {
@@ -108,6 +126,14 @@ test("metadata readers return location, device usage, and capture detail", () =>
       address: "Lat Phrao, Bangkok, Thailand",
     },
     device_usage: deviceUsage,
+    calibration: {
+      px_per_mm: 41.2,
+      source: "manual",
+      confidence: 1,
+      observed_at_ms: 1777453200000,
+      profile_id: "cal-1",
+      profile_name: "Lab card",
+    },
     capture: {
       mode: "live",
       media_kind: "photo",
@@ -122,6 +148,7 @@ test("metadata readers return location, device usage, and capture detail", () =>
   assert.equal(readLocationMetadata(metadata)?.address, "Lat Phrao, Bangkok, Thailand");
   assert.deepEqual(readDeviceUsageMetadata(metadata), deviceUsage);
   assert.deepEqual(readCaptureMetadata(metadata), metadata.capture);
+  assert.deepEqual(readCalibrationMetadata(metadata), metadata.calibration);
 });
 
 test("locationDisplayName prefers reverse-geocoded address", () => {
