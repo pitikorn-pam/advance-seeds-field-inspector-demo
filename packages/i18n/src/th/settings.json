@@ -1,12 +1,11 @@
 {
   "title": "การตั้งค่า",
   "sections": {
-    "profile": "โปรไฟล์",
     "appearance": "รูปลักษณ์",
     "language": "ภาษา",
-    "calibration": "การสอบเทียบ",
-    "about": "เกี่ยวกับ"
+    "app": "แอป"
   },
   "appearanceHint": "เลือกโหมดสว่าง มืด หรือใช้ตามอุปกรณ์",
-  "version": "เวอร์ชัน {{version}}"
+  "version": "เวอร์ชัน",
+  "build": "บิลด์"
 }

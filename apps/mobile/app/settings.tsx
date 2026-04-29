@@ -2,33 +2,33 @@ import { ScrollView, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
 import { ChevronLeft } from "lucide-react-native";
-import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { Card } from "@/components/ui/Card";
-import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import type { Theme } from "@advance-seeds/types";
 import type { SupportedLocale } from "@advance-seeds/i18n";
 
 /**
- * App-level settings only — appearance and language. The previous
+ * App-level settings only — appearance, language, and build info. The previous
  * everything-bag (Profile / Calibration / Library / Batches / Reports /
  * Sign out) moved to /more in the prototype-fidelity-pass tab restructure.
- *
- * Profile section here is read-only; profile editing remains a future
- * surface and Sign out lives under /more → Manage to give it a single
- * canonical access path.
  */
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation(["common", "settings"]);
   const router = useRouter();
-  const { profile } = useAuth();
   const { theme, setTheme } = useTheme();
 
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
+  const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "—";
+  const buildNumber =
+    Constants.nativeBuildVersion ??
+    Constants.expoConfig?.ios?.buildNumber ??
+    Constants.expoConfig?.android?.versionCode?.toString() ??
+    "—";
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -41,33 +41,6 @@ export default function SettingsScreen() {
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-xl">
-        <View className="gap-md">
-          <Text className="text-caption uppercase text-fg-secondary">
-            {t("settings:sections.profile")}
-          </Text>
-          <Card>
-            {profile ? (
-              <View className="gap-sm">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-body text-fg-secondary">{t("common:fields.name")}</Text>
-                  <Text className="text-title text-fg-primary">{profile.full_name ?? "—"}</Text>
-                </View>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-body text-fg-secondary">{t("common:fields.email")}</Text>
-                  <Text className="text-title text-fg-primary">{profile.email}</Text>
-                </View>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-body text-fg-secondary">{t("common:fields.role")}</Text>
-                  <Pill
-                    tone={profile.role === "admin" ? "brand" : "info"}
-                    label={t(`common:roles.${profile.role}`)}
-                  />
-                </View>
-              </View>
-            ) : null}
-          </Card>
-        </View>
-
         <View className="gap-md">
           <Text className="text-caption uppercase text-fg-secondary">
             {t("settings:sections.appearance")}
@@ -111,19 +84,29 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
-        {/*
-          The "About" menu (Profile / Calibration / Library / Batches / Reports)
-          previously lived here when Settings was the catch-all hub. After
-          the prototype-fidelity-pass tab restructure, those entries belong
-          to /more's Manage / Reference / Insights sections — listing them
-          here too is a duplicate access path that breaks discoverability
-          ("which one is the canonical entry?"). Settings is now scoped to
-          appearance + language only.
-
-          Sign out also lives in /more under Manage; we drop it here for
-          the same reason.
-         */}
+        <View className="gap-md">
+          <Text className="text-caption uppercase text-fg-secondary">
+            {t("settings:sections.app")}
+          </Text>
+          <Card>
+            <View className="gap-sm">
+              <InfoRow label={t("settings:version")} value={appVersion} />
+              <InfoRow label={t("settings:build")} value={buildNumber} />
+            </View>
+          </Card>
+        </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row items-center justify-between gap-md">
+      <Text className="text-body text-fg-secondary">{label}</Text>
+      <Text className="text-title text-fg-primary" numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
   );
 }
