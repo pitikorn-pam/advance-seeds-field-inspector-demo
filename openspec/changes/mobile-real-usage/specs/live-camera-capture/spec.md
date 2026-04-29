@@ -84,16 +84,19 @@ The mobile app SHALL allow the user to draw an ROI on the live preview using rec
 - **WHEN** the user picks the rectangle tool and drags two corners
 - **THEN** a rectangle overlay appears with draggable handles at each corner
 - **AND** the KPI strip recomputes to count only detections whose centroid falls inside the rectangle
+- **AND** after the rectangle is committed, dragging a corner handle updates the existing rectangle without clearing the ROI
 
 #### Scenario: Polygon ROI
 - **WHEN** the user picks the polygon tool, taps to add vertices, then double-taps to close the shape
 - **THEN** the polygon overlay closes and is rendered with draggable vertex handles
 - **AND** point-in-polygon test gates the KPI counter
+- **AND** after the polygon is committed, dragging a vertex handle updates that vertex while preserving a valid closed polygon
 
 #### Scenario: Circle ROI
 - **WHEN** the user picks the circle tool, taps a center point, and drags outward to set the radius
 - **THEN** a circle overlay renders with a center handle (move) and an edge handle (resize)
 - **AND** point-in-circle test gates the KPI counter
+- **AND** after the circle is committed, dragging the center moves the circle and dragging the edge handle resizes its radius
 
 #### Scenario: ROI persists per-session, clears on capture
 - **GIVEN** a user has drawn a polygon ROI
@@ -103,4 +106,5 @@ The mobile app SHALL allow the user to draw an ROI on the live preview using rec
 #### Scenario: ROI persists in saved inspection metadata
 - **GIVEN** an active ROI is in use when shutter fires
 - **WHEN** the inspection is saved
-- **THEN** the ROI shape (type + coordinates in image space) is stored on the inspection row's `notes` or a new `roi` JSON column for traceability
+- **THEN** the ROI shape (type + normalized coordinates) is stored in `inspections.metadata.roi` for traceability
+- **AND** the result/detail/share media render the same ROI geometry when the media type supports overlays

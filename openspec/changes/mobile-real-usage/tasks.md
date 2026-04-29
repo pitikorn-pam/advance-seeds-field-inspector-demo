@@ -76,6 +76,11 @@
 - [x] 6b.7 KPI strip filters by ROI: when a committed shape is active, count / mean length / Grade-A% are computed over only the detections whose centroid (`normalizeCentroid`) falls inside the shape
 - [x] 6b.8 Persist ROI shape on the captured inspection's metadata. Migration `20260427000002_inspections_metadata.sql` adds a generic `metadata jsonb` column with a `jsonb_typeof = 'object'` guard. `InspectionMetadata` type in `packages/types/src/domain.ts` documents the shape; review-screen save writes `{ roi: session.roi }` when a shape is active, and inspection detail surfaces an "ROI · Rect / Polygon (Nv) / Circle" badge.
 - [x] 6b.9 ROI auto-clears on new session via the existing `session.reset()` after Save and sync — no separate reset path needed since ROI lives on the capture session
+- [ ] 6b.10 Rectangle ROI re-edit: committed rectangle exposes four corner handles; dragging any handle updates the existing ROI instead of forcing clear + redraw.
+- [ ] 6b.11 Polygon ROI re-edit: committed polygon exposes draggable vertex handles; dragging a vertex updates that point while preserving closure.
+- [ ] 6b.12 Polygon ROI edit actions: selected polygon supports adding a vertex on an edge and deleting a selected vertex while preserving a valid closed polygon with ≥ 3 vertices.
+- [ ] 6b.13 Circle ROI re-edit: committed circle exposes a center handle for move and an edge handle for radius resize.
+- [ ] 6b.14 ROI edit QA: verify rectangle, polygon, and circle edits update KPI filtering, save to inspection metadata, and render correctly on result/detail/share media.
 
 ## 7. Processing & review screens
 
@@ -84,6 +89,12 @@
 - [x] 7.3 Save flow: persist inspection + seeds rows; nav to inspection detail
 - [x] 7.4 Discard flow: delete uploaded image from storage, return home
 - [x] 7.5 Both screens follow the four-state pattern (loaded / loading / error)
+- [x] 7.6 Result/detail note parity: setup notes persist to `inspections.notes` and render on both Inspection Result and Inspection Detail.
+- [x] 7.7 Capture metadata: result/detail screens render compact collapsed metadata by default with Show more / Show less expansion.
+- [x] 7.8 GPS auto-tag reliability: Save waits once for GPS when Auto-tag location is enabled, persists `location_capture_enabled`, and tolerates unavailable GPS.
+- [x] 7.9 Reverse-geocoded location: GPS metadata stores a best-effort human-readable place/address label and falls back to coordinates when unavailable.
+- [x] 7.10 Device/camera metadata: inspection metadata stores device name, platform/OS, app/build/runtime, capture mode, media type, camera position, flash mode, ROI type, and capture timestamp.
+- [x] 7.11 Result/detail media parity: photo and video result/detail pages retain source media, note, metadata, ROI overlay where applicable, and share the correct media type.
 
 ## 7b. Video recording + in-session snapshots
 

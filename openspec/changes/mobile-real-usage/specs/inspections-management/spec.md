@@ -75,3 +75,28 @@ After capture, the mobile app SHALL show a Review screen with the captured frame
 - **THEN** the captured image is rendered with SVG bounding boxes for each detected seed
 - **AND** the summary shows total seeds + mean length/width/area
 - **AND** "Save" persists the inspection; "Discard" deletes the upload and returns to Setup
+
+### Requirement: Inspection note and capture metadata
+The mobile app SHALL carry setup notes and capture metadata from Inspection Result into Inspection Detail for both photo and video captures.
+
+#### Scenario: Result and detail show setup note
+- **GIVEN** the inspector enters a note during setup
+- **WHEN** capture completes and the Result page opens
+- **THEN** the Result page shows the note in a dedicated Note section
+- **AND** after save, the Inspection Detail page shows the same note from `inspections.notes`
+
+#### Scenario: Capture metadata is compact by default
+- **WHEN** the Result or Detail page renders capture metadata
+- **THEN** the metadata card is collapsed by default and shows only the key rows: location summary when present, device, capture mode, and media type
+- **AND** tapping Show more expands full GPS, device, app/runtime, camera, flash, ROI, and capture timestamp fields
+
+#### Scenario: GPS location name is preferred
+- **GIVEN** Auto-tag location is enabled and GPS resolves successfully
+- **WHEN** the inspection is saved
+- **THEN** metadata includes latitude, longitude, accuracy, timestamp, and best-effort reverse-geocoded place/address fields
+- **AND** the collapsed metadata row shows the place/address name when available, falling back to coordinates
+
+#### Scenario: Device and camera metadata is persisted
+- **WHEN** an inspection is saved
+- **THEN** `inspections.metadata` records device name, platform/OS, app version/build, runtime version, capture mode, media type, camera position, flash mode, ROI type, and capture timestamp
+- **AND** photo and video captures preserve the correct media type through result, detail, and share flows
