@@ -1,5 +1,6 @@
 {
   "title": "Library",
+  "searchPlaceholder": "Search varieties…",
   "segments": {
     "all": "All",
     "corn": "Corn",

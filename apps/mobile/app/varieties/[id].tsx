@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { ScrollView, View, Text, Image } from "react-native";
+import { ScrollView, View, Text, Image, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Camera as CameraIcon } from "lucide-react-native";
+import { Camera as CameraIcon, ChevronLeft } from "lucide-react-native";
 import { useVarieties, useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
 import { Card } from "@/components/ui/Card";
@@ -63,7 +63,20 @@ export default function VarietyDetail() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <View className="flex-row items-center gap-md px-xl py-md">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("common:actions.back")}
+          className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
+          onPress={() => router.back()}
+        >
+          <ChevronLeft color="#1A1A1A" size={20} />
+        </Pressable>
+        <Text className="flex-1 text-h2 font-medium text-fg-primary" numberOfLines={1}>
+          {variety.name}
+        </Text>
+      </View>
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
         <View
           className="items-center justify-center overflow-hidden"

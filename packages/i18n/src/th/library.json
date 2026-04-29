@@ -1,5 +1,6 @@
 {
   "title": "ห้องสมุด",
+  "searchPlaceholder": "ค้นหาพันธุ์…",
   "segments": {
     "all": "ทั้งหมด",
     "corn": "ข้าวโพด",

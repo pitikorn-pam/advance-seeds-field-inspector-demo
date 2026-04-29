@@ -11,6 +11,15 @@ interface Props<T extends string> {
   options: Array<Option<T>>;
   /** When true, the row scrolls horizontally — useful for many segments. */
   scrollable?: boolean;
+  /**
+   * Visual style. "filled" (default) gives both states a fill — the legacy
+   * look used by the History tab. "tag" gives the selected option a brand
+   * fill and unselected options a frame-only outline, so the active pick
+   * reads as one highlighted tag among ghosts. The Library tab uses "tag"
+   * because it's the only filter that the user explicitly described as a
+   * tag-style button group.
+   */
+  variant?: "filled" | "tag";
 }
 
 /**
@@ -27,6 +36,7 @@ export function Segmented<T extends string>({
   onChange,
   options,
   scrollable = false,
+  variant = "filled",
 }: Props<T>) {
   const Container = scrollable ? ScrollView : View;
   const containerProps = scrollable
@@ -41,13 +51,15 @@ export function Segmented<T extends string>({
     <Container {...containerProps}>
       {options.map((opt) => {
         const active = opt.value === value;
+        const inactiveClass =
+          variant === "tag" ? "bg-transparent border border-line-secondary" : "bg-bg-secondary";
         return (
           <Pressable
             key={opt.value}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(opt.value)}
-            className={`px-md py-xs rounded-full ${active ? "bg-brand-soft" : "bg-bg-secondary"}`}
+            className={`px-md py-xs rounded-full ${active ? "bg-brand-soft" : inactiveClass}`}
           >
             <Text
               className={`font-medium ${active ? "text-brand-deep" : "text-fg-secondary"}`}

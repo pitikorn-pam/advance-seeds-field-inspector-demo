@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, Text, Alert, Pressable } from "react-native";
+import { ScrollView, View, Text, Alert, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Plus, Pencil, Trash2, ChevronRight } from "lucide-react-native";
+import { Plus, Pencil, Trash2, ChevronRight, Search, X } from "lucide-react-native";
 import type { Variety } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
@@ -71,6 +71,7 @@ export default function LibraryTab() {
   const del = useDeleteVariety();
   const [form, setForm] = useState<FormState | null>(null);
   const [family, setFamily] = useState<FamilyKey>("all");
+  const [query, setQuery] = useState("");
 
   // Observed reference dims keyed by variety_id — averaged across this
   // variety's recent inspections. Empty entries fall back to "—".
@@ -94,9 +95,18 @@ export default function LibraryTab() {
   }, [inspections.data]);
 
   const grouped = useMemo(() => {
-    const filtered = (data ?? []).filter((v) => family === "all" || v.color_key === family);
+    const q = query.trim().toLowerCase();
+    const filtered = (data ?? []).filter((v) => {
+      if (family !== "all" && v.color_key !== family) return false;
+      if (!q) return true;
+      // Search both display name and scientific name — users may know
+      // either ("rice 24" vs "Oryza"). Description is intentionally
+      // excluded; matching prose noise produces too many false positives.
+      const hay = `${v.name} ${v.scientific_name ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
     return groupByFamily(filtered);
-  }, [data, family]);
+  }, [data, family, query]);
 
   const open = (v?: Variety) =>
     setForm(
@@ -135,11 +145,33 @@ export default function LibraryTab() {
           ) : null}
         </View>
 
+        <View className="flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
+          <Search color="#9D9D9A" size={16} />
+          <TextInput
+            placeholder={t("library:searchPlaceholder")}
+            placeholderTextColor="#9D9D9A"
+            value={query}
+            onChangeText={setQuery}
+            className="flex-1 text-body text-fg-primary"
+            returnKeyType="search"
+          />
+          {query ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("common:actions.cancel")}
+              onPress={() => setQuery("")}
+            >
+              <X color="#9D9D9A" size={16} />
+            </Pressable>
+          ) : null}
+        </View>
+
         <Segmented<FamilyKey>
           value={family}
           onChange={setFamily}
           options={segmentOptions}
           scrollable
+          variant="tag"
         />
 
         {isLoading ? (
