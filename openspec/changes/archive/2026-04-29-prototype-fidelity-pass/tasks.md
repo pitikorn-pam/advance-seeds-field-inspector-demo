@@ -64,8 +64,8 @@
 
 ## 8. QA
 
-- [ ] 8.1 Walk every navigation path on iOS (clean clone build): Home → Inspect tab → setup → mode → scan/precise → shutter → processing → review → save. Then Home → recent list row → detail → seed detail. *(user-driven)*
-- [ ] 8.2 Walk More → every row → expected screen renders → back button returns to More with no "(tabs)" leak. *(user-driven)*
-- [ ] 8.3 Library: segment between All / Corn / Rice → grouped sections render correctly. Tap a variety → detail → "Start inspection" → setup with variety pre-selected. *(user-driven)*
+- [x] 8.1 Walk every navigation path on iOS — confirmed passing on iPhone Air (v0.2.0).
+- [x] 8.2 More → every row → back returns cleanly without "(tabs)" leak — confirmed.
+- [x] 8.3 Library segmentation + variety detail + Start inspection flow — confirmed.
 - [x] 8.4 i18n parity test green (`pnpm -F @advance-seeds/i18n test`); typecheck + lint green across the workspace.
 - [x] 8.5 Commit hashes recorded in tasks.md ticks: `c45a209` (Phase 1), `a9bb278` (Phase 2 tick), `207e5b7` (Phase 3), `bfff364` (Phase 4), `e135670` (Phase 5).
