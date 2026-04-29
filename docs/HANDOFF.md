@@ -1,6 +1,8 @@
 # Project Hand-off — Advance Seeds Field Inspector Demo
 
-**Status: production-shaped mobile demo (v0.2.0).** Mobile is now a custom dev-client (no longer Expo Go) running on real camera hardware with prototype-faithful navigation, the full three-step capture journey, ROI tools, video recording, snapshots to Photos, and manual calibration. Web dashboard unchanged. ML is still mocked behind the same `SeedAnalyzer` interface — Phase 4 (TFLite) is the next planned uplift.
+**Status: production-shaped mobile demo (v0.3.0).** Mobile is a custom dev-client running on real camera hardware with prototype-faithful navigation, the three-step capture journey, ROI tools, video recording, snapshots to Photos, manual calibration, **in-app notifications**, **dropdown-search variety/batch pickers**, **auto-tag GPS location** on captures and recordings, and a polished Library tab. Web dashboard unchanged. ML is still mocked behind the same `SeedAnalyzer` interface — Phase 4 (TFLite) is the next planned uplift.
+
+> **Working directory:** `~/Code/seed-demo`. Do **not** build from the iCloud path (`~/Library/Mobile Documents/...`) — Ruby's `require` breaks on the ZWJ emoji in the path, which kills `pod install`. See [Critical environment rules](#critical-environment-rules-read-before-any-rebuild).
 
 ---
 
@@ -73,6 +75,96 @@
 │   └── changes/            ← active: mobile-real-usage, prototype-fidelity-pass
 ├── .github/workflows/      ← ci.yml + deploy-dashboard.yml
 └── .npmrc, pnpm-workspace.yaml, …
+```
+
+---
+
+## What's new in v0.3.0 (post-v0.2.0 review pass)
+
+Six user-feedback items + one chore, one commit each on `main`. All migrations are live on remote Supabase (`gqsxiohxokgwwugeoxmy`).
+
+| Commit    | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `068e1b7` | **C1 Notifications.** New `notifications` table with RLS + JSONB metadata. Bell icon next to the Home role pill (badge = unread count); tap opens `/notifications` modal with FlatList lazy-paged at 10/page. `useNotify()` closure fired from save success/failure, recording upload (success / too-large / failed), snapshot saved. Optimistic React Query layer with `onMutate`/`onError` rollback.                                                                                                                                                                                                                                    |
+| `80b0b29` | **C2 Variety/batch dropdowns.** Replaced `/capture/variety-picker` route with inline `<DropdownSearch>` typeahead. Variety mandatory (red border invalid state); batch optional. "Other" variety seeded with stable UUID `00000000-0000-4000-8000-000000000001` so unknowns flow through queries/reports normally. Continue button gated on `varietyId`.                                                                                                                                                                                                                                                                                  |
+| `eb42bf5` | **C3 Mode picker.** Top safe-area edge added + inline header (back arrow + title) — fixes the flush-to-status-bar overlap. Photos permission pre-check via `MediaLibrary.getPermissionsAsync()` before either Live or Precise routes; iOS won't re-prompt after a hard deny so this naturally caps to "ask at most once".                                                                                                                                                                                                                                                                                                                 |
+| `2e4c450` | **C5 Library polish.** New `<Segmented variant="tag">` — selected option keeps brand-soft fill, unselected becomes frame-only outline (the active filter reads as a tag among ghosts). Search bar over `name + scientific_name`. Variety detail back arrow + top edge fix.                                                                                                                                                                                                                                                                                                                                                                |
+| `513d77c` | **C6 Session reset on Start inspection.** `Start inspection` from `/varieties/[id]` now `session.reset()` first, then sets `varietyId`. Prior `batchId / calibrationId / notes / locationTagEnabled / roi` no longer latch onto the new attempt. The `/camera` tab redirect intentionally does **not** reset (preserves "resume in-progress capture").                                                                                                                                                                                                                                                                                    |
+| `1bb7923` | **C4 Auto-tag location.** `expo-location` wired. `lib/capture/location.ts` enforces "ask once per session" (module-level `ensured` flag, cache result; subsequent calls within the app session never re-prompt). iOS `NSLocationWhenInUseUsageDescription` + Android coarse/fine permissions in `app.json`. GPS attached to `inspections.metadata.location` at review-mount time and `recordings.metadata.location` at recording-finish. New `recordings.metadata` jsonb column (object-only check). **Bumps to `version: "0.3.0"` + `runtimeVersion: "0.3.0"` + Android `versionCode: 2`** because expo-location is a new native module. |
+| `c0dd55b` | chore: gitignore `ios/` / `android/` (CNG / continuous native generation), switch start scripts to `expo run:ios` / `run:android`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+### Migrations applied to remote DB
+
+```
+20260427000002_inspections_metadata.sql   ← already there from v0.2.0 ROI metadata
+20260429000001_notifications.sql          ← C1
+20260429000002_other_variety.sql          ← C2
+20260429000003_recordings_metadata.sql    ← C4
+```
+
+### Last remaining step (not yet done)
+
+The **physical-device dev-client install + on-device test of C1–C6** was not completed. The simulator build with ExpoLocation linked is intact at `~/Library/Developer/Xcode/DerivedData/AdvanceSeedsFieldInspector-blscxxfhveyqzabujwdpzzobwkun/Build/Products/Debug-iphonesimulator/AdvanceSeedsFieldInspector.app`. Three devices were connected at hand-off:
+
+```
+1. PPUNGPONG's iPad (26.4.2)              — 00008112-0006305E1A78A01E
+2. PPUNGPONG's iPhone 16 Pro Max (18.5)   — 00008140-000111102613001C
+3. PPUNGPONG's iPhone Air (26.4.2)        — 00008150-001555E01188401C
+```
+
+To install + start Metro from the clean clone:
+
+```bash
+cd ~/Code/seed-demo/apps/mobile
+./node_modules/.bin/expo run:ios --device <UDID>
+```
+
+### Critical environment rules (read before any rebuild)
+
+1. **Never build from the iCloud path** `~/Library/Mobile Documents/.../Seed Measurement/03 - Demo`. macOS Ruby's `require` chokes on the ZWJ emoji `🧑‍💻` in the path — `File.exist?` returns true but `load`/`require` raise `LoadError` on the same string, which kills `pod install` ("cannot load such file -- .../scripts/autolinking"). Use `~/Code/seed-demo` (clean clone, kept in sync via `git pull origin main`).
+2. **Never use `pnpm dlx expo`.** It fetches the latest Expo CLI (currently v55) which is incompatible with this project's SDK 54. The skew manifests as `ECONNREFUSED .../watchman/sock` because v55 bundles a different `metro-file-map`. Always run `./node_modules/.bin/expo` from `apps/mobile` (the project's own SDK-matched CLI).
+3. **`ios/` and `android/` are gitignored** (CNG workflow). Source of truth is `app.json` plus the plugin block. After any new native module or plugin change, run `./node_modules/.bin/expo prebuild --platform ios --clean` (or `--platform android`) before building.
+4. **The user is in confirm-before-proceed mode.** Show a plan for any non-trivial change and wait for "ok" before editing. Trivial reads / lookups are fine to do directly.
+
+### Test plan to run after install
+
+| Item | What to verify                                                                                                                                                                                                                                           | Reload type                 |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| C1   | Home: bell next to role pill. Tap → modal. Save a capture → bell badge. Lazy-paged at 10/page.                                                                                                                                                           | Metro reload                |
+| C2   | setup → variety field is dropdown (red border when empty) → typeahead works → "Other" present → continue enables. Batch optional.                                                                                                                        | Metro reload                |
+| C3   | setup → continue → mode picker has back arrow at top, no overlap. First Live/Precise tap prompts for Photos if undetermined.                                                                                                                             | Metro reload                |
+| C5   | Library → search bar + tag-style filter (active = brand-soft fill, inactive = frame-only outline). Variety detail has back arrow.                                                                                                                        | Metro reload                |
+| C6   | Mid-capture → bail → Library → variety → Start inspection → setup screen has only the new variety; batch/calibration/notes empty.                                                                                                                        | Metro reload                |
+| C4   | Toggle on at setup → finish capture → at review screen, iOS shows location prompt. Allow → save → check `inspections.metadata.location` in Supabase. Re-record → no second prompt. Hard-deny → alert with Settings link, save proceeds without location. | **Native rebuild required** |
+
+### Verifying DB state
+
+Use the Supabase Dashboard SQL editor (https://supabase.com/dashboard/project/gqsxiohxokgwwugeoxmy/sql/new) or the CLI:
+
+```bash
+rtk supabase db query "select id, metadata from public.inspections order by created_at desc limit 5;" --linked
+rtk supabase db query "select id, metadata from public.recordings order by captured_at desc limit 5;" --linked
+rtk supabase db query "select id, kind, title, read_at from public.notifications order by created_at desc limit 10;" --linked
+rtk supabase db query "select id, name from public.varieties where id = '00000000-0000-4000-8000-000000000001';" --linked
+```
+
+### v0.3.0 file/path cheat-sheet
+
+```
+apps/mobile/
+  lib/capture/location.ts                  ← NEW: ask-once-per-session GPS policy
+  lib/capture/session.ts                   ← capturedLocation field added
+  lib/queries.ts                           ← useCreateRecording accepts metadata
+  lib/notifications.ts                     ← NEW: useNotify() closure
+  components/ui/Segmented.tsx              ← new variant="tag"
+  components/ui/DropdownSearch.tsx         ← NEW generic typeahead
+  components/home/NotificationBell.tsx     ← NEW
+  app/notifications.tsx                    ← NEW modal route
+  app/capture/{setup,mode,review,scan,precise}.tsx  ← all touched
+supabase/migrations/
+  20260429000001_notifications.sql         ← C1
+  20260429000002_other_variety.sql         ← C2
+  20260429000003_recordings_metadata.sql   ← C4
 ```
 
 ---
