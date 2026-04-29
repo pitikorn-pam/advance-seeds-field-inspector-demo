@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View, Text, Alert, Pressable } from "react-native";
+import { Platform, ScrollView, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
 import { ChevronLeft, Share2, ChevronRight, Check } from "lucide-react-native";
 import type { AnalyzedSeed, SeedGrade } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
@@ -10,6 +11,8 @@ import { useAuth } from "@/lib/auth";
 import { useCaptureSession } from "@/lib/capture/session";
 import { getCurrentLocation } from "@/lib/capture/location";
 import { shareImageWithRoi, shareVideo } from "@/lib/capture/imageActions";
+import { displayInspectionNote } from "@/lib/inspections/notes";
+import { buildInspectionMetadata, locationDisplayName } from "@/lib/inspections/metadata";
 import { useCreateInspection } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +21,25 @@ import { GradeRing } from "@/components/inspections/GradeRing";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 
 type SortMode = "index" | "grade" | "length";
+
+function buildDeviceUsageMetadata() {
+  const runtimeVersion =
+    typeof Constants.expoConfig?.runtimeVersion === "string"
+      ? Constants.expoConfig.runtimeVersion
+      : null;
+  return {
+    device_name: Constants.deviceName ?? null,
+    platform: Platform.OS,
+    os_version: Platform.Version,
+    app_version: Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? null,
+    build_version:
+      Constants.nativeBuildVersion ??
+      Constants.expoConfig?.ios?.buildNumber ??
+      Constants.expoConfig?.android?.versionCode?.toString() ??
+      null,
+    runtime_version: Constants.expoRuntimeVersion ?? runtimeVersion,
+  };
+}
 
 /**
  * Post-analysis review screen.
@@ -33,7 +55,7 @@ type SortMode = "index" | "grade" | "length";
  * (`/inspections/seed/[index]`) lands in Phase 8.1.
  */
 export default function CaptureReview() {
-  const { t } = useTranslation(["common", "inspections", "notifications"]);
+  const { t, i18n } = useTranslation(["common", "inspections", "notifications"]);
   const router = useRouter();
   const { profile } = useAuth();
   const session = useCaptureSession();
@@ -41,6 +63,7 @@ export default function CaptureReview() {
   const notify = useNotify();
   const [saving, setSaving] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("index");
+  const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   const result = session.analysisResult;
   const seeds = useMemo(() => {
@@ -55,6 +78,7 @@ export default function CaptureReview() {
     }
     return next.sort((a, b) => a.index - b.index);
   }, [result, sortMode]);
+  const deviceUsage = useMemo(() => buildDeviceUsageMetadata(), []);
 
   // Fetch GPS once on mount when the user opted into auto-tag location.
   // Done here rather than at save time so the reading is captured close
@@ -65,7 +89,9 @@ export default function CaptureReview() {
     if (session.capturedLocation) return;
     void (async () => {
       const loc = await getCurrentLocation(t);
-      if (loc) session.set({ capturedLocation: loc });
+      if (loc) {
+        session.set({ capturedLocation: loc });
+      }
     })();
     // Intentional: depend only on the toggle so we fetch once per
     // session-enabled review. `session` is a hook closure that changes
@@ -94,6 +120,12 @@ export default function CaptureReview() {
   const avgWid = result.summary.mean_width_mm;
   const mediaKind = session.capturedMediaKind;
   const previewRoi = session.mode === "live" && mediaKind === "photo" ? session.roi : null;
+  const note = displayInspectionNote(session.notes);
+  const capturedAt = session.capturedAt ?? new Date().toISOString();
+  const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
   const openSort = () => {
     Alert.alert(t("inspections:capture.review.sort"), undefined, [
@@ -135,23 +167,30 @@ export default function CaptureReview() {
     if (!profile || !session.uploadedImageUrl || !session.varietyId) return;
     setSaving(true);
     try {
-      // Persist capture-time context on inspection metadata: ROI shape (if
-      // drawn), notes, and the auto-tag-location intent. Future fields
-      // (calibration confidence, model version) join this same bag.
-      const metadataParts: Record<string, unknown> = {};
-      if (session.roi) metadataParts.roi = session.roi;
-      metadataParts.capture_media = {
-        kind: mediaKind,
-        url: session.uploadedImageUrl,
-        recording_id: mediaKind === "video" ? session.recordingId : null,
-        duration_ms: mediaKind === "video" ? session.recordingDurationMs : null,
-      };
-      if (session.locationTagEnabled) {
-        metadataParts.location_capture_enabled = true;
-        if (session.capturedLocation) metadataParts.location = session.capturedLocation;
+      let capturedLocation = session.capturedLocation;
+      if (session.locationTagEnabled && !capturedLocation) {
+        capturedLocation = await getCurrentLocation(t);
+        if (capturedLocation) {
+          session.set({ capturedLocation });
+        }
       }
       const trimmedNotes = session.notes.trim();
-      const metadata = Object.keys(metadataParts).length > 0 ? metadataParts : null;
+      const metadata = buildInspectionMetadata({
+        roi: session.roi,
+        mediaKind,
+        mediaUrl: session.uploadedImageUrl,
+        recordingId: session.recordingId,
+        recordingDurationMs: session.recordingDurationMs,
+        locationTagEnabled: session.locationTagEnabled,
+        capturedLocation,
+        deviceUsage: buildDeviceUsageMetadata(),
+        capture: {
+          mode: session.mode,
+          camera_position: session.cameraPosition,
+          flash_mode: session.flashMode,
+          captured_at: capturedAt,
+        },
+      });
       const id = await create.mutateAsync({
         inspector_id: profile.id,
         variety_id: session.varietyId,
@@ -254,6 +293,143 @@ export default function CaptureReview() {
           <CaptureMediaPreview uri={session.uploadedImageUrl} kind={mediaKind} roi={previewRoi} />
         </View>
 
+        {note ? (
+          <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
+            <Text className="text-caption font-medium uppercase text-fg-secondary">
+              {t("inspections:detail.notesTitle")}
+            </Text>
+            <Text className="mt-xs text-body text-fg-primary">{note}</Text>
+          </View>
+        ) : null}
+
+        <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
+          <View className="flex-row items-center justify-between gap-md">
+            <Text className="text-caption font-medium uppercase text-fg-secondary">
+              {t("inspections:detail.metadata.title")}
+            </Text>
+            <Pressable onPress={() => setMetadataExpanded((v) => !v)} hitSlop={8}>
+              <Text className="text-caption font-medium text-brand">
+                {t(
+                  metadataExpanded
+                    ? "inspections:detail.metadata.showLess"
+                    : "inspections:detail.metadata.showMore",
+                )}
+              </Text>
+            </Pressable>
+          </View>
+          <View className="mt-sm gap-xs">
+            {session.capturedLocation ? (
+              <>
+                <MetadataRow
+                  label={t("inspections:detail.metadata.location")}
+                  value={locationDisplayName(session.capturedLocation)}
+                />
+                {metadataExpanded ? (
+                  <>
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.latitude")}
+                      value={session.capturedLocation.latitude.toFixed(6)}
+                    />
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.longitude")}
+                      value={session.capturedLocation.longitude.toFixed(6)}
+                    />
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.accuracy")}
+                      value={
+                        session.capturedLocation.accuracy === null
+                          ? "—"
+                          : t("inspections:detail.metadata.accuracyMeters", {
+                              meters: Number(session.capturedLocation.accuracy).toFixed(1),
+                            })
+                      }
+                    />
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.gpsTimestamp")}
+                      value={
+                        session.capturedLocation.timestamp
+                          ? dateFmt.format(new Date(session.capturedLocation.timestamp))
+                          : "—"
+                      }
+                    />
+                  </>
+                ) : null}
+              </>
+            ) : null}
+            <MetadataRow
+              label={t("inspections:detail.metadata.device")}
+              value={deviceUsage.device_name ?? "—"}
+            />
+            {metadataExpanded ? (
+              <>
+                <MetadataRow
+                  label={t("inspections:detail.metadata.platform")}
+                  value={`${deviceUsage.platform}${deviceUsage.os_version ? ` ${deviceUsage.os_version}` : ""}`}
+                />
+                <MetadataRow
+                  label={t("inspections:detail.metadata.appVersion")}
+                  value={
+                    [
+                      deviceUsage.app_version,
+                      deviceUsage.build_version
+                        ? t("inspections:detail.metadata.buildValue", {
+                            build: deviceUsage.build_version,
+                          })
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "—"
+                  }
+                />
+                <MetadataRow
+                  label={t("inspections:detail.metadata.runtime")}
+                  value={deviceUsage.runtime_version ?? "—"}
+                />
+              </>
+            ) : null}
+            <MetadataRow
+              label={t("inspections:detail.metadata.captureMode")}
+              value={t(`inspections:capture.mode${session.mode === "live" ? "Live" : "Precise"}`)}
+            />
+            <MetadataRow
+              label={t("inspections:detail.metadata.mediaType")}
+              value={t(`inspections:detail.metadata.media.${mediaKind}`)}
+            />
+            {metadataExpanded ? (
+              <>
+                <MetadataRow
+                  label={t("inspections:detail.metadata.camera")}
+                  value={
+                    session.cameraPosition
+                      ? t(`inspections:detail.metadata.cameraPosition.${session.cameraPosition}`)
+                      : "—"
+                  }
+                />
+                <MetadataRow
+                  label={t("inspections:detail.metadata.flash")}
+                  value={
+                    session.flashMode
+                      ? t(`inspections:detail.metadata.flashMode.${session.flashMode}`)
+                      : "—"
+                  }
+                />
+                <MetadataRow
+                  label={t("inspections:detail.metadata.roi")}
+                  value={
+                    session.roi
+                      ? t(`inspections:detail.roiBadge.${session.roi.kind}`, { vertices: 0 })
+                      : "—"
+                  }
+                />
+                <MetadataRow
+                  label={t("inspections:detail.metadata.captureTimestamp")}
+                  value={dateFmt.format(new Date(capturedAt))}
+                />
+              </>
+            ) : null}
+          </View>
+        </View>
+
         <View className="flex-row items-center gap-lg">
           <GradeRing
             percent={gradeAPct}
@@ -320,6 +496,15 @@ export default function CaptureReview() {
         />
       </View>
     </SafeAreaView>
+  );
+}
+
+function MetadataRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row justify-between gap-md">
+      <Text className="text-caption text-fg-secondary">{label}</Text>
+      <Text className="text-caption text-fg-primary text-right flex-1">{value}</Text>
+    </View>
   );
 }
 

@@ -19,6 +19,8 @@ import type { CapturedLocation } from "./location";
 
 export type CaptureMode = "live" | "precise";
 export type CaptureMediaKind = "photo" | "video";
+export type CaptureCameraPosition = "back" | "front";
+export type CaptureFlashMode = "off" | "auto" | "on";
 
 interface CaptureSessionState {
   varietyId: string | null;
@@ -40,6 +42,10 @@ interface CaptureSessionState {
   capturedVideoUri: string | null;
   /** Current capture artifact type. */
   capturedMediaKind: CaptureMediaKind;
+  /** Camera settings used for the current capture artifact. */
+  cameraPosition: CaptureCameraPosition | null;
+  flashMode: CaptureFlashMode | null;
+  capturedAt: string | null;
   /** Recording duration for video captures. */
   recordingDurationMs: number | null;
   /** Linked recordings row once video upload completes. */
@@ -74,6 +80,9 @@ const initial: CaptureSessionState = {
   capturedImageUri: null,
   capturedVideoUri: null,
   capturedMediaKind: "photo",
+  cameraPosition: null,
+  flashMode: null,
+  capturedAt: null,
   recordingDurationMs: null,
   recordingId: null,
   uploadedImageUrl: null,

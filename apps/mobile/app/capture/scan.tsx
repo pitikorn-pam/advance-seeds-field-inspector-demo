@@ -78,6 +78,9 @@ export default function CaptureScan() {
         analysisResult: null,
         recordingDurationMs: Math.max(0, Math.round(durationMs)),
         recordingId: null,
+        cameraPosition: position,
+        flashMode,
+        capturedAt: new Date().toISOString(),
       });
       setCameraActive(false);
       setTimeout(() => router.push("/capture/processing"), 60);
@@ -142,6 +145,9 @@ export default function CaptureScan() {
         analysisResult: null,
         recordingDurationMs: null,
         recordingId: null,
+        cameraPosition: position,
+        flashMode,
+        capturedAt: new Date().toISOString(),
       });
 
       // Deactivate the camera, then wait a frame before navigating so Android

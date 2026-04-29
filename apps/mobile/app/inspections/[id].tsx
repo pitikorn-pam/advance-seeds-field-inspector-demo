@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ScrollView, View, Text, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -9,6 +10,13 @@ import { saveImageToLibrary } from "@/lib/capture/imageActions";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useInspection, useDeleteInspection } from "@/lib/queries";
+import { displayInspectionNote } from "@/lib/inspections/notes";
+import {
+  readCaptureMetadata,
+  readDeviceUsageMetadata,
+  readLocationMetadata,
+  locationDisplayName,
+} from "@/lib/inspections/metadata";
 import { StatTile } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
@@ -93,6 +101,7 @@ export default function InspectionDetail() {
   const policy = policyFor(profile);
   const { data, isLoading, isError, refetch } = useInspection(id);
   const del = useDeleteInspection();
+  const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
     dateStyle: "medium",
@@ -107,6 +116,10 @@ export default function InspectionDetail() {
   const roiLabel = roiBadge(roi);
   const captureMedia = readCaptureMedia(metadata);
   const mediaUrl = captureMedia.url ?? inspection.image_url;
+  const note = displayInspectionNote(inspection.notes);
+  const location = readLocationMetadata(metadata);
+  const deviceUsage = readDeviceUsageMetadata(metadata);
+  const captureDetail = readCaptureMetadata(metadata);
 
   const saveImage = async () => {
     if (!mediaUrl) return;
@@ -179,6 +192,161 @@ export default function InspectionDetail() {
           </View>
         ) : null}
 
+        {note ? (
+          <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
+            <Text className="text-caption font-medium uppercase text-fg-secondary">
+              {t("inspections:detail.notesTitle")}
+            </Text>
+            <Text className="mt-xs text-body text-fg-primary">{note}</Text>
+          </View>
+        ) : null}
+
+        {location || deviceUsage || captureDetail ? (
+          <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
+            <View className="flex-row items-center justify-between gap-md">
+              <Text className="text-caption font-medium uppercase text-fg-secondary">
+                {t("inspections:detail.metadata.title")}
+              </Text>
+              <Pressable onPress={() => setMetadataExpanded((v) => !v)} hitSlop={8}>
+                <Text className="text-caption font-medium text-brand">
+                  {t(
+                    metadataExpanded
+                      ? "inspections:detail.metadata.showLess"
+                      : "inspections:detail.metadata.showMore",
+                  )}
+                </Text>
+              </Pressable>
+            </View>
+            <View className="mt-sm gap-xs">
+              {location ? (
+                <>
+                  <MetadataRow
+                    label={t("inspections:detail.metadata.location")}
+                    value={locationDisplayName(location)}
+                  />
+                  {metadataExpanded ? (
+                    <>
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.latitude")}
+                        value={location.latitude.toFixed(6)}
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.longitude")}
+                        value={location.longitude.toFixed(6)}
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.accuracy")}
+                        value={
+                          location.accuracy === null
+                            ? "—"
+                            : t("inspections:detail.metadata.accuracyMeters", {
+                                meters: Number(location.accuracy).toFixed(1),
+                              })
+                        }
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.gpsTimestamp")}
+                        value={
+                          location.timestamp ? dateFmt.format(new Date(location.timestamp)) : "—"
+                        }
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+              {deviceUsage ? (
+                <>
+                  <MetadataRow
+                    label={t("inspections:detail.metadata.device")}
+                    value={deviceUsage.device_name ?? "—"}
+                  />
+                  {metadataExpanded ? (
+                    <>
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.platform")}
+                        value={`${deviceUsage.platform}${deviceUsage.os_version ? ` ${deviceUsage.os_version}` : ""}`}
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.appVersion")}
+                        value={
+                          [
+                            deviceUsage.app_version,
+                            deviceUsage.build_version
+                              ? t("inspections:detail.metadata.buildValue", {
+                                  build: deviceUsage.build_version,
+                                })
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "—"
+                        }
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.runtime")}
+                        value={deviceUsage.runtime_version ?? "—"}
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+              {captureDetail ? (
+                <>
+                  <MetadataRow
+                    label={t("inspections:detail.metadata.captureMode")}
+                    value={t(
+                      `inspections:capture.mode${captureDetail.mode === "live" ? "Live" : "Precise"}`,
+                    )}
+                  />
+                  <MetadataRow
+                    label={t("inspections:detail.metadata.mediaType")}
+                    value={t(`inspections:detail.metadata.media.${captureDetail.media_kind}`)}
+                  />
+                  {metadataExpanded ? (
+                    <>
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.camera")}
+                        value={
+                          captureDetail.camera_position
+                            ? t(
+                                `inspections:detail.metadata.cameraPosition.${captureDetail.camera_position}`,
+                              )
+                            : "—"
+                        }
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.flash")}
+                        value={
+                          captureDetail.flash_mode
+                            ? t(`inspections:detail.metadata.flashMode.${captureDetail.flash_mode}`)
+                            : "—"
+                        }
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.roi")}
+                        value={
+                          captureDetail.roi_kind
+                            ? t(`inspections:detail.roiBadge.${captureDetail.roi_kind}`, {
+                                vertices: 0,
+                              })
+                            : "—"
+                        }
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.captureTimestamp")}
+                        value={
+                          captureDetail.captured_at
+                            ? dateFmt.format(new Date(captureDetail.captured_at))
+                            : "—"
+                        }
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
         <View className="flex-row gap-sm">
           <StatTile
             value={inspection.total_seeds}
@@ -242,5 +410,14 @@ export default function InspectionDetail() {
         ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function MetadataRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row justify-between gap-md">
+      <Text className="text-caption text-fg-secondary">{label}</Text>
+      <Text className="text-caption text-fg-primary text-right flex-1">{value}</Text>
+    </View>
   );
 }

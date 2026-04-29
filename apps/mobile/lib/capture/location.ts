@@ -35,6 +35,22 @@ export interface CapturedLocation {
   accuracy: number | null;
   /** ISO 8601 timestamp from the OS reading. */
   timestamp: string;
+  /** Human-readable reverse-geocoded place label, when the OS can resolve it. */
+  name?: string | null;
+  address?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+}
+
+function compactAddress(row: Location.LocationGeocodedAddress): string | null {
+  return (
+    [row.name, row.street, row.district, row.city, row.region, row.country]
+      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+      .filter((part, index, all) => all.indexOf(part) === index)
+      .slice(0, 4)
+      .join(", ") || null
+  );
 }
 
 /**
@@ -89,11 +105,20 @@ export async function getCurrentLocation(t: TFunction): Promise<CapturedLocation
     const reading = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
     });
+    const [place] = await Location.reverseGeocodeAsync({
+      latitude: reading.coords.latitude,
+      longitude: reading.coords.longitude,
+    }).catch(() => []);
     return {
       latitude: reading.coords.latitude,
       longitude: reading.coords.longitude,
       accuracy: reading.coords.accuracy ?? null,
       timestamp: new Date(reading.timestamp).toISOString(),
+      name: place?.name ?? null,
+      address: place ? compactAddress(place) : null,
+      city: place?.city ?? null,
+      region: place?.region ?? null,
+      country: place?.country ?? null,
     };
   } catch (err) {
     // Common in field conditions: GPS off, no signal, or a transient

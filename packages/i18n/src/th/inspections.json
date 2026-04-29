@@ -14,6 +14,42 @@
     "title": "รายละเอียดการตรวจสอบ",
     "saveImage": "บันทึกสื่อที่ถ่าย",
     "imageSaved": "บันทึกไปยัง Photos แล้ว",
+    "notesTitle": "บันทึกย่อ",
+    "metadata": {
+      "title": "ข้อมูลการถ่าย",
+      "showMore": "ดูเพิ่มเติม",
+      "showLess": "ย่อ",
+      "location": "ตำแหน่ง",
+      "latitude": "ละติจูด",
+      "longitude": "ลองจิจูด",
+      "accuracy": "ความแม่นยำ",
+      "accuracyMeters": "{{meters}} ม.",
+      "gpsTimestamp": "เวลา GPS",
+      "device": "อุปกรณ์",
+      "platform": "แพลตฟอร์ม",
+      "appVersion": "เวอร์ชันแอป",
+      "buildValue": "บิลด์ {{build}}",
+      "runtime": "รันไทม์",
+      "captureMode": "โหมดถ่าย",
+      "mediaType": "ชนิดสื่อ",
+      "camera": "กล้อง",
+      "flash": "แฟลช",
+      "roi": "ROI",
+      "captureTimestamp": "เวลาถ่าย",
+      "media": {
+        "photo": "ภาพถ่าย",
+        "video": "วิดีโอ"
+      },
+      "cameraPosition": {
+        "back": "กล้องหลัง",
+        "front": "กล้องหน้า"
+      },
+      "flashMode": {
+        "off": "ปิด",
+        "auto": "อัตโนมัติ",
+        "on": "เปิด"
+      }
+    },
     "summary": {
       "totalSeeds": "จำนวนเมล็ดทั้งหมด",
       "meanLength": "ความยาวเฉลี่ย",
@@ -133,6 +169,13 @@
       "sortLength": "ความยาว",
       "shareImage": "แชร์ภาพที่ถ่าย",
       "shareVideo": "แชร์วิดีโอที่ถ่าย",
+      "locationTitle": "ตำแหน่ง",
+      "location": {
+        "idle": "ปิดการบันทึกตำแหน่ง",
+        "loading": "กำลังดึงตำแหน่ง…",
+        "ready": "พร้อมบันทึกตำแหน่ง",
+        "unavailable": "ไม่สามารถดึงตำแหน่งได้"
+      },
       "saveDraft": "บันทึกร่าง",
       "saveAndSync": "บันทึกและซิงค์",
       "missing": "ไม่มีผลให้แสดง — กลับไปถ่ายใหม่อีกครั้ง"

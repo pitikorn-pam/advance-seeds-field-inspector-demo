@@ -67,7 +67,18 @@ export default function CapturePrecise() {
         flash: wantFlash ? "off" : flashMode,
       });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
-      session.set({ capturedImageUri: uri, uploadedImageUrl: null, analysisResult: null });
+      session.set({
+        capturedMediaKind: "photo",
+        capturedImageUri: uri,
+        capturedVideoUri: null,
+        uploadedImageUrl: null,
+        analysisResult: null,
+        recordingDurationMs: null,
+        recordingId: null,
+        cameraPosition: position,
+        flashMode,
+        capturedAt: new Date().toISOString(),
+      });
 
       // Deactivate the camera before pushing — same rnscreens-vs-camera-surface
       // race as scan mode (see scan.tsx for context).
