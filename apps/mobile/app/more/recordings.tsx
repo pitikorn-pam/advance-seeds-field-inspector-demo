@@ -1,15 +1,25 @@
+import { useMemo, useState } from "react";
 import { ScrollView, View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Download, Share2, Trash2 } from "lucide-react-native";
+import { Calendar, ChevronLeft, Download, Share2, Trash2, X } from "lucide-react-native";
 import type { Recording } from "@advance-seeds/types";
 import { useRecordings, useDeleteRecording } from "@/lib/queries";
 import { shareVideo, saveImageToLibrary } from "@/lib/capture/imageActions";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
+import { Segmented } from "@/components/ui/Segmented";
+import {
+  DateRangePicker,
+  type DateRange,
+  rangeLabel,
+  toDateKey,
+} from "@/components/ui/DateRangePicker";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
+
+type DurationFilter = "all" | "short" | "long";
 
 /**
  * Recordings list — moved out of /profile in the prototype-fidelity-pass.
@@ -17,10 +27,34 @@ import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
  * recordings list to stay a pure profile + sign-out surface.
  */
 export default function RecordingsScreen() {
-  const { t } = useTranslation(["common", "profile"]);
+  const { t, i18n } = useTranslation(["common", "profile", "history"]);
   const router = useRouter();
   const recordings = useRecordings();
   const deleteRecording = useDeleteRecording();
+  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [durationFilter, setDurationFilter] = useState<DurationFilter>("all");
+
+  const filtered = useMemo(() => {
+    const rows = recordings.data ?? [];
+    return rows.filter((rec) => {
+      if (dateRange.start) {
+        const key = toDateKey(new Date(rec.captured_at));
+        const end = dateRange.end ?? dateRange.start;
+        if (key < dateRange.start || key > end) return false;
+      }
+      if (durationFilter === "short" && rec.duration_ms >= 10_000) return false;
+      if (durationFilter === "long" && rec.duration_ms < 10_000) return false;
+      return true;
+    });
+  }, [recordings.data, dateRange, durationFilter]);
+
+  const hasDateRange = !!dateRange.start || !!dateRange.end;
+  const durationOptions: Array<{ value: DurationFilter; label: string }> = [
+    { value: "all", label: t("profile:recordings.filters.duration.all") },
+    { value: "short", label: t("profile:recordings.filters.duration.short") },
+    { value: "long", label: t("profile:recordings.filters.duration.long") },
+  ];
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -33,6 +67,42 @@ export default function RecordingsScreen() {
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
+        <Card>
+          <Text className="text-caption uppercase text-fg-secondary mb-sm">
+            {t("profile:recordings.filters.dateRange")}
+          </Text>
+          <View className="flex-row items-center gap-xs">
+            <Button
+              className="flex-1"
+              size="sm"
+              variant="outline"
+              label={rangeLabel(dateRange, i18n.language, t)}
+              leadingIcon={<Calendar color="#0F6E56" size={14} />}
+              onPress={() => setDatePickerOpen(true)}
+            />
+            {hasDateRange ? (
+              <Button
+                size="icon"
+                variant="tinted"
+                accessibilityLabel={t("common:actions.clear")}
+                onPress={() => setDateRange({ start: null, end: null })}
+              >
+                <X color="#1A1A1A" size={16} />
+              </Button>
+            ) : null}
+          </View>
+          <Text className="text-caption uppercase text-fg-secondary mb-sm mt-md">
+            {t("profile:recordings.filters.duration.label")}
+          </Text>
+          <Segmented
+            value={durationFilter}
+            onChange={setDurationFilter}
+            options={durationOptions}
+            variant="tag"
+            scrollable
+          />
+        </Card>
+
         {recordings.isLoading ? (
           <Card>
             <Text className="text-body text-fg-secondary">{t("common:states.loading")}</Text>
@@ -41,13 +111,17 @@ export default function RecordingsScreen() {
           <Card>
             <Text className="text-body text-fg-secondary">{t("profile:recordings.empty")}</Text>
           </Card>
+        ) : filtered.length === 0 ? (
+          <Card>
+            <Text className="text-body text-fg-secondary">{t("profile:recordings.noResults")}</Text>
+          </Card>
         ) : (
           <Card className="p-0">
-            {recordings.data.map((rec, i) => (
+            {filtered.map((rec, i) => (
               <RecordingRow
                 key={rec.id}
                 recording={rec}
-                isLast={i === recordings.data.length - 1}
+                isLast={i === filtered.length - 1}
                 onShare={async () => {
                   try {
                     await shareVideo(rec.video_url, t("profile:recordings.share"));
@@ -90,6 +164,14 @@ export default function RecordingsScreen() {
           </Card>
         )}
       </ScrollView>
+      <DateRangePicker
+        visible={datePickerOpen}
+        value={dateRange}
+        locale={i18n.language}
+        onClose={() => setDatePickerOpen(false)}
+        onClear={() => setDateRange({ start: null, end: null })}
+        onChange={setDateRange}
+      />
     </SafeAreaView>
   );
 }

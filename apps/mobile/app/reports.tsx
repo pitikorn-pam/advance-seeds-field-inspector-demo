@@ -151,15 +151,8 @@ export default function ReportsRoute() {
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-xl">
-        <View className="flex-row items-center justify-between">
+        <View className="items-center">
           <Text className="text-h2 font-medium text-fg-primary">{t("reports:summaryTitle")}</Text>
-          <Button
-            size="sm"
-            label={t("common:actions.exportCsv")}
-            leadingIcon={<Download color="#FFFFFF" size={14} />}
-            disabled={filtered.length === 0}
-            onPress={exportCsv}
-          />
         </View>
 
         <Card>
@@ -228,6 +221,14 @@ export default function ReportsRoute() {
             </View>
           </>
         )}
+
+        <Button
+          className="w-full"
+          label={t("common:actions.exportCsv")}
+          leadingIcon={<Download color="#FFFFFF" size={16} />}
+          disabled={filtered.length === 0}
+          onPress={exportCsv}
+        />
       </ScrollView>
       <DateRangePicker
         visible={datePickerOpen}

@@ -14,12 +14,22 @@
   "recordings": {
     "title": "Recordings",
     "empty": "No recordings yet. Hold the shutter on Capture to record.",
+    "noResults": "No recordings match these filters.",
     "durationFormat": "{{m}}:{{s}}",
     "deleteConfirm": "Delete this recording? This cannot be undone.",
     "share": "Share recording",
     "save": "Save recording",
     "savedToPhotos": "Recording saved to Photos",
     "permissionDeniedTitle": "Photos access needed",
-    "permissionDeniedBody": "Allow Photos access in Settings to save recordings."
+    "permissionDeniedBody": "Allow Photos access in Settings to save recordings.",
+    "filters": {
+      "dateRange": "Date range",
+      "duration": {
+        "label": "Duration",
+        "all": "All",
+        "short": "< 10 sec",
+        "long": "10 sec+"
+      }
+    }
   }
 }

@@ -6,6 +6,7 @@ import Constants from "expo-constants";
 import { ChevronLeft } from "lucide-react-native";
 import { useTheme } from "@/lib/theme";
 import { Card } from "@/components/ui/Card";
+import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import type { Theme } from "@advance-seeds/types";
@@ -86,6 +87,18 @@ export default function SettingsScreen() {
 
         <View className="gap-md">
           <Text className="text-caption uppercase text-fg-secondary">
+            {t("settings:sections.sync")}
+          </Text>
+          <Card>
+            <InfoRow
+              label={t("settings:sync.status")}
+              value={<Pill tone="success" dot label={t("settings:sync.upToDate")} />}
+            />
+          </Card>
+        </View>
+
+        <View className="gap-md">
+          <Text className="text-caption uppercase text-fg-secondary">
             {t("settings:sections.app")}
           </Text>
           <Card>
@@ -100,13 +113,17 @@ export default function SettingsScreen() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <View className="flex-row items-center justify-between gap-md">
       <Text className="text-body text-fg-secondary">{label}</Text>
-      <Text className="text-title text-fg-primary" numberOfLines={1}>
-        {value}
-      </Text>
+      {typeof value === "string" ? (
+        <Text className="text-title text-fg-primary" numberOfLines={1}>
+          {value}
+        </Text>
+      ) : (
+        value
+      )}
     </View>
   );
 }

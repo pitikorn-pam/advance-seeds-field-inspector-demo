@@ -71,29 +71,7 @@ export default function ProfileScreen() {
             </View>
           </View>
         </Card>
-
-        <Card className="p-0">
-          <SyncStatusRow
-            label={t("profile:menu.sync")}
-            status={t("profile:menu.syncStatusUpToDate")}
-          />
-        </Card>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function SyncStatusRow({ label, status }: { label: string; status: string }) {
-  return (
-    <View className="flex-row items-center gap-md px-lg py-md">
-      <View
-        className="items-center justify-center"
-        style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: "#E1F5EE" }}
-      >
-        <View className="h-2 w-2 rounded-full bg-brand" />
-      </View>
-      <Text className="flex-1 text-title text-fg-primary">{label}</Text>
-      <Pill tone="success" dot label={status} />
-    </View>
   );
 }

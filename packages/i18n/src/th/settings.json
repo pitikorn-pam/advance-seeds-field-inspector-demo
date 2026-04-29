@@ -3,9 +3,14 @@
   "sections": {
     "appearance": "รูปลักษณ์",
     "language": "ภาษา",
+    "sync": "การซิงค์",
     "app": "แอป"
   },
   "appearanceHint": "เลือกโหมดสว่าง มืด หรือใช้ตามอุปกรณ์",
   "version": "เวอร์ชัน",
-  "build": "บิลด์"
+  "build": "บิลด์",
+  "sync": {
+    "status": "สถานะ",
+    "upToDate": "ทันสมัย"
+  }
 }
