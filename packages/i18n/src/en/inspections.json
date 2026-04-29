@@ -65,6 +65,10 @@
     "notesPlaceholder": "Field conditions, source, observations…",
     "autoTagTitle": "Auto-tag location",
     "autoTagSubtitle": "Save GPS coordinates with each inspection",
+    "location": {
+      "deniedTitle": "Location access is off",
+      "deniedBody": "Inspections will save without GPS coordinates. Open Settings to enable location access for Advance Seeds."
+    },
     "live": {
       "pillLabel": "Live"
     },

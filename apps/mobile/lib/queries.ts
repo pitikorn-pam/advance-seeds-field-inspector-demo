@@ -357,12 +357,19 @@ export function useCreateRecording() {
       video_url: string;
       duration_ms: number;
       notes?: string | null;
+      metadata?: Record<string, unknown> | null;
     }) => {
+      // Stringify-roundtrip the metadata so any non-JSON-safe domain type
+      // (e.g. Date) collapses to a plain object before hitting Supabase.
+      const payload = {
+        ...args,
+        metadata: args.metadata ? JSON.parse(JSON.stringify(args.metadata)) : null,
+      };
       const { data, error } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from("recordings" as any)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert(args as any)
+        .insert(payload as any)
         .select("id")
         .single();
       if (error || !data) throw error ?? new Error("recording insert failed");

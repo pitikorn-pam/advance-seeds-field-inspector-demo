@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Roi } from "./roi";
+import type { CapturedLocation } from "./location";
 
 /**
  * Cross-screen capture session.
@@ -42,6 +43,13 @@ interface CaptureSessionState {
    * capture attempt; cleared by `session.reset()` after save (task 6b.9).
    */
   roi: Roi | null;
+  /**
+   * GPS reading captured when `locationTagEnabled` is true. Stashed here
+   * because the moment of capture (live snapshot, precise photo, recording
+   * start) is upstream of the inspection-save site (review.tsx). Persists
+   * onto inspection.metadata.location at save time; cleared by reset().
+   */
+  capturedLocation: CapturedLocation | null;
 }
 
 const initial: CaptureSessionState = {
@@ -54,6 +62,7 @@ const initial: CaptureSessionState = {
   capturedImageUri: null,
   uploadedImageUrl: null,
   roi: null,
+  capturedLocation: null,
 };
 
 let state: CaptureSessionState = { ...initial };

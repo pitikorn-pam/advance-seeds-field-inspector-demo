@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView, View, Text, Image, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import type { AnalysisResult, AnalyzedSeed, SeedGrade } from "@advance-seeds/typ
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useCaptureSession } from "@/lib/capture/session";
+import { getCurrentLocation } from "@/lib/capture/location";
 import { useCreateInspection } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
 import { Button } from "@/components/ui/Button";
@@ -42,6 +43,22 @@ export default function CaptureReview() {
 
   const result = (session as unknown as { lastResult?: AnalysisResult }).lastResult ?? null;
 
+  // Fetch GPS once on mount when the user opted into auto-tag location.
+  // Done here rather than at save time so the reading is captured close
+  // to the actual photo moment (the user is still standing where they
+  // pointed the camera) — and so the save click stays snappy.
+  useEffect(() => {
+    if (!session.locationTagEnabled) return;
+    if (session.capturedLocation) return;
+    void (async () => {
+      const loc = await getCurrentLocation(t);
+      if (loc) session.set({ capturedLocation: loc });
+    })();
+    // Intentional: depend only on the toggle so we fetch once per
+    // session-enabled review. `session` is a hook closure that changes
+    // each render — including it would re-trigger fetches.
+  }, [session.locationTagEnabled]);
+
   if (!result || !session.uploadedImageUrl) {
     return (
       <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -73,7 +90,10 @@ export default function CaptureReview() {
       // (calibration confidence, model version) join this same bag.
       const metadataParts: Record<string, unknown> = {};
       if (session.roi) metadataParts.roi = session.roi;
-      if (session.locationTagEnabled) metadataParts.location_capture_enabled = true;
+      if (session.locationTagEnabled) {
+        metadataParts.location_capture_enabled = true;
+        if (session.capturedLocation) metadataParts.location = session.capturedLocation;
+      }
       const trimmedNotes = session.notes.trim();
       const metadata = Object.keys(metadataParts).length > 0 ? metadataParts : null;
       const id = await create.mutateAsync({

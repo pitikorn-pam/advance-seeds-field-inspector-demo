@@ -19,6 +19,7 @@ import { RecordingTimer } from "@/components/camera/RecordingTimer";
 import { Toast } from "@/components/ui/Toast";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
 import { useCaptureSession } from "@/lib/capture/session";
+import { getCurrentLocation } from "@/lib/capture/location";
 import { useRecordingState } from "@/lib/capture/recording";
 import { useAuth } from "@/lib/auth";
 import { useCreateRecording } from "@/lib/queries";
@@ -108,10 +109,26 @@ export default function CaptureScan() {
           .upload(path, fd, { contentType: "video/mp4", upsert: false });
         if (upErr) throw upErr;
         const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(path);
+        // Auto-tag location: respect the capture-session toggle. The GPS
+        // reading taken at recording-finish reflects where the user is
+        // when they stop, which for a field walk is functionally the same
+        // as recording-start. Permission flow is "ask once per session"
+        // — see lib/capture/location.ts.
+        const recordingMetadata: Record<string, unknown> | null = session.locationTagEnabled
+          ? (() => {
+              const obj: Record<string, unknown> = { location_capture_enabled: true };
+              return obj;
+            })()
+          : null;
+        if (session.locationTagEnabled) {
+          const loc = await getCurrentLocation(t);
+          if (loc && recordingMetadata) recordingMetadata.location = loc;
+        }
         await createRecording.mutateAsync({
           inspector_id: profile.id,
           video_url: urlData.publicUrl,
           duration_ms: Math.max(0, Math.round(durationMs)),
+          metadata: recordingMetadata,
         });
         const totalSec = Math.max(0, Math.round(durationMs / 1000));
         const min = Math.floor(totalSec / 60);
