@@ -6,6 +6,8 @@
   "recent": "Recent",
   "viewAll": "View all",
   "allSynced": "All inspections synced",
+  "syncPending": "{{count}} pending sync",
+  "syncFailed": "{{count}} sync failed",
   "lastSync": "Last sync · {{when}}",
   "now": "just now"
 }

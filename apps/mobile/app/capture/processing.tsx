@@ -117,7 +117,6 @@ export default function CaptureProcessing() {
           const { error: uploadErr } = await supabase.storage
             .from("recordings")
             .upload(path, fd, { contentType: "video/mp4", upsert: false });
-          if (uploadErr) throw uploadErr;
           const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(path);
           if (cancelledRef.current) return;
 
@@ -129,12 +128,19 @@ export default function CaptureProcessing() {
             if (loc && recordingMetadata) recordingMetadata.location = loc;
           }
           const durationMs = Math.max(0, Math.round(session.recordingDurationMs ?? 0));
-          const recordingId = await createRecording.mutateAsync({
-            inspector_id: profile.id,
-            video_url: urlData.publicUrl,
-            duration_ms: durationMs,
-            metadata: recordingMetadata,
-          });
+          let recordingId: string | null = null;
+          let videoUrl = uploadUri;
+          if (!uploadErr) {
+            videoUrl = urlData.publicUrl;
+            recordingId = await createRecording.mutateAsync({
+              inspector_id: profile.id,
+              video_url: videoUrl,
+              duration_ms: durationMs,
+              metadata: recordingMetadata,
+            });
+          } else {
+            console.warn("[processing] recording upload queued", uploadErr);
+          }
           const totalSec = Math.max(0, Math.round(durationMs / 1000));
           const min = Math.floor(totalSec / 60);
           const sec = totalSec % 60;
@@ -147,7 +153,7 @@ export default function CaptureProcessing() {
           });
           session.set({
             capturedVideoUri: uploadUri,
-            uploadedImageUrl: urlData.publicUrl,
+            uploadedImageUrl: videoUrl,
             recordingId,
           });
         } else {
@@ -163,10 +169,10 @@ export default function CaptureProcessing() {
           const { error: uploadErr } = await supabase.storage
             .from("inspection-images")
             .upload(path, fd, { contentType: "image/jpeg", upsert: false });
-          if (uploadErr) throw uploadErr;
           const { data: urlData } = supabase.storage.from("inspection-images").getPublicUrl(path);
           if (cancelledRef.current) return;
-          session.set({ uploadedImageUrl: urlData.publicUrl });
+          if (uploadErr) console.warn("[processing] photo upload queued", uploadErr);
+          session.set({ uploadedImageUrl: uploadErr ? sourceUri : urlData.publicUrl });
         }
         if (cancelledRef.current) return;
 

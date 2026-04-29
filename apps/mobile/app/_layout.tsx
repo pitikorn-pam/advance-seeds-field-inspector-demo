@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { AnalyzerProvider } from "@/lib/analyzer/AnalyzerProvider";
 import { bootstrapI18n } from "@/lib/i18n";
 import { useOnboarded } from "@/lib/onboarding";
+import { SyncQueueWorker } from "@/lib/sync/SyncQueueWorker";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -93,6 +94,7 @@ export default function RootLayout() {
               <AnalyzerProvider>
                 <StatusBar style="auto" />
                 <StartupGate />
+                <SyncQueueWorker />
                 <Stack
                   screenOptions={{
                     headerShown: false,

@@ -352,31 +352,33 @@ export function useRecordings() {
 export function useCreateRecording() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
-      inspector_id: string;
-      video_url: string;
-      duration_ms: number;
-      notes?: string | null;
-      metadata?: Record<string, unknown> | null;
-    }) => {
-      // Stringify-roundtrip the metadata so any non-JSON-safe domain type
-      // (e.g. Date) collapses to a plain object before hitting Supabase.
-      const payload = {
-        ...args,
-        metadata: args.metadata ? JSON.parse(JSON.stringify(args.metadata)) : null,
-      };
-      const { data, error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from("recordings" as any)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert(payload as any)
-        .select("id")
-        .single();
-      if (error || !data) throw error ?? new Error("recording insert failed");
-      return (data as unknown as { id: string }).id;
-    },
+    mutationFn: createRecordingRemote,
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.recordings }),
   });
+}
+
+export async function createRecordingRemote(args: {
+  inspector_id: string;
+  video_url: string;
+  duration_ms: number;
+  notes?: string | null;
+  metadata?: Record<string, unknown> | null;
+}) {
+  // Stringify-roundtrip the metadata so any non-JSON-safe domain type
+  // (e.g. Date) collapses to a plain object before hitting Supabase.
+  const payload = {
+    ...args,
+    metadata: args.metadata ? JSON.parse(JSON.stringify(args.metadata)) : null,
+  };
+  const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .from("recordings" as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert(payload as any)
+    .select("id")
+    .single();
+  if (error || !data) throw error ?? new Error("recording insert failed");
+  return (data as unknown as { id: string }).id;
 }
 
 export function useDeleteRecording() {
@@ -405,63 +407,65 @@ export function useDeleteRecording() {
 export function useCreateInspection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: {
-      inspector_id: string;
-      variety_id: string;
-      batch_id: string | null;
-      calibration_id: string | null;
-      image_url: string;
-      total_seeds: number;
-      mean_length_mm: number;
-      mean_width_mm: number;
-      mean_area_mm2: number;
-      /** Optional capture-time context (Phase 6b.8). Stringify-roundtripped
-       *  so domain types pass cleanly through Supabase's Json column. */
-      metadata?: Record<string, unknown> | null;
-      notes?: string | null;
-      seeds: {
-        index: number;
-        length_mm: number;
-        width_mm: number;
-        area_mm2: number;
-        grade: Seed["grade"];
-        defects: Seed["defects"];
-        bbox: Seed["bbox"];
-      }[];
-    }) => {
-      const { seeds, metadata, ...inspection } = args;
-      const insertRow = {
-        ...inspection,
-        status: "complete" as const,
-        metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null,
-      };
-      const { data, error } = await supabase
-        .from("inspections")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert(insertRow as any)
-        .select("id")
-        .single();
-      if (error || !data) throw error ?? new Error("inspection insert failed");
-      // Supabase's generated `Json` union doesn't admit our domain types
-      // (no index signature). Stringify-roundtrip lets us pass plain objects
-      // safely without any structural mismatch at the boundary.
-      const seedRows = seeds.map((s) => ({
-        inspection_id: data.id,
-        index: s.index,
-        length_mm: s.length_mm,
-        width_mm: s.width_mm,
-        area_mm2: s.area_mm2,
-        grade: s.grade,
-        defects: JSON.parse(JSON.stringify(s.defects)),
-        bbox: JSON.parse(JSON.stringify(s.bbox)),
-      }));
-      const { error: seedErr } = await supabase
-        .from("seeds")
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .insert(seedRows as any);
-      if (seedErr) throw seedErr;
-      return data.id;
-    },
+    mutationFn: createInspectionRemote,
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.inspections }),
   });
+}
+
+export async function createInspectionRemote(args: {
+  inspector_id: string;
+  variety_id: string;
+  batch_id: string | null;
+  calibration_id: string | null;
+  image_url: string;
+  total_seeds: number;
+  mean_length_mm: number;
+  mean_width_mm: number;
+  mean_area_mm2: number;
+  /** Optional capture-time context (Phase 6b.8). Stringify-roundtripped
+   *  so domain types pass cleanly through Supabase's Json column. */
+  metadata?: Record<string, unknown> | null;
+  notes?: string | null;
+  seeds: {
+    index: number;
+    length_mm: number;
+    width_mm: number;
+    area_mm2: number;
+    grade: Seed["grade"];
+    defects: Seed["defects"];
+    bbox: Seed["bbox"];
+  }[];
+}) {
+  const { seeds, metadata, ...inspection } = args;
+  const insertRow = {
+    ...inspection,
+    status: "complete" as const,
+    metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null,
+  };
+  const { data, error } = await supabase
+    .from("inspections")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert(insertRow as any)
+    .select("id")
+    .single();
+  if (error || !data) throw error ?? new Error("inspection insert failed");
+  // Supabase's generated `Json` union doesn't admit our domain types
+  // (no index signature). Stringify-roundtrip lets us pass plain objects
+  // safely without any structural mismatch at the boundary.
+  const seedRows = seeds.map((s) => ({
+    inspection_id: data.id,
+    index: s.index,
+    length_mm: s.length_mm,
+    width_mm: s.width_mm,
+    area_mm2: s.area_mm2,
+    grade: s.grade,
+    defects: JSON.parse(JSON.stringify(s.defects)),
+    bbox: JSON.parse(JSON.stringify(s.bbox)),
+  }));
+  const { error: seedErr } = await supabase
+    .from("seeds")
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert(seedRows as any);
+  if (seedErr) throw seedErr;
+  return data.id;
 }

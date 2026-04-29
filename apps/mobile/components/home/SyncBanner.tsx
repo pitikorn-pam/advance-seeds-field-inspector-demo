@@ -1,6 +1,7 @@
 import { View, Text } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Check } from "lucide-react-native";
+import { AlertTriangle, Check, RefreshCw } from "lucide-react-native";
+import { queueCounts, useSyncQueueEntries } from "@/lib/sync/store";
 
 interface Props {
   /** Most recent successful sync timestamp; null when no sync has run. */
@@ -8,26 +9,32 @@ interface Props {
 }
 
 /**
- * Bottom-of-Home banner indicating sync status. Always green ("Up to date")
- * for now since we don't have an offline-first queue yet — the prototype
- * shows the same and treats this as confirmation rather than action.
- *
- * Once Phase X-offline-sync lands, this gets pending / failed states with
- * tap-to-retry behaviour. For v0.2 it's purely informational.
+ * Bottom-of-Home banner indicating sync status. Queue counts are local-first
+ * so the banner still reflects pending captures before Supabase is reachable.
  */
 export function SyncBanner({ lastSyncIso }: Props) {
   const { t } = useTranslation("home");
+  const counts = queueCounts(useSyncQueueEntries());
   const lastSyncLabel = lastSyncIso ? formatRelativeShort(lastSyncIso) : t("now");
+  const state = counts.failed > 0 ? "failed" : counts.pending > 0 ? "pending" : "synced";
+  const Icon = state === "failed" ? AlertTriangle : state === "pending" ? RefreshCw : Check;
 
   return (
     <View
       className="flex-row items-center gap-md rounded-2xl px-lg py-md"
-      style={{ backgroundColor: "#F4F4F1" }}
+      style={{ backgroundColor: state === "failed" ? "#FBEAE8" : "#F4F4F1" }}
     >
-      <Check color="#27500A" size={18} />
+      <Icon
+        color={state === "failed" ? "#B42318" : state === "pending" ? "#854F0B" : "#27500A"}
+        size={18}
+      />
       <View className="flex-1">
         <Text className="text-title font-medium text-fg-primary" style={{ fontSize: 13 }}>
-          {t("allSynced")}
+          {state === "failed"
+            ? t("syncFailed", { count: counts.failed })
+            : state === "pending"
+              ? t("syncPending", { count: counts.pending })
+              : t("allSynced")}
         </Text>
         <Text className="text-caption text-fg-secondary">
           {t("lastSync", { when: lastSyncLabel })}

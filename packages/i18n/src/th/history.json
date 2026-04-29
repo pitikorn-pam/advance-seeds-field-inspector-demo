@@ -4,7 +4,8 @@
     "all": "ทั้งหมด",
     "today": "วันนี้",
     "synced": "ซิงค์แล้ว",
-    "pending": "รอซิงค์"
+    "pending": "รอซิงค์",
+    "failed": "ไม่สำเร็จ"
   },
   "filters": {
     "date": "วันที่",
@@ -29,6 +30,8 @@
   },
   "syncStatus": {
     "synced": "ซิงค์แล้ว",
-    "pending": "รอซิงค์"
-  }
+    "pending": "รอซิงค์",
+    "failed": "ไม่สำเร็จ"
+  },
+  "pendingInspection": "การตรวจสอบที่รอซิงค์"
 }

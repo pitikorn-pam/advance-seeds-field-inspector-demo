@@ -11,6 +11,12 @@
   "build": "Build",
   "sync": {
     "status": "Status",
-    "upToDate": "Up to date"
+    "upToDate": "Up to date",
+    "pending": "{{count}} pending",
+    "failed": "{{count}} failed",
+    "pendingCount": "Pending",
+    "failedCount": "Failed",
+    "retryAll": "Retry all",
+    "clearFailed": "Clear failed"
   }
 }

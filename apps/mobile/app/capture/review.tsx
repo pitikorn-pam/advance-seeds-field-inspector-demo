@@ -13,6 +13,8 @@ import { getCurrentLocation } from "@/lib/capture/location";
 import { shareImageWithRoi, shareVideo } from "@/lib/capture/imageActions";
 import { displayInspectionNote } from "@/lib/inspections/notes";
 import { buildInspectionMetadata, locationDisplayName } from "@/lib/inspections/metadata";
+import { addQueueEntry } from "@/lib/sync/store";
+import { replaySyncQueue } from "@/lib/sync/replay";
 import { useCreateInspection } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
 import { Button } from "@/components/ui/Button";
@@ -191,7 +193,7 @@ export default function CaptureReview() {
           captured_at: capturedAt,
         },
       });
-      const id = await create.mutateAsync({
+      const payload = {
         inspector_id: profile.id,
         variety_id: session.varietyId,
         batch_id: session.batchId,
@@ -201,7 +203,12 @@ export default function CaptureReview() {
         seeds: result.seeds,
         metadata,
         notes: trimmedNotes.length > 0 ? trimmedNotes : null,
-      });
+      };
+      if (isLocalUri(session.uploadedImageUrl)) {
+        await enqueueInspection(payload);
+        return;
+      }
+      const id = await create.mutateAsync(payload);
       // Fire-and-forget — the notification is a milestone marker, not a
       // gating action. If it fails to insert, the local optimistic add
       // still shows the user immediate feedback.
@@ -224,8 +231,85 @@ export default function CaptureReview() {
         body: t("notifications:captureFailed.body", { reason }),
       });
       Alert.alert(t("common:states.error"), reason);
-      setSaving(false);
+      try {
+        const trimmedNotes = session.notes.trim();
+        await enqueueInspection({
+          inspector_id: profile.id,
+          variety_id: session.varietyId,
+          batch_id: session.batchId,
+          calibration_id: session.calibrationId,
+          image_url: session.uploadedImageUrl,
+          ...result.summary,
+          seeds: result.seeds,
+          metadata: buildInspectionMetadata({
+            roi: session.roi,
+            mediaKind,
+            mediaUrl: session.uploadedImageUrl,
+            recordingId: session.recordingId,
+            recordingDurationMs: session.recordingDurationMs,
+            locationTagEnabled: session.locationTagEnabled,
+            capturedLocation: session.capturedLocation,
+            deviceUsage,
+            capture: {
+              mode: session.mode,
+              camera_position: session.cameraPosition,
+              flash_mode: session.flashMode,
+              captured_at: capturedAt,
+            },
+          }),
+          notes: trimmedNotes.length > 0 ? trimmedNotes : null,
+        });
+      } catch {
+        setSaving(false);
+      }
     }
+  };
+
+  const enqueueInspection = async (payload: {
+    inspector_id: string;
+    variety_id: string;
+    batch_id: string | null;
+    calibration_id: string | null;
+    image_url: string;
+    total_seeds: number;
+    mean_length_mm: number;
+    mean_width_mm: number;
+    mean_area_mm2: number;
+    metadata: Record<string, unknown> | null;
+    notes: string | null;
+    seeds: typeof result.seeds;
+  }) => {
+    await addQueueEntry({
+      kind: "inspection",
+      data: {
+        inspector_id: payload.inspector_id,
+        variety_id: payload.variety_id,
+        batch_id: payload.batch_id,
+        calibration_id: payload.calibration_id,
+        local_media_uri:
+          mediaKind === "video"
+            ? (session.capturedVideoUri ?? payload.image_url)
+            : (session.capturedImageUri ?? payload.image_url),
+        remote_media_url: isLocalUri(payload.image_url) ? null : payload.image_url,
+        media_kind: mediaKind,
+        total_seeds: payload.total_seeds,
+        mean_length_mm: payload.mean_length_mm,
+        mean_width_mm: payload.mean_width_mm,
+        mean_area_mm2: payload.mean_area_mm2,
+        metadata: payload.metadata,
+        notes: payload.notes,
+        seeds: payload.seeds,
+      },
+    });
+    notify({
+      kind: "success",
+      title: t("notifications:captureSaved.title"),
+      body: t("inspections:capture.review.queuedForSync"),
+    });
+    session.reset();
+    setSaving(false);
+    router.replace("/");
+    void replaySyncQueue();
   };
 
   const onCancel = () => {
@@ -497,6 +581,10 @@ export default function CaptureReview() {
       </View>
     </SafeAreaView>
   );
+}
+
+function isLocalUri(uri: string): boolean {
+  return uri.startsWith("file://") || uri.startsWith("/");
 }
 
 function MetadataRow({ label, value }: { label: string; value: string }) {

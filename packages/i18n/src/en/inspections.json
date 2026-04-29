@@ -178,6 +178,7 @@
       },
       "saveDraft": "Save draft",
       "saveAndSync": "Save and sync",
+      "queuedForSync": "Saved locally. It will sync when the connection is available.",
       "missing": "Result not available — return to capture and try again."
     }
   },

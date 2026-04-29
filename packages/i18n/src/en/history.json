@@ -4,7 +4,8 @@
     "all": "All",
     "today": "Today",
     "synced": "Synced",
-    "pending": "Pending"
+    "pending": "Pending",
+    "failed": "Failed"
   },
   "filters": {
     "date": "Date",
@@ -29,6 +30,8 @@
   },
   "syncStatus": {
     "synced": "Synced",
-    "pending": "Pending"
-  }
+    "pending": "Pending",
+    "failed": "Failed"
+  },
+  "pendingInspection": "Pending inspection"
 }

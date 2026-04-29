@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { ChevronLeft } from "lucide-react-native";
 import { useTheme } from "@/lib/theme";
+import { useSyncQueue } from "@/lib/sync/useSyncQueue";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
   const { t, i18n } = useTranslation(["common", "settings"]);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const syncQueue = useSyncQueue();
 
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
@@ -90,10 +92,61 @@ export default function SettingsScreen() {
             {t("settings:sections.sync")}
           </Text>
           <Card>
-            <InfoRow
-              label={t("settings:sync.status")}
-              value={<Pill tone="success" dot label={t("settings:sync.upToDate")} />}
-            />
+            <View className="gap-md">
+              <InfoRow
+                label={t("settings:sync.status")}
+                value={
+                  <Pill
+                    tone={
+                      syncQueue.counts.failed > 0
+                        ? "danger"
+                        : syncQueue.counts.pending > 0
+                          ? "warning"
+                          : "success"
+                    }
+                    dot
+                    label={
+                      syncQueue.counts.failed > 0
+                        ? t("settings:sync.failed", { count: syncQueue.counts.failed })
+                        : syncQueue.counts.pending > 0
+                          ? t("settings:sync.pending", { count: syncQueue.counts.pending })
+                          : t("settings:sync.upToDate")
+                    }
+                  />
+                }
+              />
+              <InfoRow
+                label={t("settings:sync.pendingCount")}
+                value={String(syncQueue.counts.pending)}
+              />
+              <InfoRow
+                label={t("settings:sync.failedCount")}
+                value={String(syncQueue.counts.failed)}
+              />
+              {syncQueue.entries.find((entry) => entry.lastError) ? (
+                <Text className="text-caption text-danger-text" numberOfLines={2}>
+                  {syncQueue.entries.find((entry) => entry.lastError)?.lastError}
+                </Text>
+              ) : null}
+              <View className="flex-row gap-sm">
+                <Button
+                  className="flex-1"
+                  size="sm"
+                  variant="outline"
+                  label={t("settings:sync.retryAll")}
+                  disabled={syncQueue.counts.pending + syncQueue.counts.failed === 0}
+                  onPress={() => void syncQueue.retryAll()}
+                />
+                <Button
+                  className="flex-1"
+                  size="sm"
+                  variant="ghost"
+                  label={t("settings:sync.clearFailed")}
+                  disabled={syncQueue.counts.failed === 0}
+                  onPress={() => void syncQueue.clearFailed()}
+                />
+              </View>
+            </View>
           </Card>
         </View>
 

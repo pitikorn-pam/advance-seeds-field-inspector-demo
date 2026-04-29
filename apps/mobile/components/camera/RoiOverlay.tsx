@@ -105,9 +105,7 @@ export function RoiOverlay({ drawingTool, roi, onRoi }: Props) {
   };
 
   const visible = draft ?? roi;
-  // Show edit handles when an ROI is committed AND no draw-mode is active.
-  // Today: rect-only — polygon vertex drag and circle radius drag follow.
-  const showHandles = !drawingTool && roi?.kind === "rect" && !draft;
+  const showHandles = !drawingTool && !!roi && !draft;
 
   return (
     <View
@@ -130,11 +128,26 @@ export function RoiOverlay({ drawingTool, roi, onRoi }: Props) {
           {renderShape(visible, layout.width, layout.height)}
         </Svg>
       ) : null}
-      {showHandles && roi?.kind === "rect" ? (
-        <RectHandles roi={roi} layout={layout} onUpdate={onRoi} />
-      ) : null}
+      {showHandles && roi ? <RoiHandles roi={roi} layout={layout} onUpdate={onRoi} /> : null}
     </View>
   );
+}
+
+interface RoiHandlesProps {
+  roi: Roi;
+  layout: { width: number; height: number };
+  onUpdate: (roi: Roi) => void;
+}
+
+function RoiHandles({ roi, layout, onUpdate }: RoiHandlesProps) {
+  switch (roi.kind) {
+    case "rect":
+      return <RectHandles roi={roi} layout={layout} onUpdate={onUpdate} />;
+    case "polygon":
+      return roi.closed ? <PolygonHandles roi={roi} layout={layout} onUpdate={onUpdate} /> : null;
+    case "circle":
+      return <CircleHandles roi={roi} layout={layout} onUpdate={onUpdate} />;
+  }
 }
 
 interface RectHandlesProps {
@@ -195,6 +208,77 @@ function updateRectCorner(
   const w = Math.min(1 - x, Math.abs(x2 - x1));
   const h = Math.min(1 - y, Math.abs(y2 - y1));
   return { kind: "rect", x, y, w, h };
+}
+
+interface PolygonHandlesProps {
+  roi: Extract<Roi, { kind: "polygon" }>;
+  layout: { width: number; height: number };
+  onUpdate: (roi: Roi) => void;
+}
+
+function PolygonHandles({ roi, layout, onUpdate }: PolygonHandlesProps) {
+  return (
+    <>
+      {roi.points.map((point, index) => (
+        <HandleDot
+          key={index}
+          x={point.x * layout.width}
+          y={point.y * layout.height}
+          onMove={(dxPx, dyPx) => {
+            const dx = dxPx / layout.width;
+            const dy = dyPx / layout.height;
+            const points = roi.points.map((p, i) =>
+              i === index ? { x: clamp01(p.x + dx), y: clamp01(p.y + dy) } : p,
+            );
+            onUpdate({ ...roi, points });
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
+interface CircleHandlesProps {
+  roi: Extract<Roi, { kind: "circle" }>;
+  layout: { width: number; height: number };
+  onUpdate: (roi: Roi) => void;
+}
+
+function CircleHandles({ roi, layout, onUpdate }: CircleHandlesProps) {
+  const minDim = Math.min(layout.width, layout.height);
+  const edgeX = roi.cx * layout.width + roi.r * minDim;
+  const edgeY = roi.cy * layout.height;
+  return (
+    <>
+      <HandleDot
+        x={roi.cx * layout.width}
+        y={roi.cy * layout.height}
+        onMove={(dxPx, dyPx) => {
+          onUpdate({
+            ...roi,
+            cx: clamp01(roi.cx + dxPx / layout.width),
+            cy: clamp01(roi.cy + dyPx / layout.height),
+          });
+        }}
+      />
+      <HandleDot
+        x={edgeX}
+        y={edgeY}
+        onMove={(dxPx, dyPx) => {
+          const nextEdgeX = edgeX + dxPx;
+          const nextEdgeY = edgeY + dyPx;
+          const centerX = roi.cx * layout.width;
+          const centerY = roi.cy * layout.height;
+          const r = Math.hypot(nextEdgeX - centerX, nextEdgeY - centerY) / minDim;
+          onUpdate({ ...roi, r: Math.max(0.005, Math.min(1, r)) });
+        }}
+      />
+    </>
+  );
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }
 
 interface HandleDotProps {

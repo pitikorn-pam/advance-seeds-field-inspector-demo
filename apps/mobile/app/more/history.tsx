@@ -6,6 +6,8 @@ import { Link, useRouter } from "expo-router";
 import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react-native";
 import { useInspections } from "@/lib/queries";
 import type { InspectionRow } from "@/lib/queries";
+import { useSyncQueueEntries } from "@/lib/sync/store";
+import type { SyncQueueEntry } from "@/lib/sync/types";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Segmented } from "@/components/ui/Segmented";
@@ -18,8 +20,11 @@ import {
 } from "@/components/ui/DateRangePicker";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
-type Filter = "all" | "today";
+type Filter = "all" | "today" | "synced" | "pending" | "failed";
 type GroupKey = "today" | "yesterday" | "earlierThisWeek" | "earlier";
+type HistoryItem =
+  | { kind: "remote"; row: InspectionRow; syncState: "synced" }
+  | { kind: "local"; entry: SyncQueueEntry; syncState: "pending" | "failed" };
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FAEEDA", fg: "#854F0B" },
@@ -37,14 +42,14 @@ const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
  *   2. Date-grouped sections with relative-day labels
  *   3. Per-row sync status pill
  *
- * Synced/Pending branches are placeholders — every row shows "Synced"
- * for now because we don't have an offline queue yet. The visual lands
- * so the future offline-sync feature plugs in without restructuring.
+ * Sync filters combine server rows with local queue entries so captures
+ * saved offline stay visible until replay replaces them with Supabase rows.
  */
 export default function HistoryScreen() {
   const { t, i18n } = useTranslation(["common", "history", "inspections"]);
   const router = useRouter();
   const { data, isLoading, isError, refetch, isRefetching } = useInspections();
+  const queueEntries = useSyncQueueEntries();
   const [filter, setFilter] = useState<Filter>("all");
   const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -52,13 +57,28 @@ export default function HistoryScreen() {
   const segmentOptions: Array<{ value: Filter; label: string }> = [
     { value: "all", label: t("history:segments.all") },
     { value: "today", label: t("history:segments.today") },
+    { value: "synced", label: t("history:segments.synced") },
+    { value: "pending", label: t("history:segments.pending") },
+    { value: "failed", label: t("history:segments.failed") },
   ];
 
   const grouped = useMemo(() => {
     if (!data) return [];
-    const filtered = applyFilter(data, filter, dateRange);
+    const local = queueEntries
+      .filter((entry) => entry.payload.kind === "inspection")
+      .filter(
+        (entry) =>
+          entry.status === "pending" || entry.status === "syncing" || entry.status === "failed",
+      )
+      .map<HistoryItem>((entry) => ({
+        kind: "local",
+        entry,
+        syncState: entry.status === "failed" ? "failed" : "pending",
+      }));
+    const remote = data.map<HistoryItem>((row) => ({ kind: "remote", row, syncState: "synced" }));
+    const filtered = applyFilter([...local, ...remote], filter, dateRange);
     return groupByDate(filtered);
-  }, [data, filter, dateRange]);
+  }, [data, queueEntries, filter, dateRange]);
 
   const totalShown = grouped.reduce((s, g) => s + g.items.length, 0);
   const dateLabel = rangeLabel(dateRange, i18n.language, t);
@@ -131,7 +151,7 @@ export default function HistoryScreen() {
               </Text>
               <Card className="p-0">
                 {items.map((row, idx) => (
-                  <HistoryRow key={row.id} row={row} isLast={idx === items.length - 1} />
+                  <HistoryRow key={itemKey(row)} item={row} isLast={idx === items.length - 1} />
                 ))}
               </Card>
             </View>
@@ -150,79 +170,96 @@ export default function HistoryScreen() {
   );
 }
 
-function HistoryRow({ row, isLast }: { row: InspectionRow; isLast: boolean }) {
+function HistoryRow({ item, isLast }: { item: HistoryItem; isLast: boolean }) {
   const { t } = useTranslation("history");
-  const tint = VARIETY_TINTS[row.variety?.color_key ?? ""] ?? VARIETY_TINTS.rice;
-  // Today: every row is "synced" since there's no offline queue. The
-  // pending branch would set syncState='pending' on local-cached rows.
-  const syncState: "synced" | "pending" = "synced";
+  const row = item.kind === "remote" ? item.row : null;
+  const entry = item.kind === "local" ? item.entry : null;
+  const tint = VARIETY_TINTS[row?.variety?.color_key ?? ""] ?? VARIETY_TINTS.rice;
+  const syncState = item.syncState;
+  const capturedAt = row?.captured_at ?? entry?.createdAt ?? new Date().toISOString();
+  const title = row?.variety?.name ?? t("pendingInspection");
+  const totalSeeds =
+    row?.total_seeds ?? (entry?.payload.kind === "inspection" ? entry.payload.data.total_seeds : 0);
+  const body = `${formatRelative(capturedAt)}${row?.batch?.code ? ` · ${row.batch.code}` : ""}`;
+  const content = (
+    <View
+      className={`flex-row items-center gap-md px-lg py-md ${
+        isLast ? "" : "border-b border-line-tertiary"
+      }`}
+    >
+      <View
+        className="items-center justify-center"
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 12,
+          backgroundColor: tint.bg,
+        }}
+      >
+        <Text className="font-medium" style={{ color: tint.fg, fontSize: 14 }}>
+          {totalSeeds ?? 0}
+        </Text>
+      </View>
+      <View className="flex-1">
+        <Text className="text-title text-fg-primary font-medium" numberOfLines={1}>
+          {title}
+        </Text>
+        <Text className="text-caption text-fg-secondary mt-xs" numberOfLines={1}>
+          {body}
+        </Text>
+        {entry?.lastError ? (
+          <Text className="text-caption text-danger-text mt-xs" numberOfLines={1}>
+            {entry.lastError}
+          </Text>
+        ) : null}
+      </View>
+      <Pill
+        tone={syncState === "synced" ? "success" : syncState === "failed" ? "danger" : "warning"}
+        dot
+        label={t(`syncStatus.${syncState}`)}
+      />
+      {row ? <ChevronRight color="#9D9D9A" size={16} /> : null}
+    </View>
+  );
+  if (!row) return content;
   return (
     <Link href={`/inspections/${row.id}`} asChild>
-      <Pressable
-        className={`flex-row items-center gap-md px-lg py-md ${
-          isLast ? "" : "border-b border-line-tertiary"
-        }`}
-      >
-        <View
-          className="items-center justify-center"
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            backgroundColor: tint.bg,
-          }}
-        >
-          <Text className="font-medium" style={{ color: tint.fg, fontSize: 14 }}>
-            {row.total_seeds ?? 0}
-          </Text>
-        </View>
-        <View className="flex-1">
-          <Text className="text-title text-fg-primary font-medium" numberOfLines={1}>
-            {row.variety?.name ?? "—"}
-          </Text>
-          <Text className="text-caption text-fg-secondary mt-xs" numberOfLines={1}>
-            {formatRelative(row.captured_at)}
-            {row.batch?.code ? ` · ${row.batch.code}` : ""}
-          </Text>
-        </View>
-        <Pill
-          tone={syncState === "synced" ? "success" : "warning"}
-          dot
-          label={t(`syncStatus.${syncState}`)}
-        />
-        <ChevronRight color="#9D9D9A" size={16} />
-      </Pressable>
+      <Pressable>{content}</Pressable>
     </Link>
   );
 }
 
-function applyFilter(rows: InspectionRow[], filter: Filter, dateRange: DateRange): InspectionRow[] {
+function applyFilter(rows: HistoryItem[], filter: Filter, dateRange: DateRange): HistoryItem[] {
   const filtered = (() => {
     switch (filter) {
       case "all":
         return rows;
       case "today": {
         const start = startOfToday();
-        return rows.filter((r) => new Date(r.captured_at) >= start);
+        return rows.filter((r) => new Date(itemDate(r)) >= start);
       }
+      case "synced":
+      case "pending":
+      case "failed":
+        return rows.filter((r) => r.syncState === filter);
     }
   })();
   if (!dateRange.start) return filtered;
   const end = dateRange.end ?? dateRange.start;
   return filtered.filter((r) => {
-    const key = toDateKey(new Date(r.captured_at));
+    const key = toDateKey(new Date(itemDate(r)));
     return key >= dateRange.start! && key <= end;
   });
 }
 
-function groupByDate(rows: InspectionRow[]): Array<{ groupKey: GroupKey; items: InspectionRow[] }> {
+function groupByDate(rows: HistoryItem[]): Array<{ groupKey: GroupKey; items: HistoryItem[] }> {
   const startToday = startOfToday();
   const startYesterday = new Date(startToday);
   startYesterday.setDate(startYesterday.getDate() - 1);
   const startOfWeek = new Date(startToday);
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
 
-  const buckets: Record<GroupKey, InspectionRow[]> = {
+  const buckets: Record<GroupKey, HistoryItem[]> = {
     today: [],
     yesterday: [],
     earlierThisWeek: [],
@@ -230,7 +267,7 @@ function groupByDate(rows: InspectionRow[]): Array<{ groupKey: GroupKey; items: 
   };
 
   for (const row of rows) {
-    const at = new Date(row.captured_at);
+    const at = new Date(itemDate(row));
     if (at >= startToday) buckets.today.push(row);
     else if (at >= startYesterday) buckets.yesterday.push(row);
     else if (at >= startOfWeek) buckets.earlierThisWeek.push(row);
@@ -255,4 +292,12 @@ function formatRelative(iso: string): string {
   const diffHr = Math.round(diffMin / 60);
   if (Math.abs(diffHr) < 24) return `${Math.abs(diffHr)}h ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+function itemDate(item: HistoryItem): string {
+  return item.kind === "remote" ? item.row.captured_at : item.entry.createdAt;
+}
+
+function itemKey(item: HistoryItem): string {
+  return item.kind === "remote" ? item.row.id : item.entry.id;
 }

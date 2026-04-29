@@ -11,6 +11,12 @@
   "build": "บิลด์",
   "sync": {
     "status": "สถานะ",
-    "upToDate": "ทันสมัย"
+    "upToDate": "ทันสมัย",
+    "pending": "รอซิงค์ {{count}} รายการ",
+    "failed": "ไม่สำเร็จ {{count}} รายการ",
+    "pendingCount": "รอซิงค์",
+    "failedCount": "ไม่สำเร็จ",
+    "retryAll": "ลองใหม่ทั้งหมด",
+    "clearFailed": "ล้างรายการไม่สำเร็จ"
   }
 }
