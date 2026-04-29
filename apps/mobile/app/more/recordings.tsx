@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, Text, Alert } from "react-native";
+import { ScrollView, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -67,41 +67,42 @@ export default function RecordingsScreen() {
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <Card>
-          <Text className="text-caption uppercase text-fg-secondary mb-sm">
-            {t("profile:recordings.filters.dateRange")}
-          </Text>
-          <View className="flex-row items-center gap-xs">
+        <Segmented
+          value={durationFilter}
+          onChange={setDurationFilter}
+          options={durationOptions}
+          variant="tag"
+          scrollable
+        />
+
+        <View className="flex-row items-center gap-xs">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("profile:recordings.filters.selectDate")}
+            className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
+            onPress={() => setDatePickerOpen(true)}
+          >
+            <Calendar color="#0F6E56" size={16} />
+            <View className="flex-1">
+              <Text className="text-caption text-fg-secondary">
+                {t("profile:recordings.filters.dateRange")}
+              </Text>
+              <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
+                {rangeLabel(dateRange, i18n.language, t)}
+              </Text>
+            </View>
+          </Pressable>
+          {hasDateRange ? (
             <Button
-              className="flex-1"
-              size="sm"
-              variant="outline"
-              label={rangeLabel(dateRange, i18n.language, t)}
-              leadingIcon={<Calendar color="#0F6E56" size={14} />}
-              onPress={() => setDatePickerOpen(true)}
-            />
-            {hasDateRange ? (
-              <Button
-                size="icon"
-                variant="tinted"
-                accessibilityLabel={t("common:actions.clear")}
-                onPress={() => setDateRange({ start: null, end: null })}
-              >
-                <X color="#1A1A1A" size={16} />
-              </Button>
-            ) : null}
-          </View>
-          <Text className="text-caption uppercase text-fg-secondary mb-sm mt-md">
-            {t("profile:recordings.filters.duration.label")}
-          </Text>
-          <Segmented
-            value={durationFilter}
-            onChange={setDurationFilter}
-            options={durationOptions}
-            variant="tag"
-            scrollable
-          />
-        </Card>
+              size="icon"
+              variant="tinted"
+              accessibilityLabel={t("common:actions.clear")}
+              onPress={() => setDateRange({ start: null, end: null })}
+            >
+              <X color="#1A1A1A" size={16} />
+            </Button>
+          ) : null}
+        </View>
 
         {recordings.isLoading ? (
           <Card>

@@ -24,6 +24,7 @@
     "permissionDeniedBody": "Allow Photos access in Settings to save recordings.",
     "filters": {
       "dateRange": "Date range",
+      "selectDate": "Select date",
       "duration": {
         "label": "Duration",
         "all": "All",

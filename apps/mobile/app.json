@@ -4,6 +4,7 @@
     "slug": "advance-seeds-field-inspector",
     "version": "0.3.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "advanceseeds",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -22,6 +23,7 @@
       "package": "com.advanceseeds.fieldinspector",
       "versionCode": 2,
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F6E56"
       },
       "permissions": [

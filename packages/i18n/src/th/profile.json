@@ -24,6 +24,7 @@
     "permissionDeniedBody": "อนุญาตการเข้าถึง Photos ใน Settings เพื่อบันทึกวิดีโอ",
     "filters": {
       "dateRange": "ช่วงวันที่",
+      "selectDate": "เลือกวันที่",
       "duration": {
         "label": "ระยะเวลา",
         "all": "ทั้งหมด",
