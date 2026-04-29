@@ -1,0 +1,29 @@
+{
+  "title": "Notifications",
+  "empty": "No notifications yet. Captures, recordings, and errors will appear here.",
+  "markAllRead": "Mark all read",
+  "captureSaved": {
+    "title": "Inspection saved",
+    "body": "{{variety}} · {{count}} seeds graded"
+  },
+  "captureFailed": {
+    "title": "Capture failed",
+    "body": "{{reason}}"
+  },
+  "recordingUploaded": {
+    "title": "Recording uploaded",
+    "body": "{{duration}} · saved to your recordings"
+  },
+  "recordingTooLarge": {
+    "title": "Recording too large",
+    "body": "The video exceeded the {{limitMb}} MB upload limit. Discard or save to Photos."
+  },
+  "recordingFailed": {
+    "title": "Recording upload failed",
+    "body": "{{reason}}"
+  },
+  "snapshotSaved": {
+    "title": "Snapshot saved to Photos",
+    "body": "Open the Photos app to view."
+  }
+}

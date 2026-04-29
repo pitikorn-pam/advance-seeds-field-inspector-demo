@@ -136,6 +136,25 @@ export interface InspectionWithDetail extends Inspection {
   seeds: Seed[];
 }
 
+// ----- Notifications -----------------------------------------------------
+// In-app status / error / milestone messages. Per-user; RLS gates per
+// auth.uid(). Optional `route` deep-links into a related screen; optional
+// JSONB `metadata` carries per-kind context.
+
+export type NotificationKind = "success" | "info" | "warning" | "error";
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  route: string | null;
+  read_at: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
 // ----- Recordings (Phase 7b) ---------------------------------------------
 // Orthogonal to inspections: a session may produce zero or more recordings
 // independent of any inspection row. video_url is the public Supabase

@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useCreateInspection } from "@/lib/queries";
+import { useNotify } from "@/lib/notifications";
 import { Button } from "@/components/ui/Button";
 import { GradeRing } from "@/components/inspections/GradeRing";
 
@@ -31,11 +32,12 @@ import { GradeRing } from "@/components/inspections/GradeRing";
  * (`/inspections/seed/[index]`) lands in Phase 8.1.
  */
 export default function CaptureReview() {
-  const { t } = useTranslation(["common", "inspections"]);
+  const { t } = useTranslation(["common", "inspections", "notifications"]);
   const router = useRouter();
   const { profile } = useAuth();
   const session = useCaptureSession();
   const create = useCreateInspection();
+  const notify = useNotify();
   const [saving, setSaving] = useState(false);
 
   const result = (session as unknown as { lastResult?: AnalysisResult }).lastResult ?? null;
@@ -85,10 +87,28 @@ export default function CaptureReview() {
         metadata,
         notes: trimmedNotes.length > 0 ? trimmedNotes : null,
       });
+      // Fire-and-forget — the notification is a milestone marker, not a
+      // gating action. If it fails to insert, the local optimistic add
+      // still shows the user immediate feedback.
+      notify({
+        kind: "success",
+        title: t("notifications:captureSaved.title"),
+        body: t("notifications:captureSaved.body", {
+          variety: result.summary.total_seeds,
+          count: result.summary.total_seeds,
+        }),
+        route: `/inspections/${id}`,
+      });
       session.reset();
       router.replace(`/inspections/${id}`);
     } catch (err) {
-      Alert.alert(t("common:states.error"), err instanceof Error ? err.message : String(err));
+      const reason = err instanceof Error ? err.message : String(err);
+      notify({
+        kind: "error",
+        title: t("notifications:captureFailed.title"),
+        body: t("notifications:captureFailed.body", { reason }),
+      });
+      Alert.alert(t("common:states.error"), reason);
       setSaving(false);
     }
   };

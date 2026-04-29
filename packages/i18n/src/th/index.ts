@@ -12,6 +12,7 @@ import more from "./more.json" with { type: "json" };
 import home from "./home.json" with { type: "json" };
 import library from "./library.json" with { type: "json" };
 import history from "./history.json" with { type: "json" };
+import notifications from "./notifications.json" with { type: "json" };
 
 export const th = {
   common,
@@ -28,4 +29,5 @@ export const th = {
   home,
   library,
   history,
+  notifications,
 };

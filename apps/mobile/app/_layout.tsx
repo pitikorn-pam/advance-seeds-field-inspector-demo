@@ -114,6 +114,10 @@ export default function RootLayout() {
                   <Stack.Screen name="profile" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="settings" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen
+                    name="notifications"
+                    options={{ presentation: "modal", headerShown: false }}
+                  />
+                  <Stack.Screen
                     name="inspections/[id]"
                     options={{ headerShown: true, title: "" }}
                   />

@@ -22,6 +22,7 @@ import { useCaptureSession } from "@/lib/capture/session";
 import { useRecordingState } from "@/lib/capture/recording";
 import { useAuth } from "@/lib/auth";
 import { useCreateRecording } from "@/lib/queries";
+import { useNotify } from "@/lib/notifications";
 import { supabase } from "@/lib/supabase";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
 
@@ -48,11 +49,12 @@ const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
  * The KPI strip's data shape (`AnalysisFrameResult`) stays the same.
  */
 export default function CaptureScan() {
-  const { t } = useTranslation(["common", "inspections"]);
+  const { t } = useTranslation(["common", "inspections", "notifications"]);
   const router = useRouter();
   const session = useCaptureSession();
   const { profile } = useAuth();
   const createRecording = useCreateRecording();
+  const notify = useNotify();
   const cameraRef = useRef<VCCamera>(null);
   const [busy, setBusy] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
@@ -82,11 +84,15 @@ export default function CaptureScan() {
         const info = await FileSystem.getInfoAsync(uri);
         const bytes = info.exists && "size" in info ? (info.size as number) : 0;
         if (bytes > MAX_UPLOAD_BYTES) {
+          const limitMb = Math.round(MAX_UPLOAD_BYTES / 1024 / 1024);
+          notify({
+            kind: "warning",
+            title: t("notifications:recordingTooLarge.title"),
+            body: t("notifications:recordingTooLarge.body", { limitMb }),
+          });
           Alert.alert(
             t("inspections:capture.recording.tooLargeTitle"),
-            t("inspections:capture.recording.tooLargeBody", {
-              limitMb: Math.round(MAX_UPLOAD_BYTES / 1024 / 1024),
-            }),
+            t("inspections:capture.recording.tooLargeBody", { limitMb }),
           );
           return;
         }
@@ -107,12 +113,26 @@ export default function CaptureScan() {
           video_url: urlData.publicUrl,
           duration_ms: Math.max(0, Math.round(durationMs)),
         });
+        const totalSec = Math.max(0, Math.round(durationMs / 1000));
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        notify({
+          kind: "success",
+          title: t("notifications:recordingUploaded.title"),
+          body: t("notifications:recordingUploaded.body", {
+            duration: `${min}:${sec.toString().padStart(2, "0")}`,
+          }),
+          route: "/more/recordings",
+        });
       } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
         console.error("[scan] recording upload failed", err);
-        Alert.alert(
-          t("inspections:capture.recording.uploadFailed"),
-          err instanceof Error ? err.message : String(err),
-        );
+        notify({
+          kind: "error",
+          title: t("notifications:recordingFailed.title"),
+          body: t("notifications:recordingFailed.body", { reason }),
+        });
+        Alert.alert(t("inspections:capture.recording.uploadFailed"), reason);
       }
     },
     onRecordingError: (err) => {
@@ -219,6 +239,11 @@ export default function CaptureScan() {
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
       await MediaLibrary.saveToLibraryAsync(uri);
       setToast(t("inspections:capture.snapshot.savedToast"));
+      notify({
+        kind: "success",
+        title: t("notifications:snapshotSaved.title"),
+        body: t("notifications:snapshotSaved.body"),
+      });
     } catch (err) {
       console.error("[scan] snapshot failed", err);
     }

@@ -13,6 +13,7 @@ import { Skeleton, SkeletonList } from "@/components/ui/Skeleton";
 import { HeroCard } from "@/components/home/HeroCard";
 import { RecentInspections } from "@/components/home/RecentInspections";
 import { SyncBanner } from "@/components/home/SyncBanner";
+import { NotificationBell } from "@/components/home/NotificationBell";
 
 /**
  * Home dashboard. Mirrors the prototype's home layout (prototype-fidelity-pass
@@ -84,6 +85,7 @@ export default function HomeScreen() {
               label={t(`common:roles.${profile.role}`)}
             />
           ) : null}
+          <NotificationBell />
         </View>
 
         {isLoading ? (

@@ -1,0 +1,29 @@
+{
+  "title": "การแจ้งเตือน",
+  "empty": "ยังไม่มีการแจ้งเตือน เมื่อมีการถ่าย บันทึกวิดีโอ หรือข้อผิดพลาด จะแสดงที่นี่",
+  "markAllRead": "อ่านทั้งหมด",
+  "captureSaved": {
+    "title": "บันทึกการตรวจสอบแล้ว",
+    "body": "{{variety}} · {{count}} เมล็ด"
+  },
+  "captureFailed": {
+    "title": "ถ่ายไม่สำเร็จ",
+    "body": "{{reason}}"
+  },
+  "recordingUploaded": {
+    "title": "อัปโหลดวิดีโอแล้ว",
+    "body": "{{duration}} · บันทึกในรายการวิดีโอ"
+  },
+  "recordingTooLarge": {
+    "title": "วิดีโอใหญ่เกินไป",
+    "body": "วิดีโอเกินขีดจำกัด {{limitMb}} MB ละทิ้งหรือบันทึกลง Photos"
+  },
+  "recordingFailed": {
+    "title": "อัปโหลดวิดีโอไม่สำเร็จ",
+    "body": "{{reason}}"
+  },
+  "snapshotSaved": {
+    "title": "บันทึกภาพไปยัง Photos แล้ว",
+    "body": "เปิดแอป Photos เพื่อดู"
+  }
+}

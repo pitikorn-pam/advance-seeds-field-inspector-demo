@@ -10,6 +10,8 @@ import type {
   CalibrationProfile,
   Profile,
   Recording,
+  Notification,
+  NotificationKind,
 } from "@advance-seeds/types";
 import { supabase } from "./supabase";
 
@@ -21,7 +23,139 @@ const keys = {
   calibrations: ["calibrations"] as const,
   profiles: ["profiles"] as const,
   recordings: ["recordings"] as const,
+  notifications: ["notifications"] as const,
 };
+
+// ----- Notifications -----------------------------------------------------
+
+const NOTIFICATIONS_PAGE_SIZE = 10;
+
+export function useNotifications() {
+  return useQuery({
+    queryKey: keys.notifications,
+    queryFn: async (): Promise<Notification[]> => {
+      const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("notifications" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as unknown as Notification[];
+    },
+  });
+}
+
+/**
+ * Page key is the cursor (created_at of the last item from the previous
+ * page). Lazy-load on scroll: pass undefined for first page, the last
+ * item's created_at for subsequent pages.
+ */
+export function useNotificationsPage(cursor: string | null) {
+  return useQuery({
+    queryKey: [...keys.notifications, cursor ?? "first"],
+    queryFn: async (): Promise<Notification[]> => {
+      let q = supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("notifications" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(NOTIFICATIONS_PAGE_SIZE);
+      if (cursor) q = q.lt("created_at", cursor);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as Notification[];
+    },
+  });
+}
+
+interface NotifyArgs {
+  user_id: string;
+  kind: NotificationKind;
+  title: string;
+  body?: string | null;
+  route?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export function useCreateNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: NotifyArgs) => {
+      const insertRow = {
+        ...args,
+        body: args.body ?? null,
+        route: args.route ?? null,
+        metadata: args.metadata ? JSON.parse(JSON.stringify(args.metadata)) : null,
+      };
+      const { data, error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("notifications" as any)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(insertRow as any)
+        .select("*")
+        .single();
+      if (error || !data) throw error ?? new Error("notification insert failed");
+      return data as unknown as Notification;
+    },
+    // Optimistic write: prepend to the local cache immediately. If the
+    // server insert fails, the rollback in onError restores the cache.
+    onMutate: async (args) => {
+      await qc.cancelQueries({ queryKey: keys.notifications });
+      const previous = qc.getQueryData<Notification[]>(keys.notifications);
+      const optimistic: Notification = {
+        id: `optimistic-${Date.now()}`,
+        user_id: args.user_id,
+        kind: args.kind,
+        title: args.title,
+        body: args.body ?? null,
+        route: args.route ?? null,
+        read_at: null,
+        metadata: args.metadata ?? null,
+        created_at: new Date().toISOString(),
+      };
+      qc.setQueryData<Notification[]>(keys.notifications, (prev) =>
+        prev ? [optimistic, ...prev] : [optimistic],
+      );
+      return { previous };
+    },
+    onError: (_err, _args, ctx) => {
+      if (ctx?.previous) qc.setQueryData(keys.notifications, ctx.previous);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.notifications }),
+  });
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("notifications" as any)
+        .update({ read_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.notifications }),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("notifications" as any)
+        .update({ read_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .is("read_at", null);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.notifications }),
+  });
+}
 
 export type InspectionRow = Inspection & {
   variety: { id: string; name: string; color_key: string | null } | null;

@@ -29,6 +29,7 @@ export const namespaces = [
   "home",
   "library",
   "history",
+  "notifications",
 ] as const;
 export type Namespace = (typeof namespaces)[number];
 
