@@ -58,6 +58,11 @@ export default function VarietyDetail() {
   const tint = VARIETY_TINTS[variety.color_key ?? ""] ?? VARIETY_TINTS.rice;
 
   const onStartInspection = () => {
+    // Explicit "Start inspection" from a variety detail is a fresh-start
+    // gesture: previous batch / calibration / notes / ROI / location-tag
+    // intent shouldn't latch onto the new attempt. Reset first, then
+    // commit only the chosen variety.
+    session.reset();
     session.set({ varietyId: variety.id });
     router.push("/capture/setup");
   };
