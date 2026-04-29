@@ -1,10 +1,10 @@
 {
   "title": "More",
   "sections": {
-    "manage": "Manage",
+    "account": "Account",
+    "captureAssets": "Capture assets",
     "reference": "Reference",
-    "insights": "Insights",
-    "app": "App"
+    "insights": "Insights"
   },
   "menu": {
     "profile": "Profile",
@@ -15,7 +15,6 @@
     "calibration": "Calibration",
     "history": "History",
     "reports": "Reports",
-    "settings": "Settings",
-    "about": "About"
+    "settings": "Settings"
   }
 }

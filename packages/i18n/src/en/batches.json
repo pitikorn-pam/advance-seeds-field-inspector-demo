@@ -1,5 +1,6 @@
 {
   "title": "Batches",
+  "listTitle": "Batch list",
   "newBatch": "New batch",
   "editBatch": "Edit batch",
   "fields": {

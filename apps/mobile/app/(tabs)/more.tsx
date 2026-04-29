@@ -10,7 +10,6 @@ import {
   ListChecks,
   BarChart3,
   Settings as SettingsIcon,
-  Info,
   ChevronRight,
   LogOut,
 } from "lucide-react-native";
@@ -23,10 +22,10 @@ import { Card } from "@/components/ui/Card";
  * Tab bar holds Home / Camera / Library / More. Everything that doesn't fit
  * those four primary destinations lives here, grouped semantically:
  *
- *   Manage     — personal: Profile, Recordings, Sign out
+ *   Account    — personal: Profile, Settings, Sign out
+ *   Capture    — video artifacts + inspection history
  *   Reference  — admin reference data: Batches, Calibration profiles
- *   Insights   — historical + analytics: History (inspections), Reports
- *   App        — global: Settings, About
+ *   Insights   — analytics exports
  *
  * Each row pushes onto the stack so the back gesture lands here. Sign out
  * is the lone destructive action and is visually distinct.
@@ -59,7 +58,7 @@ export default function MoreScreen() {
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
         <Text className="text-h1 font-medium text-fg-primary">{t("more:title")}</Text>
 
-        <Section title={t("more:sections.manage")}>
+        <Section title={t("more:sections.account")}>
           <MenuRow
             icon={<User color="#1A1A1A" size={16} />}
             label={t("more:menu.profile")}
@@ -67,12 +66,9 @@ export default function MoreScreen() {
           />
           <Divider />
           <MenuRow
-            icon={<Video color="#1A1A1A" size={16} />}
-            label={t("more:menu.recordings")}
-            // typedRoutes regenerates these path types at Metro start; cast
-            // until then so the typecheck step doesn't block on a fresh
-            // route file. Same for /more/history below.
-            onPress={() => router.push("/more/recordings" as never)}
+            icon={<SettingsIcon color="#1A1A1A" size={16} />}
+            label={t("more:menu.settings")}
+            onPress={() => router.push("/settings")}
           />
           <Divider />
           <MenuRow
@@ -80,6 +76,20 @@ export default function MoreScreen() {
             label={t("more:menu.signOut")}
             destructive
             onPress={onSignOut}
+          />
+        </Section>
+
+        <Section title={t("more:sections.captureAssets")}>
+          <MenuRow
+            icon={<Video color="#1A1A1A" size={16} />}
+            label={t("more:menu.recordings")}
+            onPress={() => router.push("/more/recordings" as never)}
+          />
+          <Divider />
+          <MenuRow
+            icon={<ListChecks color="#1A1A1A" size={16} />}
+            label={t("more:menu.history")}
+            onPress={() => router.push("/more/history" as never)}
           />
         </Section>
 
@@ -99,26 +109,10 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.insights")}>
           <MenuRow
-            icon={<ListChecks color="#1A1A1A" size={16} />}
-            label={t("more:menu.history")}
-            onPress={() => router.push("/more/history" as never)}
-          />
-          <Divider />
-          <MenuRow
             icon={<BarChart3 color="#1A1A1A" size={16} />}
             label={t("more:menu.reports")}
             onPress={() => router.push("/reports")}
           />
-        </Section>
-
-        <Section title={t("more:sections.app")}>
-          <MenuRow
-            icon={<SettingsIcon color="#1A1A1A" size={16} />}
-            label={t("more:menu.settings")}
-            onPress={() => router.push("/settings")}
-          />
-          <Divider />
-          <MenuRow icon={<Info color="#1A1A1A" size={16} />} label={t("more:menu.about")} />
         </Section>
       </ScrollView>
     </SafeAreaView>

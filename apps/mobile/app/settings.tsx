@@ -1,11 +1,14 @@
 import { ScrollView, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import type { Theme } from "@advance-seeds/types";
 import type { SupportedLocale } from "@advance-seeds/i18n";
 
@@ -20,6 +23,7 @@ import type { SupportedLocale } from "@advance-seeds/i18n";
  */
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation(["common", "settings"]);
+  const router = useRouter();
   const { profile } = useAuth();
   const { theme, setTheme } = useTheme();
 
@@ -27,10 +31,16 @@ export default function SettingsScreen() {
   const localeOpts: SupportedLocale[] = ["en", "th"];
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
-      <ScrollView contentContainerClassName="px-xl py-xl gap-xl">
-        <Text className="text-h1 font-medium text-fg-primary">{t("settings:title")}</Text>
-
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("settings:title")}
+        left={{
+          accessibilityLabel: t("common:actions.back"),
+          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: () => router.back(),
+        }}
+      />
+      <ScrollView contentContainerClassName="px-xl py-md gap-xl">
         <View className="gap-md">
           <Text className="text-caption uppercase text-fg-secondary">
             {t("settings:sections.profile")}

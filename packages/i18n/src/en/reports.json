@@ -1,5 +1,6 @@
 {
   "title": "Reports",
+  "summaryTitle": "Summary",
   "filters": {
     "dateRange": "Date range",
     "variety": "Variety",

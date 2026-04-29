@@ -1,5 +1,6 @@
 {
   "title": "รายงาน",
+  "summaryTitle": "สรุป",
   "filters": {
     "dateRange": "ช่วงวันที่",
     "variety": "พันธุ์",

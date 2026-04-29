@@ -111,8 +111,8 @@ export default function RootLayout() {
                   <Stack.Screen name="login" options={{ animation: "fade" }} />
                   <Stack.Screen name="splash" options={{ animation: "fade" }} />
                   <Stack.Screen name="welcome" options={{ animation: "slide_from_right" }} />
-                  <Stack.Screen name="profile" options={{ headerShown: true, title: "" }} />
-                  <Stack.Screen name="settings" options={{ headerShown: true, title: "" }} />
+                  <Stack.Screen name="profile" options={{ headerShown: false }} />
+                  <Stack.Screen name="settings" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="notifications"
                     options={{ presentation: "modal", headerShown: false }}
@@ -129,11 +129,11 @@ export default function RootLayout() {
                       their own Stack.Screen options. */}
                   <Stack.Screen name="capture" options={{ headerShown: false }} />
                   <Stack.Screen name="more/history" options={{ headerShown: false }} />
-                  <Stack.Screen name="more/recordings" options={{ headerShown: true, title: "" }} />
+                  <Stack.Screen name="more/recordings" options={{ headerShown: false }} />
                   <Stack.Screen name="varieties" options={{ headerShown: true, title: "" }} />
-                  <Stack.Screen name="batches" options={{ headerShown: true, title: "" }} />
-                  <Stack.Screen name="reports" options={{ headerShown: true, title: "" }} />
-                  <Stack.Screen name="calibration" options={{ headerShown: true, title: "" }} />
+                  <Stack.Screen name="batches" options={{ headerShown: false }} />
+                  <Stack.Screen name="reports" options={{ headerShown: false }} />
+                  <Stack.Screen name="calibration" options={{ headerShown: false }} />
                 </Stack>
               </AnalyzerProvider>
             </AuthProvider>

@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { ScrollView, View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { Download } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Calendar, ChevronLeft, Download, X } from "lucide-react-native";
 // expo-file-system v19 (Expo SDK 54) introduced a new Paths/File API and
 // moved the previous API behind /legacy. Using legacy here keeps the diff
 // minimal — migrating to the new API is a polish task for next change.
@@ -12,13 +13,25 @@ import { useInspections, useVarieties } from "@/lib/queries";
 import { Card, StatTile } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
+import { AppTopBar } from "@/components/ui/AppTopBar";
+import {
+  DateRangePicker,
+  type DateRange,
+  rangeLabel,
+  toDateKey,
+} from "@/components/ui/DateRangePicker";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
 const ALL = "__all";
 type Preset = "last7" | "last30" | "last90" | "custom";
 
-function withinRange(date: Date, preset: Preset): boolean {
-  if (preset === "custom") return true;
+function withinRange(date: Date, preset: Preset, range: DateRange): boolean {
+  if (preset === "custom") {
+    if (!range.start) return true;
+    const key = toDateKey(date);
+    const end = range.end ?? range.start;
+    return key >= range.start && key <= end;
+  }
   const days = preset === "last7" ? 7 : preset === "last30" ? 30 : 90;
   return Date.now() - date.getTime() <= days * 24 * 60 * 60 * 1000;
 }
@@ -30,19 +43,22 @@ function escape(v: unknown): string {
 }
 
 export default function ReportsRoute() {
-  const { t } = useTranslation(["common", "reports"]);
+  const { t, i18n } = useTranslation(["common", "reports", "history"]);
+  const router = useRouter();
   const { data, isLoading, isError, refetch } = useInspections();
   const varieties = useVarieties();
   const [preset, setPreset] = useState<Preset>("last30");
   const [varietyId, setVarietyId] = useState<string>(ALL);
+  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (!data) return [];
     return data.filter((row) => {
       if (varietyId !== ALL && row.variety_id !== varietyId) return false;
-      return withinRange(new Date(row.captured_at), preset);
+      return withinRange(new Date(row.captured_at), preset, dateRange);
     });
-  }, [data, preset, varietyId]);
+  }, [data, preset, dateRange, varietyId]);
 
   const totalSeeds = filtered.reduce((a, b) => a + (b.total_seeds ?? 0), 0);
   const meanLen =
@@ -122,12 +138,21 @@ export default function ReportsRoute() {
     { value: ALL, label: t("reports:filters.allVarieties") },
     ...(varieties.data ?? []).map((v) => ({ value: v.id, label: v.name })),
   ];
+  const hasDateRange = !!dateRange.start || !!dateRange.end;
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
-      <ScrollView contentContainerClassName="px-xl py-xl gap-xl">
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("reports:title")}
+        left={{
+          accessibilityLabel: t("common:actions.back"),
+          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: () => router.back(),
+        }}
+      />
+      <ScrollView contentContainerClassName="px-xl py-md gap-xl">
         <View className="flex-row items-center justify-between">
-          <Text className="text-h1 font-medium text-fg-primary">{t("reports:title")}</Text>
+          <Text className="text-h2 font-medium text-fg-primary">{t("reports:summaryTitle")}</Text>
           <Button
             size="sm"
             label={t("common:actions.exportCsv")}
@@ -143,11 +168,36 @@ export default function ReportsRoute() {
           </Text>
           <Segmented<Preset>
             value={preset}
-            onChange={setPreset}
+            onChange={(next) => {
+              setPreset(next);
+              if (next === "custom") setDatePickerOpen(true);
+            }}
             options={presetOptions}
             variant="tag"
             scrollable
           />
+          {preset === "custom" ? (
+            <View className="mt-md flex-row items-center gap-xs">
+              <Button
+                className="flex-1"
+                size="sm"
+                variant="outline"
+                label={rangeLabel(dateRange, i18n.language, t)}
+                leadingIcon={<Calendar color="#0F6E56" size={14} />}
+                onPress={() => setDatePickerOpen(true)}
+              />
+              {hasDateRange ? (
+                <Button
+                  size="icon"
+                  variant="tinted"
+                  accessibilityLabel={t("common:actions.clear")}
+                  onPress={() => setDateRange({ start: null, end: null })}
+                >
+                  <X color="#1A1A1A" size={16} />
+                </Button>
+              ) : null}
+            </View>
+          ) : null}
           <Text className="text-caption uppercase text-fg-secondary mb-sm mt-md">
             {t("reports:filters.variety")}
           </Text>
@@ -179,6 +229,14 @@ export default function ReportsRoute() {
           </>
         )}
       </ScrollView>
+      <DateRangePicker
+        visible={datePickerOpen}
+        value={dateRange}
+        locale={i18n.language}
+        onClose={() => setDatePickerOpen(false)}
+        onClear={() => setDateRange({ start: null, end: null })}
+        onChange={setDateRange}
+      />
     </SafeAreaView>
   );
 }

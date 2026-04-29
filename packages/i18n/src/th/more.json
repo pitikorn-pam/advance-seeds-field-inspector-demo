@@ -1,10 +1,10 @@
 {
   "title": "เพิ่มเติม",
   "sections": {
-    "manage": "จัดการ",
+    "account": "บัญชี",
+    "captureAssets": "ไฟล์การตรวจ",
     "reference": "ข้อมูลอ้างอิง",
-    "insights": "ข้อมูลเชิงลึก",
-    "app": "แอป"
+    "insights": "ข้อมูลเชิงลึก"
   },
   "menu": {
     "profile": "โปรไฟล์",
@@ -15,7 +15,6 @@
     "calibration": "การสอบเทียบ",
     "history": "ประวัติ",
     "reports": "รายงาน",
-    "settings": "การตั้งค่า",
-    "about": "เกี่ยวกับ"
+    "settings": "การตั้งค่า"
   }
 }

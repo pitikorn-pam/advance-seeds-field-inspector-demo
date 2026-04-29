@@ -7,15 +7,19 @@
   },
   "menu": {
     "settings": "การตั้งค่า",
-    "syncNow": "ซิงค์เลย",
+    "sync": "การซิงค์",
     "syncStatusUpToDate": "ทันสมัย",
-    "help": "ช่วยเหลือและสนับสนุน",
     "signOut": "ออกจากระบบ"
   },
   "recordings": {
     "title": "วิดีโอที่บันทึก",
     "empty": "ยังไม่มีวิดีโอ กดค้างปุ่มถ่ายในหน้า Capture เพื่อบันทึก",
     "durationFormat": "{{m}}:{{s}}",
-    "deleteConfirm": "ลบวิดีโอนี้? ไม่สามารถกู้คืนได้"
+    "deleteConfirm": "ลบวิดีโอนี้? ไม่สามารถกู้คืนได้",
+    "share": "แชร์วิดีโอ",
+    "save": "บันทึกวิดีโอ",
+    "savedToPhotos": "บันทึกวิดีโอไปยัง Photos แล้ว",
+    "permissionDeniedTitle": "ต้องการสิทธิ์เข้าถึง Photos",
+    "permissionDeniedBody": "อนุญาตการเข้าถึง Photos ใน Settings เพื่อบันทึกวิดีโอ"
   }
 }

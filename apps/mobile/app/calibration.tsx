@@ -1,20 +1,30 @@
 import { ScrollView, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { useCalibrations } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState, EmptyState } from "@/components/ui/States";
 
 export default function CalibrationRoute() {
   const { t } = useTranslation(["common", "calibration"]);
+  const router = useRouter();
   const { data, isLoading, isError, refetch } = useCalibrations();
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
-      <ScrollView contentContainerClassName="px-xl py-xl gap-md">
-        <Text className="text-h1 font-medium text-fg-primary">{t("calibration:title")}</Text>
-
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("calibration:title")}
+        left={{
+          accessibilityLabel: t("common:actions.back"),
+          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: () => router.back(),
+        }}
+      />
+      <ScrollView contentContainerClassName="px-xl py-md gap-md">
         {isLoading ? (
           <LoadingState />
         ) : isError ? (

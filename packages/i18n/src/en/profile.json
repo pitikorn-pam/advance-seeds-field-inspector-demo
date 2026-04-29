@@ -7,15 +7,19 @@
   },
   "menu": {
     "settings": "Settings",
-    "syncNow": "Sync now",
+    "sync": "Sync",
     "syncStatusUpToDate": "Up to date",
-    "help": "Help and support",
     "signOut": "Sign out"
   },
   "recordings": {
     "title": "Recordings",
     "empty": "No recordings yet. Hold the shutter on Capture to record.",
     "durationFormat": "{{m}}:{{s}}",
-    "deleteConfirm": "Delete this recording? This cannot be undone."
+    "deleteConfirm": "Delete this recording? This cannot be undone.",
+    "share": "Share recording",
+    "save": "Save recording",
+    "savedToPhotos": "Recording saved to Photos",
+    "permissionDeniedTitle": "Photos access needed",
+    "permissionDeniedBody": "Allow Photos access in Settings to save recordings."
   }
 }

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { ScrollView, View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { Plus, Pencil, Trash2 } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { ChevronLeft, Plus, Pencil, Trash2 } from "lucide-react-native";
 import type { Batch } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
@@ -10,6 +11,7 @@ import { useBatches, useUpsertBatch, useDeleteBatch } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
 interface FormState {
@@ -23,6 +25,7 @@ const empty: FormState = { code: "", location: "", sown_at: "", notes: "" };
 
 export default function BatchesRoute() {
   const { t } = useTranslation(["common", "batches"]);
+  const router = useRouter();
   const { profile } = useAuth();
   const policy = policyFor(profile);
   const { data, isLoading, isError, refetch } = useBatches();
@@ -44,10 +47,18 @@ export default function BatchesRoute() {
     );
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
-      <ScrollView contentContainerClassName="px-xl py-xl gap-md">
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("batches:title")}
+        left={{
+          accessibilityLabel: t("common:actions.back"),
+          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: () => router.back(),
+        }}
+      />
+      <ScrollView contentContainerClassName="px-xl py-md gap-md">
         <View className="flex-row items-center justify-between">
-          <Text className="text-h1 font-medium text-fg-primary">{t("batches:title")}</Text>
+          <Text className="text-h2 font-medium text-fg-primary">{t("batches:listTitle")}</Text>
           {policy.canCreateBatch() ? (
             <Button
               size="sm"

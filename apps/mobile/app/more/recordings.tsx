@@ -1,10 +1,15 @@
-import { ScrollView, View, Text, Pressable, Alert } from "react-native";
+import { ScrollView, View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { Video, Trash2 } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { ChevronLeft, Download, Share2, Trash2 } from "lucide-react-native";
 import type { Recording } from "@advance-seeds/types";
 import { useRecordings, useDeleteRecording } from "@/lib/queries";
+import { shareVideo, saveImageToLibrary } from "@/lib/capture/imageActions";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { AppTopBar } from "@/components/ui/AppTopBar";
+import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 
 /**
  * Recordings list — moved out of /profile in the prototype-fidelity-pass.
@@ -13,14 +18,21 @@ import { Card } from "@/components/ui/Card";
  */
 export default function RecordingsScreen() {
   const { t } = useTranslation(["common", "profile"]);
+  const router = useRouter();
   const recordings = useRecordings();
   const deleteRecording = useDeleteRecording();
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("profile:recordings.title")}
+        left={{
+          accessibilityLabel: t("common:actions.back"),
+          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: () => router.back(),
+        }}
+      />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <Text className="text-h1 font-medium text-fg-primary">{t("profile:recordings.title")}</Text>
-
         {recordings.isLoading ? (
           <Card>
             <Text className="text-body text-fg-secondary">{t("common:states.loading")}</Text>
@@ -36,6 +48,26 @@ export default function RecordingsScreen() {
                 key={rec.id}
                 recording={rec}
                 isLast={i === recordings.data.length - 1}
+                onShare={async () => {
+                  try {
+                    await shareVideo(rec.video_url, t("profile:recordings.share"));
+                  } catch (err) {
+                    const reason = err instanceof Error ? err.message : String(err);
+                    Alert.alert(t("common:states.error"), reason);
+                  }
+                }}
+                onSave={async () => {
+                  try {
+                    await saveImageToLibrary(rec.video_url, {
+                      title: t("profile:recordings.savedToPhotos"),
+                      permissionDeniedTitle: t("profile:recordings.permissionDeniedTitle"),
+                      permissionDeniedBody: t("profile:recordings.permissionDeniedBody"),
+                    });
+                  } catch (err) {
+                    const reason = err instanceof Error ? err.message : String(err);
+                    Alert.alert(t("common:states.error"), reason);
+                  }
+                }}
                 onDelete={() =>
                   Alert.alert(t("common:actions.delete"), t("profile:recordings.deleteConfirm"), [
                     { text: t("common:actions.cancel"), style: "cancel" },
@@ -48,6 +80,11 @@ export default function RecordingsScreen() {
                     },
                   ])
                 }
+                labels={{
+                  share: t("profile:recordings.share"),
+                  save: t("profile:recordings.save"),
+                  delete: t("common:actions.delete"),
+                }}
               />
             ))}
           </Card>
@@ -67,11 +104,17 @@ function formatDuration(ms: number): string {
 function RecordingRow({
   recording,
   isLast,
+  onShare,
+  onSave,
   onDelete,
+  labels,
 }: {
   recording: Recording;
   isLast: boolean;
+  onShare: () => void;
+  onSave: () => void;
   onDelete: () => void;
+  labels: { share: string; save: string; delete: string };
 }) {
   const captured = new Date(recording.captured_at);
   const captionDate = captured.toLocaleDateString(undefined, {
@@ -81,29 +124,27 @@ function RecordingRow({
     minute: "2-digit",
   });
   return (
-    <View
-      className={`flex-row items-center gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
-    >
-      <View
-        className="items-center justify-center"
-        style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: "#1a1816" }}
-      >
-        <Video color="#5DCAA5" size={16} />
+    <View className={`gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}>
+      <View className="aspect-[4/3] overflow-hidden rounded-lg bg-black">
+        <CaptureMediaPreview uri={recording.video_url} kind="video" />
       </View>
-      <View className="flex-1">
-        <Text className="text-title text-fg-primary font-medium">
-          {formatDuration(recording.duration_ms)}
-        </Text>
-        <Text className="text-caption text-fg-secondary">{captionDate}</Text>
+      <View className="flex-row items-center gap-md">
+        <View className="flex-1">
+          <Text className="text-title text-fg-primary font-medium">
+            {formatDuration(recording.duration_ms)}
+          </Text>
+          <Text className="text-caption text-fg-secondary">{captionDate}</Text>
+        </View>
+        <Button size="icon" variant="tinted" accessibilityLabel={labels.share} onPress={onShare}>
+          <Share2 color="#1A1A1A" size={16} />
+        </Button>
+        <Button size="icon" variant="tinted" accessibilityLabel={labels.save} onPress={onSave}>
+          <Download color="#1A1A1A" size={16} />
+        </Button>
+        <Button size="icon" variant="danger" accessibilityLabel={labels.delete} onPress={onDelete}>
+          <Trash2 color="#791F1F" size={16} />
+        </Button>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Delete"
-        onPress={onDelete}
-        className="h-9 w-9 items-center justify-center rounded-full"
-      >
-        <Trash2 color="#791F1F" size={16} />
-      </Pressable>
     </View>
   );
 }
