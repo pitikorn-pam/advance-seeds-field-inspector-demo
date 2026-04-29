@@ -58,6 +58,7 @@
     "selectVariety": "เลือกพันธุ์",
     "varietyPlaceholder": "เลือกพันธุ์…",
     "selectBatch": "เลือกล็อต (ไม่บังคับ)",
+    "batchPlaceholder": "เลือกล็อต…",
     "selectCalibration": "เลือกการสอบเทียบ",
     "notesLabel": "บันทึกย่อ",
     "notesOptional": "ไม่บังคับ",

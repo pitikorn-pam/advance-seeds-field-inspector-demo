@@ -1,13 +1,15 @@
+import { useEffect, useMemo } from "react";
 import { ScrollView, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronDown, X, MapPin } from "lucide-react-native";
-import { useEffect } from "react";
+import { X, MapPin } from "lucide-react-native";
 import { useVarieties, useBatches, useCalibrations } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { LoadingState } from "@/components/ui/States";
+import { DropdownSearch } from "@/components/ui/DropdownSearch";
+import type { DropdownItem } from "@/components/ui/DropdownSearch";
 import { useCaptureSession } from "@/lib/capture/session";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
@@ -20,21 +22,17 @@ const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
 /**
  * /capture/setup — first step of the three-step capture journey.
  *
- * Per prototype-fidelity-pass D2 / D3, this screen captures inspection
- * metadata (variety, batch, calibration profile, notes, location toggle).
- * Mode selection moved to /capture/mode in the Continue flow.
+ * Variety + batch are now in-place dropdown-search inputs (instead of
+ * the previous variety-picker route + button list). Variety is mandatory
+ * with an "Other (unspecified)" fallback option always available. Batch
+ * is non-mandatory. Continue button is disabled while mandatory fields
+ * are unset.
  *
- * The variety selector opens /capture/variety-picker (a dedicated screen
- * scoped to selection rather than reusing the Library tab) so dismiss
- * back to setup is unambiguous.
+ * Calibration profile selector remains as a button list — only a handful
+ * of profiles in the demo dataset, so a full picker is overkill.
  *
- * Batch is still a button-list because admin-only RLS on the batches
- * table means an inspector can't free-form add a batch row.
- *
- * Calibration selector returns in this commit (Phase 5 manual): the
- * chosen profile drives the precise-mode CalibrationBanner via the
- * `useCalibrator` hook. Defaults to the first available profile so the
- * banner reads "locked" out of the box; user can switch.
+ * Auto-tag location toggle records intent in capture session; actual
+ * GPS capture is wired by the upcoming expo-location commit.
  */
 export default function CaptureSetup() {
   const { t } = useTranslation(["common", "inspections"]);
@@ -45,30 +43,48 @@ export default function CaptureSetup() {
   const batches = useBatches();
   const calibrations = useCalibrations();
 
-  // Default to the first calibration profile so manual calibration is
-  // active out of the box. Without this, every fresh capture session
-  // would show "Calibration unavailable" until the user tapped a profile.
-  // Run-once on profile-data arrival; intentionally don't list session
-  // in deps to avoid re-firing after the user clears the selection.
+  // Default to first calibration profile so manual calibration is active
+  // out of the box. Don't reset if the user has explicitly cleared.
   useEffect(() => {
     if (!session.calibrationId && calibrations.data && calibrations.data.length > 0) {
       session.set({ calibrationId: calibrations.data[0].id });
     }
   }, [calibrations.data, session]);
 
+  const varietyOptions = useMemo<DropdownItem[]>(() => {
+    if (!varieties.data) return [];
+    return varieties.data.map((v) => {
+      const tint = VARIETY_TINTS[v.color_key ?? ""] ?? null;
+      return {
+        id: v.id,
+        label: v.name,
+        meta: v.scientific_name ?? null,
+        leading: tint ? (
+          <VarietyThumb letter={v.name.charAt(0)} tint={tint} />
+        ) : (
+          <VarietyThumb letter={v.name.charAt(0)} tint={{ bg: "#F4F4F1", fg: "#6B6B68" }} />
+        ),
+      };
+    });
+  }, [varieties.data]);
+
+  const batchOptions = useMemo<DropdownItem[]>(() => {
+    if (!batches.data) return [];
+    return batches.data.map((b) => ({
+      id: b.id,
+      label: b.code,
+      meta: b.location ?? null,
+    }));
+  }, [batches.data]);
+
   if (varieties.isLoading || batches.isLoading || calibrations.isLoading) {
     return <LoadingState />;
   }
 
-  const selectedVariety = varieties.data?.find((v) => v.id === session.varietyId) ?? null;
-  const tint = selectedVariety
-    ? (VARIETY_TINTS[selectedVariety.color_key ?? ""] ?? VARIETY_TINTS.rice)
-    : null;
   const canContinue = !!session.varietyId;
 
   const onContinue = () => {
-    // typedRoutes regenerates these path types when Metro starts; cast
-    // until then so typecheck doesn't block on a fresh route file.
+    if (!canContinue) return;
     router.push("/capture/mode" as never);
   };
 
@@ -95,75 +111,35 @@ export default function CaptureSetup() {
           {t("inspections:capture.setupSubtitle")}
         </Text>
 
-        {/* Variety selector — opens /capture/variety-picker. */}
+        {/* Variety — mandatory dropdown with search. */}
         <View className="gap-xs">
           <Text className="text-caption uppercase text-fg-secondary px-xs">
             {t("inspections:capture.selectVariety")}
+            <Text className="text-danger-text"> *</Text>
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("/capture/variety-picker" as never)}
-            className="flex-row items-center gap-md rounded-xl bg-bg-primary border border-line-tertiary px-md py-md"
-          >
-            {selectedVariety && tint ? (
-              <View
-                className="items-center justify-center"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 10,
-                  backgroundColor: tint.bg,
-                }}
-              >
-                <Text className="font-medium" style={{ color: tint.fg, fontSize: 13 }}>
-                  {selectedVariety.name.charAt(0)}
-                </Text>
-              </View>
-            ) : (
-              <View
-                className="items-center justify-center bg-bg-secondary"
-                style={{ width: 32, height: 32, borderRadius: 10 }}
-              />
-            )}
-            <View className="flex-1">
-              <Text className="text-body text-fg-primary">
-                {selectedVariety?.name ?? t("inspections:capture.varietyPlaceholder")}
-              </Text>
-              {selectedVariety?.scientific_name ? (
-                <Text className="text-caption text-fg-secondary italic">
-                  {selectedVariety.scientific_name}
-                </Text>
-              ) : null}
-            </View>
-            <ChevronDown color="#9D9D9A" size={16} />
-          </Pressable>
+          <DropdownSearch
+            value={session.varietyId}
+            onChange={(id) => session.set({ varietyId: id })}
+            options={varietyOptions}
+            placeholder={t("inspections:capture.varietyPlaceholder")}
+            invalid={!session.varietyId}
+          />
         </View>
 
-        {/* Batch — see file header on why this stays a button list. */}
+        {/* Batch — non-mandatory dropdown with search. */}
         <View className="gap-xs">
           <Text className="text-caption uppercase text-fg-secondary px-xs">
             {t("inspections:capture.selectBatch")}
           </Text>
-          <View className="flex-row flex-wrap gap-xs">
-            <Button
-              size="sm"
-              variant={session.batchId === null ? "primary" : "outline"}
-              label="—"
-              onPress={() => session.set({ batchId: null })}
-            />
-            {batches.data?.map((b) => (
-              <Button
-                key={b.id}
-                size="sm"
-                variant={session.batchId === b.id ? "primary" : "outline"}
-                label={b.code}
-                onPress={() => session.set({ batchId: b.id })}
-              />
-            ))}
-          </View>
+          <DropdownSearch
+            value={session.batchId}
+            onChange={(id) => session.set({ batchId: id })}
+            options={batchOptions}
+            placeholder={t("inspections:capture.batchPlaceholder")}
+          />
         </View>
 
-        {/* Calibration profile (manual). Drives the precise-mode banner. */}
+        {/* Calibration profile — small set; button list is fine. */}
         <View className="gap-xs">
           <Text className="text-caption uppercase text-fg-secondary px-xs">
             {t("inspections:capture.selectCalibration")}
@@ -181,7 +157,7 @@ export default function CaptureSetup() {
           </View>
         </View>
 
-        {/* Notes textarea — free-form, persisted on the inspection. */}
+        {/* Notes textarea. */}
         <View className="gap-xs">
           <Text className="text-caption uppercase text-fg-secondary px-xs">
             {t("inspections:capture.notesLabel")}{" "}
@@ -201,7 +177,8 @@ export default function CaptureSetup() {
           />
         </View>
 
-        {/* Auto-tag location — UI-only toggle for now. */}
+        {/* Auto-tag location toggle — actual GPS capture wired in upcoming
+            expo-location commit; today we record intent only. */}
         <Card className="flex-row items-center gap-md">
           <View
             className="items-center justify-center bg-brand-soft"
@@ -231,10 +208,19 @@ export default function CaptureSetup() {
   );
 }
 
-/**
- * Small inline toggle. Uses Pressable + animated translate for a clean
- * iOS/Android-neutral look without pulling in @react-native-community/slider.
- */
+function VarietyThumb({ letter, tint }: { letter: string; tint: { bg: string; fg: string } }) {
+  return (
+    <View
+      className="items-center justify-center"
+      style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: tint.bg }}
+    >
+      <Text className="font-medium" style={{ color: tint.fg, fontSize: 13 }}>
+        {letter}
+      </Text>
+    </View>
+  );
+}
+
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <Pressable

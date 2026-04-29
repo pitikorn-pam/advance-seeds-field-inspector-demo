@@ -58,6 +58,7 @@
     "selectVariety": "Select a variety",
     "varietyPlaceholder": "Choose a variety…",
     "selectBatch": "Select a batch (optional)",
+    "batchPlaceholder": "Choose a batch…",
     "selectCalibration": "Select calibration",
     "notesLabel": "Notes",
     "notesOptional": "optional",
