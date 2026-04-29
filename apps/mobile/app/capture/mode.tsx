@@ -2,8 +2,8 @@ import { ScrollView, View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Stack } from "expo-router";
-import { ChevronRight, Target } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Target } from "lucide-react-native";
+import * as MediaLibrary from "expo-media-library";
 import { Pill } from "@/components/ui/Pill";
 import { useCaptureSession } from "@/lib/capture/session";
 
@@ -17,24 +17,51 @@ import { useCaptureSession } from "@/lib/capture/session";
  * either card to commit `mode` to the session and route to the chosen
  * camera screen. The camera screens themselves are unchanged from
  * mobile-real-usage; the split only affects the journey.
+ *
+ * Photos pre-check: before routing into either camera screen, we read
+ * MediaLibrary permission status and prompt once if still undetermined.
+ * iOS won't re-prompt after a hard deny — `canAskAgain === false` — so
+ * this naturally yields "ask at most once". The downstream snapshot /
+ * recording flows still re-check at action time so a user who declined
+ * here can grant later from Settings.
  */
 export default function CaptureMode() {
   const { t } = useTranslation(["common", "inspections"]);
   const router = useRouter();
   const session = useCaptureSession();
 
-  const goLive = () => {
+  const ensurePhotosPermission = async () => {
+    const current = await MediaLibrary.getPermissionsAsync();
+    if (current.granted || !current.canAskAgain) return;
+    await MediaLibrary.requestPermissionsAsync();
+  };
+
+  const goLive = async () => {
+    await ensurePhotosPermission();
     session.set({ mode: "live" });
     router.push("/capture/scan");
   };
-  const goPrecise = () => {
+  const goPrecise = async () => {
+    await ensurePhotosPermission();
     session.set({ mode: "precise" });
     router.push("/capture/precise");
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
-      <Stack.Screen options={{ title: t("inspections:capture.mode") }} />
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <View className="flex-row items-center gap-md px-xl py-md">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("common:actions.back")}
+          className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
+          onPress={() => router.back()}
+        >
+          <ChevronLeft color="#1A1A1A" size={20} />
+        </Pressable>
+        <Text className="flex-1 text-h2 font-medium text-fg-primary">
+          {t("inspections:capture.mode")}
+        </Text>
+      </View>
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
         <Text className="text-body text-fg-secondary px-xs">
           {t("inspections:capture.modePicker.subtitle")}
