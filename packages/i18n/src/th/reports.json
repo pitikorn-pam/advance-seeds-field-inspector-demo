@@ -3,6 +3,7 @@
   "filters": {
     "dateRange": "ช่วงวันที่",
     "variety": "พันธุ์",
+    "allVarieties": "ทุกพันธุ์",
     "inspector": "ผู้ตรวจ",
     "preset": {
       "last7": "7 วันที่ผ่านมา",

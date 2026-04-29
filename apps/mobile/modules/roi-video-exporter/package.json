@@ -1,0 +1,12 @@
+{
+  "name": "@advance-seeds/roi-video-exporter",
+  "version": "0.1.0",
+  "description": "iOS video ROI burn-in exporter for the Advance Seeds demo.",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

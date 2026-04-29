@@ -1,16 +1,20 @@
-import { ScrollView, View, Text, Pressable, Alert, Image } from "react-native";
+import { ScrollView, View, Text, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { ChevronLeft, MoreHorizontal } from "lucide-react-native";
 import type { Seed } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
+import { saveImageToLibrary } from "@/lib/capture/imageActions";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useInspection, useDeleteInspection } from "@/lib/queries";
 import { StatTile } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
+import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 
 const gradeToTone: Record<Seed["grade"], "success" | "info" | "warning" | "danger"> = {
   A: "success",
@@ -25,20 +29,60 @@ const gradeToTone: Record<Seed["grade"], "success" | "info" | "warning" | "dange
  * persisted with this inspection. The roi shape is whatever the capture
  * session held at save-time — see lib/capture/roi.ts.
  */
-function readRoiBadge(metadata: unknown): { kind: Roi["kind"]; vertices?: number } | null {
+function readRoi(metadata: unknown): Roi | null {
   if (!metadata || typeof metadata !== "object") return null;
   const roi = (metadata as { roi?: unknown }).roi;
   if (!roi || typeof roi !== "object") return null;
   const kind = (roi as { kind?: unknown }).kind;
-  if (kind === "rect" || kind === "circle") return { kind };
+  if (kind === "rect") {
+    const rect = roi as Partial<Extract<Roi, { kind: "rect" }>>;
+    if (
+      typeof rect.x === "number" &&
+      typeof rect.y === "number" &&
+      typeof rect.w === "number" &&
+      typeof rect.h === "number"
+    ) {
+      return { kind, x: rect.x, y: rect.y, w: rect.w, h: rect.h };
+    }
+  }
+  if (kind === "circle") {
+    const circle = roi as Partial<Extract<Roi, { kind: "circle" }>>;
+    if (
+      typeof circle.cx === "number" &&
+      typeof circle.cy === "number" &&
+      typeof circle.r === "number"
+    ) {
+      return { kind, cx: circle.cx, cy: circle.cy, r: circle.r };
+    }
+  }
   if (kind === "polygon") {
-    const pts = (roi as { points?: unknown }).points;
-    return {
-      kind,
-      vertices: Array.isArray(pts) ? pts.length : 0,
-    };
+    const poly = roi as Partial<Extract<Roi, { kind: "polygon" }>>;
+    if (
+      Array.isArray(poly.points) &&
+      poly.points.every((p) => typeof p.x === "number" && typeof p.y === "number")
+    ) {
+      return { kind, points: poly.points, closed: poly.closed === true };
+    }
   }
   return null;
+}
+
+function roiBadge(roi: Roi | null): { kind: Roi["kind"]; vertices?: number } | null {
+  if (!roi) return null;
+  if (roi.kind === "polygon") return { kind: roi.kind, vertices: roi.points.length };
+  return { kind: roi.kind };
+}
+
+function readCaptureMedia(metadata: unknown): { kind: "photo" | "video"; url: string | null } {
+  if (!metadata || typeof metadata !== "object") return { kind: "photo", url: null };
+  const media = (metadata as { capture_media?: unknown }).capture_media;
+  if (!media || typeof media !== "object") return { kind: "photo", url: null };
+  const kind = (media as { kind?: unknown }).kind;
+  const url = (media as { url?: unknown }).url;
+  return {
+    kind: kind === "video" ? "video" : "photo",
+    url: typeof url === "string" ? url : null,
+  };
 }
 
 export default function InspectionDetail() {
@@ -58,11 +102,52 @@ export default function InspectionDetail() {
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => void refetch()} />;
   const { inspection, seeds } = data;
-  const roiBadge = readRoiBadge((inspection as { metadata?: unknown }).metadata);
+  const metadata = (inspection as { metadata?: unknown }).metadata;
+  const roi = readRoi(metadata);
+  const roiLabel = roiBadge(roi);
+  const captureMedia = readCaptureMedia(metadata);
+  const mediaUrl = captureMedia.url ?? inspection.image_url;
+
+  const saveImage = async () => {
+    if (!mediaUrl) return;
+    try {
+      await saveImageToLibrary(mediaUrl, {
+        title: t("inspections:detail.imageSaved"),
+        permissionDeniedTitle: t("inspections:capture.snapshot.permissionDeniedTitle"),
+        permissionDeniedBody: t("inspections:capture.snapshot.permissionDeniedBody"),
+      });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      Alert.alert(t("common:states.error"), reason);
+    }
+  };
+
+  const openMenu = () => {
+    Alert.alert(t("common:actions.more"), undefined, [
+      {
+        text: t("inspections:detail.saveImage"),
+        onPress: saveImage,
+      },
+      { text: t("common:actions.cancel"), style: "cancel" },
+    ]);
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
-      <ScrollView contentContainerClassName="px-xl py-xl gap-xl">
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("inspections:detail.title")}
+        left={{
+          accessibilityLabel: t("common:actions.back"),
+          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: () => router.back(),
+        }}
+        right={{
+          accessibilityLabel: t("common:actions.more"),
+          icon: <MoreHorizontal color="#1A1A1A" size={20} />,
+          onPress: openMenu,
+        }}
+      />
+      <ScrollView contentContainerClassName="px-xl py-md gap-xl">
         <View>
           <Text className="text-h1 font-medium text-fg-primary">
             {inspection.variety?.name ?? "—"}
@@ -72,24 +157,26 @@ export default function InspectionDetail() {
             {inspection.inspector?.full_name ?? inspection.inspector?.email}
             {inspection.batch?.code ? ` · ${inspection.batch.code}` : ""}
           </Text>
-          {roiBadge ? (
+          {roiLabel ? (
             <View className="mt-sm flex-row">
               <Pill
                 tone="brand"
-                label={t(`inspections:detail.roiBadge.${roiBadge.kind}`, {
-                  vertices: roiBadge.vertices ?? 0,
+                label={t(`inspections:detail.roiBadge.${roiLabel.kind}`, {
+                  vertices: roiLabel.vertices ?? 0,
                 })}
               />
             </View>
           ) : null}
         </View>
 
-        {inspection.image_url ? (
-          <Image
-            source={{ uri: inspection.image_url }}
-            className="aspect-[4/3] w-full rounded-xl"
-            resizeMode="cover"
-          />
+        {mediaUrl ? (
+          <View className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
+            <CaptureMediaPreview
+              uri={mediaUrl}
+              kind={captureMedia.kind}
+              roi={captureMedia.kind === "photo" ? roi : null}
+            />
+          </View>
         ) : null}
 
         <View className="flex-row gap-sm">

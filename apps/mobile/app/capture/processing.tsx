@@ -3,14 +3,21 @@ import { View, Text, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system/legacy";
 import { Check } from "lucide-react-native";
 import type { AnalysisResult } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
 import { useCaptureSession } from "@/lib/capture/session";
+import { getCurrentLocation } from "@/lib/capture/location";
+import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
+import { useCreateRecording } from "@/lib/queries";
+import { useNotify } from "@/lib/notifications";
 import { ProcessingOrb } from "@/components/camera/ProcessingOrb";
 import { Button } from "@/components/ui/Button";
+
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 /**
  * Post-shutter processing screen.
@@ -38,11 +45,13 @@ import { Button } from "@/components/ui/Button";
 type Step = "captured" | "calibration" | "detected" | "grading";
 
 export default function CaptureProcessing() {
-  const { t } = useTranslation(["common", "inspections"]);
+  const { t } = useTranslation(["common", "inspections", "notifications"]);
   const router = useRouter();
   const { profile } = useAuth();
   const analyzer = useAnalyzer();
   const session = useCaptureSession();
+  const createRecording = useCreateRecording();
+  const notify = useNotify();
 
   const [completed, setCompleted] = useState<Set<Step>>(new Set());
   const [detectedCount, setDetectedCount] = useState<number | null>(null);
@@ -59,7 +68,10 @@ export default function CaptureProcessing() {
     });
 
   useEffect(() => {
-    if (!session.capturedImageUri || !profile) {
+    const sourceUri =
+      session.capturedMediaKind === "video" ? session.capturedVideoUri : session.capturedImageUri;
+
+    if (!sourceUri || !profile) {
       router.replace("/capture/setup");
       return;
     }
@@ -78,26 +90,89 @@ export default function CaptureProcessing() {
 
     void (async () => {
       try {
-        // Stage 1: upload via FormData. Canonical RN pattern for Supabase
-        // Storage — supabase-js detects FormData and forwards multipart.
-        const path = `${profile.id}/${Date.now()}.jpg`;
-        const fd = new FormData();
-        fd.append("file", {
-          uri: session.capturedImageUri!,
-          type: "image/jpeg",
-          name: "capture.jpg",
-        } as unknown as Blob);
-        const { error: uploadErr } = await supabase.storage
-          .from("inspection-images")
-          .upload(path, fd, { contentType: "image/jpeg", upsert: false });
-        if (uploadErr) throw uploadErr;
-        const { data: urlData } = supabase.storage.from("inspection-images").getPublicUrl(path);
+        if (session.capturedMediaKind === "video") {
+          const uploadUri = await exportAnnotatedVideo(
+            sourceUri,
+            session.mode === "live" ? session.roi : null,
+          );
+          const info = await FileSystem.getInfoAsync(uploadUri);
+          const bytes = info.exists && "size" in info ? (info.size as number) : 0;
+          if (bytes > MAX_UPLOAD_BYTES) {
+            const limitMb = Math.round(MAX_UPLOAD_BYTES / 1024 / 1024);
+            notify({
+              kind: "warning",
+              title: t("notifications:recordingTooLarge.title"),
+              body: t("notifications:recordingTooLarge.body", { limitMb }),
+            });
+            throw new Error(t("inspections:capture.recording.tooLargeBody", { limitMb }));
+          }
+
+          const path = `${profile.id}/${Date.now()}.mp4`;
+          const fd = new FormData();
+          fd.append("file", {
+            uri: uploadUri,
+            type: "video/mp4",
+            name: "recording.mp4",
+          } as unknown as Blob);
+          const { error: uploadErr } = await supabase.storage
+            .from("recordings")
+            .upload(path, fd, { contentType: "video/mp4", upsert: false });
+          if (uploadErr) throw uploadErr;
+          const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(path);
+          if (cancelledRef.current) return;
+
+          const recordingMetadata: Record<string, unknown> | null = session.locationTagEnabled
+            ? { location_capture_enabled: true }
+            : null;
+          if (session.locationTagEnabled) {
+            const loc = await getCurrentLocation(t);
+            if (loc && recordingMetadata) recordingMetadata.location = loc;
+          }
+          const durationMs = Math.max(0, Math.round(session.recordingDurationMs ?? 0));
+          const recordingId = await createRecording.mutateAsync({
+            inspector_id: profile.id,
+            video_url: urlData.publicUrl,
+            duration_ms: durationMs,
+            metadata: recordingMetadata,
+          });
+          const totalSec = Math.max(0, Math.round(durationMs / 1000));
+          const min = Math.floor(totalSec / 60);
+          const sec = totalSec % 60;
+          notify({
+            kind: "success",
+            title: t("notifications:recordingUploaded.title"),
+            body: t("notifications:recordingUploaded.body", {
+              duration: `${min}:${sec.toString().padStart(2, "0")}`,
+            }),
+          });
+          session.set({
+            capturedVideoUri: uploadUri,
+            uploadedImageUrl: urlData.publicUrl,
+            recordingId,
+          });
+        } else {
+          // Stage 1: upload via FormData. Canonical RN pattern for Supabase
+          // Storage — supabase-js detects FormData and forwards multipart.
+          const path = `${profile.id}/${Date.now()}.jpg`;
+          const fd = new FormData();
+          fd.append("file", {
+            uri: sourceUri,
+            type: "image/jpeg",
+            name: "capture.jpg",
+          } as unknown as Blob);
+          const { error: uploadErr } = await supabase.storage
+            .from("inspection-images")
+            .upload(path, fd, { contentType: "image/jpeg", upsert: false });
+          if (uploadErr) throw uploadErr;
+          const { data: urlData } = supabase.storage.from("inspection-images").getPublicUrl(path);
+          if (cancelledRef.current) return;
+          session.set({ uploadedImageUrl: urlData.publicUrl });
+        }
         if (cancelledRef.current) return;
-        session.set({ uploadedImageUrl: urlData.publicUrl });
 
         // Stage 2: analyze (mock for now; TFLite swaps in via Phase 4).
         const result: AnalysisResult = await analyzer.analyze(
-          { kind: "uri", uri: session.capturedImageUri! },
+          { kind: "uri", uri: sourceUri },
           { pxPerMm: 38.4 },
         );
         if (cancelledRef.current) return;
@@ -107,13 +182,13 @@ export default function CaptureProcessing() {
         setDetectedCount(result.summary.total_seeds);
         markStep("detected");
 
-        // Stash on session for the review screen — review will persist on Save.
-        (session as unknown as { lastResult?: AnalysisResult }).lastResult = result;
+        session.set({ analysisResult: result });
 
         setTimeout(() => {
           if (cancelledRef.current) return;
           markStep("grading");
           setDone(true);
+          router.replace("/capture/review");
         }, 350);
       } catch (err) {
         if (cancelledRef.current) return;
@@ -126,6 +201,14 @@ export default function CaptureProcessing() {
               ? JSON.stringify(err, null, 2)
               : String(err);
         console.error("[processing] failed", err);
+        if (session.capturedMediaKind === "video") {
+          const reason = err instanceof Error ? err.message : String(err);
+          notify({
+            kind: "error",
+            title: t("notifications:recordingFailed.title"),
+            body: t("notifications:recordingFailed.body", { reason }),
+          });
+        }
         setError(detail);
       }
     })();

@@ -42,6 +42,7 @@ export default function CapturePrecise() {
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
+  const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
@@ -66,7 +67,7 @@ export default function CapturePrecise() {
         flash: wantFlash ? "off" : flashMode,
       });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
-      session.set({ capturedImageUri: uri, uploadedImageUrl: null });
+      session.set({ capturedImageUri: uri, uploadedImageUrl: null, analysisResult: null });
 
       // Deactivate the camera before pushing — same rnscreens-vs-camera-surface
       // race as scan mode (see scan.tsx for context).
@@ -87,7 +88,7 @@ export default function CapturePrecise() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        cameraProps={{ torch }}
+        cameraProps={{ torch: cameraTorch }}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar

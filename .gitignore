@@ -5,6 +5,10 @@ node_modules/
 # Build outputs
 dist/
 build/
+!apps/mobile/modules/
+!apps/mobile/modules/**/
+!apps/mobile/modules/roi-video-exporter/build/
+!apps/mobile/modules/roi-video-exporter/build/**
 .next/
 .expo/
 .expo-shared/

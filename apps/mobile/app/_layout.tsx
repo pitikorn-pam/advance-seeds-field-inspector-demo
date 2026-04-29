@@ -117,10 +117,7 @@ export default function RootLayout() {
                     name="notifications"
                     options={{ presentation: "modal", headerShown: false }}
                   />
-                  <Stack.Screen
-                    name="inspections/[id]"
-                    options={{ headerShown: true, title: "" }}
-                  />
+                  <Stack.Screen name="inspections/[id]" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="seed/[inspection]/[index]"
                     options={{ headerShown: true, title: "" }}
@@ -131,7 +128,7 @@ export default function RootLayout() {
                       and variety-picker screens opt into headers from
                       their own Stack.Screen options. */}
                   <Stack.Screen name="capture" options={{ headerShown: false }} />
-                  <Stack.Screen name="more/history" options={{ headerShown: true, title: "" }} />
+                  <Stack.Screen name="more/history" options={{ headerShown: false }} />
                   <Stack.Screen name="more/recordings" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="varieties" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="batches" options={{ headerShown: true, title: "" }} />

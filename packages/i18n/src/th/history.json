@@ -6,6 +6,21 @@
     "synced": "ซิงค์แล้ว",
     "pending": "รอซิงค์"
   },
+  "filters": {
+    "date": "วันที่",
+    "dateRange": "ช่วงวันที่",
+    "allDates": "ทุกวันที่",
+    "selectDate": "เลือกวันที่",
+    "fromDate": "ตั้งแต่ {{date}}",
+    "rangeLabel": "{{start}} - {{end}}",
+    "rangeHint": "แตะวันที่เริ่มต้น แล้วแตะวันที่สิ้นสุด",
+    "start": "เริ่ม",
+    "end": "สิ้นสุด",
+    "notSet": "ยังไม่เลือก",
+    "selectEnd": "เลือกวันสิ้นสุด",
+    "previousMonth": "เดือนก่อนหน้า",
+    "nextMonth": "เดือนถัดไป"
+  },
   "groups": {
     "today": "วันนี้ · {{count}} ครั้ง",
     "yesterday": "เมื่อวาน · {{count}} ครั้ง",

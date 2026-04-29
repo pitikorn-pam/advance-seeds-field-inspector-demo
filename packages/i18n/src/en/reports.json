@@ -3,6 +3,7 @@
   "filters": {
     "dateRange": "Date range",
     "variety": "Variety",
+    "allVarieties": "All varieties",
     "inspector": "Inspector",
     "preset": {
       "last7": "Last 7 days",

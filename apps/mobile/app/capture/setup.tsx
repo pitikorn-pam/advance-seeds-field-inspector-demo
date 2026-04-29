@@ -7,6 +7,7 @@ import { X, MapPin } from "lucide-react-native";
 import { useVarieties, useBatches, useCalibrations } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState } from "@/components/ui/States";
 import { DropdownSearch } from "@/components/ui/DropdownSearch";
 import type { DropdownItem } from "@/components/ui/DropdownSearch";
@@ -92,21 +93,15 @@ export default function CaptureSetup() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("common:actions.newInspection")}
+        left={{
+          accessibilityLabel: t("common:actions.cancel"),
+          icon: <X color="#1A1A1A" size={18} />,
+          onPress: onClose,
+        }}
+      />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <View className="flex-row items-center gap-md">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("common:actions.cancel")}
-            className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
-            onPress={onClose}
-          >
-            <X color="#1A1A1A" size={18} />
-          </Pressable>
-          <Text className="flex-1 text-h1 font-medium text-fg-primary">
-            {t("common:actions.newInspection")}
-          </Text>
-        </View>
-
         <Text className="text-body text-fg-secondary px-xs">
           {t("inspections:capture.setupSubtitle")}
         </Text>
@@ -136,6 +131,7 @@ export default function CaptureSetup() {
             onChange={(id) => session.set({ batchId: id })}
             options={batchOptions}
             placeholder={t("inspections:capture.batchPlaceholder")}
+            clearable
           />
         </View>
 

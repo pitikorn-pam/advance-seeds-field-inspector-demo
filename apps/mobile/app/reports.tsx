@@ -11,6 +11,7 @@ import * as Sharing from "expo-sharing";
 import { useInspections, useVarieties } from "@/lib/queries";
 import { Card, StatTile } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Segmented } from "@/components/ui/Segmented";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
 const ALL = "__all";
@@ -113,6 +114,14 @@ export default function ReportsRoute() {
   };
 
   const presets: Preset[] = ["last7", "last30", "last90", "custom"];
+  const presetOptions = presets.map((p) => ({
+    value: p,
+    label: t(`reports:filters.preset.${p}`),
+  }));
+  const varietyOptions = [
+    { value: ALL, label: t("reports:filters.allVarieties") },
+    ...(varieties.data ?? []).map((v) => ({ value: v.id, label: v.name })),
+  ];
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
@@ -132,37 +141,23 @@ export default function ReportsRoute() {
           <Text className="text-caption uppercase text-fg-secondary mb-sm">
             {t("reports:filters.dateRange")}
           </Text>
-          <View className="flex-row flex-wrap gap-xs">
-            {presets.map((p) => (
-              <Button
-                key={p}
-                size="sm"
-                variant={preset === p ? "primary" : "outline"}
-                label={t(`reports:filters.preset.${p}`)}
-                onPress={() => setPreset(p)}
-              />
-            ))}
-          </View>
+          <Segmented<Preset>
+            value={preset}
+            onChange={setPreset}
+            options={presetOptions}
+            variant="tag"
+            scrollable
+          />
           <Text className="text-caption uppercase text-fg-secondary mb-sm mt-md">
             {t("reports:filters.variety")}
           </Text>
-          <View className="flex-row flex-wrap gap-xs">
-            <Button
-              size="sm"
-              variant={varietyId === ALL ? "primary" : "outline"}
-              label={t("reports:filters.variety")}
-              onPress={() => setVarietyId(ALL)}
-            />
-            {varieties.data?.map((v) => (
-              <Button
-                key={v.id}
-                size="sm"
-                variant={varietyId === v.id ? "primary" : "outline"}
-                label={v.name}
-                onPress={() => setVarietyId(v.id)}
-              />
-            ))}
-          </View>
+          <Segmented
+            value={varietyId}
+            onChange={setVarietyId}
+            options={varietyOptions}
+            variant="tag"
+            scrollable
+          />
         </Card>
 
         {isLoading ? (

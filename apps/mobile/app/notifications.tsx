@@ -1,5 +1,14 @@
 import { useCallback, useState, useMemo } from "react";
-import { View, Text, Pressable, FlatList, ActivityIndicator } from "react-native";
+import {
+  Animated,
+  Dimensions,
+  View,
+  Text,
+  Pressable,
+  FlatList,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -8,9 +17,11 @@ import type { Notification, NotificationKind } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import {
   useNotifications,
+  useInspections,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
 } from "@/lib/queries";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
 const PAGE_SIZE = 10;
@@ -42,9 +53,12 @@ export default function NotificationsModal() {
   const router = useRouter();
   const { profile } = useAuth();
   const { data, isLoading, isError, refetch } = useNotifications();
+  const inspections = useInspections();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const [pages, setPages] = useState(1);
+  const [selected, setSelected] = useState<Notification | null>(null);
+  const [detailX] = useState(() => new Animated.Value(Dimensions.get("window").width));
 
   const visible = useMemo(() => (data ?? []).slice(0, pages * PAGE_SIZE), [data, pages]);
   const hasMore = (data?.length ?? 0) > visible.length;
@@ -67,13 +81,26 @@ export default function NotificationsModal() {
         // Don't await — optimistic update; user gets immediate dismiss feel.
         markRead.mutate(item.id);
       }
-      if (item.route) {
-        // typedRoutes can't statically verify dynamic deep-link strings.
-        router.push(item.route as never);
-      }
+      setSelected(item);
+      detailX.setValue(Dimensions.get("window").width);
+      Animated.timing(detailX, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
     },
-    [markRead, router],
+    [detailX, markRead],
   );
+
+  const closeDetail = useCallback(() => {
+    Animated.timing(detailX, {
+      toValue: Dimensions.get("window").width,
+      duration: 180,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) setSelected(null);
+    });
+  }, [detailX]);
 
   const onEndReached = useCallback(() => {
     if (hasMore) setPages((p) => p + 1);
@@ -138,6 +165,106 @@ export default function NotificationsModal() {
           }
         />
       )}
+      {selected ? (
+        <Animated.View
+          className="absolute inset-0 bg-bg-secondary"
+          style={{ transform: [{ translateX: detailX }] }}
+        >
+          <NotificationDetail
+            notification={selected}
+            dateFmt={dateFmt}
+            routeAvailable={routeAvailable(selected.route, inspections.data)}
+            onClose={closeDetail}
+            onOpen={() => {
+              if (selected.route && routeAvailable(selected.route, inspections.data)) {
+                router.push(selected.route as never);
+              }
+            }}
+          />
+        </Animated.View>
+      ) : null}
+    </SafeAreaView>
+  );
+}
+
+function routeAvailable(route: string | null, inspections: { id: string }[] | undefined) {
+  if (!route) return false;
+  if (!route.startsWith("/inspections/")) return true;
+  const id = route.split("/").filter(Boolean)[1];
+  return !!id && !!inspections?.some((row) => row.id === id);
+}
+
+function NotificationDetail({
+  notification,
+  dateFmt,
+  routeAvailable,
+  onClose,
+  onOpen,
+}: {
+  notification: Notification;
+  dateFmt: Intl.DateTimeFormat;
+  routeAvailable: boolean;
+  onClose: () => void;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation(["common", "notifications"]);
+  const visual = KIND_VISUAL[notification.kind];
+  const Icon = visual.icon;
+  return (
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("notifications:detailTitle")}
+        left={{
+          accessibilityLabel: t("common:actions.close"),
+          icon: <X color="#1A1A1A" size={18} />,
+          onPress: onClose,
+        }}
+      />
+
+      <ScrollView contentContainerClassName="px-xl py-lg gap-lg">
+        <View className="flex-row items-center gap-md">
+          <View
+            className="items-center justify-center"
+            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: visual.bg }}
+          >
+            <Icon color={visual.color} size={20} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-h2 font-medium text-fg-primary">{notification.title}</Text>
+            <Text className="text-caption text-fg-tertiary mt-xs">
+              {dateFmt.format(new Date(notification.created_at))}
+            </Text>
+          </View>
+        </View>
+
+        {notification.body ? (
+          <Text className="text-body text-fg-secondary">{notification.body}</Text>
+        ) : null}
+
+        {notification.route ? (
+          <View className="rounded-xl border border-line-tertiary bg-bg-primary px-lg py-md gap-sm">
+            <Text className="text-title font-medium text-fg-primary">
+              {t("notifications:relatedContent")}
+            </Text>
+            <Text className="text-caption text-fg-secondary">
+              {routeAvailable
+                ? t("notifications:relatedAvailable")
+                : t("notifications:relatedUnavailable")}
+            </Text>
+            {routeAvailable ? (
+              <Pressable
+                accessibilityRole="button"
+                className="mt-xs self-start rounded-full bg-brand px-md py-xs"
+                onPress={onOpen}
+              >
+                <Text className="text-caption font-medium text-white">
+                  {t("notifications:openRelated")}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+      </ScrollView>
     </SafeAreaView>
   );
 }

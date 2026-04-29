@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { Plus } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { useInspections } from "@/lib/queries";
+import { useCaptureSession } from "@/lib/capture/session";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/States";
@@ -33,6 +34,7 @@ export default function HomeScreen() {
   const { t, i18n } = useTranslation(["common", "home", "inspections"]);
   const { profile } = useAuth();
   const router = useRouter();
+  const session = useCaptureSession();
   const { data, isLoading, isError, refetch, isRefetching } = useInspections();
 
   const firstName = (profile?.full_name ?? profile?.email ?? "").split(/\s+|@/)[0];
@@ -97,7 +99,10 @@ export default function HomeScreen() {
         <Button
           label={t("common:actions.newInspection")}
           leadingIcon={<Plus color="#FFFFFF" size={18} />}
-          onPress={() => router.push("/capture/setup")}
+          onPress={() => {
+            session.reset();
+            router.push("/capture/setup");
+          }}
         />
 
         {isLoading ? (
@@ -106,7 +111,10 @@ export default function HomeScreen() {
           <RecentInspections rows={recent} />
         ) : (
           <Pressable
-            onPress={() => router.push("/capture/setup")}
+            onPress={() => {
+              session.reset();
+              router.push("/capture/setup");
+            }}
             className="rounded-2xl border border-line-tertiary bg-bg-primary px-lg py-2xl items-center"
           >
             <Text className="text-body text-fg-secondary text-center">

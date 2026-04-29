@@ -102,6 +102,13 @@ export interface InspectionMetadata {
    * apps/mobile/lib/capture/roi.ts.
    */
   roi?: unknown;
+  /** Captured artifact persisted with the inspection. Video rows keep using image_url for legacy list/detail compatibility. */
+  capture_media?: {
+    kind: "photo" | "video";
+    url: string;
+    recording_id?: string | null;
+    duration_ms?: number | null;
+  };
   /** Reserved for Phase 5 LiveCalibrator output captured at shutter. */
   calibration?: unknown;
   /** Reserved for Phase 4 — TFLite or CoreML model identifier. */
@@ -156,9 +163,8 @@ export interface Notification {
 }
 
 // ----- Recordings (Phase 7b) ---------------------------------------------
-// Orthogonal to inspections: a session may produce zero or more recordings
-// independent of any inspection row. video_url is the public Supabase
-// Storage URL; duration_ms is captured client-side from the recording API.
+// Video capture artifacts. The inspection stores a lightweight link in
+// metadata.capture_media so legacy image_url-based screens stay compatible.
 
 export interface Recording {
   id: string;
@@ -167,5 +173,6 @@ export interface Recording {
   duration_ms: number;
   captured_at: string;
   notes: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }

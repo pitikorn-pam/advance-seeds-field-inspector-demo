@@ -23,6 +23,8 @@ interface Props {
   noResultsLabel?: string;
   /** When true, the trigger button shows a red border to signal validation failure. */
   invalid?: boolean;
+  /** Allows optional fields to be cleared after a selection. */
+  clearable?: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export function DropdownSearch({
   placeholder,
   noResultsLabel,
   invalid = false,
+  clearable = false,
 }: Props) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
@@ -94,7 +97,21 @@ export function DropdownSearch({
             <Text className="text-body text-fg-tertiary">{placeholder}</Text>
           )}
         </View>
-        <ChevronDown color="#9D9D9A" size={16} />
+        {clearable && selected ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("actions.clear")}
+            className="h-7 w-7 items-center justify-center rounded-full bg-bg-tertiary"
+            onPress={(event) => {
+              event.stopPropagation();
+              onChange(null);
+            }}
+          >
+            <X color="#6B6B68" size={14} />
+          </Pressable>
+        ) : (
+          <ChevronDown color="#9D9D9A" size={16} />
+        )}
       </Pressable>
 
       <Modal

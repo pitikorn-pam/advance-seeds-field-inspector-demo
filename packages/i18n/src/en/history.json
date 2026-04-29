@@ -6,6 +6,21 @@
     "synced": "Synced",
     "pending": "Pending"
   },
+  "filters": {
+    "date": "Date",
+    "dateRange": "Date range",
+    "allDates": "All dates",
+    "selectDate": "Select date",
+    "fromDate": "From {{date}}",
+    "rangeLabel": "{{start}} - {{end}}",
+    "rangeHint": "Tap a start date, then tap an end date.",
+    "start": "Start",
+    "end": "End",
+    "notSet": "Not set",
+    "selectEnd": "Select end",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month"
+  },
   "groups": {
     "today": "Today · {{count}} inspections",
     "yesterday": "Yesterday · {{count}} inspections",

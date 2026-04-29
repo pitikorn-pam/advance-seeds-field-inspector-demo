@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ScrollView, View, Text, Image, Pressable } from "react-native";
+import { ScrollView, View, Text, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -8,6 +8,7 @@ import { useVarieties, useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
@@ -62,26 +63,20 @@ export default function VarietyDetail() {
     // gesture: previous batch / calibration / notes / ROI / location-tag
     // intent shouldn't latch onto the new attempt. Reset first, then
     // commit only the chosen variety.
-    session.reset();
-    session.set({ varietyId: variety.id });
+    session.reset({ varietyId: variety.id });
     router.push("/capture/setup");
   };
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-      <View className="flex-row items-center gap-md px-xl py-md">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("common:actions.back")}
-          className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
-          onPress={() => router.back()}
-        >
-          <ChevronLeft color="#1A1A1A" size={20} />
-        </Pressable>
-        <Text className="flex-1 text-h2 font-medium text-fg-primary" numberOfLines={1}>
-          {variety.name}
-        </Text>
-      </View>
+      <AppTopBar
+        title={variety.name}
+        left={{
+          accessibilityLabel: t("common:actions.back"),
+          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: () => router.back(),
+        }}
+      />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
         <View
           className="items-center justify-center overflow-hidden"

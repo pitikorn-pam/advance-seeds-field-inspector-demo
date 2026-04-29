@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { AnalysisResult } from "@advance-seeds/types";
 import type { Roi } from "./roi";
 import type { CapturedLocation } from "./location";
 
@@ -17,6 +18,7 @@ import type { CapturedLocation } from "./location";
  */
 
 export type CaptureMode = "live" | "precise";
+export type CaptureMediaKind = "photo" | "video";
 
 interface CaptureSessionState {
   varietyId: string | null;
@@ -34,8 +36,18 @@ interface CaptureSessionState {
   locationTagEnabled: boolean;
   /** Local file URI of the most recent capture (set by scan/precise). */
   capturedImageUri: string | null;
-  /** Public URL once the captured frame uploads to Supabase Storage. */
+  /** Local file URI of the most recent recording. */
+  capturedVideoUri: string | null;
+  /** Current capture artifact type. */
+  capturedMediaKind: CaptureMediaKind;
+  /** Recording duration for video captures. */
+  recordingDurationMs: number | null;
+  /** Linked recordings row once video upload completes. */
+  recordingId: string | null;
+  /** Public URL once the captured artifact uploads to Supabase Storage. */
   uploadedImageUrl: string | null;
+  /** Analyzer output consumed by review after the processing route unmounts. */
+  analysisResult: AnalysisResult | null;
   /**
    * Active region-of-interest (Phase 6b). Null when the user hasn't drawn
    * one — KPI strip shows full-frame counts in that case. Lives on the
@@ -60,7 +72,12 @@ const initial: CaptureSessionState = {
   notes: "",
   locationTagEnabled: false,
   capturedImageUri: null,
+  capturedVideoUri: null,
+  capturedMediaKind: "photo",
+  recordingDurationMs: null,
+  recordingId: null,
   uploadedImageUrl: null,
+  analysisResult: null,
   roi: null,
   capturedLocation: null,
 };
@@ -89,8 +106,8 @@ export function useCaptureSession() {
       state = { ...state, ...patch };
       emit();
     },
-    reset() {
-      state = { ...initial };
+    reset(patch: Partial<CaptureSessionState> = {}) {
+      state = { ...initial, ...patch };
       emit();
     },
   };

@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { ChevronLeft, ChevronRight, Target } from "lucide-react-native";
 import * as MediaLibrary from "expo-media-library";
 import { Pill } from "@/components/ui/Pill";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { useCaptureSession } from "@/lib/capture/session";
 
 /**
@@ -49,19 +50,14 @@ export default function CaptureMode() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-      <View className="flex-row items-center gap-md px-xl py-md">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("common:actions.back")}
-          className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
-          onPress={() => router.back()}
-        >
-          <ChevronLeft color="#1A1A1A" size={20} />
-        </Pressable>
-        <Text className="flex-1 text-h2 font-medium text-fg-primary">
-          {t("inspections:capture.mode")}
-        </Text>
-      </View>
+      <AppTopBar
+        title={t("inspections:capture.mode")}
+        left={{
+          accessibilityLabel: t("common:actions.back"),
+          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: () => router.back(),
+        }}
+      />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
         <Text className="text-body text-fg-secondary px-xs">
           {t("inspections:capture.modePicker.subtitle")}

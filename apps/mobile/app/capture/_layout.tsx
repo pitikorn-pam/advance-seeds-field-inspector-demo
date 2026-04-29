@@ -10,7 +10,7 @@ export default function CaptureLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "fade",
+        animation: "slide_from_right",
         contentStyle: { backgroundColor: "#000000" },
       }}
     />

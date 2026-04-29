@@ -1,7 +1,7 @@
 import { useRef } from "react";
-import { Animated, Pressable, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import type { GestureResponderEvent } from "react-native";
-import { Grid3x3, RotateCw, Camera as CameraIcon, Aperture } from "lucide-react-native";
+import { Grid3x3, RotateCw, Camera as CameraIcon, Aperture, Video } from "lucide-react-native";
 
 interface Props {
   /** Tap fires the shutter. */
@@ -10,6 +10,8 @@ interface Props {
   onLongPress?: (e: GestureResponderEvent) => void;
   /** Tap fires a snapshot — saves a frame to Photos without ending live (Phase 7b). */
   onSnapshot?: () => void;
+  /** Tap starts/stops video recording with the same recording pipeline as long-press. */
+  onRecordPress?: () => void;
   /** Tap toggles grid overlay (placeholder for Phase 6). */
   onGrid?: () => void;
   /** Tap flips between back/front camera (Phase 6). */
@@ -41,6 +43,7 @@ export function ShutterBar({
   onShutter,
   onLongPress,
   onSnapshot,
+  onRecordPress,
   onGrid,
   onFlip,
   isRecording = false,
@@ -105,14 +108,32 @@ export function ShutterBar({
         </Animated.View>
 
         {onSnapshot ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Snapshot"
-            className="flex-row items-center gap-xs rounded-full bg-black/40 px-md py-xs"
-            onPress={onSnapshot}
-          >
-            <Aperture color="white" size={14} />
-          </Pressable>
+          <View className="flex-row items-center gap-sm">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Snapshot"
+              className="flex-row items-center gap-xs rounded-full bg-black/40 px-md py-xs"
+              onPress={onSnapshot}
+            >
+              <Aperture color="white" size={14} />
+            </Pressable>
+            {onRecordPress ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Record video"
+                className="flex-row items-center gap-xs rounded-full bg-black/40 px-md py-xs"
+                onPress={onRecordPress}
+              >
+                <Video color={isRecording ? LIVE_RED : "white"} size={14} />
+                <Text
+                  className="font-medium"
+                  style={{ color: isRecording ? LIVE_RED : "white", fontSize: 11 }}
+                >
+                  {isRecording ? "Stop" : "Rec"}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </View>
 

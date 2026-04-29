@@ -125,10 +125,10 @@ importers:
         version: 10.5.0(postcss@8.5.10)
       eslint-plugin-react:
         specifier: ^7.37.2
-        version: 7.37.5(eslint@9.39.4(jiti@2.6.1))
+        version: 7.37.5(eslint@9.39.4(jiti@1.21.7))
       eslint-plugin-react-hooks:
         specifier: ^5.0.0
-        version: 5.2.0(eslint@9.39.4(jiti@2.6.1))
+        version: 5.2.0(eslint@9.39.4(jiti@1.21.7))
       postcss:
         specifier: ^8.4.47
         version: 8.5.10
@@ -147,6 +147,9 @@ importers:
       '@advance-seeds/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@advance-seeds/roi-video-exporter':
+        specifier: file:./modules/roi-video-exporter
+        version: file:apps/mobile/modules/roi-video-exporter(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))
       '@advance-seeds/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
@@ -216,6 +219,9 @@ importers:
       expo-updates:
         specifier: ~29.0.16
         version: 29.0.16(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)
+      expo-video:
+        specifier: ~3.0.16
+        version: 3.0.16(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)
       i18next:
         specifier: ^23.16.4
         version: 23.16.8
@@ -331,6 +337,12 @@ packages:
     peerDependenciesMeta:
       graphql:
         optional: true
+
+  '@advance-seeds/roi-video-exporter@file:apps/mobile/modules/roi-video-exporter':
+    resolution: {directory: apps/mobile/modules/roi-video-exporter, type: directory}
+    peerDependencies:
+      expo: '*'
+      react-native: '*'
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -3599,6 +3611,13 @@ packages:
       react: '*'
       react-native: '*'
 
+  expo-video@3.0.16:
+    resolution: {integrity: sha512-H1HlxcHGomZItqisGfW3YL/G9BHtNBfVSimDJcLuyxyU87wFnV8loO9tCjuhufkfh/aTa2sW5BYAjLjg9DvnBQ==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
+
   expo@54.0.33:
     resolution: {integrity: sha512-3yOEfAKqo+gqHcV8vKcnq0uA5zxlohnhA3fu4G43likN8ct5ZZ3LjAh9wDdKteEkoad3tFPvwxmXW711S5OHUw==}
     hasBin: true
@@ -6322,6 +6341,11 @@ snapshots:
     optionalDependencies:
       graphql: 16.8.1
 
+  '@advance-seeds/roi-video-exporter@file:apps/mobile/modules/roi-video-exporter(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))':
+    dependencies:
+      expo: 54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(graphql@16.8.1)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      react-native: 0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0)
+
   '@alloc/quick-lru@5.2.0': {}
 
   '@babel/code-frame@7.10.4':
@@ -7206,6 +7230,11 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.7':
     optional: true
+
+  '@eslint-community/eslint-utils@4.9.1(eslint@9.39.4(jiti@1.21.7))':
+    dependencies:
+      eslint: 9.39.4(jiti@1.21.7)
+      eslint-visitor-keys: 3.4.3
 
   '@eslint-community/eslint-utils@4.9.1(eslint@9.39.4(jiti@2.6.1))':
     dependencies:
@@ -9998,11 +10027,11 @@ snapshots:
       lodash: 4.18.1
       requireindex: 1.1.0
 
-  eslint-plugin-react-hooks@5.2.0(eslint@9.39.4(jiti@2.6.1)):
+  eslint-plugin-react-hooks@5.2.0(eslint@9.39.4(jiti@1.21.7)):
     dependencies:
-      eslint: 9.39.4(jiti@2.6.1)
+      eslint: 9.39.4(jiti@1.21.7)
 
-  eslint-plugin-react@7.37.5(eslint@9.39.4(jiti@2.6.1)):
+  eslint-plugin-react@7.37.5(eslint@9.39.4(jiti@1.21.7)):
     dependencies:
       array-includes: 3.1.9
       array.prototype.findlast: 1.2.5
@@ -10010,7 +10039,7 @@ snapshots:
       array.prototype.tosorted: 1.1.4
       doctrine: 2.1.0
       es-iterator-helpers: 1.3.2
-      eslint: 9.39.4(jiti@2.6.1)
+      eslint: 9.39.4(jiti@1.21.7)
       estraverse: 5.3.0
       hasown: 2.0.3
       jsx-ast-utils: 3.3.5
@@ -10034,6 +10063,47 @@ snapshots:
   eslint-visitor-keys@4.2.1: {}
 
   eslint-visitor-keys@5.0.1: {}
+
+  eslint@9.39.4(jiti@1.21.7):
+    dependencies:
+      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.4(jiti@1.21.7))
+      '@eslint-community/regexpp': 4.12.2
+      '@eslint/config-array': 0.21.2
+      '@eslint/config-helpers': 0.4.2
+      '@eslint/core': 0.17.0
+      '@eslint/eslintrc': 3.3.5
+      '@eslint/js': 9.39.4
+      '@eslint/plugin-kit': 0.4.1
+      '@humanfs/node': 0.16.8
+      '@humanwhocodes/module-importer': 1.0.1
+      '@humanwhocodes/retry': 0.4.3
+      '@types/estree': 1.0.8
+      ajv: 6.15.0
+      chalk: 4.1.2
+      cross-spawn: 7.0.6
+      debug: 4.4.3
+      escape-string-regexp: 4.0.0
+      eslint-scope: 8.4.0
+      eslint-visitor-keys: 4.2.1
+      espree: 10.4.0
+      esquery: 1.7.0
+      esutils: 2.0.3
+      fast-deep-equal: 3.1.3
+      file-entry-cache: 8.0.0
+      find-up: 5.0.0
+      glob-parent: 6.0.2
+      ignore: 5.3.2
+      imurmurhash: 0.1.4
+      is-glob: 4.0.3
+      json-stable-stringify-without-jsonify: 1.0.1
+      lodash.merge: 4.6.2
+      minimatch: 3.1.5
+      natural-compare: 1.4.0
+      optionator: 0.9.4
+    optionalDependencies:
+      jiti: 1.21.7
+    transitivePeerDependencies:
+      - supports-color
 
   eslint@9.39.4(jiti@2.6.1):
     dependencies:
@@ -10346,6 +10416,12 @@ snapshots:
       resolve-from: 5.0.0
     transitivePeerDependencies:
       - supports-color
+
+  expo-video@3.0.16(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0):
+    dependencies:
+      expo: 54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(graphql@16.8.1)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0)
 
   expo@54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(graphql@16.8.1)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3):
     dependencies:

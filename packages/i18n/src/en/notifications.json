@@ -1,7 +1,12 @@
 {
   "title": "Notifications",
+  "detailTitle": "Notification",
   "empty": "No notifications yet. Captures, recordings, and errors will appear here.",
   "markAllRead": "Mark all read",
+  "relatedContent": "Related content",
+  "relatedAvailable": "This notification still has a linked destination.",
+  "relatedUnavailable": "The linked content may have been deleted. The notification is kept here for context.",
+  "openRelated": "Open",
   "captureSaved": {
     "title": "Inspection saved",
     "body": "{{variety}} · {{count}} seeds graded"

@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { Viewfinder } from "@/components/camera/Viewfinder";
@@ -19,15 +18,9 @@ import { RecordingTimer } from "@/components/camera/RecordingTimer";
 import { Toast } from "@/components/ui/Toast";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
 import { useCaptureSession } from "@/lib/capture/session";
-import { getCurrentLocation } from "@/lib/capture/location";
 import { useRecordingState } from "@/lib/capture/recording";
-import { useAuth } from "@/lib/auth";
-import { useCreateRecording } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
-import { supabase } from "@/lib/supabase";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
-
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
 /**
  * Live capture screen.
@@ -41,10 +34,8 @@ const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
  * Phase 7b: long-pressing the shutter starts a video recording. While
  * recording, the shutter shows the recording state (red square) and a
  * timer overlay anchored at the top of the viewfinder; tapping the shutter
- * stops the recording. On stop, the local file is checked against a 100 MB
- * upload guard, then uploaded to the `recordings` bucket and a row is
- * inserted in `recordings`. Photos and videos are orthogonal — recording
- * doesn't create an inspection row.
+ * stops the recording. Upload + analysis live on /capture/processing so photo
+ * and video both use the same review/save flow.
  *
  * Phase 4 swaps `useFrameTicker` for a real vision-camera frame processor.
  * The KPI strip's data shape (`AnalysisFrameResult`) stays the same.
@@ -53,8 +44,6 @@ export default function CaptureScan() {
   const { t } = useTranslation(["common", "inspections", "notifications"]);
   const router = useRouter();
   const session = useCaptureSession();
-  const { profile } = useAuth();
-  const createRecording = useCreateRecording();
   const notify = useNotify();
   const cameraRef = useRef<VCCamera>(null);
   const [busy, setBusy] = useState(false);
@@ -69,6 +58,7 @@ export default function CaptureScan() {
   const [torch, setTorch] = useState<"off" | "on">("off");
   // Snapshot toast — surfaces "Snapshot saved" for ~2 s without an Alert.
   const [toast, setToast] = useState<string | null>(null);
+  const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
@@ -80,77 +70,17 @@ export default function CaptureScan() {
 
   const recording = useRecordingState(cameraRef, {
     onRecordingFinished: async ({ uri, durationMs }) => {
-      if (!profile) return;
-      try {
-        const info = await FileSystem.getInfoAsync(uri);
-        const bytes = info.exists && "size" in info ? (info.size as number) : 0;
-        if (bytes > MAX_UPLOAD_BYTES) {
-          const limitMb = Math.round(MAX_UPLOAD_BYTES / 1024 / 1024);
-          notify({
-            kind: "warning",
-            title: t("notifications:recordingTooLarge.title"),
-            body: t("notifications:recordingTooLarge.body", { limitMb }),
-          });
-          Alert.alert(
-            t("inspections:capture.recording.tooLargeTitle"),
-            t("inspections:capture.recording.tooLargeBody", { limitMb }),
-          );
-          return;
-        }
-        const path = `${profile.id}/${Date.now()}.mp4`;
-        const fd = new FormData();
-        fd.append("file", {
-          uri,
-          type: "video/mp4",
-          name: "recording.mp4",
-        } as unknown as Blob);
-        const { error: upErr } = await supabase.storage
-          .from("recordings")
-          .upload(path, fd, { contentType: "video/mp4", upsert: false });
-        if (upErr) throw upErr;
-        const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(path);
-        // Auto-tag location: respect the capture-session toggle. The GPS
-        // reading taken at recording-finish reflects where the user is
-        // when they stop, which for a field walk is functionally the same
-        // as recording-start. Permission flow is "ask once per session"
-        // — see lib/capture/location.ts.
-        const recordingMetadata: Record<string, unknown> | null = session.locationTagEnabled
-          ? (() => {
-              const obj: Record<string, unknown> = { location_capture_enabled: true };
-              return obj;
-            })()
-          : null;
-        if (session.locationTagEnabled) {
-          const loc = await getCurrentLocation(t);
-          if (loc && recordingMetadata) recordingMetadata.location = loc;
-        }
-        await createRecording.mutateAsync({
-          inspector_id: profile.id,
-          video_url: urlData.publicUrl,
-          duration_ms: Math.max(0, Math.round(durationMs)),
-          metadata: recordingMetadata,
-        });
-        const totalSec = Math.max(0, Math.round(durationMs / 1000));
-        const min = Math.floor(totalSec / 60);
-        const sec = totalSec % 60;
-        notify({
-          kind: "success",
-          title: t("notifications:recordingUploaded.title"),
-          body: t("notifications:recordingUploaded.body", {
-            duration: `${min}:${sec.toString().padStart(2, "0")}`,
-          }),
-          route: "/more/recordings",
-        });
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        console.error("[scan] recording upload failed", err);
-        notify({
-          kind: "error",
-          title: t("notifications:recordingFailed.title"),
-          body: t("notifications:recordingFailed.body", { reason }),
-        });
-        Alert.alert(t("inspections:capture.recording.uploadFailed"), reason);
-      }
+      session.set({
+        capturedMediaKind: "video",
+        capturedVideoUri: uri,
+        capturedImageUri: null,
+        uploadedImageUrl: null,
+        analysisResult: null,
+        recordingDurationMs: Math.max(0, Math.round(durationMs)),
+        recordingId: null,
+      });
+      setCameraActive(false);
+      setTimeout(() => router.push("/capture/processing"), 60);
     },
     onRecordingError: (err) => {
       console.error("[scan] recording error", err);
@@ -204,7 +134,15 @@ export default function CaptureScan() {
         flash: wantFlash ? "off" : flashMode,
       });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
-      session.set({ capturedImageUri: uri, uploadedImageUrl: null });
+      session.set({
+        capturedMediaKind: "photo",
+        capturedImageUri: uri,
+        capturedVideoUri: null,
+        uploadedImageUrl: null,
+        analysisResult: null,
+        recordingDurationMs: null,
+        recordingId: null,
+      });
 
       // Deactivate the camera, then wait a frame before navigating so Android
       // releases the SurfaceView before react-native-screens draws the
@@ -222,6 +160,16 @@ export default function CaptureScan() {
 
   const onLongPressShutter = () => {
     if (recording.isRecording || busy) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    recording.start();
+  };
+
+  const onRecordPress = () => {
+    if (recording.isRecording) {
+      recording.stop();
+      return;
+    }
+    if (busy) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     recording.start();
   };
@@ -273,7 +221,7 @@ export default function CaptureScan() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        cameraProps={{ video: true, audio: true, torch }}
+        cameraProps={{ video: true, audio: true, torch: cameraTorch }}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
@@ -317,6 +265,7 @@ export default function CaptureScan() {
             onShutter={onShutter}
             onLongPress={onLongPressShutter}
             onSnapshot={onSnapshot}
+            onRecordPress={onRecordPress}
             onFlip={toggleFlip}
             onGrid={toggleGrid}
             isLive={!recording.isRecording}
