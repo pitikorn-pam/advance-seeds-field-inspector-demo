@@ -1,8 +1,8 @@
-import { ScrollView, View, Text, Pressable } from "react-native";
+import { ScrollView, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Settings, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
@@ -15,7 +15,7 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 export default function ProfileScreen() {
   const { t } = useTranslation(["common", "profile"]);
   const router = useRouter();
-  const { profile, signOut } = useAuth();
+  const { profile } = useAuth();
 
   const initials =
     (profile?.full_name ?? profile?.email ?? "")
@@ -24,11 +24,6 @@ export default function ProfileScreen() {
       .filter(Boolean)
       .slice(0, 2)
       .join("") || "—";
-
-  const onSignOut = async () => {
-    await signOut();
-    router.replace("/login");
-  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -78,24 +73,10 @@ export default function ProfileScreen() {
         </Card>
 
         <Card className="p-0">
-          <MenuRow
-            icon={<Settings color="#1A1A1A" size={16} />}
-            label={t("profile:menu.settings")}
-            onPress={() => router.push("/settings")}
-          />
-          <Divider />
           <SyncStatusRow
             label={t("profile:menu.sync")}
             status={t("profile:menu.syncStatusUpToDate")}
           />
-        </Card>
-
-        <Card className="p-0">
-          <Pressable onPress={onSignOut} className="px-lg py-md">
-            <Text className="text-title font-medium" style={{ color: "#791F1F" }}>
-              {t("profile:menu.signOut")}
-            </Text>
-          </Pressable>
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -115,37 +96,4 @@ function SyncStatusRow({ label, status }: { label: string; status: string }) {
       <Pill tone="success" dot label={status} />
     </View>
   );
-}
-
-function MenuRow({
-  icon,
-  label,
-  trailing,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  trailing?: React.ReactNode;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      className="flex-row items-center gap-md px-lg py-md"
-      accessibilityRole="button"
-    >
-      <View
-        className="items-center justify-center"
-        style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: "#F4F4F1" }}
-      >
-        {icon}
-      </View>
-      <Text className="flex-1 text-title text-fg-primary">{label}</Text>
-      {trailing ?? <ChevronRight color="#9D9D9A" size={16} />}
-    </Pressable>
-  );
-}
-
-function Divider() {
-  return <View className="h-[0.5px] bg-line-tertiary mx-lg" />;
 }
