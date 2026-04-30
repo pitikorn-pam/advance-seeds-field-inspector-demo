@@ -2,7 +2,7 @@
 
 ## 1. Queue foundation
 
-- [ ] 1.1 Add `@react-native-community/netinfo` if needed for connectivity detection.
+- [x] 1.1 Add `@react-native-community/netinfo`. Used by `SyncQueueWorker` to fire `replaySyncQueue` on the offline → online transition instead of waiting for the next AppState change.
 - [x] 1.2 Create `apps/mobile/lib/sync/types.ts` with queue entry, status, inspection payload, and recording payload types.
 - [x] 1.3 Create `apps/mobile/lib/sync/store.ts` backed by AsyncStorage with list/add/update/remove helpers.
 - [x] 1.4 Add unit tests for queue state transitions and JSON serialization. Pure transitions live in `apps/mobile/lib/sync/store.ts` (mirrored to `transitions.mjs`); 11 tests in `transitions.test.mjs` cover add / update / remove / clear-failed / retry-all (failed + stale syncing) / mark-failed (attempts + error extraction) plus a JSON roundtrip guard for AsyncStorage persistence.
@@ -15,7 +15,7 @@
 - [x] 2.3 Replay recording upload and row insert idempotently. Same checkpoint pattern applied to the recording branch in `replayEntry`: upload → persist `remote_video_url` → `createRecordingRemote`.
 - [x] 2.4 Preserve uploaded public URL on the queue entry when upload succeeds but DB insert fails. `applyRemoteMediaUrl` (pure helper in `lib/sync/payloadUpdates.{ts,mjs}`) writes the right field per payload kind; covered by 4 tests in `payloadUpdates.test.mjs`.
 - [x] 2.5 Mount `SyncQueueWorker` once in the mobile root layout.
-- [ ] 2.6 Trigger replay on app foreground, connectivity restored, sign-in restored, and Retry all.
+- [x] 2.6 Trigger replay on app foreground, connectivity restored, sign-in restored, and Retry all. SyncQueueWorker now fires `replaySyncQueue` on three signals: initial mount, `AppState=active`, and the offline→online edge from `NetInfo.addEventListener`. Retry all still triggers replay via `useSyncQueue.retryAll()`.
 
 ## 3. Capture integration
 
