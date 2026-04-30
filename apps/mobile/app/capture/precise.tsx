@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { Viewfinder } from "@/components/camera/Viewfinder";
@@ -41,18 +41,44 @@ export default function CapturePrecise() {
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
   const calibrator = useCalibrator();
-  const liveAruco = useLiveArucoCalibration(cameraActive && position === "back" && !busy);
+  const liveAruco = useLiveArucoCalibration(cameraActive && position === "back");
   const activeCalibration = liveAruco.result?.reading ?? calibrator.reading;
   const activeCalibrationProfileName = liveAruco.result ? null : calibrator.profileName;
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
+  const viewfinderCameraProps = useMemo(
+    () => ({
+      torch: cameraTorch,
+      frameProcessor: liveAruco.frameProcessor,
+      pixelFormat: "yuv" as const,
+    }),
+    [cameraTorch, liveAruco.frameProcessor],
+  );
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
   const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
   const toggleGrid = () => setShowGrid((g) => !g);
+
+  useFocusEffect(
+    useCallback(() => {
+      setBusy(false);
+      setCameraActive(true);
+      setTorch("off");
+      return () => {
+        setCameraActive(false);
+        setTorch("off");
+      };
+    }, []),
+  );
+
+  const leaveCamera = () => {
+    setCameraActive(false);
+    setTorch("off");
+    setTimeout(() => router.back(), 80);
+  };
 
   const ensureCalibrationLock = () => {
     if (liveAruco.locked && liveAruco.result) {
@@ -118,11 +144,7 @@ export default function CapturePrecise() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        cameraProps={{
-          torch: cameraTorch,
-          frameProcessor: liveAruco.frameProcessor,
-          pixelFormat: "yuv",
-        }}
+        cameraProps={viewfinderCameraProps}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
@@ -130,6 +152,7 @@ export default function CapturePrecise() {
             centerDotColor="#B5D4F4"
             flashMode={flashMode}
             onFlashPress={cycleFlash}
+            onBackPress={leaveCamera}
           />
 
           {/* Corner brackets + "Hold steady" guidance. Phase 5 hooks the

@@ -106,7 +106,7 @@ export default function SeedDetail() {
           className="flex-1"
           variant="outline"
           label={t("inspections:seed.actions.editGrade")}
-          leadingIcon={<Edit3 color="#1A1A1A" size={14} />}
+          renderLeadingIcon={() => <Edit3 color="#1A1A1A" size={14} />}
         />
         <Button className="flex-1" variant="danger" label={t("inspections:seed.actions.reject")} />
       </View>

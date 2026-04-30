@@ -97,7 +97,7 @@ export default function CaptureSetup() {
         title={t("common:actions.newInspection")}
         left={{
           accessibilityLabel: t("common:actions.cancel"),
-          icon: <X color="#1A1A1A" size={18} />,
+          renderIcon: () => <X color="#1A1A1A" size={18} />,
           onPress: onClose,
         }}
       />

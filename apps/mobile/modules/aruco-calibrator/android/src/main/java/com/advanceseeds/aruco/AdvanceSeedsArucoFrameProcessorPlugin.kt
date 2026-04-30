@@ -4,15 +4,24 @@ import com.mrousavy.camera.frameprocessors.Frame
 import com.mrousavy.camera.frameprocessors.FrameProcessorPlugin
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.Size
+import org.opencv.imgproc.Imgproc
 
 class AdvanceSeedsArucoFrameProcessorPlugin : FrameProcessorPlugin() {
+  private val maxDetectionWidth = 320.0
+
   override fun callback(frame: Frame, params: Map<String, Any>?): Any? {
     val markerSizeMm = (params?.get("markerSizeMm") as? Number)?.toDouble() ?: 50.0
     val imageProxy = frame.imageProxy
     val yPlane = imageProxy.planes.firstOrNull() ?: return null
     val width = imageProxy.width
     val height = imageProxy.height
+    ArucoDetectorBridge.ensureOpenCvLoaded()
+    ArucoDetectorBridge.logFrame(
+      "frame callback ${width}x$height rowStride=${yPlane.rowStride} pixelStride=${yPlane.pixelStride}"
+    )
     val gray = Mat(height, width, CvType.CV_8UC1)
+    val detectionMat = Mat()
 
     try {
       val buffer = yPlane.buffer.duplicate()
@@ -34,8 +43,16 @@ class AdvanceSeedsArucoFrameProcessorPlugin : FrameProcessorPlugin() {
         }
       }
 
-      return ArucoDetectorBridge.detectInGrayMat(gray, markerSizeMm)
+      val scale = if (width > maxDetectionWidth) width / maxDetectionWidth else 1.0
+      if (scale > 1.0) {
+        val targetHeight = height / scale
+        Imgproc.resize(gray, detectionMat, Size(maxDetectionWidth, targetHeight), 0.0, 0.0, Imgproc.INTER_AREA)
+        return ArucoDetectorBridge.detectInGrayMatValues(detectionMat, markerSizeMm, scale)
+      }
+
+      return ArucoDetectorBridge.detectInGrayMatValues(gray, markerSizeMm)
     } finally {
+      detectionMat.release()
       gray.release()
     }
   }

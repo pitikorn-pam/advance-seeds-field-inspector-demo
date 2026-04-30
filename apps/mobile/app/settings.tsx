@@ -39,7 +39,7 @@ export default function SettingsScreen() {
         title={t("settings:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
       />

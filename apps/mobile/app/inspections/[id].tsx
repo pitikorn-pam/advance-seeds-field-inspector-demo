@@ -153,12 +153,12 @@ export default function InspectionDetail() {
         title={t("inspections:detail.title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
         right={{
           accessibilityLabel: t("common:actions.more"),
-          icon: <MoreHorizontal color="#1A1A1A" size={20} />,
+          renderIcon: () => <MoreHorizontal color="#1A1A1A" size={20} />,
           onPress: openMenu,
         }}
       />

@@ -23,18 +23,7 @@ export default function Welcome() {
   const router = useRouter();
 
   const onContinue = async () => {
-    // Pre-flight camera + microphone permissions in parallel. Best-effort:
-    // we don't gate Continue on grant — the user can still sign in. Camera
-    // is mandatory before /capture/scan does anything; mic only matters
-    // for video recording (Phase 7b) and degrades gracefully if denied.
-    try {
-      await Promise.all([
-        VCCamera.requestCameraPermission(),
-        VCCamera.requestMicrophonePermission(),
-      ]);
-    } catch {
-      // permission request can throw on emulators or denied states
-    }
+    void requestCapturePermissions();
     await setOnboarded();
     router.replace("/login");
   };
@@ -116,17 +105,17 @@ export default function Welcome() {
         <Text className="text-body text-fg-secondary">{t("onboarding:welcome.body")}</Text>
 
         <FeatureCard
-          icon={<CameraIcon color="#0F6E56" size={16} />}
+          renderIcon={() => <CameraIcon color="#0F6E56" size={16} />}
           title={t("onboarding:welcome.cardCameraTitle")}
           body={t("onboarding:welcome.cardCameraBody")}
         />
         <FeatureCard
-          icon={<Target color="#0F6E56" size={16} />}
+          renderIcon={() => <Target color="#0F6E56" size={16} />}
           title={t("onboarding:welcome.cardTargetTitle")}
           body={t("onboarding:welcome.cardTargetBody")}
         />
         <FeatureCard
-          icon={<RefreshCw color="#0F6E56" size={16} />}
+          renderIcon={() => <RefreshCw color="#0F6E56" size={16} />}
           title={t("onboarding:welcome.cardSyncTitle")}
           body={t("onboarding:welcome.cardSyncBody")}
         />
@@ -160,12 +149,21 @@ export default function Welcome() {
   );
 }
 
+async function requestCapturePermissions() {
+  try {
+    await VCCamera.requestCameraPermission();
+    await VCCamera.requestMicrophonePermission();
+  } catch {
+    // Capture screens re-check permission, so onboarding must not block here.
+  }
+}
+
 function FeatureCard({
-  icon,
+  renderIcon,
   title,
   body,
 }: {
-  icon: React.ReactNode;
+  renderIcon: () => React.ReactNode;
   title: string;
   body: string;
 }) {
@@ -176,7 +174,7 @@ function FeatureCard({
           className="items-center justify-center"
           style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: "#E1F5EE" }}
         >
-          {icon}
+          {renderIcon()}
         </View>
         <View className="flex-1">
           <Text className="text-title text-fg-primary font-medium">{title}</Text>

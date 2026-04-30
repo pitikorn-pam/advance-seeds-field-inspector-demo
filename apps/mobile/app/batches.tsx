@@ -52,7 +52,7 @@ export default function BatchesRoute() {
         title={t("batches:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -63,7 +63,7 @@ export default function BatchesRoute() {
             <Button
               size="sm"
               label={t("batches:newBatch")}
-              leadingIcon={<Plus color="#FFFFFF" size={14} />}
+              renderLeadingIcon={() => <Plus color="#FFFFFF" size={14} />}
               onPress={() => open()}
             />
           ) : null}
@@ -98,14 +98,14 @@ export default function BatchesRoute() {
                     size="sm"
                     variant="outline"
                     label={t("common:actions.edit")}
-                    leadingIcon={<Pencil color="#1A1A1A" size={12} />}
+                    renderLeadingIcon={() => <Pencil color="#1A1A1A" size={12} />}
                     onPress={() => open(b)}
                   />
                   <Button
                     size="sm"
                     variant="ghost"
                     label={t("common:actions.delete")}
-                    leadingIcon={<Trash2 color="#791F1F" size={12} />}
+                    renderLeadingIcon={() => <Trash2 color="#791F1F" size={12} />}
                     onPress={() =>
                       Alert.alert(t("common:actions.delete"), t("batches:deleteConfirm"), [
                         { text: t("common:actions.cancel"), style: "cancel" },

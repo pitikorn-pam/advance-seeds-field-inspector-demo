@@ -60,19 +60,19 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.account")}>
           <MenuRow
-            icon={<User color="#1A1A1A" size={16} />}
+            renderIcon={() => <User color="#1A1A1A" size={16} />}
             label={t("more:menu.profile")}
             onPress={() => router.push("/profile")}
           />
           <Divider />
           <MenuRow
-            icon={<SettingsIcon color="#1A1A1A" size={16} />}
+            renderIcon={() => <SettingsIcon color="#1A1A1A" size={16} />}
             label={t("more:menu.settings")}
             onPress={() => router.push("/settings")}
           />
           <Divider />
           <MenuRow
-            icon={<LogOut color="#791F1F" size={16} />}
+            renderIcon={() => <LogOut color="#791F1F" size={16} />}
             label={t("more:menu.signOut")}
             destructive
             onPress={onSignOut}
@@ -81,13 +81,13 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.captureAssets")}>
           <MenuRow
-            icon={<Video color="#1A1A1A" size={16} />}
+            renderIcon={() => <Video color="#1A1A1A" size={16} />}
             label={t("more:menu.recordings")}
             onPress={() => router.push("/more/recordings" as never)}
           />
           <Divider />
           <MenuRow
-            icon={<ListChecks color="#1A1A1A" size={16} />}
+            renderIcon={() => <ListChecks color="#1A1A1A" size={16} />}
             label={t("more:menu.history")}
             onPress={() => router.push("/more/history" as never)}
           />
@@ -95,13 +95,13 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.reference")}>
           <MenuRow
-            icon={<Layers color="#1A1A1A" size={16} />}
+            renderIcon={() => <Layers color="#1A1A1A" size={16} />}
             label={t("more:menu.batches")}
             onPress={() => router.push("/batches")}
           />
           <Divider />
           <MenuRow
-            icon={<Target color="#1A1A1A" size={16} />}
+            renderIcon={() => <Target color="#1A1A1A" size={16} />}
             label={t("more:menu.calibration")}
             onPress={() => router.push("/calibration")}
           />
@@ -109,7 +109,7 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.insights")}>
           <MenuRow
-            icon={<BarChart3 color="#1A1A1A" size={16} />}
+            renderIcon={() => <BarChart3 color="#1A1A1A" size={16} />}
             label={t("more:menu.reports")}
             onPress={() => router.push("/reports")}
           />
@@ -129,12 +129,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function MenuRow({
-  icon,
+  renderIcon,
   label,
   destructive = false,
   onPress,
 }: {
-  icon: React.ReactNode;
+  renderIcon: () => React.ReactNode;
   label: string;
   destructive?: boolean;
   onPress?: () => void;
@@ -149,7 +149,7 @@ function MenuRow({
         className="items-center justify-center"
         style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: "#F4F4F1" }}
       >
-        {icon}
+        {renderIcon()}
       </View>
       <Text
         className={`flex-1 text-title font-medium ${destructive ? "" : "text-fg-primary"}`}

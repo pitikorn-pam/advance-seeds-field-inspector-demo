@@ -36,19 +36,23 @@ export function RoiToolbar({ activeTool, onSelectTool, roi, onClear, onClosePoly
   return (
     <View className="mx-md mb-sm flex-row items-center gap-xs rounded-full bg-black/55 px-sm py-xs self-center">
       <ToolButton
-        icon={<Square color={activeTool === "rect" ? "#5DCAA5" : "white"} size={16} />}
+        renderIcon={() => <Square color={activeTool === "rect" ? "#5DCAA5" : "white"} size={16} />}
         label={t("capture.roi.rect")}
         active={activeTool === "rect"}
         onPress={() => onSelectTool(activeTool === "rect" ? null : "rect")}
       />
       <ToolButton
-        icon={<Pentagon color={activeTool === "polygon" ? "#5DCAA5" : "white"} size={16} />}
+        renderIcon={() => (
+          <Pentagon color={activeTool === "polygon" ? "#5DCAA5" : "white"} size={16} />
+        )}
         label={t("capture.roi.polygon")}
         active={activeTool === "polygon"}
         onPress={() => onSelectTool(activeTool === "polygon" ? null : "polygon")}
       />
       <ToolButton
-        icon={<CircleIcon color={activeTool === "circle" ? "#5DCAA5" : "white"} size={16} />}
+        renderIcon={() => (
+          <CircleIcon color={activeTool === "circle" ? "#5DCAA5" : "white"} size={16} />
+        )}
         label={t("capture.roi.circle")}
         active={activeTool === "circle"}
         onPress={() => onSelectTool(activeTool === "circle" ? null : "circle")}
@@ -58,7 +62,7 @@ export function RoiToolbar({ activeTool, onSelectTool, roi, onClear, onClosePoly
       ) : null}
       {roi ? (
         <ToolButton
-          icon={<X color="white" size={16} />}
+          renderIcon={() => <X color="white" size={16} />}
           label={t("capture.roi.clear")}
           onPress={onClear}
         />
@@ -68,12 +72,12 @@ export function RoiToolbar({ activeTool, onSelectTool, roi, onClear, onClosePoly
 }
 
 function ToolButton({
-  icon,
+  renderIcon,
   label,
   active = false,
   onPress,
 }: {
-  icon?: React.ReactNode;
+  renderIcon?: () => React.ReactNode;
   label: string;
   active?: boolean;
   onPress: () => void;
@@ -87,7 +91,7 @@ function ToolButton({
         active ? "bg-[#5DCAA5]/25" : ""
       }`}
     >
-      {icon}
+      {renderIcon ? renderIcon() : null}
       <Text
         className={`font-medium ${active ? "text-[#5DCAA5]" : "text-white"}`}
         style={{ fontSize: 11, letterSpacing: 0.2 }}

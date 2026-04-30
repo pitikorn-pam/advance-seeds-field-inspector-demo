@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { View, Text, ActivityIndicator, Linking } from "react-native";
 import {
@@ -55,19 +55,17 @@ export function Viewfinder({
   const camPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
   const device = useCameraDevice(position);
-  const [requested, setRequested] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
-  useEffect(() => {
-    if (!camPerm.hasPermission && !requested) {
-      setRequested(true);
-      void camPerm.requestPermission();
-      // Also kick off mic permission so audio-enabled recordings don't fail
-      // later. Best-effort; vision-camera silently no-ops on already-denied.
-      if (!micPerm.hasPermission) {
-        void micPerm.requestPermission();
-      }
+  const requestPermissions = async () => {
+    setRequesting(true);
+    try {
+      await camPerm.requestPermission();
+      if (!micPerm.hasPermission) await micPerm.requestPermission();
+    } finally {
+      setRequesting(false);
     }
-  }, [camPerm, micPerm, requested]);
+  };
 
   if (!camPerm.hasPermission) {
     return (
@@ -80,6 +78,12 @@ export function Viewfinder({
         </Text>
         <Button
           variant="outline"
+          label={requesting ? t("common:states.loading") : t("common:actions.continue")}
+          disabled={requesting}
+          onPress={() => void requestPermissions()}
+        />
+        <Button
+          variant="ghost"
           label={t("common:actions.openSettings")}
           onPress={() => void Linking.openSettings()}
         />
@@ -99,8 +103,20 @@ export function Viewfinder({
   // Strip `audio: true` if mic permission is missing — Vision Camera throws
   // a microphone-permission-denied error on mount otherwise. Recording will
   // re-request permission on demand if the user tries it.
-  const safeCameraProps =
-    cameraProps?.audio && !micPerm.hasPermission ? { ...cameraProps, audio: false } : cameraProps;
+  const safeCameraProps = useMemo(
+    () =>
+      cameraProps?.audio && !micPerm.hasPermission ? { ...cameraProps, audio: false } : cameraProps,
+    [cameraProps, micPerm.hasPermission],
+  );
+
+  if (!active) {
+    return (
+      <View className={`flex-1 bg-black ${className ?? ""}`}>
+        {showGrid ? <GridOverlay /> : null}
+        <View className="absolute inset-0">{children}</View>
+      </View>
+    );
+  }
 
   return (
     <View className={`flex-1 bg-black ${className ?? ""}`}>

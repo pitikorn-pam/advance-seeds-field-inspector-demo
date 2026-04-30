@@ -146,7 +146,7 @@ export default function ReportsRoute() {
         title={t("reports:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -176,7 +176,7 @@ export default function ReportsRoute() {
                 size="sm"
                 variant="outline"
                 label={rangeLabel(dateRange, i18n.language, t)}
-                leadingIcon={<Calendar color="#0F6E56" size={14} />}
+                renderLeadingIcon={() => <Calendar color="#0F6E56" size={14} />}
                 onPress={() => setDatePickerOpen(true)}
               />
               {hasDateRange ? (
@@ -225,7 +225,7 @@ export default function ReportsRoute() {
         <Button
           className="w-full"
           label={t("common:actions.exportCsv")}
-          leadingIcon={<Download color="#FFFFFF" size={16} />}
+          renderLeadingIcon={() => <Download color="#FFFFFF" size={16} />}
           disabled={filtered.length === 0}
           onPress={exportCsv}
         />

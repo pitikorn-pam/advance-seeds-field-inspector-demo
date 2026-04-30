@@ -30,7 +30,7 @@ interface Props extends Omit<PressableProps, "children"> {
   variant?: Variant;
   size?: Size;
   label?: string;
-  leadingIcon?: React.ReactNode;
+  renderLeadingIcon?: () => React.ReactNode;
   children?: React.ReactNode;
   className?: string;
 }
@@ -39,7 +39,7 @@ export function Button({
   variant = "primary",
   size = "md",
   label,
-  leadingIcon,
+  renderLeadingIcon,
   children,
   className,
   ...rest
@@ -48,7 +48,7 @@ export function Button({
   const cls = [base, sizeClass[size], variantClass[variant], className].filter(Boolean).join(" ");
   return (
     <Pressable className={cls} {...rest}>
-      {leadingIcon}
+      {renderLeadingIcon ? renderLeadingIcon() : null}
       {label ? (
         <Text className={`text-title font-medium ${variantText[variant]}`}>{label}</Text>
       ) : null}

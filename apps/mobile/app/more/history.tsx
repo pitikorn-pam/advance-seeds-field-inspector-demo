@@ -90,7 +90,7 @@ export default function HistoryScreen() {
         title={t("history:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
       />

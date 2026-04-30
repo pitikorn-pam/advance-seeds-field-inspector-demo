@@ -71,6 +71,13 @@ The frame processor that drives live detection SHALL not block the UI thread; vi
 - **THEN** the UI animates smoothly without dropped frames in the visible layer
 - **AND** the inference loop runs on a separate worklet thread
 
+#### Scenario: Camera route releases native resources on exit and re-entry
+- **GIVEN** the user captures or records media, completes analysis, and lands on the Inspection Result page
+- **WHEN** they tap Back to return to Live or Precise capture, or leave camera for another menu and reopen capture
+- **THEN** the native camera view has been remounted cleanly
+- **AND** shutter and record controls are enabled for a new capture attempt
+- **AND** the app does not show a native view reparenting error or camera-session closed error
+
 ### Requirement: Flexible ROI (region of interest) for live counting
 The mobile app SHALL allow the user to draw an ROI on the live preview using rectangle, polygon, or circle shapes. When an ROI is active, only detections whose centroid lies inside the shape contribute to the KPI strip and to the saved inspection's `total_seeds` / mean measurements.
 

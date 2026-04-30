@@ -374,7 +374,7 @@ export default function CaptureReview() {
   };
 
   const onBack = () => {
-    router.replace("/capture/mode" as never);
+    router.back();
   };
 
   return (
@@ -383,7 +383,7 @@ export default function CaptureReview() {
         title={t("inspections:capture.review.title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: onBack,
         }}
         right={{
@@ -392,7 +392,7 @@ export default function CaptureReview() {
               ? "inspections:capture.review.shareVideo"
               : "inspections:capture.review.shareImage",
           ),
-          icon: <Share2 color="#1A1A1A" size={18} />,
+          renderIcon: () => <Share2 color="#1A1A1A" size={18} />,
           onPress: onShare,
         }}
       />
@@ -626,7 +626,7 @@ export default function CaptureReview() {
         <Button
           className="flex-1"
           label={t("inspections:capture.review.saveAndSync")}
-          leadingIcon={<Check color="#FFFFFF" size={16} />}
+          renderLeadingIcon={() => <Check color="#FFFFFF" size={16} />}
           disabled={saving}
           onPress={onSave}
         />

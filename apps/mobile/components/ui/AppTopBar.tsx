@@ -2,7 +2,7 @@ import { View, Text, Pressable } from "react-native";
 
 export interface AppTopBarAction {
   accessibilityLabel: string;
-  icon: React.ReactNode;
+  renderIcon: () => React.ReactNode;
   onPress: () => void;
 }
 
@@ -35,7 +35,7 @@ function TopBarAction({ action }: { action: AppTopBarAction }) {
       className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary active:bg-bg-secondary"
       onPress={action.onPress}
     >
-      {action.icon}
+      {action.renderIcon()}
     </Pressable>
   );
 }

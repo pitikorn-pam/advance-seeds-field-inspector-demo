@@ -9,5 +9,16 @@
     "lidar": "LiDAR",
     "aruco": "ArUco marker"
   },
+  "marker": {
+    "title": "ArUco marker",
+    "size": "5 cm",
+    "description": "Share the calibration card with another inspector, then print or display it at actual size with the white border visible.",
+    "download": "Download calibration card",
+    "sharing": "Preparing marker...",
+    "shareTitle": "Share ArUco calibration card",
+    "imageAlt": "ArUco calibration card",
+    "errorTitle": "Marker unavailable",
+    "errorBody": "The calibration marker image could not be prepared. Try again."
+  },
   "honestFallback": "Calibration unavailable. Measurements may be inaccurate."
 }

@@ -80,7 +80,7 @@ const initial: CaptureSessionState = {
   calibrationId: null,
   mode: "live",
   notes: "",
-  locationTagEnabled: false,
+  locationTagEnabled: true,
   capturedImageUri: null,
   capturedVideoUri: null,
   capturedMediaKind: "photo",

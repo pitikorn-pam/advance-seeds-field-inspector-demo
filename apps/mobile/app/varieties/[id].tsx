@@ -73,7 +73,7 @@ export default function VarietyDetail() {
         title={variety.name}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -179,7 +179,7 @@ export default function VarietyDetail() {
       <View className="px-xl pb-xl">
         <Button
           label={t("varieties:detail.startInspection")}
-          leadingIcon={<CameraIcon color="#FFFFFF" size={18} />}
+          renderLeadingIcon={() => <CameraIcon color="#FFFFFF" size={18} />}
           onPress={onStartInspection}
         />
       </View>

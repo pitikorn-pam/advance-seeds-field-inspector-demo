@@ -98,7 +98,7 @@ export default function HomeScreen() {
 
         <Button
           label={t("common:actions.newInspection")}
-          leadingIcon={<Plus color="#FFFFFF" size={18} />}
+          renderLeadingIcon={() => <Plus color="#FFFFFF" size={18} />}
           onPress={() => {
             session.reset();
             router.push("/capture/setup");

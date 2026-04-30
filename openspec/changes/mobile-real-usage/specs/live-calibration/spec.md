@@ -41,6 +41,19 @@ The mobile app SHALL provide an `ArucoCalibrator` that detects a 5 cm × 5 cm Ar
 - **THEN** the marker is detected and `pxPerMm` is computed from its pixel diagonal
 - **AND** the calibration pill shows "ArUco locked"
 
+#### Scenario: Android live ArUco detection stays within native memory limits
+- **GIVEN** Android live or precise capture is observing camera frames for ArUco calibration
+- **WHEN** the user repeatedly enters and exits the camera or keeps the marker in frame for an extended scan
+- **THEN** the OpenCV detector reuses native detector state and bounded-size frame mats
+- **AND** the app does not crash with native OpenCV memory exhaustion
+
+#### Scenario: User shares the ArUco marker
+- **GIVEN** the user is viewing the Calibration menu
+- **WHEN** they tap "Download calibration card" in the ArUco marker section
+- **THEN** the app opens the platform share sheet with the bundled 5 cm ArUco calibration card PNG
+- **AND** the card image keeps a visible white quiet zone around the marker for camera detection
+- **AND** another inspector can save, share, or print the same calibration card
+
 #### Scenario: Marker not detected
 - **GIVEN** the marker is occluded or absent
 - **WHEN** the calibrator observes the frame

@@ -5,7 +5,7 @@ import { VisionCameraProxy } from "react-native-vision-camera";
 const MARKER_SIZE_MM = 50;
 const MIN_CONFIDENCE = 0.6;
 
-interface NativeArucoDetection {
+export interface NativeArucoDetection {
   pxPerMm: number;
   markerId: number;
   confidence: number;
@@ -14,19 +14,15 @@ interface NativeArucoDetection {
   pixelWidth: number;
 }
 
+type NativeArucoFrameDetection =
+  | NativeArucoDetection
+  | [number, number, number, number, number, number];
+
 interface NativeArucoCalibratorModule {
   detectInImageAsync(uri: string, markerSizeMm: number): Promise<NativeArucoDetection | null>;
 }
 
 let nativeModule: NativeArucoCalibratorModule | null | undefined;
-const frameProcessorPlugin = (() => {
-  try {
-    return VisionCameraProxy.initFrameProcessorPlugin("detectArucoCalibration", {}) ?? null;
-  } catch (err) {
-    console.warn("[aruco] frame processor unavailable", err);
-    return null;
-  }
-})();
 
 function module(): NativeArucoCalibratorModule | null {
   if (nativeModule !== undefined) return nativeModule;
@@ -41,6 +37,19 @@ function module(): NativeArucoCalibratorModule | null {
   }
   return nativeModule;
 }
+
+const frameProcessorPlugin = (() => {
+  try {
+    // Android registers the Vision Camera plugin from the Expo module class.
+    // Loading the module first avoids a startup-order race where the plugin
+    // lookup succeeds on iOS but returns null on Android.
+    module();
+    return VisionCameraProxy.initFrameProcessorPlugin("detectArucoCalibration", {}) ?? null;
+  } catch (err) {
+    console.warn("[aruco] frame processor unavailable", err);
+    return null;
+  }
+})();
 
 export interface ArucoCalibrationResult {
   reading: CalibrationReading;
@@ -74,10 +83,28 @@ export async function detectArucoCalibration(uri: string): Promise<ArucoCalibrat
 
 export function detectArucoCalibrationInFrame(frame: Frame): ArucoCalibrationResult | null {
   "worklet";
+  const result = detectNativeArucoCalibrationInFrame(frame);
+  return result ? readingFromNative(result) : null;
+}
+
+export function detectNativeArucoCalibrationInFrame(frame: Frame): NativeArucoDetection | null {
+  "worklet";
   if (!frameProcessorPlugin) return null;
   const result = frameProcessorPlugin.call(frame, { markerSizeMm: MARKER_SIZE_MM }) as
-    | NativeArucoDetection
+    | NativeArucoFrameDetection
     | null
     | undefined;
-  return result ? readingFromNative(result) : null;
+  if (!result) return null;
+  const detection = Array.isArray(result)
+    ? {
+        pxPerMm: result[0],
+        markerId: result[1],
+        confidence: result[2],
+        observedAtMs: result[3],
+        markerSizeMm: result[4],
+        pixelWidth: result[5],
+      }
+    : result;
+  if (detection.confidence < MIN_CONFIDENCE || detection.pxPerMm <= 0) return null;
+  return detection;
 }

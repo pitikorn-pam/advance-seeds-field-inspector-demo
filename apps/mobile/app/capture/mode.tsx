@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { ChevronLeft, ChevronRight, Target } from "lucide-react-native";
 import * as MediaLibrary from "expo-media-library";
+import { Camera as VCCamera } from "react-native-vision-camera";
 import { Pill } from "@/components/ui/Pill";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { useCaptureSession } from "@/lib/capture/session";
@@ -37,13 +38,26 @@ export default function CaptureMode() {
     await MediaLibrary.requestPermissionsAsync();
   };
 
+  const ensureCapturePermission = async () => {
+    const camera = await VCCamera.getCameraPermissionStatus();
+    if (camera === "not-determined") {
+      await VCCamera.requestCameraPermission();
+    }
+    const microphone = await VCCamera.getMicrophonePermissionStatus();
+    if (microphone === "not-determined") {
+      await VCCamera.requestMicrophonePermission();
+    }
+  };
+
   const goLive = async () => {
     await ensurePhotosPermission();
+    await ensureCapturePermission();
     session.set({ mode: "live" });
     router.push("/capture/scan");
   };
   const goPrecise = async () => {
     await ensurePhotosPermission();
+    await ensureCapturePermission();
     session.set({ mode: "precise" });
     router.push("/capture/precise");
   };
@@ -54,7 +68,7 @@ export default function CaptureMode() {
         title={t("inspections:capture.mode")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          icon: <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -66,9 +80,9 @@ export default function CaptureMode() {
         <ModeCard
           accentBg="#FCEBEB"
           accentFg="#A32D2D"
-          icon={
+          renderIcon={() => (
             <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: "#A32D2D" }} />
-          }
+          )}
           title={t("inspections:capture.modeLive")}
           subtitle={t("inspections:capture.modePicker.liveSubtitle")}
           body={t("inspections:capture.modePicker.liveBody")}
@@ -82,7 +96,7 @@ export default function CaptureMode() {
         <ModeCard
           accentBg="#E1F5EE"
           accentFg="#0F6E56"
-          icon={<Target color="#0F6E56" size={20} />}
+          renderIcon={() => <Target color="#0F6E56" size={20} />}
           title={t("inspections:capture.modePrecise")}
           subtitle={t("inspections:capture.modePicker.preciseSubtitle")}
           body={t("inspections:capture.modePicker.preciseBody")}
@@ -102,7 +116,7 @@ export default function CaptureMode() {
 interface ModeCardProps {
   accentBg: string;
   accentFg: string;
-  icon: React.ReactNode;
+  renderIcon: () => React.ReactNode;
   title: string;
   subtitle: string;
   body: string;
@@ -115,7 +129,7 @@ interface ModeCardProps {
 function ModeCard({
   accentBg,
   accentFg,
-  icon,
+  renderIcon,
   title,
   subtitle,
   body,
@@ -144,7 +158,7 @@ function ModeCard({
             backgroundColor: accentBg,
           }}
         >
-          {icon}
+          {renderIcon()}
         </View>
         <View className="flex-1">
           <View className="flex-row items-center gap-sm">

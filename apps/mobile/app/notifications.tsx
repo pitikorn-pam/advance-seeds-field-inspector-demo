@@ -216,7 +216,7 @@ function NotificationDetail({
         title={t("notifications:detailTitle")}
         left={{
           accessibilityLabel: t("common:actions.close"),
-          icon: <X color="#1A1A1A" size={18} />,
+          renderIcon: () => <X color="#1A1A1A" size={18} />,
           onPress: onClose,
         }}
       />

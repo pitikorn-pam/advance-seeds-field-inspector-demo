@@ -20,6 +20,8 @@ interface Props {
   flashMode?: FlashMode;
   /** Tap handler for the default flash button. */
   onFlashPress?: () => void;
+  /** Lets camera routes stop native preview before leaving the screen. */
+  onBackPress?: () => void;
 }
 
 /**
@@ -40,6 +42,7 @@ export function GlassTopBar({
   centerLabel,
   flashMode,
   onFlashPress,
+  onBackPress,
 }: Props) {
   const router = useRouter();
 
@@ -48,7 +51,7 @@ export function GlassTopBar({
       accessibilityRole="button"
       accessibilityLabel="Back"
       className="h-9 w-9 items-center justify-center rounded-full bg-black/50"
-      onPress={() => router.back()}
+      onPress={onBackPress ?? (() => router.back())}
     >
       <ArrowLeft color="white" size={18} />
     </Pressable>

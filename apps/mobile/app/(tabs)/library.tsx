@@ -139,7 +139,7 @@ export default function LibraryTab() {
             <Button
               size="sm"
               label={t("varieties:newVariety")}
-              leadingIcon={<Plus color="#FFFFFF" size={14} />}
+              renderLeadingIcon={() => <Plus color="#FFFFFF" size={14} />}
               onPress={() => open()}
             />
           ) : null}
@@ -336,13 +336,13 @@ function VarietyRow({ variety, isLast, observed, canEdit, onPress, onEdit, onDel
             size="sm"
             variant="outline"
             label={t("varieties:editVariety")}
-            leadingIcon={<Pencil color="#1A1A1A" size={12} />}
+            renderLeadingIcon={() => <Pencil color="#1A1A1A" size={12} />}
             onPress={onEdit}
           />
           <Button
             size="sm"
             variant="ghost"
-            leadingIcon={<Trash2 color="#791F1F" size={12} />}
+            renderLeadingIcon={() => <Trash2 color="#791F1F" size={12} />}
             onPress={onDelete}
           />
         </View>

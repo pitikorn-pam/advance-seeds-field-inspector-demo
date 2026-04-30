@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View, Text, Alert, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
@@ -63,15 +63,44 @@ export default function CaptureScan() {
   // Snapshot toast — surfaces "Snapshot saved" for ~2 s without an Alert.
   const [toast, setToast] = useState<string | null>(null);
   const calibrator = useCalibrator();
-  const liveAruco = useLiveArucoCalibration(cameraActive && position === "back" && !busy);
+  const liveAruco = useLiveArucoCalibration(cameraActive && position === "back");
   const activeCalibration = liveAruco.result?.reading ?? calibrator.reading;
   const activeCalibrationProfileName = liveAruco.result ? null : calibrator.profileName;
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
+  const viewfinderCameraProps = useMemo(
+    () => ({
+      video: true,
+      audio: true,
+      torch: cameraTorch,
+      frameProcessor: liveAruco.frameProcessor,
+      pixelFormat: "yuv" as const,
+    }),
+    [cameraTorch, liveAruco.frameProcessor],
+  );
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
   const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
   const toggleGrid = () => setShowGrid((g) => !g);
+
+  useFocusEffect(
+    useCallback(() => {
+      setBusy(false);
+      setCameraActive(true);
+      setTorch("off");
+      recordingCalibrationRef.current = null;
+      return () => {
+        setCameraActive(false);
+        setTorch("off");
+      };
+    }, []),
+  );
+
+  const leaveCamera = () => {
+    setCameraActive(false);
+    setTorch("off");
+    setTimeout(() => router.back(), 80);
+  };
 
   // Drives the bottom KPI strip with mock detections every ~200 ms.
   const frameResult = useFrameTicker(!busy, {
@@ -260,13 +289,7 @@ export default function CaptureScan() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        cameraProps={{
-          video: true,
-          audio: true,
-          torch: cameraTorch,
-          frameProcessor: liveAruco.frameProcessor,
-          pixelFormat: "yuv",
-        }}
+        cameraProps={viewfinderCameraProps}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
@@ -274,6 +297,7 @@ export default function CaptureScan() {
             centerDotColor="#5DCAA5"
             flashMode={flashMode}
             onFlashPress={cycleFlash}
+            onBackPress={leaveCamera}
           />
 
           {/* Inline calibration pill — sits below the top bar (hidden during
