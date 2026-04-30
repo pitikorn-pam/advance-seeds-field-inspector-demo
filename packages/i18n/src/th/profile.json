@@ -31,6 +31,13 @@
         "short": "< 10 วินาที",
         "long": "10 วินาที+"
       }
-    }
+    },
+    "pendingSection": "รอการซิงค์",
+    "pendingDiscardTitle": "ทิ้งวิดีโอที่รอซิงค์?",
+    "pendingDiscardBody": "รายการนี้จะถูกลบออกจากคิวซิงค์ ไฟล์วิดีโอจะยังอยู่ในเครื่อง",
+    "statusPending": "เข้าคิว",
+    "statusSyncing": "กำลังซิงค์",
+    "statusFailed": "ไม่สำเร็จ",
+    "retry": "ลองซิงค์ใหม่"
   }
 }

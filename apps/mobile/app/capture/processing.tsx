@@ -14,6 +14,9 @@ import { getCurrentLocation } from "@/lib/capture/location";
 import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
 import { detectArucoCalibration } from "@/lib/calibration/ArucoCalibrator";
 import { useCreateRecording, useVarieties } from "@/lib/queries";
+import { addQueueEntry } from "@/lib/sync/store";
+import { replaySyncQueue } from "@/lib/sync/replay";
+import { isQueueableSyncError } from "@/lib/sync/errors";
 import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { useNotify } from "@/lib/notifications";
 import { ProcessingOrb } from "@/components/camera/ProcessingOrb";
@@ -134,14 +137,48 @@ export default function CaptureProcessing() {
           let videoUrl = uploadUri;
           if (!uploadErr) {
             videoUrl = urlData.publicUrl;
-            recordingId = await createRecording.mutateAsync({
-              inspector_id: profile.id,
-              video_url: videoUrl,
-              duration_ms: durationMs,
-              metadata: recordingMetadata,
-            });
+            try {
+              recordingId = await createRecording.mutateAsync({
+                inspector_id: profile.id,
+                video_url: videoUrl,
+                duration_ms: durationMs,
+                metadata: recordingMetadata,
+              });
+            } catch (err) {
+              if (isQueueableSyncError(err)) {
+                // Storage upload succeeded but the row insert failed —
+                // queue it with the remote URL preserved so replay only
+                // re-runs the DB insert.
+                await addQueueEntry({
+                  kind: "recording",
+                  data: {
+                    inspector_id: profile.id,
+                    local_video_uri: uploadUri,
+                    remote_video_url: videoUrl,
+                    duration_ms: durationMs,
+                    metadata: recordingMetadata,
+                  },
+                });
+                void replaySyncQueue();
+              } else {
+                throw err;
+              }
+            }
           } else {
+            // Storage upload failed — enqueue with no remote URL; replay
+            // will retry the upload + insert as one unit.
             console.warn("[processing] recording upload queued", uploadErr);
+            await addQueueEntry({
+              kind: "recording",
+              data: {
+                inspector_id: profile.id,
+                local_video_uri: uploadUri,
+                remote_video_url: null,
+                duration_ms: durationMs,
+                metadata: recordingMetadata,
+              },
+            });
+            void replaySyncQueue();
           }
           const totalSec = Math.max(0, Math.round(durationMs / 1000));
           const min = Math.floor(totalSec / 60);

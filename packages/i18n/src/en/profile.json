@@ -31,6 +31,13 @@
         "short": "< 10 sec",
         "long": "10 sec+"
       }
-    }
+    },
+    "pendingSection": "Pending sync",
+    "pendingDiscardTitle": "Discard pending recording?",
+    "pendingDiscardBody": "It will be removed from the sync queue. The captured video stays on the device.",
+    "statusPending": "Queued",
+    "statusSyncing": "Syncing",
+    "statusFailed": "Failed",
+    "retry": "Retry sync"
   }
 }

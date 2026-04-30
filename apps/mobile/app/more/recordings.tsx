@@ -3,9 +3,18 @@ import { ScrollView, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Calendar, ChevronLeft, Download, Share2, Trash2, X } from "lucide-react-native";
+import { Calendar, ChevronLeft, Download, RefreshCw, Share2, Trash2, X } from "lucide-react-native";
 import type { Recording } from "@advance-seeds/types";
 import { useRecordings, useDeleteRecording } from "@/lib/queries";
+import {
+  removeQueueEntry,
+  retryAllFailedQueueEntries,
+  useSyncQueueEntries,
+} from "@/lib/sync/store";
+import { replaySyncQueue } from "@/lib/sync/replay";
+import type { RecordingQueuePayload, SyncQueueEntry } from "@/lib/sync/types";
+import { Pill } from "@/components/ui/Pill";
+import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 import { shareVideo, saveImageToLibrary } from "@/lib/capture/imageActions";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -17,8 +26,6 @@ import {
   rangeLabel,
   toDateKey,
 } from "@/components/ui/DateRangePicker";
-import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
-
 type DurationFilter = "all" | "short" | "long";
 
 /**
@@ -31,9 +38,36 @@ export default function RecordingsScreen() {
   const router = useRouter();
   const recordings = useRecordings();
   const deleteRecording = useDeleteRecording();
+  const queueEntries = useSyncQueueEntries();
   const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [durationFilter, setDurationFilter] = useState<DurationFilter>("all");
+
+  // Surface offline-saved recordings: any sync-queue row whose payload is a
+  // recording, still in pending/syncing/failed state. They're not in the
+  // server response yet, so without this the user wouldn't see what they
+  // just captured offline.
+  const pendingRecordings = useMemo<PendingRecording[]>(() => {
+    return queueEntries
+      .filter(
+        (
+          e,
+        ): e is SyncQueueEntry & { payload: { kind: "recording"; data: RecordingQueuePayload } } =>
+          e.payload.kind === "recording" &&
+          (e.status === "pending" || e.status === "syncing" || e.status === "failed"),
+      )
+      .filter((e) => {
+        if (durationFilter === "short" && e.payload.data.duration_ms >= 10_000) return false;
+        if (durationFilter === "long" && e.payload.data.duration_ms < 10_000) return false;
+        if (dateRange.start) {
+          const key = toDateKey(new Date(e.createdAt));
+          const end = dateRange.end ?? dateRange.start;
+          if (key < dateRange.start || key > end) return false;
+        }
+        return true;
+      })
+      .map((entry) => ({ entry, data: entry.payload.data }));
+  }, [queueEntries, durationFilter, dateRange]);
 
   const filtered = useMemo(() => {
     const rows = recordings.data ?? [];
@@ -104,19 +138,61 @@ export default function RecordingsScreen() {
           ) : null}
         </View>
 
+        {pendingRecordings.length > 0 ? (
+          <View className="gap-xs">
+            <Text className="text-caption uppercase tracking-wide text-fg-secondary px-xs">
+              {t("profile:recordings.pendingSection")}
+            </Text>
+            <Card className="p-0">
+              {pendingRecordings.map((row, i) => (
+                <PendingRecordingRow
+                  key={row.entry.id}
+                  row={row}
+                  isLast={i === pendingRecordings.length - 1}
+                  onRetry={async () => {
+                    await retryAllFailedQueueEntries();
+                    void replaySyncQueue();
+                  }}
+                  onDiscard={async () => {
+                    Alert.alert(
+                      t("profile:recordings.pendingDiscardTitle"),
+                      t("profile:recordings.pendingDiscardBody"),
+                      [
+                        { text: t("common:actions.cancel"), style: "cancel" },
+                        {
+                          text: t("common:actions.delete"),
+                          style: "destructive",
+                          onPress: () => void removeQueueEntry(row.entry.id),
+                        },
+                      ],
+                    );
+                  }}
+                  labels={{
+                    pending: t("profile:recordings.statusPending"),
+                    syncing: t("profile:recordings.statusSyncing"),
+                    failed: t("profile:recordings.statusFailed"),
+                    retry: t("profile:recordings.retry"),
+                    discard: t("common:actions.delete"),
+                  }}
+                />
+              ))}
+            </Card>
+          </View>
+        ) : null}
+
         {recordings.isLoading ? (
           <Card>
             <Text className="text-body text-fg-secondary">{t("common:states.loading")}</Text>
           </Card>
-        ) : !recordings.data || recordings.data.length === 0 ? (
+        ) : (!recordings.data || recordings.data.length === 0) && pendingRecordings.length === 0 ? (
           <Card>
             <Text className="text-body text-fg-secondary">{t("profile:recordings.empty")}</Text>
           </Card>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && pendingRecordings.length === 0 ? (
           <Card>
             <Text className="text-body text-fg-secondary">{t("profile:recordings.noResults")}</Text>
           </Card>
-        ) : (
+        ) : filtered.length === 0 ? null : (
           <Card className="p-0">
             {filtered.map((rec, i) => (
               <RecordingRow
@@ -174,6 +250,90 @@ export default function RecordingsScreen() {
         onChange={setDateRange}
       />
     </SafeAreaView>
+  );
+}
+
+interface PendingRecording {
+  entry: SyncQueueEntry;
+  data: RecordingQueuePayload;
+}
+
+function PendingRecordingRow({
+  row,
+  isLast,
+  onRetry,
+  onDiscard,
+  labels,
+}: {
+  row: PendingRecording;
+  isLast: boolean;
+  onRetry: () => void | Promise<void>;
+  onDiscard: () => void | Promise<void>;
+  labels: {
+    pending: string;
+    syncing: string;
+    failed: string;
+    retry: string;
+    discard: string;
+  };
+}) {
+  const { entry, data } = row;
+  const captionDate = new Date(entry.createdAt).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  // Prefer the local file URI for preview — `remote_video_url` may exist if
+  // upload-then-DB-insert failed mid-flight, but local plays back instantly.
+  const previewUri = data.local_video_uri || data.remote_video_url || "";
+  const tone =
+    entry.status === "failed" ? "danger" : entry.status === "syncing" ? "info" : "warning";
+  const label =
+    entry.status === "failed"
+      ? labels.failed
+      : entry.status === "syncing"
+        ? labels.syncing
+        : labels.pending;
+  return (
+    <View className={`gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}>
+      <View className="aspect-[4/3] overflow-hidden rounded-lg bg-black">
+        {previewUri ? <CaptureMediaPreview uri={previewUri} kind="video" /> : null}
+      </View>
+      <View className="flex-row items-center gap-md">
+        <View className="flex-1 gap-xs">
+          <View className="flex-row items-center gap-sm">
+            <Text className="text-title text-fg-primary font-medium">
+              {formatDuration(data.duration_ms)}
+            </Text>
+            <Pill tone={tone} dot label={label} />
+          </View>
+          <Text className="text-caption text-fg-secondary">{captionDate}</Text>
+          {entry.lastError ? (
+            <Text className="text-caption text-danger-text" numberOfLines={2}>
+              {entry.lastError}
+            </Text>
+          ) : null}
+        </View>
+        <Button
+          size="icon"
+          variant="tinted"
+          accessibilityLabel={labels.retry}
+          onPress={() => void onRetry()}
+          disabled={entry.status === "syncing"}
+        >
+          <RefreshCw color="#1A1A1A" size={16} />
+        </Button>
+        <Button
+          size="icon"
+          variant="danger"
+          accessibilityLabel={labels.discard}
+          onPress={() => void onDiscard()}
+        >
+          <Trash2 color="#791F1F" size={16} />
+        </Button>
+      </View>
+    </View>
   );
 }
 

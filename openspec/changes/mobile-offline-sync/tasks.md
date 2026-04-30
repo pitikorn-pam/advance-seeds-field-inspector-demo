@@ -23,7 +23,7 @@
 - [x] 3.2 On inspection save failure caused by network/service unavailability, enqueue the inspection and navigate to a pending detail state.
   - [x] Queueable network/service save failures now enqueue without showing the blocking error alert.
   - [x] Pending detail navigation: new route `app/inspections/pending/[queueId].tsx` shows status pill, last error + attempts, media preview, summary fields, retry, and cancel-and-discard. After a successful queued sync the page auto-redirects to `/inspections/<remoteId>`. `enqueueInspection` in `capture/review.tsx` now `router.replace`s here instead of dropping the user back on the home tab.
-- [ ] 3.3 On recording upload/create failure caused by network/service unavailability, enqueue the recording and show pending upload state.
+- [x] 3.3 On recording upload/create failure caused by network/service unavailability, enqueue the recording and show pending upload state. `app/capture/processing.tsx` now wraps both the storage upload and `createRecording.mutateAsync` calls. Storage upload failure → enqueue with `remote_video_url: null`; DB-insert failure (after a successful upload) → enqueue with the storage URL preserved so replay only retries the row insert. Both paths call `replaySyncQueue()` so the worker picks the entry up immediately when network returns.
 - [ ] 3.4 Retain local media files until their queue entries are synced or cancelled.
 - [x] 3.5 Ensure duplicate taps on Save cannot create duplicate queue entries.
 
@@ -33,7 +33,7 @@
 - [x] 4.2 Make History Synced/Pending/Failed filters real.
 - [x] 4.3 Show pending/failed inspection rows in History alongside server rows.
 - [ ] 4.4 Show pending/failed state on Inspection Detail and disable server-only actions until synced.
-- [ ] 4.5 Show pending/failed recording rows in Recordings.
+- [x] 4.5 Show pending/failed recording rows in Recordings. `app/more/recordings.tsx` now reads `useSyncQueueEntries`, picks the recording-kind rows still in pending/syncing/failed, applies the same duration + date-range filters, and renders them above the synced list under a "Pending sync" caption. Each pending row shows a status pill (Queued / Syncing / Failed), the last error when present, a Retry icon (calls `retryAllFailedQueueEntries` + `replaySyncQueue`), and a Discard icon (`removeQueueEntry` after confirm).
 - [x] 4.6 Move Settings sync section to real queue counts with Retry all and Clear failed actions.
 - [x] 4.7 Add EN/TH i18n labels for all sync states and actions.
 
