@@ -38,17 +38,17 @@ interface Props {
   clearable?: boolean;
 }
 
-const SHEET_HEIGHT = Dimensions.get("window").height;
-const SWIPE_DISMISS_THRESHOLD = SHEET_HEIGHT * 0.2;
+const WINDOW_HEIGHT = Dimensions.get("window").height;
 const SWIPE_VELOCITY_THRESHOLD = 800;
 const ANIMATION_DURATION = 220;
 
 /**
  * Inline dropdown with typeahead search. Tap the trigger button to open
- * a full-screen slide-up modal, type to filter, tap a row to commit.
- * The modal can be dismissed two ways: tapping the close pill at the
- * top-left, or swiping the sheet down past ~20% of its height (or any
- * flick exceeding 800 px/s).
+ * a near-full-screen slide-up modal that leaves the status-bar strip
+ * visible above (so it reads as a sheet, not a route swap), type to
+ * filter, tap a row to commit. The modal can be dismissed two ways:
+ * tapping the close pill at the top-left, or swiping the sheet down
+ * past ~20% of its height (or any flick exceeding 800 px/s).
  *
  * Replaces our previous "open a dedicated picker route" pattern (e.g.
  * /capture/variety-picker.tsx) — keeps the user in-context on the parent
@@ -72,6 +72,12 @@ export function DropdownSearch({
   const { t } = useTranslation("common");
   const { resolved } = useTheme();
   const insets = useSafeAreaInsets();
+  // Leave the status-bar strip visible above the modal so it reads as a
+  // sheet rather than a route swap. Mirrors the iOS-default page sheet
+  // gap (~10pt past the safe-area inset).
+  const sheetTopGap = insets.top + 10;
+  const sheetHeight = WINDOW_HEIGHT - sheetTopGap;
+  const swipeDismissThreshold = sheetHeight * 0.2;
   const closeIconColor = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
   const [open, setOpen] = useState(false);
   // `mounted` keeps the Modal in the tree while the close animation plays.
@@ -141,7 +147,7 @@ export function DropdownSearch({
     .onEnd((event) => {
       "worklet";
       const shouldDismiss =
-        event.translationY > SWIPE_DISMISS_THRESHOLD || event.velocityY > SWIPE_VELOCITY_THRESHOLD;
+        event.translationY > swipeDismissThreshold || event.velocityY > SWIPE_VELOCITY_THRESHOLD;
       if (shouldDismiss) {
         // Snap drag offset back to 0 so the slide-out tween starts from
         // its baseline — `progress` going to 0 then drives the actual exit.
@@ -156,14 +162,14 @@ export function DropdownSearch({
     });
 
   const sheetStyle = useAnimatedStyle(() => {
-    const baseOffset = interpolate(progress.value, [0, 1], [SHEET_HEIGHT, 0]);
+    const baseOffset = interpolate(progress.value, [0, 1], [sheetHeight, 0]);
     return { transform: [{ translateY: baseOffset + dragY.value }] };
   });
 
   const backdropStyle = useAnimatedStyle(() => {
     // Fade backdrop with the sheet position so a partial drag-down
     // visibly weakens the dim — gives the gesture a sense of weight.
-    const dragFade = 1 - Math.min(dragY.value / SHEET_HEIGHT, 1);
+    const dragFade = 1 - Math.min(dragY.value / sheetHeight, 1);
     return { opacity: progress.value * 0.45 * dragFade };
   });
 
@@ -244,15 +250,10 @@ export function DropdownSearch({
 
             <GestureDetector gesture={panGesture}>
               <Animated.View
-                className="absolute inset-x-0 bottom-0 bg-bg-secondary"
-                style={[{ height: SHEET_HEIGHT, paddingTop: insets.top }, sheetStyle]}
+                className="absolute inset-x-0 bottom-0 bg-bg-secondary rounded-t-2xl"
+                style={[{ height: sheetHeight }, sheetStyle]}
               >
-                {/* Drag-handle affordance — keeps the swipe-down-to-close
-                    gesture discoverable on the now full-screen modal. */}
-                <View className="items-center pt-sm pb-xs">
-                  <View className="h-1 w-10 rounded-full bg-line-secondary" />
-                </View>
-                <View className="flex-row items-center gap-md px-xl pt-sm pb-md">
+                <View className="flex-row items-center gap-md px-xl pt-lg pb-md">
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t("actions.cancel")}
