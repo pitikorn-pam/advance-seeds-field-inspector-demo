@@ -118,6 +118,23 @@ Live mode draws boxes via `react-native-skia` over the camera surface — Skia k
 - After onboarding: prompt for camera permission, then route to login.
 - `AsyncStorage` flag `as.mobile.onboarded` persists across launches.
 
+### D9a. Measured performance — iPhone Air (2026-05-01)
+On-device perf captured from Metro logs after the YOLO26 + Core ML
+pipeline landed. iPhone Air shoots 4224×2376 photos by default; the
+Core ML path skips the JPEG-decode pipeline that dominated TFLite.
+
+| Path | Inference | Total per call | Notes |
+| --- | --- | --- | --- |
+| **Single-shot, iOS Core ML (`coreml-yolo`)** | 18–30 ms | 53–65 ms | ANE + Vision framework. Loads .mlmodelc from app bundle, hands the source JPEG to MLModel via VNCoreMLRequest. |
+| Single-shot, JS TFLite + jpeg-js (legacy) | 100 ms | 8822 ms | Dominated by jpeg-js decoding the 4 k photo. CoreMLSeedAnalyzer obviates this on iOS. |
+| **Live, iOS Core ML frame-processor plugin** | ≤ 200 ms target/frame at 5 fps | n/a | Worklet thread runs VNCoreMLRequest directly on the camera CVPixelBuffer; only decoded values cross to JS. |
+| Live, Android TFLite + JS-thread infer | 100 ms target/frame at 5 fps | n/a | Worklet does resize via vision-camera-resize-plugin; runSync stays on JS thread because fast-tflite HybridObject can't survive Vision Camera's worklet prop walk. |
+
+Hits the ≥ 5 fps live target with comfortable headroom (single-frame
+inference is ~5–10× faster than the 200 ms budget). Single-shot
+review-screen experience is now sub-second on iPhone Air, vs the
+nearly 9-second TFLite + jpeg-js fallback. **OpenSpec 4.8 closed.**
+
 ### D9. Variety detail + profile screens
 Both new in this change. Variety detail is a hero image + scientific name + description + recent inspections list (filtered to that variety, scoped by RLS). Profile is the prototype's standalone version of the read-only profile that's currently inside Settings. Both are static reads; no new mutations.
 

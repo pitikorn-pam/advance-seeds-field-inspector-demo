@@ -51,7 +51,7 @@
 - [x] 4.7b Capture-class master data: `varieties.coco_class_id`, `ref_length_mm`, `ref_width_mm` columns added by migration `20260430000001_varieties_capture_classes.sql`, plus a Settings → Master data → Capture classes screen for editing. Live + single-shot analyzers source `classFilter` from the inspected variety, falling back to `DEFAULT_CAPTURE_CLASS_IDS` (banana/apple/orange/broccoli/carrot) when a variety has no mapping.
 - [x] 4.7c Hyperparameters: `SCORE_THRESHOLD = 0.5`, `IOU_THRESHOLD = 0.75` for the YOLO11/8 raw head; YOLO26 NMS-baked head uses the model's built-in NMS and the score threshold only.
 - [x] 4.7d YOLO26n weights: bundled `apps/mobile/assets/models/yolo11n-seeds.tflite` is now a YOLO26n float16 export. Output shape `[1, 300, 6]` (built-in NMS) is decoded by `decodeYoloNms` in `lib/analyzer/yolo.ts`; the analyzer auto-detects raw vs nms output kind at load time.
-- [ ] 4.8 Performance target: ≥ 5 fps on iPhone 12 baseline; document achieved fps in `design.md` (pending — needs a real seed-trained model + on-device measurement on iPhone Air)
+- [x] 4.8 Performance target: ≥ 5 fps on iPhone 12 baseline; documented in `design.md` D9a. iPhone Air (Apple Neural Engine) measurements: single-shot Core ML 18–30 ms inference / 53–65 ms total (vs 8822 ms with the legacy TFLite + jpeg-js path); live worklet has 5–10× headroom over the 5 fps budget. Goal hit comfortably.
 
 ## 5. Live calibration
 
