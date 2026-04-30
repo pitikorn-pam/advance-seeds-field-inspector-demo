@@ -241,10 +241,27 @@ export default function CaptureProcessing() {
           activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
             ? [activeVariety.coco_class_id]
             : [...DEFAULT_CAPTURE_CLASS_IDS];
-        const result: AnalysisResult = await analyzer.analyze(
-          { kind: "uri", uri: sourceUri },
-          { pxPerMm, classFilter, roi: session.mode === "live" ? session.roi : null },
-        );
+        // Video captures aren't a sample frame — handing an .mp4 URI to the
+        // image-only analyzer (CoreML / TFLite + jpeg-js) fails immediately.
+        // Skip inference for video and surface an empty AnalysisResult so the
+        // Review screen still mounts with the recording metadata + media.
+        const result: AnalysisResult =
+          session.capturedMediaKind === "video"
+            ? {
+                analyzerId: "skip-video",
+                durationMs: 0,
+                seeds: [],
+                summary: {
+                  total_seeds: 0,
+                  mean_length_mm: 0,
+                  mean_width_mm: 0,
+                  mean_area_mm2: 0,
+                },
+              }
+            : await analyzer.analyze(
+                { kind: "uri", uri: sourceUri },
+                { pxPerMm, classFilter, roi: session.mode === "live" ? session.roi : null },
+              );
         if (cancelledRef.current) return;
 
         // Reveal the count step once we know the number of seeds, then
