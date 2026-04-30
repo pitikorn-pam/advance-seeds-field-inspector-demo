@@ -19,11 +19,14 @@ import { loadSharedTfliteModel, type TfliteOutputKind } from "./TfliteSeedAnalyz
 const SCORE_THRESHOLD = 0.5;
 const IOU_THRESHOLD = 0.75;
 // Per-platform throttle for the live worklet:
-//   iOS (Core ML on ANE) — ~20 ms inference; 15 fps leaves 4x headroom
-//      and the bbox + KPI strip update smoothly while the user pans.
-//   Android (TFLite via JS-thread runSync) — bridge cost dominates;
-//      5 fps avoids stacking work on the JS thread.
-const TARGET_FPS_IOS = 15;
+//   iOS (Core ML on ANE) — ~20–30 ms inference. 30 fps matches the
+//      camera's native preview rate (33 ms budget) so the bbox visibly
+//      tracks the frame the user is seeing. Sweet spot vs power draw:
+//      60 fps would be over budget, force frame coalescing, double the
+//      battery + thermal load with no visible tracking improvement.
+//   Android (TFLite via JS-thread runSync) — bridge cost dominates; 5
+//      fps avoids stacking work on the JS thread.
+const TARGET_FPS_IOS = 30;
 const TARGET_FPS_ANDROID = 5;
 const COREML_ASSET = "yolo26n";
 
