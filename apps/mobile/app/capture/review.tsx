@@ -617,7 +617,11 @@ export default function CaptureReview() {
           </View>
         }
         renderItem={({ item, index }) => (
-          <SeedRow seed={item} isLast={index === seeds.length - 1} />
+          <SeedRow
+            seed={item}
+            isLast={index === seeds.length - 1}
+            onPress={() => router.push(`/capture/seed/${item.index}` as never)}
+          />
         )}
       />
 
@@ -680,11 +684,20 @@ function sortModeLabelKey(mode: SortMode) {
   }
 }
 
-function SeedRow({ seed, isLast }: { seed: AnalyzedSeed; isLast: boolean }) {
+function SeedRow({
+  seed,
+  isLast,
+  onPress,
+}: {
+  seed: AnalyzedSeed;
+  isLast: boolean;
+  onPress?: () => void;
+}) {
   return (
     <Pressable
-      // Per-seed detail (`/inspections/seed/[index]`) lands in Phase 8.1.
       accessibilityRole="button"
+      accessibilityLabel={`Seed #${seed.index}`}
+      onPress={onPress}
       className={`flex-row items-center gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
     >
       <View
