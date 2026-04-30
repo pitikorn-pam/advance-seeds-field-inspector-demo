@@ -11,6 +11,7 @@ import {
   useSyncQueueEntries,
 } from "@/lib/sync/store";
 import { replaySyncQueue } from "@/lib/sync/replay";
+import { deleteLocalMediaForPayload } from "@/lib/sync/localMedia";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Pill } from "@/components/ui/Pill";
@@ -93,6 +94,9 @@ export default function PendingInspectionDetail() {
         text: t("common:actions.delete"),
         style: "destructive",
         onPress: async () => {
+          // User explicitly discarded — drop both the queue row and the
+          // local file. The captured media is unrecoverable after this.
+          await deleteLocalMediaForPayload(entry.payload);
           await removeQueueEntry(entry.id);
           router.replace("/");
         },

@@ -3,6 +3,7 @@ import { createInspectionRemote, createRecordingRemote } from "@/lib/queries";
 import { ensureQueueLoaded, markQueueEntryFailed, updateQueueEntry } from "@/lib/sync/store";
 import { applyRemoteMediaUrl } from "@/lib/sync/payloadUpdates";
 import { recordLastSyncedAt } from "@/lib/sync/lastSync";
+import { deleteLocalMediaForPayload } from "@/lib/sync/localMedia";
 import type { InspectionQueuePayload, SyncQueueEntry } from "@/lib/sync/types";
 
 let running = false;
@@ -41,6 +42,10 @@ async function replayEntry(entry: SyncQueueEntry) {
       const remoteId = await replayInspection(entry.id, entry.payload.data);
       await updateQueueEntry(entry.id, { status: "synced", remoteId, lastError: null });
       void recordLastSyncedAt();
+      // Server now has the canonical copy — release the local file so we
+      // don't accumulate captured photos/videos on disk over a long
+      // offline-then-online session.
+      void deleteLocalMediaForPayload(entry.payload);
       return;
     }
     // Recording branch: upload first, then DB insert. If we already have
@@ -64,6 +69,7 @@ async function replayEntry(entry: SyncQueueEntry) {
     });
     await updateQueueEntry(entry.id, { status: "synced", remoteId, lastError: null });
     void recordLastSyncedAt();
+    void deleteLocalMediaForPayload(entry.payload);
   } catch (err) {
     await markQueueEntryFailed(entry.id, err);
   }

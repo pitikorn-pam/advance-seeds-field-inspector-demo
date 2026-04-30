@@ -24,7 +24,7 @@
   - [x] Queueable network/service save failures now enqueue without showing the blocking error alert.
   - [x] Pending detail navigation: new route `app/inspections/pending/[queueId].tsx` shows status pill, last error + attempts, media preview, summary fields, retry, and cancel-and-discard. After a successful queued sync the page auto-redirects to `/inspections/<remoteId>`. `enqueueInspection` in `capture/review.tsx` now `router.replace`s here instead of dropping the user back on the home tab.
 - [x] 3.3 On recording upload/create failure caused by network/service unavailability, enqueue the recording and show pending upload state. `app/capture/processing.tsx` now wraps both the storage upload and `createRecording.mutateAsync` calls. Storage upload failure → enqueue with `remote_video_url: null`; DB-insert failure (after a successful upload) → enqueue with the storage URL preserved so replay only retries the row insert. Both paths call `replaySyncQueue()` so the worker picks the entry up immediately when network returns.
-- [ ] 3.4 Retain local media files until their queue entries are synced or cancelled.
+- [x] 3.4 Retain local media files until their queue entries are synced or cancelled. New `lib/sync/localMedia.ts` exposes `deleteLocalMediaFile(uri)` (idempotent + best-effort) and `deleteLocalMediaForPayload(payload)` (picks the right URI per kind). `replay.ts` calls it after either branch flips to `synced`, so a successful upload doesn't leave the captured photo/video sitting on disk. Pending-detail discard and Recordings pending-row discard also call it so explicit user cancellations free both the queue row and the local file in one gesture.
 - [x] 3.5 Ensure duplicate taps on Save cannot create duplicate queue entries.
 
 ## 4. UI integration

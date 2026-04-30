@@ -12,6 +12,7 @@ import {
   useSyncQueueEntries,
 } from "@/lib/sync/store";
 import { replaySyncQueue } from "@/lib/sync/replay";
+import { deleteLocalMediaForPayload } from "@/lib/sync/localMedia";
 import type { RecordingQueuePayload, SyncQueueEntry } from "@/lib/sync/types";
 import { Pill } from "@/components/ui/Pill";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
@@ -162,7 +163,14 @@ export default function RecordingsScreen() {
                         {
                           text: t("common:actions.delete"),
                           style: "destructive",
-                          onPress: () => void removeQueueEntry(row.entry.id),
+                          onPress: () => {
+                            // User-initiated discard: drop the queue row
+                            // AND the local video file. Recordings the
+                            // worker hasn't synced yet are unrecoverable
+                            // after this.
+                            void deleteLocalMediaForPayload(row.entry.payload);
+                            void removeQueueEntry(row.entry.id);
+                          },
                         },
                       ],
                     );
