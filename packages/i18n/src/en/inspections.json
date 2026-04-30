@@ -64,7 +64,9 @@
       "totalSeeds": "Total seeds",
       "meanLength": "Mean length",
       "meanWidth": "Mean width",
-      "meanArea": "Mean area"
+      "meanArea": "Mean area",
+      "variety": "Variety",
+      "notes": "Notes"
     },
     "perSeedTitle": "Per-seed measurements",
     "gradeFilterAll": "All",
@@ -236,5 +238,19 @@
       "editGrade": "Edit grade",
       "reject": "Reject"
     }
+  },
+  "pending": {
+    "title": "Pending inspection",
+    "queuedAt": "Queued {{date}}",
+    "statusPending": "Queued for sync",
+    "statusSyncing": "Syncing…",
+    "statusFailed": "Sync failed",
+    "lastError": "Last error",
+    "attempts": "Attempts: {{count}}",
+    "retry": "Retry now",
+    "cancel": "Cancel and discard",
+    "cancelTitle": "Discard this inspection?",
+    "cancelBody": "It will be removed from the sync queue. The captured media stays on the device until you free space.",
+    "notFound": "This pending inspection is no longer in the sync queue."
   }
 }

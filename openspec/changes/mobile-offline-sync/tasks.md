@@ -20,9 +20,9 @@
 ## 3. Capture integration
 
 - [x] 3.1 Refactor inspection save payload assembly out of `capture/review.tsx` into a reusable queue-safe helper. New `apps/mobile/lib/inspections/savePayload.ts` exposes `buildInspectionSavePayload` (returns the row shape `useCreateInspection` accepts) + `toInspectionQueuePayload` (wraps it for `addQueueEntry`) + `isLocalUri`. Both happy-path and queueable-error paths now share the same assembly, and the `.mjs` mirror is covered by 8 tests in `savePayload.test.mjs`.
-- [ ] 3.2 On inspection save failure caused by network/service unavailability, enqueue the inspection and navigate to a pending detail state.
+- [x] 3.2 On inspection save failure caused by network/service unavailability, enqueue the inspection and navigate to a pending detail state.
   - [x] Queueable network/service save failures now enqueue without showing the blocking error alert.
-  - [ ] Pending detail navigation remains.
+  - [x] Pending detail navigation: new route `app/inspections/pending/[queueId].tsx` shows status pill, last error + attempts, media preview, summary fields, retry, and cancel-and-discard. After a successful queued sync the page auto-redirects to `/inspections/<remoteId>`. `enqueueInspection` in `capture/review.tsx` now `router.replace`s here instead of dropping the user back on the home tab.
 - [ ] 3.3 On recording upload/create failure caused by network/service unavailability, enqueue the recording and show pending upload state.
 - [ ] 3.4 Retain local media files until their queue entries are synced or cancelled.
 - [x] 3.5 Ensure duplicate taps on Save cannot create duplicate queue entries.

@@ -312,7 +312,7 @@ export default function CaptureReview() {
   };
 
   const enqueueInspection = async (payload: InspectionSavePayload) => {
-    await addQueueEntry(
+    const entry = await addQueueEntry(
       toInspectionQueuePayload({
         payload,
         mediaKind,
@@ -327,7 +327,10 @@ export default function CaptureReview() {
     });
     session.reset();
     setSaving(false);
-    router.replace("/");
+    // Land the user on a pending detail screen so they can see the
+    // inspection they just captured is queued, retry it, and watch it
+    // auto-redirect to the canonical /inspections/<id> once it syncs.
+    router.replace(`/inspections/pending/${entry.id}` as never);
     void replaySyncQueue();
   };
 
