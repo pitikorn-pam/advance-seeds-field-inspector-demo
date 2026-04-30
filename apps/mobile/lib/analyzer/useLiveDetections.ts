@@ -18,7 +18,13 @@ import { loadSharedTfliteModel, type TfliteOutputKind } from "./TfliteSeedAnalyz
 
 const SCORE_THRESHOLD = 0.5;
 const IOU_THRESHOLD = 0.75;
-const TARGET_FPS = 5;
+// Per-platform throttle for the live worklet:
+//   iOS (Core ML on ANE) — ~20 ms inference; 15 fps leaves 4x headroom
+//      and the bbox + KPI strip update smoothly while the user pans.
+//   Android (TFLite via JS-thread runSync) — bridge cost dominates;
+//      5 fps avoids stacking work on the JS thread.
+const TARGET_FPS_IOS = 15;
+const TARGET_FPS_ANDROID = 5;
 const COREML_ASSET = "yolo26n";
 
 interface Options {
@@ -125,7 +131,7 @@ function useLiveDetectionsCoreML(options: Options): State {
     (frame) => {
       "worklet";
       if (!enabled || !plugin) return;
-      runAtTargetFps(TARGET_FPS, () => {
+      runAtTargetFps(TARGET_FPS_IOS, () => {
         "worklet";
         try {
           const result = plugin.call(frame, { assetName: COREML_ASSET });
@@ -259,7 +265,7 @@ function useLiveDetectionsTflite(options: Options): State {
     (frame) => {
       "worklet";
       if (!enabled) return;
-      runAtTargetFps(TARGET_FPS, () => {
+      runAtTargetFps(TARGET_FPS_ANDROID, () => {
         "worklet";
         try {
           const resized = resize(frame, {
