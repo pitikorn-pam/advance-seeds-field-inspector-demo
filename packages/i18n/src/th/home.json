@@ -9,5 +9,8 @@
   "syncPending": "รอซิงค์ {{count}} รายการ",
   "syncFailed": "ซิงค์ไม่สำเร็จ {{count}} รายการ",
   "lastSync": "ซิงค์ล่าสุด · {{when}}",
-  "now": "เพิ่งซิงค์"
+  "now": "เพิ่งซิงค์",
+  "neverSynced": "ยังไม่มีการซิงค์",
+  "minutesAgo": "{{count}} นาทีที่แล้ว",
+  "hoursAgo": "{{count}} ชม. ที่แล้ว"
 }

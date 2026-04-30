@@ -123,7 +123,7 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        <SyncBanner lastSyncIso={recent[0]?.created_at ?? null} />
+        <SyncBanner />
       </ScrollView>
     </SafeAreaView>
   );

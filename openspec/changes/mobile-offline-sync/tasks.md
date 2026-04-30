@@ -29,7 +29,7 @@
 
 ## 4. UI integration
 
-- [ ] 4.1 Wire Home `SyncBanner` to real queue counts and last successful sync time.
+- [x] 4.1 Wire Home `SyncBanner` to real queue counts and last successful sync time. Banner already read counts from `useSyncQueueEntries`; the missing piece was a real "last sync" timestamp. New `lib/sync/lastSync.ts` persists the timestamp every time `replayEntry` flips a row to `synced`. Banner now reads it via `useLastSyncedAt()` and renders a localized relative label (`just now` / `N min ago` / `Nh ago` / date) plus a `neverSynced` empty state. Home screen drops the `lastSyncIso` prop. en + th i18n parity preserved.
 - [x] 4.2 Make History Synced/Pending/Failed filters real.
 - [x] 4.3 Show pending/failed inspection rows in History alongside server rows.
 - [ ] 4.4 Show pending/failed state on Inspection Detail and disable server-only actions until synced.

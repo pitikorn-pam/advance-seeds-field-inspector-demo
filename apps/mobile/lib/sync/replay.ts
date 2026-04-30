@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { createInspectionRemote, createRecordingRemote } from "@/lib/queries";
 import { ensureQueueLoaded, markQueueEntryFailed, updateQueueEntry } from "@/lib/sync/store";
 import { applyRemoteMediaUrl } from "@/lib/sync/payloadUpdates";
+import { recordLastSyncedAt } from "@/lib/sync/lastSync";
 import type { InspectionQueuePayload, SyncQueueEntry } from "@/lib/sync/types";
 
 let running = false;
@@ -39,6 +40,7 @@ async function replayEntry(entry: SyncQueueEntry) {
     if (entry.payload.kind === "inspection") {
       const remoteId = await replayInspection(entry.id, entry.payload.data);
       await updateQueueEntry(entry.id, { status: "synced", remoteId, lastError: null });
+      void recordLastSyncedAt();
       return;
     }
     // Recording branch: upload first, then DB insert. If we already have
@@ -61,6 +63,7 @@ async function replayEntry(entry: SyncQueueEntry) {
       metadata: entry.payload.data.metadata,
     });
     await updateQueueEntry(entry.id, { status: "synced", remoteId, lastError: null });
+    void recordLastSyncedAt();
   } catch (err) {
     await markQueueEntryFailed(entry.id, err);
   }
