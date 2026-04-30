@@ -1,50 +1,44 @@
-import { useState } from "react";
-import { ScrollView, View, Text, Alert } from "react-native";
+import { useMemo, useState } from "react";
+import { ScrollView, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Plus, Pencil, Trash2 } from "lucide-react-native";
-import type { Batch } from "@advance-seeds/types";
+import { ChevronLeft, ChevronRight, Layers, Plus, Search, X } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
-import { useBatches, useUpsertBatch, useDeleteBatch } from "@/lib/queries";
+import { useBatches } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Pill } from "@/components/ui/Pill";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
-interface FormState {
-  id?: string;
-  code: string;
-  location: string;
-  sown_at: string;
-  notes: string;
-}
-const empty: FormState = { code: "", location: "", sown_at: "", notes: "" };
-
+/**
+ * Batches master-data list.
+ *
+ * Pattern matches the Capture classes screen: search input above, card list
+ * with consistent row layout, top-right `+` for create, row tap for edit.
+ * Form lives on `/batches/<id>` so the editor isn't crammed below a list
+ * that grows as the season progresses.
+ */
 export default function BatchesRoute() {
   const { t } = useTranslation(["common", "batches"]);
   const router = useRouter();
   const { profile } = useAuth();
   const policy = policyFor(profile);
   const { data, isLoading, isError, refetch } = useBatches();
-  const upsert = useUpsertBatch();
-  const del = useDeleteBatch();
-  const [form, setForm] = useState<FormState | null>(null);
+  const editable = policy.canEditBatch();
+  const canCreate = policy.canCreateBatch();
+  const [query, setQuery] = useState("");
 
-  const open = (b?: Batch) =>
-    setForm(
-      b
-        ? {
-            id: b.id,
-            code: b.code,
-            location: b.location ?? "",
-            sown_at: b.sown_at ?? "",
-            notes: b.notes ?? "",
-          }
-        : empty,
-    );
+  const filtered = useMemo(() => {
+    const rows = data ?? [];
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((b) => {
+      const hay = `${b.code} ${b.location ?? ""} ${b.notes ?? ""} ${b.sown_at ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [data, query]);
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -55,17 +49,39 @@ export default function BatchesRoute() {
           renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
+        right={
+          canCreate
+            ? {
+                accessibilityLabel: t("batches:newBatch"),
+                renderIcon: () => <Plus color="#1A1A1A" size={20} />,
+                onPress: () => router.push("/batches/new" as never),
+              }
+            : undefined
+        }
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-h2 font-medium text-fg-primary">{t("batches:listTitle")}</Text>
-          {policy.canCreateBatch() ? (
-            <Button
-              size="sm"
-              label={t("batches:newBatch")}
-              renderLeadingIcon={() => <Plus color="#FFFFFF" size={14} />}
-              onPress={() => open()}
-            />
+        <Text className="text-caption text-fg-secondary">{t("batches:intro")}</Text>
+
+        <View className="flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
+          <Search color="#9D9D9A" size={16} />
+          <TextInput
+            placeholder={t("batches:searchPlaceholder")}
+            placeholderTextColor="#9D9D9A"
+            value={query}
+            onChangeText={setQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+            className="flex-1 text-body text-fg-primary"
+            returnKeyType="search"
+          />
+          {query ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("common:actions.cancel")}
+              onPress={() => setQuery("")}
+            >
+              <X color="#9D9D9A" size={16} />
+            </Pressable>
           ) : null}
         </View>
 
@@ -73,111 +89,55 @@ export default function BatchesRoute() {
           <LoadingState />
         ) : isError ? (
           <ErrorState onRetry={() => void refetch()} />
-        ) : !data || data.length === 0 ? (
-          <EmptyState hint={t("batches:empty")} />
+        ) : filtered.length === 0 ? (
+          <EmptyState hint={query ? t("batches:emptyFiltered") : t("batches:empty")} />
         ) : (
-          data.map((b) => (
-            <Card key={b.id}>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-title font-medium text-fg-primary">{b.code}</Text>
-              </View>
-              {b.location ? (
-                <Text className="text-body text-fg-secondary mt-xs">{b.location}</Text>
-              ) : null}
-              {b.sown_at ? (
-                <Text className="text-caption text-fg-tertiary mt-xs">
-                  {t("batches:fields.sownAt")}: {b.sown_at}
-                </Text>
-              ) : null}
-              {b.notes ? (
-                <Text className="text-body text-fg-secondary mt-sm">{b.notes}</Text>
-              ) : null}
-              {policy.canEditBatch() ? (
-                <View className="flex-row gap-sm mt-md">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    label={t("common:actions.edit")}
-                    renderLeadingIcon={() => <Pencil color="#1A1A1A" size={12} />}
-                    onPress={() => open(b)}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    label={t("common:actions.delete")}
-                    renderLeadingIcon={() => <Trash2 color="#791F1F" size={12} />}
-                    onPress={() =>
-                      Alert.alert(t("common:actions.delete"), t("batches:deleteConfirm"), [
-                        { text: t("common:actions.cancel"), style: "cancel" },
-                        {
-                          text: t("common:actions.delete"),
-                          style: "destructive",
-                          onPress: async () => {
-                            await del.mutateAsync(b.id);
-                          },
-                        },
-                      ])
-                    }
-                  />
-                </View>
-              ) : null}
-            </Card>
-          ))
-        )}
-
-        {form ? (
-          <Card className="mt-lg">
-            <Text className="text-h2 font-medium text-fg-primary mb-md">
-              {form.id ? t("batches:editBatch") : t("batches:newBatch")}
-            </Text>
-            <View className="gap-md">
-              <Input
-                placeholder={t("batches:fields.code")}
-                value={form.code}
-                onChangeText={(code) => setForm({ ...form, code })}
-              />
-              <Input
-                placeholder={t("batches:fields.location")}
-                value={form.location}
-                onChangeText={(location) => setForm({ ...form, location })}
-              />
-              <Input
-                placeholder="YYYY-MM-DD"
-                value={form.sown_at}
-                onChangeText={(sown_at) => setForm({ ...form, sown_at })}
-              />
-              <Input
-                placeholder={t("batches:fields.notes")}
-                value={form.notes}
-                onChangeText={(notes) => setForm({ ...form, notes })}
-                multiline
-              />
-              <View className="flex-row gap-sm">
-                <Button
-                  className="flex-1"
-                  variant="outline"
-                  label={t("common:actions.cancel")}
-                  onPress={() => setForm(null)}
-                />
-                <Button
-                  className="flex-1"
-                  label={t("common:actions.save")}
-                  disabled={!form.code || upsert.isPending}
-                  onPress={async () => {
-                    await upsert.mutateAsync({
-                      id: form.id,
-                      code: form.code,
-                      location: form.location || null,
-                      sown_at: form.sown_at || null,
-                      notes: form.notes || null,
-                    });
-                    setForm(null);
-                  }}
-                />
-              </View>
-            </View>
+          <Card className="p-0">
+            {filtered.map((b, idx) => {
+              const isLast = idx === filtered.length - 1;
+              return (
+                <Pressable
+                  key={b.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={b.code}
+                  onPress={() => router.push(`/batches/${b.id}` as never)}
+                  disabled={!editable}
+                  className={`flex-row items-center gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
+                >
+                  <View
+                    className="items-center justify-center"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      backgroundColor: "#FAEEDA",
+                    }}
+                  >
+                    <Layers color="#854F0B" size={16} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-title text-fg-primary" numberOfLines={1}>
+                      {b.code}
+                    </Text>
+                    <Text className="text-caption text-fg-secondary" numberOfLines={1}>
+                      {b.location && b.location.trim() ? b.location : t("batches:noLocation")}
+                    </Text>
+                  </View>
+                  <View className="items-end gap-[2px]">
+                    {b.sown_at ? (
+                      <Pill tone="neutral" label={t("batches:sownPill", { date: b.sown_at })} />
+                    ) : (
+                      <Text className="text-caption text-fg-tertiary">
+                        {t("batches:sownPending")}
+                      </Text>
+                    )}
+                  </View>
+                  {editable ? <ChevronRight color="#9D9D9A" size={16} /> : null}
+                </Pressable>
+              );
+            })}
           </Card>
-        ) : null}
+        )}
       </ScrollView>
     </SafeAreaView>
   );

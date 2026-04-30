@@ -13,7 +13,8 @@ import { useCaptureSession } from "@/lib/capture/session";
 import { getCurrentLocation } from "@/lib/capture/location";
 import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
 import { detectArucoCalibration } from "@/lib/calibration/ArucoCalibrator";
-import { useCreateRecording } from "@/lib/queries";
+import { useCreateRecording, useVarieties } from "@/lib/queries";
+import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { useNotify } from "@/lib/notifications";
 import { ProcessingOrb } from "@/components/camera/ProcessingOrb";
 import { Button } from "@/components/ui/Button";
@@ -50,6 +51,7 @@ export default function CaptureProcessing() {
   const { profile } = useAuth();
   const analyzer = useAnalyzer();
   const session = useCaptureSession();
+  const varieties = useVarieties();
   const createRecording = useCreateRecording();
   const notify = useNotify();
 
@@ -194,9 +196,17 @@ export default function CaptureProcessing() {
           }
         }
         const pxPerMm = calibrationReading?.pxPerMm ?? 38.4;
+        // Source the class filter from the inspected variety. Empty array
+        // means "no filter" (analyzer keeps every class), so we fall back to
+        // the demo default whenever a variety has no COCO mapping yet.
+        const activeVariety = varieties.data?.find((v) => v.id === session.varietyId);
+        const classFilter =
+          activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
+            ? [activeVariety.coco_class_id]
+            : [...DEFAULT_CAPTURE_CLASS_IDS];
         const result: AnalysisResult = await analyzer.analyze(
           { kind: "uri", uri: sourceUri },
-          { pxPerMm, roi: session.mode === "live" ? session.roi : null },
+          { pxPerMm, classFilter, roi: session.mode === "live" ? session.roi : null },
         );
         if (cancelledRef.current) return;
 

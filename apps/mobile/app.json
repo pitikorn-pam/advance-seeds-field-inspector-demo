@@ -64,7 +64,14 @@
           "locationAlwaysAndWhenInUsePermission": "Advance Seeds tags inspections with the field location when you turn on auto-tag location."
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "react-native-fast-tflite",
+        {
+          "enableCoreMLDelegate": true,
+          "enableAndroidGpuLibraries": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

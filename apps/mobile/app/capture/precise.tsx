@@ -11,6 +11,10 @@ import type { FlashMode } from "@/components/camera/GlassTopBar";
 import { ShutterBar } from "@/components/camera/ShutterBar";
 import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
 import { useCaptureSession } from "@/lib/capture/session";
+import { useLiveDetections } from "@/lib/analyzer/useLiveDetections";
+import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
+import { DetectionOverlay } from "@/components/camera/DetectionOverlay";
+import { useVarieties } from "@/lib/queries";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
 import { stopLidarCalibration } from "@/lib/calibration/LidarCalibrator";
@@ -56,14 +60,35 @@ export default function CapturePrecise() {
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
+  const calibrationLocked = Boolean(lockedLidar) || liveAruco.locked;
+  const varieties = useVarieties();
+  const activeVariety = useMemo(
+    () => varieties.data?.find((v) => v.id === session.varietyId),
+    [varieties.data, session.varietyId],
+  );
+  const liveClassFilter = useMemo<readonly number[]>(
+    () =>
+      activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
+        ? [activeVariety.coco_class_id]
+        : DEFAULT_CAPTURE_CLASS_IDS,
+    [activeVariety?.coco_class_id],
+  );
+  const liveDetections = useLiveDetections({
+    enabled: cameraActive && calibrationLocked && !busy,
+    pxPerMm: automaticCalibration?.reading.pxPerMm ?? 38.4,
+    classFilter: liveClassFilter,
+    roi: null,
+  });
+  const activeFrameProcessor = liveDetections.frameProcessor ?? liveAruco.frameProcessor;
   const viewfinderCameraProps = useMemo(
     () => ({
       torch: cameraTorch,
-      frameProcessor: liveAruco.frameProcessor,
+      frameProcessor: activeFrameProcessor,
       pixelFormat: "yuv" as const,
     }),
-    [cameraTorch, liveAruco.frameProcessor],
+    [cameraTorch, activeFrameProcessor],
   );
+  const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
@@ -233,7 +258,25 @@ export default function CapturePrecise() {
 
           {/* Corner brackets + "Hold steady" guidance. Phase 5 hooks the
               calibrator's distance reading into the live label below. */}
-          <View className="flex-1 items-center justify-center" pointerEvents="none">
+          <View
+            className="flex-1 items-center justify-center"
+            pointerEvents="none"
+            onLayout={(e) =>
+              setStageSize({
+                width: e.nativeEvent.layout.width,
+                height: e.nativeEvent.layout.height,
+              })
+            }
+          >
+            {stageSize && liveDetections.detections ? (
+              <DetectionOverlay
+                frameResult={liveDetections.detections}
+                frameWidth={1920}
+                frameHeight={1080}
+                stageWidth={stageSize.width}
+                stageHeight={stageSize.height}
+              />
+            ) : null}
             <View className="absolute inset-0 m-2xl">
               <View className="absolute top-0 left-0 h-6 w-6 rounded-tl-md border-t-2 border-l-2 border-white/55" />
               <View className="absolute top-0 right-0 h-6 w-6 rounded-tr-md border-t-2 border-r-2 border-white/55" />

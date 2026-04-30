@@ -3,9 +3,11 @@ import { ScrollView, View, Text, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Camera as CameraIcon, ChevronLeft } from "lucide-react-native";
+import { Camera as CameraIcon, ChevronLeft, Pencil } from "lucide-react-native";
 import { useVarieties, useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
+import { useAuth } from "@/lib/auth";
+import { policyFor } from "@/lib/access";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -35,6 +37,8 @@ export default function VarietyDetail() {
   const { t } = useTranslation(["common", "varieties", "inspections"]);
   const router = useRouter();
   const session = useCaptureSession();
+  const { profile } = useAuth();
+  const policy = policyFor(profile);
 
   const varieties = useVarieties();
   const inspections = useInspections();
@@ -76,6 +80,15 @@ export default function VarietyDetail() {
           renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
+        right={
+          policy.canEditVariety()
+            ? {
+                accessibilityLabel: t("common:actions.edit"),
+                renderIcon: () => <Pencil color="#1A1A1A" size={18} />,
+                onPress: () => router.push(`/more/capture-classes/${variety.id}` as never),
+              }
+            : undefined
+        }
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
         <View

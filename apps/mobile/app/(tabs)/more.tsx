@@ -10,6 +10,7 @@ import {
   ListChecks,
   BarChart3,
   Settings as SettingsIcon,
+  Sprout,
   ChevronRight,
   LogOut,
 } from "lucide-react-native";
@@ -94,6 +95,12 @@ export default function MoreScreen() {
         </Section>
 
         <Section title={t("more:sections.reference")}>
+          <MenuRow
+            renderIcon={() => <Sprout color="#1A1A1A" size={16} />}
+            label={t("more:menu.varieties")}
+            onPress={() => router.push("/more/capture-classes" as never)}
+          />
+          <Divider />
           <MenuRow
             renderIcon={() => <Layers color="#1A1A1A" size={16} />}
             label={t("more:menu.batches")}

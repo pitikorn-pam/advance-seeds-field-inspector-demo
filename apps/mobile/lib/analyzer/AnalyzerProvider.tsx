@@ -1,19 +1,26 @@
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { SeedAnalyzer } from "@advance-seeds/types";
 import { ClassicalSeedAnalyzer } from "./ClassicalSeedAnalyzer";
+import { selectAnalyzer } from "./selectAnalyzer";
 
 const ctx = createContext<SeedAnalyzer | null>(null);
 
-let warned = false;
-
 export function AnalyzerProvider({ children }: { children: ReactNode }) {
-  const analyzer = useMemo(() => new ClassicalSeedAnalyzer(), []);
+  // Render with the classical analyzer immediately so screens never see a
+  // null context; swap in the resolved analyzer once selectAnalyzer settles.
+  const initial = useMemo(() => new ClassicalSeedAnalyzer(), []);
+  const [analyzer, setAnalyzer] = useState<SeedAnalyzer>(initial);
 
-  if (__DEV__ && !warned) {
-    warned = true;
-    console.warn("ClassicalSeedAnalyzer active — ML analyzer pending");
-  }
+  useEffect(() => {
+    let cancelled = false;
+    selectAnalyzer().then((picked) => {
+      if (!cancelled) setAnalyzer(picked);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return <ctx.Provider value={analyzer}>{children}</ctx.Provider>;
 }

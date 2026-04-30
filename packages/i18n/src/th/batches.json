@@ -1,6 +1,7 @@
 {
   "title": "ล็อต",
   "listTitle": "รายการล็อต",
+  "intro": "ล็อตใช้จัดกลุ่มการตรวจตามรอบหว่านหรือเก็บเกี่ยว แต่ละการถ่ายภาพจะถูกผูกกับล็อตเพื่อให้รายงานเป็นระเบียบ",
   "newBatch": "เพิ่มล็อต",
   "editBatch": "แก้ไขล็อต",
   "fields": {
@@ -9,6 +10,18 @@
     "sownAt": "วันที่หว่าน",
     "notes": "บันทึก"
   },
+  "codePlaceholder": "เช่น 2026-RICE-A1",
+  "locationPlaceholder": "ชื่อแปลงหรือพิกัด",
+  "notesPlaceholder": "สิ่งที่ต้องจำเกี่ยวกับล็อตนี้",
+  "sownHint": "รูปแบบ ISO: YYYY-MM-DD",
+  "sownDatePlaceholder": "เลือกวันที่หว่าน",
+  "sownPill": "หว่าน {{date}}",
+  "sownPending": "ยังไม่ระบุวันหว่าน",
+  "noLocation": "ไม่ระบุสถานที่",
+  "searchPlaceholder": "ค้นหารหัส สถานที่ หรือบันทึก",
   "deleteConfirm": "ลบล็อตนี้?",
-  "empty": "ยังไม่มีล็อต"
+  "empty": "ยังไม่มีล็อต",
+  "emptyFiltered": "ไม่พบล็อตที่ตรงกับการค้นหา",
+  "invalidCode": "ต้องระบุรหัสล็อต",
+  "invalidDate": "วันหว่านต้องอยู่ในรูปแบบ YYYY-MM-DD"
 }

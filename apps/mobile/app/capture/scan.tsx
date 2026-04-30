@@ -17,6 +17,10 @@ import { RoiToolbar } from "@/components/camera/RoiToolbar";
 import { RecordingTimer } from "@/components/camera/RecordingTimer";
 import { Toast } from "@/components/ui/Toast";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
+import { useLiveDetections } from "@/lib/analyzer/useLiveDetections";
+import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
+import { DetectionOverlay } from "@/components/camera/DetectionOverlay";
+import { useVarieties } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useRecordingState } from "@/lib/capture/recording";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
@@ -77,16 +81,42 @@ export default function CaptureScan() {
     liveLidar.supported !== false &&
     (!lockedLidar || !lidarReleased);
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
+
+  // Once calibration is locked we hand the camera frame stream over to the
+  // ML detector. Vision Camera takes one frameProcessor at a time, so this
+  // is a swap rather than a compose — composing the two worklets is a
+  // future refactor.
+  const calibrationLocked = Boolean(lockedLidar) || liveAruco.locked;
+  const varieties = useVarieties();
+  const activeVariety = useMemo(
+    () => varieties.data?.find((v) => v.id === session.varietyId),
+    [varieties.data, session.varietyId],
+  );
+  const liveClassFilter = useMemo<readonly number[]>(
+    () =>
+      activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
+        ? [activeVariety.coco_class_id]
+        : DEFAULT_CAPTURE_CLASS_IDS,
+    [activeVariety?.coco_class_id],
+  );
+  const liveDetections = useLiveDetections({
+    enabled: cameraActive && calibrationLocked && !busy,
+    pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
+    classFilter: liveClassFilter,
+    roi: session.mode === "live" ? session.roi : null,
+  });
+  const activeFrameProcessor = liveDetections.frameProcessor ?? liveAruco.frameProcessor;
   const viewfinderCameraProps = useMemo(
     () => ({
       video: true,
       audio: true,
       torch: cameraTorch,
-      frameProcessor: liveAruco.frameProcessor,
+      frameProcessor: activeFrameProcessor,
       pixelFormat: "yuv" as const,
     }),
-    [cameraTorch, liveAruco.frameProcessor],
+    [cameraTorch, activeFrameProcessor],
   );
+  const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
@@ -412,7 +442,25 @@ export default function CaptureScan() {
               tool is active it's pointerEvents-transparent and only renders
               the committed shape; when a tool is active it captures touches
               for drawing. Phase 4 will render Skia detection rings here too. */}
-          <View className="flex-1" pointerEvents="box-none">
+          <View
+            className="flex-1"
+            pointerEvents="box-none"
+            onLayout={(e) =>
+              setStageSize({
+                width: e.nativeEvent.layout.width,
+                height: e.nativeEvent.layout.height,
+              })
+            }
+          >
+            {stageSize && liveDetections.detections ? (
+              <DetectionOverlay
+                frameResult={liveDetections.detections}
+                frameWidth={1920}
+                frameHeight={1080}
+                stageWidth={stageSize.width}
+                stageHeight={stageSize.height}
+              />
+            ) : null}
             <RoiOverlay drawingTool={roiTool} roi={session.roi} onRoi={setRoi} />
           </View>
 
@@ -426,7 +474,7 @@ export default function CaptureScan() {
             />
           ) : null}
 
-          <KpiStrip frameResult={frameResult} roi={session.roi} />
+          <KpiStrip frameResult={liveDetections.detections ?? frameResult} roi={session.roi} />
 
           <ShutterBar
             onShutter={onShutter}

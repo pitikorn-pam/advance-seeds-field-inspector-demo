@@ -228,32 +228,41 @@ export type Database = {
       varieties: {
         Row: {
           color_key: string | null
+          coco_class_id: number | null
           created_at: string
           created_by: string | null
           description: string | null
           id: string
           image_url: string | null
           name: string
+          ref_length_mm: number | null
+          ref_width_mm: number | null
           scientific_name: string | null
         }
         Insert: {
           color_key?: string | null
+          coco_class_id?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           name: string
+          ref_length_mm?: number | null
+          ref_width_mm?: number | null
           scientific_name?: string | null
         }
         Update: {
           color_key?: string | null
+          coco_class_id?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           name?: string
+          ref_length_mm?: number | null
+          ref_width_mm?: number | null
           scientific_name?: string | null
         }
         Relationships: [

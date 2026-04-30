@@ -4,16 +4,29 @@ import { ensureQueueLoaded, markQueueEntryFailed, updateQueueEntry } from "@/lib
 import type { InspectionQueuePayload, SyncQueueEntry } from "@/lib/sync/types";
 
 let running = false;
+let rerunPending = false;
 
 export async function replaySyncQueue(): Promise<void> {
-  if (running) return;
+  // Already running: don't start a parallel pass, but guarantee one more
+  // sweep after the current finishes. Without this, "Retry all" was a
+  // silent no-op whenever the boot-time replay was still walking a slow
+  // upload — the freshly-flipped failed→pending entries never got picked up.
+  if (running) {
+    rerunPending = true;
+    return;
+  }
   running = true;
   try {
-    const entries = await ensureQueueLoaded();
-    for (const entry of entries) {
-      if (entry.status !== "pending" && entry.status !== "failed") continue;
-      await replayEntry(entry);
-    }
+    do {
+      rerunPending = false;
+      const snapshotIds = (await ensureQueueLoaded()).map((entry) => entry.id);
+      for (const id of snapshotIds) {
+        const live = (await ensureQueueLoaded()).find((entry) => entry.id === id);
+        if (!live) continue;
+        if (live.status !== "pending" && live.status !== "failed") continue;
+        await replayEntry(live);
+      }
+    } while (rerunPending);
   } finally {
     running = false;
   }

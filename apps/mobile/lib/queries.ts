@@ -243,7 +243,8 @@ export function useVarieties() {
 type VarietyInput = Pick<
   Variety,
   "name" | "scientific_name" | "description" | "image_url" | "color_key"
->;
+> &
+  Partial<Pick<Variety, "coco_class_id" | "ref_length_mm" | "ref_width_mm">>;
 export function useUpsertVariety() {
   const qc = useQueryClient();
   return useMutation({

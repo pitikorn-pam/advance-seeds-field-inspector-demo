@@ -26,6 +26,17 @@ export interface Variety {
   image_url: string | null;
   /** corn | rice | legume | mungbean — used for thumb tinting from design tokens */
   color_key: string | null;
+  /**
+   * COCO 80-class index this variety maps to in the bundled YOLO weights.
+   * Null when the variety has no on-device detector (analyzer falls back
+   * to the default capture-class set documented in
+   * apps/mobile/lib/analyzer/captureClasses.ts).
+   */
+  coco_class_id: number | null;
+  /** Reference long-axis dimension in mm, used for grading. */
+  ref_length_mm: number | null;
+  /** Reference short-axis dimension in mm, used for grading. */
+  ref_width_mm: number | null;
   created_by: string;
   created_at: string;
 }

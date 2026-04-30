@@ -7,6 +7,12 @@ const monorepoRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
+// react-native-fast-tflite ships .tflite weights as bundled assets; Metro
+// only inlines extensions listed in `assetExts`, so opt-in here.
+if (!config.resolver.assetExts.includes("tflite")) {
+  config.resolver.assetExts.push("tflite");
+}
+
 // pnpm + Metro: Metro must follow symlinks so `node_modules/<pkg>` (which pnpm
 // links into `.pnpm/<pkg>@<ver>/node_modules/<pkg>`) and the transitive deps
 // nested inside that resolve correctly.

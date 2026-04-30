@@ -1,6 +1,7 @@
 {
   "title": "Batches",
   "listTitle": "Batch list",
+  "intro": "Batches group inspections by sowing or harvest. Each capture session is tagged with a batch so reports stay organized.",
   "newBatch": "New batch",
   "editBatch": "Edit batch",
   "fields": {
@@ -9,6 +10,18 @@
     "sownAt": "Sown date",
     "notes": "Notes"
   },
+  "codePlaceholder": "e.g. 2026-RICE-A1",
+  "locationPlaceholder": "Field name or coordinates",
+  "notesPlaceholder": "Anything to remember about this batch",
+  "sownHint": "ISO format: YYYY-MM-DD",
+  "sownDatePlaceholder": "Select sown date",
+  "sownPill": "Sown {{date}}",
+  "sownPending": "No sown date",
+  "noLocation": "No location",
+  "searchPlaceholder": "Search code, location, notes",
   "deleteConfirm": "Delete this batch?",
-  "empty": "No batches yet."
+  "empty": "No batches yet.",
+  "emptyFiltered": "No batches match your search.",
+  "invalidCode": "Batch code is required.",
+  "invalidDate": "Sown date must be in YYYY-MM-DD format."
 }

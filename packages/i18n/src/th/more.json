@@ -13,8 +13,31 @@
     "signOutConfirm": "ออกจากระบบ Advance Seeds?",
     "batches": "ล็อต",
     "calibration": "การสอบเทียบ",
+    "varieties": "พันธุ์",
     "history": "ประวัติ",
     "reports": "รายงาน",
     "settings": "การตั้งค่า"
+  },
+  "masterData": {
+    "varieties": "พันธุ์",
+    "varietiesIntro": "ข้อมูลพันธุ์ทั้งหมด — ข้อมูลทั่วไป การจับคู่คลาสตัวตรวจจับ และขนาดอ้างอิงสำหรับการให้เกรด",
+    "searchPlaceholder": "ค้นหาชื่อ ชื่อทางวิทยาศาสตร์ หรือคลาส",
+    "newTitle": "เพิ่มพันธุ์ใหม่",
+    "editTitle": "แก้ไขพันธุ์",
+    "invalidName": "ต้องระบุชื่อ",
+    "detectorClass": "คลาสตัวตรวจจับ",
+    "classRow": "{{klass}} · COCO #{{id}}",
+    "unmapped": "ยังไม่ได้กำหนดคลาส",
+    "unmappedShort": "ไม่ระบุ",
+    "refDims": "{{l}} × {{w}} มม.",
+    "noRefDims": "ไม่มีขนาดอ้างอิง",
+    "refLengthMm": "ความยาวอ้างอิง (มม.)",
+    "refWidthMm": "ความกว้างอ้างอิง (มม.)",
+    "colorKey": "สีของกลุ่มพันธุ์",
+    "descriptionPlaceholder": "บันทึกที่ผู้ตรวจสอบจะเห็นในแคตตาล็อก",
+    "imageHint": "URL สาธารณะ — วาง URL ของรูป หรือเว้นว่างเพื่อใช้พื้นหลังตามกลุ่มพันธุ์",
+    "invalidClass": "คลาสต้องเป็นจำนวนเต็ม",
+    "invalidLength": "ความยาวต้องเป็นตัวเลขบวก",
+    "invalidWidth": "ความกว้างต้องเป็นตัวเลขบวก"
   }
 }

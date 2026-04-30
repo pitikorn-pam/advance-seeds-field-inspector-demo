@@ -81,11 +81,15 @@ export async function clearFailedQueueEntries(): Promise<void> {
   await persist(current.filter((entry) => entry.status !== "failed"));
 }
 
+// Recovers both failed entries AND entries left stuck in `syncing` because a
+// previous replay was killed mid-upload (e.g. app force-quit). Without the
+// `syncing` reset, those rows would never run again — replaySyncQueue only
+// processes pending+failed.
 export async function retryAllFailedQueueEntries(): Promise<void> {
   const current = await ensureQueueLoaded();
   await persist(
     current.map((entry) =>
-      entry.status === "failed"
+      entry.status === "failed" || entry.status === "syncing"
         ? { ...entry, status: "pending", lastError: null, updatedAt: new Date().toISOString() }
         : entry,
     ),

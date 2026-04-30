@@ -38,14 +38,18 @@
 - [x] 4.0a Cap classical analyzer pixel workload before segmentation and log decode/analyze timing for device tuning
 - [x] 4.0b Android ROI video exporter: burn Rect/Polygon/Circle ROI into recorded Live videos before upload/share/detail playback
 - [x] 4.0c Result/detail performance pass: virtualize the Inspection Result seed list and Inspection Detail seed grid; add grade filtering on detail
-- [ ] 4.1 Export YOLOv11n to TFLite via Ultralytics CLI: `yolo export model=yolo11n.pt format=tflite imgsz=640`
-- [ ] 4.2 Place the resulting `yolo11n.tflite` at `apps/mobile/assets/models/yolo11n-seeds.tflite`
-- [ ] 4.3 Install `react-native-fast-tflite` and `vision-camera-resize-plugin`
-- [ ] 4.4 Build `lib/analyzer/TfliteSeedAnalyzer.ts` with `analyzeFrame` running the model on a downscaled 640×640 frame
-- [ ] 4.5 Decode YOLO output: anchor boxes → bounding boxes in image space; apply NMS; map to `AnalyzedSeed[]`
-- [ ] 4.6 `lib/analyzer/selectAnalyzer.ts` runtime picker: prefer Tflite, fall back to Mock if model fails to load
-- [ ] 4.7 Wire the picker through `AnalyzerProvider`; remove the dev-mode warning when a real analyzer is loaded
-- [ ] 4.8 Performance target: ≥ 5 fps on iPhone 12 baseline; document achieved fps in `design.md`
+- [ ] 4.1 Export YOLOv11n to TFLite via Ultralytics CLI: `yolo export model=yolo11n.pt format=tflite imgsz=640` (placeholder file shipped at `assets/models/yolo11n-seeds.tflite`; user-supplied real export still pending — see `assets/models/README.md`)
+- [x] 4.2 Place the resulting `yolo11n.tflite` at `apps/mobile/assets/models/yolo11n-seeds.tflite` (placeholder in place; replace with real export to activate Tflite path)
+- [x] 4.3 Install `react-native-fast-tflite` and `vision-camera-resize-plugin`; metro `assetExts` includes `tflite`; CoreML + Android GPU delegates enabled via `app.json` plugin
+- [x] 4.4 Build `lib/analyzer/TfliteSeedAnalyzer.ts` for the single-shot photo path (letterbox → runSync → decode → NMS → ROI/mm). `analyzeFrame` returns null for now and is wired in Phase 6.1 once `DetectionOverlay` lands.
+- [x] 4.5 Decode YOLO output: anchor-free `[1, 4+numClasses, anchors]` head → bounding boxes in original-image space; NMS (IoU 0.45) + score threshold 0.25; mapped to `AnalyzedSeed[]` with px/mm conversion. Pure helpers in `lib/analyzer/yolo.ts` covered by `yolo.test.mjs` (letterbox, decode, NMS, mapping + ROI).
+- [x] 4.6 `lib/analyzer/selectAnalyzer.ts` runtime picker: Tflite → Classical → Mock fallback chain, tolerant of a missing/invalid model file.
+- [x] 4.7 Wire the picker through `AnalyzerProvider` (renders Classical immediately, swaps to selected analyzer on settle); dev-mode warning removed.
+- [x] 4.7a Live worklet path: `lib/analyzer/useLiveDetections.ts` runs the shared TFLite model on the Vision Camera worklet thread via `vision-camera-resize-plugin` + `model.runSync`, posting decoded detections back to JS at 5 fps. Active once calibration locks (the existing aruco frame processor owns the stream until then).
+- [x] 4.7b Capture-class master data: `varieties.coco_class_id`, `ref_length_mm`, `ref_width_mm` columns added by migration `20260430000001_varieties_capture_classes.sql`, plus a Settings → Master data → Capture classes screen for editing. Live + single-shot analyzers source `classFilter` from the inspected variety, falling back to `DEFAULT_CAPTURE_CLASS_IDS` (banana/apple/orange/broccoli/carrot) when a variety has no mapping.
+- [x] 4.7c Hyperparameters: `SCORE_THRESHOLD = 0.5`, `IOU_THRESHOLD = 0.75` for the YOLO11/8 raw head; YOLO26 NMS-baked head uses the model's built-in NMS and the score threshold only.
+- [x] 4.7d YOLO26n weights: bundled `apps/mobile/assets/models/yolo11n-seeds.tflite` is now a YOLO26n float16 export. Output shape `[1, 300, 6]` (built-in NMS) is decoded by `decodeYoloNms` in `lib/analyzer/yolo.ts`; the analyzer auto-detects raw vs nms output kind at load time.
+- [ ] 4.8 Performance target: ≥ 5 fps on iPhone 12 baseline; document achieved fps in `design.md` (pending — needs a real seed-trained model + on-device measurement on iPhone Air)
 
 ## 5. Live calibration
 
@@ -68,7 +72,7 @@
 
 ## 6. Camera UI build-out (prototype fidelity)
 
-- [ ] 6.1 `components/camera/DetectionOverlay.tsx` — Skia overlay drawing detection rings + bounding boxes from `analyzeFrame` output (deferred to Phase 4 — needs real frame source)
+- [x] 6.1 `components/camera/DetectionOverlay.tsx` — react-native-svg overlay drawing bounding boxes + class labels from `analyzeFrame` output. Wired into both `app/capture/scan.tsx` and `app/capture/precise.tsx`; renders only after calibration is locked (when the camera frame stream is owned by `useLiveDetections`). Skia version deferred — current SVG impl is performant enough for ≤ 5 fps inference.
 - [x] 6.2 `components/camera/KpiStrip.tsx` — live "Count / Avg mm / Grade A%" pill bar bound to `useFrameTicker(analyzeFrame)`
 - [x] 6.3 Calibration pill (`CalibrationPill.tsx`) + banner (`CalibrationBanner.tsx`) in glass style; LiDAR pill is feature-detected (won't show on iPhone Air or Z Flip 7 FE)
 - [x] 6.4 Shutter haptic + capture animation (spring scale on press) + corrected live ring color (#DC2828)

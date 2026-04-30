@@ -19,6 +19,13 @@ export interface AnalyzeOptions {
   pxPerMm: number;
   /** Optional committed region-of-interest; analyzers should ignore detections outside it. */
   roi?: AnalysisRoi | null;
+  /**
+   * Whitelist of detector class IDs (e.g. COCO indices) the analyzer should
+   * keep. When undefined the analyzer uses its built-in default. Sourced from
+   * the active capture classes (varieties.coco_class_id) so the runtime can
+   * be retargeted without redeploying the model.
+   */
+  classFilter?: number[];
   /** Non-blocking progress hook (0..1). */
   onProgress?: (progress: number) => void;
   /** Caller-supplied AbortSignal so screens can cancel long-running analysis. */
@@ -43,6 +50,12 @@ export interface AnalyzedSeed {
   grade: SeedGrade;
   defects: SeedDefects;
   bbox: BoundingBox;
+  /**
+   * Detector class id (e.g. COCO 80-class index) when the analyzer is a
+   * multi-class object detector. Optional because the classical analyzer and
+   * mock fixture don't have a class concept.
+   */
+  class_id?: number;
 }
 
 export interface AnalysisSummary {
