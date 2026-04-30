@@ -171,6 +171,65 @@ supabase/migrations/
 
 ---
 
+## Offline sync queue
+
+The mobile app keeps inspections and recordings recoverable when the network drops mid-save. A persistent queue replays the work once Supabase is reachable again, and the UI surfaces the pending state so the user knows what's still in flight.
+
+### Lifecycle
+
+```
+capture → save attempt
+            │
+            ├── network OK → write row + media → Supabase  ✅
+            │
+            └── network/RLS/timeout error
+                        │
+                        └── enqueue → AsyncStorage queue
+                                            │
+                                            └── replaySyncQueue (boot, AppState=active, retry-all)
+                                                       │
+                                                       ├── upload media → store remote URL on entry
+                                                       ├── insert row(s) → mark synced + record last-sync time
+                                                       └── delete local file
+```
+
+Every replay step that succeeds is checkpointed onto the queue entry's payload, so a partial failure on the next retry doesn't double-upload or duplicate writes. Once the worker flips an entry to `synced`, the local capture file is released.
+
+### Where things live
+
+| Concern                            | Module                                                               |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| Queue store + state transitions    | `apps/mobile/lib/sync/store.ts` (mirror `transitions.mjs` for tests) |
+| Replay worker                      | `apps/mobile/lib/sync/replay.ts`                                     |
+| Last-successful-sync timestamp     | `apps/mobile/lib/sync/lastSync.ts`                                   |
+| Per-payload URL checkpoint         | `apps/mobile/lib/sync/payloadUpdates.ts`                             |
+| Local-file cleanup                 | `apps/mobile/lib/sync/localMedia.ts`                                 |
+| Queueable error classifier         | `apps/mobile/lib/sync/errors.ts`                                     |
+| Save-payload assembly (queue-safe) | `apps/mobile/lib/inspections/savePayload.ts`                         |
+
+### UI surfaces
+
+- **Home → SyncBanner** reads queue counts + the persisted last-sync timestamp; renders `Up to date` / `N pending` / `N failed` with a localized relative-time label.
+- **Settings → Sync** has counts, Retry all, Clear failed. Retry-all also recovers entries stuck in `syncing` (e.g. interrupted by a force-quit).
+- **Pending inspection detail** at `/inspections/pending/[queueId]` shows the captured image, summary, status pill, last error, retry, and discard. Auto-redirects to `/inspections/<remoteId>` when the entry syncs.
+- **Recordings list** (`/more/recordings`) renders pending/failed recording rows above the synced list, each with retry + discard actions.
+
+### Dev / QA notes
+
+- Fast-refresh resets the in-memory queue listeners, but the queue itself lives in AsyncStorage. The `replaySyncQueue` worker uses a `running` flag + `rerunPending` so a tap during an in-flight replay schedules another sweep instead of silently dropping.
+- The AsyncStorage key is `advance-seeds.syncQueue.v1`; bumping the suffix forces a fresh queue if a payload shape ever breaks. The last-sync timestamp lives at `advance-seeds.lastSyncedAt.v1`.
+- Tests: `apps/mobile/lib/sync/transitions.test.mjs`, `payloadUpdates.test.mjs`, and `apps/mobile/lib/inspections/savePayload.test.mjs` cover state transitions, mid-flight URL checkpointing, and save-payload assembly without needing AsyncStorage or Supabase.
+
+### Manual QA recipe (still pending on a wired device)
+
+1. Toggle airplane mode on the iPhone Air.
+2. Capture an inspection → review → Save and sync. Expect to land on `/inspections/pending/<id>` with status pill **Queued**.
+3. Disable airplane mode. Within ~1 sec the page should auto-redirect to `/inspections/<remoteId>`.
+4. Repeat for a video recording: long-press shutter → process. The Recordings list should show the pending row, then move to the synced list when network returns.
+5. Force-quit during step 3 to verify the entry can recover via Settings → Sync → Retry all.
+
+---
+
 ## What ships in v0.2.0
 
 ### What's new since v0.1.0
