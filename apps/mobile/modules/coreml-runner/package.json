@@ -1,0 +1,12 @@
+{
+  "name": "@advance-seeds/coreml-runner",
+  "version": "0.1.0",
+  "description": "iOS Core ML inference runner for the Advance Seeds demo. Android is a no-op stub.",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "private": true,
+  "peerDependencies": {
+    "expo": "*",
+    "react-native": "*"
+  }
+}

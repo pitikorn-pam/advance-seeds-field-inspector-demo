@@ -167,8 +167,14 @@ export function useLiveDetections(options: Options): State {
           const fpScale = YOLO_INPUT_SIZE / cropSize;
           const fpPadX = -((frame.width - cropSize) / 2) * fpScale;
           const fpPadY = -((frame.height - cropSize) / 2) * fpScale;
+          // The resize plugin returns a Float32Array backed by a buffer the
+          // worklet runtime owns. Passing it directly to runOnJS surfaces an
+          // empty `{}` error when worklets-core tries to clone it. Build a
+          // fresh ArrayBuffer with `.slice()` first — clones into the
+          // structured-clone-friendly heap the JS thread can read.
+          const cloned = resized.slice().buffer;
           inferOnJS(
-            resized.buffer as ArrayBuffer,
+            cloned as ArrayBuffer,
             frame.width,
             frame.height,
             fpScale,

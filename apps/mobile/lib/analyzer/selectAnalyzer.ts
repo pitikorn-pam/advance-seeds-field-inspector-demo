@@ -1,20 +1,29 @@
+import { Platform } from "react-native";
 import type { SeedAnalyzer } from "@advance-seeds/types";
 import { ClassicalSeedAnalyzer } from "./ClassicalSeedAnalyzer";
+import { CoreMLSeedAnalyzer } from "./CoreMLSeedAnalyzer";
 import { MockSeedAnalyzer } from "./MockSeedAnalyzer";
 import { TfliteSeedAnalyzer } from "./TfliteSeedAnalyzer";
 
-// Resolve the best available analyzer at startup. Order:
-//   1. TfliteSeedAnalyzer — preferred when the model file is valid.
-//   2. ClassicalSeedAnalyzer — pure-JS CV fallback (Phase 1 analyzer).
-//   3. MockSeedAnalyzer — last-resort deterministic fixture for demo.
+// Resolve the best available analyzer at startup. Per-platform priority:
+//   iOS:     CoreMLSeedAnalyzer  → TfliteSeedAnalyzer → ClassicalSeedAnalyzer → Mock.
+//   Android: TfliteSeedAnalyzer  → ClassicalSeedAnalyzer → Mock.
 //
-// The chain is intentionally tolerant of a missing/invalid .tflite so a
-// dev-client build still boots before a real seed-trained export is dropped
-// into apps/mobile/assets/models/.
+// The chain stays tolerant of a missing/invalid model file so a dev-client
+// build boots even if a model artifact hasn't been bundled yet.
 export async function selectAnalyzer(): Promise<SeedAnalyzer> {
+  if (Platform.OS === "ios") {
+    try {
+      const coreml = await CoreMLSeedAnalyzer.load();
+      console.info("[analyzer] selected coreml-yolo");
+      return coreml;
+    } catch (err) {
+      console.warn("[analyzer] coreml unavailable; falling back to tflite", err);
+    }
+  }
   try {
     const tflite = await TfliteSeedAnalyzer.load();
-    console.info("[analyzer] selected tflite-yolo11n");
+    console.info("[analyzer] selected tflite-yolo");
     return tflite;
   } catch (err) {
     console.warn("[analyzer] tflite unavailable; falling back to classical", err);

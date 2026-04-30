@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@advance-seeds/aruco-calibrator": "file:./modules/aruco-calibrator",
+    "@advance-seeds/coreml-runner": "file:modules/coreml-runner",
     "@advance-seeds/i18n": "workspace:*",
     "@advance-seeds/lidar-calibrator": "file:./modules/lidar-calibrator",
     "@advance-seeds/roi-video-exporter": "file:./modules/roi-video-exporter",

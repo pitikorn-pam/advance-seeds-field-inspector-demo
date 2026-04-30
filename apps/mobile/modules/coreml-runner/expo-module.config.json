@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["AdvanceSeedsCoreMLRunnerModule"]
+  },
+  "android": {
+    "modules": ["com.advanceseeds.coreml.AdvanceSeedsCoreMLRunnerModule"]
+  }
+}
