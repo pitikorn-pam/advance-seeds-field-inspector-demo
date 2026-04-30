@@ -11,9 +11,9 @@
 ## 2. Replay worker
 
 - [x] 2.1 Create `apps/mobile/lib/sync/replay.ts` for inspection and recording replay.
-- [ ] 2.2 Replay inspection media upload, inspection insert, seed insert, and metadata update idempotently.
-- [ ] 2.3 Replay recording upload and row insert idempotently.
-- [ ] 2.4 Preserve uploaded public URL on the queue entry when upload succeeds but DB insert fails.
+- [x] 2.2 Replay inspection media upload, inspection insert, seed insert, and metadata update idempotently. After a successful media upload `replay.ts` now persists the resulting public URL onto the queue entry's payload via `updateQueueEntry({ payload: applyRemoteMediaUrl(...) })`, before attempting the DB insert. A subsequent retry sees `remote_media_url` populated and the `?? uploadMedia(...)` branch is skipped, so a partial DB failure doesn't orphan duplicate Storage objects on retry. `createInspectionRemote` already inserts the inspection + seeds in a single RPC, so its retry behavior remains a single all-or-nothing call.
+- [x] 2.3 Replay recording upload and row insert idempotently. Same checkpoint pattern applied to the recording branch in `replayEntry`: upload → persist `remote_video_url` → `createRecordingRemote`.
+- [x] 2.4 Preserve uploaded public URL on the queue entry when upload succeeds but DB insert fails. `applyRemoteMediaUrl` (pure helper in `lib/sync/payloadUpdates.{ts,mjs}`) writes the right field per payload kind; covered by 4 tests in `payloadUpdates.test.mjs`.
 - [x] 2.5 Mount `SyncQueueWorker` once in the mobile root layout.
 - [ ] 2.6 Trigger replay on app foreground, connectivity restored, sign-in restored, and Retry all.
 
@@ -43,6 +43,7 @@
   - [x] Queueable sync error classifier tests.
   - [x] Queue state transitions in `transitions.test.mjs` (add / update / remove / clear-failed / retry-all / mark-failed / JSON roundtrip).
   - [x] Save-payload assembly in `savePayload.test.mjs` (notes trimming, summary fold-in, queue wrapper local/remote URI handling, photo vs video media kind, fallback when both local URIs missing).
+  - [x] Replay payload checkpoint in `payloadUpdates.test.mjs` (`applyRemoteMediaUrl` writes the right field per kind; immutability; `getRemoteMediaUrl` reader symmetry).
 - [x] 5.2 `pnpm -F @advance-seeds/mobile typecheck`
 - [x] 5.3 `pnpm -F @advance-seeds/mobile lint`
 - [x] 5.4 `pnpm -F @advance-seeds/i18n test`

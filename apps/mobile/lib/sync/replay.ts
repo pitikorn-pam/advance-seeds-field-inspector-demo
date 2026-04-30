@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { createInspectionRemote, createRecordingRemote } from "@/lib/queries";
 import { ensureQueueLoaded, markQueueEntryFailed, updateQueueEntry } from "@/lib/sync/store";
+import { applyRemoteMediaUrl } from "@/lib/sync/payloadUpdates";
 import type { InspectionQueuePayload, SyncQueueEntry } from "@/lib/sync/types";
 
 let running = false;
@@ -36,13 +37,22 @@ async function replayEntry(entry: SyncQueueEntry) {
   await updateQueueEntry(entry.id, { status: "syncing", lastError: null });
   try {
     if (entry.payload.kind === "inspection") {
-      const remoteId = await replayInspection(entry.payload.data);
+      const remoteId = await replayInspection(entry.id, entry.payload.data);
       await updateQueueEntry(entry.id, { status: "synced", remoteId, lastError: null });
       return;
     }
-    const remoteUrl =
-      entry.payload.data.remote_video_url ??
-      (await uploadMedia("recordings", entry.payload.data.local_video_uri, "video/mp4"));
+    // Recording branch: upload first, then DB insert. If we already have
+    // a `remote_video_url` from a prior partial replay, skip re-upload so
+    // a DB-insert-only failure doesn't orphan more storage objects.
+    let remoteUrl = entry.payload.data.remote_video_url;
+    if (!remoteUrl) {
+      remoteUrl = await uploadMedia("recordings", entry.payload.data.local_video_uri, "video/mp4");
+      // Persist immediately. If `createRecordingRemote` then fails, the
+      // next retry sees `remote_video_url` populated and skips upload.
+      await updateQueueEntry(entry.id, {
+        payload: applyRemoteMediaUrl(entry.payload, remoteUrl),
+      });
+    }
     const remoteId = await createRecordingRemote({
       inspector_id: entry.payload.data.inspector_id,
       video_url: remoteUrl,
@@ -56,14 +66,22 @@ async function replayEntry(entry: SyncQueueEntry) {
   }
 }
 
-async function replayInspection(payload: InspectionQueuePayload): Promise<string> {
-  const imageUrl =
-    payload.remote_media_url ??
-    (await uploadMedia(
+async function replayInspection(entryId: string, payload: InspectionQueuePayload): Promise<string> {
+  let imageUrl = payload.remote_media_url;
+  if (!imageUrl) {
+    imageUrl = await uploadMedia(
       payload.media_kind === "video" ? "recordings" : "inspection-images",
       payload.local_media_uri,
       payload.media_kind === "video" ? "video/mp4" : "image/jpeg",
-    ));
+    );
+    // Persist immediately so a DB-insert failure on the very next call
+    // doesn't trigger a duplicate upload on retry. The reload of the
+    // entry on the next pass picks up `remote_media_url` and skips the
+    // uploadMedia branch.
+    await updateQueueEntry(entryId, {
+      payload: applyRemoteMediaUrl({ kind: "inspection", data: payload }, imageUrl),
+    });
+  }
   const metadata = replaceCaptureMediaUrl(payload.metadata, imageUrl);
   return createInspectionRemote({
     inspector_id: payload.inspector_id,
