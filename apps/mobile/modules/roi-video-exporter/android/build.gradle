@@ -1,0 +1,15 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.advanceseeds'
+version = '0.1.0'
+
+android {
+  namespace "com.advanceseeds.roivideo"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}

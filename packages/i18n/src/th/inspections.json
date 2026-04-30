@@ -67,6 +67,8 @@
       "meanArea": "พื้นที่เฉลี่ย"
     },
     "perSeedTitle": "ค่าวัดต่อเมล็ด",
+    "gradeFilterAll": "ทั้งหมด",
+    "filteredSeedCount": "{{count}} จาก {{total}} เมล็ด",
     "deleteConfirm": "ลบการตรวจสอบนี้? ไม่สามารถกู้คืนได้",
     "roiBadge": {
       "rect": "ROI · สี่เหลี่ยม",

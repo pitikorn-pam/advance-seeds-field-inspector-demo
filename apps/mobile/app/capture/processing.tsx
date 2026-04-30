@@ -196,7 +196,7 @@ export default function CaptureProcessing() {
         const pxPerMm = calibrationReading?.pxPerMm ?? 38.4;
         const result: AnalysisResult = await analyzer.analyze(
           { kind: "uri", uri: sourceUri },
-          { pxPerMm },
+          { pxPerMm, roi: session.mode === "live" ? session.roi : null },
         );
         if (cancelledRef.current) return;
 

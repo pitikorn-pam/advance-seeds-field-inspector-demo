@@ -1,19 +1,18 @@
 import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { SeedAnalyzer } from "@advance-seeds/types";
-import { MockSeedAnalyzer } from "./MockSeedAnalyzer";
+import { ClassicalSeedAnalyzer } from "./ClassicalSeedAnalyzer";
 
 const ctx = createContext<SeedAnalyzer | null>(null);
 
 let warned = false;
 
 export function AnalyzerProvider({ children }: { children: ReactNode }) {
-  const analyzer = useMemo(() => new MockSeedAnalyzer(), []);
+  const analyzer = useMemo(() => new ClassicalSeedAnalyzer(), []);
 
-  // Spec: warn once on startup in dev mode that the mock is active.
   if (__DEV__ && !warned) {
     warned = true;
-    console.warn("MockSeedAnalyzer active — replace before production");
+    console.warn("ClassicalSeedAnalyzer active — ML analyzer pending");
   }
 
   return <ctx.Provider value={analyzer}>{children}</ctx.Provider>;

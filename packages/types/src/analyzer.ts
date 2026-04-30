@@ -17,11 +17,18 @@ export type ImageRef =
 export interface AnalyzeOptions {
   /** Pixels per millimeter, from the active calibration profile. */
   pxPerMm: number;
+  /** Optional committed region-of-interest; analyzers should ignore detections outside it. */
+  roi?: AnalysisRoi | null;
   /** Non-blocking progress hook (0..1). */
   onProgress?: (progress: number) => void;
   /** Caller-supplied AbortSignal so screens can cancel long-running analysis. */
   signal?: AbortSignal;
 }
+
+export type AnalysisRoi =
+  | { kind: "rect"; x: number; y: number; w: number; h: number }
+  | { kind: "polygon"; points: Array<{ x: number; y: number }>; closed: boolean }
+  | { kind: "circle"; cx: number; cy: number; r: number };
 
 /**
  * One seed in the analysis result. Measurements are already in millimeters

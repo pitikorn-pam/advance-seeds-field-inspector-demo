@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ScrollView, View, Text, Pressable, Alert } from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, View, Text, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -31,6 +31,10 @@ const gradeToTone: Record<Seed["grade"], "success" | "info" | "warning" | "dange
   C: "warning",
   reject: "danger",
 };
+
+type GradeFilter = "all" | Seed["grade"];
+
+const gradeFilters: GradeFilter[] = ["all", "A", "B", "C", "reject"];
 
 /**
  * Read the captured ROI off of `inspection.metadata.roi`. Returns the
@@ -103,6 +107,13 @@ export default function InspectionDetail() {
   const { data, isLoading, isError, refetch } = useInspection(id);
   const del = useDeleteInspection();
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const [gradeFilter, setGradeFilter] = useState<GradeFilter>("all");
+  const allSeeds = data?.seeds ?? [];
+  const filteredSeeds = useMemo(
+    () =>
+      gradeFilter === "all" ? allSeeds : allSeeds.filter((seed) => seed.grade === gradeFilter),
+    [gradeFilter, allSeeds],
+  );
 
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
     dateStyle: "medium",
@@ -162,275 +173,310 @@ export default function InspectionDetail() {
           onPress: openMenu,
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-xl">
-        <View>
-          <Text className="text-h1 font-medium text-fg-primary">
-            {inspection.variety?.name ?? "—"}
-          </Text>
-          <Text className="text-caption text-fg-secondary mt-xs">
-            {dateFmt.format(new Date(inspection.captured_at))} ·{" "}
-            {inspection.inspector?.full_name ?? inspection.inspector?.email}
-            {inspection.batch?.code ? ` · ${inspection.batch.code}` : ""}
-          </Text>
-          {roiLabel ? (
-            <View className="mt-sm flex-row">
-              <Pill
-                tone="brand"
-                label={t(`inspections:detail.roiBadge.${roiLabel.kind}`, {
-                  vertices: roiLabel.vertices ?? 0,
-                })}
-              />
-            </View>
-          ) : null}
-        </View>
-
-        {mediaUrl ? (
-          <View className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
-            <CaptureMediaPreview uri={mediaUrl} kind={captureMedia.kind} roi={roi} />
-          </View>
-        ) : null}
-
-        {note ? (
-          <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
-            <Text className="text-caption font-medium uppercase text-fg-secondary">
-              {t("inspections:detail.notesTitle")}
-            </Text>
-            <Text className="mt-xs text-body text-fg-primary">{note}</Text>
-          </View>
-        ) : null}
-
-        {location || deviceUsage || captureDetail || calibration ? (
-          <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
-            <View className="flex-row items-center justify-between gap-md">
-              <Text className="text-caption font-medium uppercase text-fg-secondary">
-                {t("inspections:detail.metadata.title")}
+      <FlatList
+        data={filteredSeeds}
+        keyExtractor={(seed) => seed.id}
+        numColumns={3}
+        contentContainerClassName="px-xl py-md gap-xl"
+        columnWrapperStyle={{ gap: 8 }}
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={7}
+        removeClippedSubviews
+        extraData={gradeFilter}
+        ListHeaderComponent={
+          <View className="gap-xl">
+            <View>
+              <Text className="text-h1 font-medium text-fg-primary">
+                {inspection.variety?.name ?? "—"}
               </Text>
-              <Pressable onPress={() => setMetadataExpanded((v) => !v)} hitSlop={8}>
-                <Text className="text-caption font-medium text-brand">
-                  {t(
-                    metadataExpanded
-                      ? "inspections:detail.metadata.showLess"
-                      : "inspections:detail.metadata.showMore",
-                  )}
-                </Text>
-              </Pressable>
-            </View>
-            <View className="mt-sm gap-xs">
-              {location ? (
-                <>
-                  <MetadataRow
-                    label={t("inspections:detail.metadata.location")}
-                    value={locationDisplayName(location)}
+              <Text className="text-caption text-fg-secondary mt-xs">
+                {dateFmt.format(new Date(inspection.captured_at))} ·{" "}
+                {inspection.inspector?.full_name ?? inspection.inspector?.email}
+                {inspection.batch?.code ? ` · ${inspection.batch.code}` : ""}
+              </Text>
+              {roiLabel ? (
+                <View className="mt-sm flex-row">
+                  <Pill
+                    tone="brand"
+                    label={t(`inspections:detail.roiBadge.${roiLabel.kind}`, {
+                      vertices: roiLabel.vertices ?? 0,
+                    })}
                   />
-                  {metadataExpanded ? (
-                    <>
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.latitude")}
-                        value={location.latitude.toFixed(6)}
-                      />
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.longitude")}
-                        value={location.longitude.toFixed(6)}
-                      />
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.accuracy")}
-                        value={
-                          location.accuracy === null
-                            ? "—"
-                            : t("inspections:detail.metadata.accuracyMeters", {
-                                meters: Number(location.accuracy).toFixed(1),
-                              })
-                        }
-                      />
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.gpsTimestamp")}
-                        value={
-                          location.timestamp ? dateFmt.format(new Date(location.timestamp)) : "—"
-                        }
-                      />
-                    </>
-                  ) : null}
-                </>
+                </View>
               ) : null}
-              {deviceUsage ? (
-                <>
-                  <MetadataRow
-                    label={t("inspections:detail.metadata.device")}
-                    value={deviceUsage.device_name ?? "—"}
-                  />
-                  {calibration ? (
-                    <MetadataRow
-                      label={t("inspections:detail.metadata.calibration")}
-                      value={formatCalibrationValue(calibration.px_per_mm, t)}
-                    />
-                  ) : null}
-                  {metadataExpanded ? (
+            </View>
+
+            {mediaUrl ? (
+              <View className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
+                <CaptureMediaPreview uri={mediaUrl} kind={captureMedia.kind} roi={roi} />
+              </View>
+            ) : null}
+
+            {note ? (
+              <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
+                <Text className="text-caption font-medium uppercase text-fg-secondary">
+                  {t("inspections:detail.notesTitle")}
+                </Text>
+                <Text className="mt-xs text-body text-fg-primary">{note}</Text>
+              </View>
+            ) : null}
+
+            {location || deviceUsage || captureDetail || calibration ? (
+              <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
+                <View className="flex-row items-center justify-between gap-md">
+                  <Text className="text-caption font-medium uppercase text-fg-secondary">
+                    {t("inspections:detail.metadata.title")}
+                  </Text>
+                  <Pressable onPress={() => setMetadataExpanded((v) => !v)} hitSlop={8}>
+                    <Text className="text-caption font-medium text-brand">
+                      {t(
+                        metadataExpanded
+                          ? "inspections:detail.metadata.showLess"
+                          : "inspections:detail.metadata.showMore",
+                      )}
+                    </Text>
+                  </Pressable>
+                </View>
+                <View className="mt-sm gap-xs">
+                  {location ? (
                     <>
-                      {calibration ? (
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.location")}
+                        value={locationDisplayName(location)}
+                      />
+                      {metadataExpanded ? (
                         <>
                           <MetadataRow
-                            label={t("inspections:detail.metadata.calibrationSource")}
-                            value={t(
-                              `inspections:detail.metadata.calibrationSourceValue.${calibration.source}`,
-                            )}
+                            label={t("inspections:detail.metadata.latitude")}
+                            value={location.latitude.toFixed(6)}
                           />
                           <MetadataRow
-                            label={t("inspections:detail.metadata.calibrationProfile")}
-                            value={calibration.profile_name ?? "—"}
+                            label={t("inspections:detail.metadata.longitude")}
+                            value={location.longitude.toFixed(6)}
                           />
                           <MetadataRow
-                            label={t("inspections:detail.metadata.calibrationConfidence")}
-                            value={`${Math.round(calibration.confidence * 100)}%`}
+                            label={t("inspections:detail.metadata.accuracy")}
+                            value={
+                              location.accuracy === null
+                                ? "—"
+                                : t("inspections:detail.metadata.accuracyMeters", {
+                                    meters: Number(location.accuracy).toFixed(1),
+                                  })
+                            }
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.gpsTimestamp")}
+                            value={
+                              location.timestamp
+                                ? dateFmt.format(new Date(location.timestamp))
+                                : "—"
+                            }
                           />
                         </>
                       ) : null}
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.platform")}
-                        value={`${deviceUsage.platform}${deviceUsage.os_version ? ` ${deviceUsage.os_version}` : ""}`}
-                      />
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.appVersion")}
-                        value={
-                          [
-                            deviceUsage.app_version,
-                            deviceUsage.build_version
-                              ? t("inspections:detail.metadata.buildValue", {
-                                  build: deviceUsage.build_version,
-                                })
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ") || "—"
-                        }
-                      />
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.runtime")}
-                        value={deviceUsage.runtime_version ?? "—"}
-                      />
                     </>
                   ) : null}
-                </>
-              ) : null}
-              {captureDetail ? (
-                <>
-                  <MetadataRow
-                    label={t("inspections:detail.metadata.captureMode")}
-                    value={t(
-                      `inspections:capture.mode${captureDetail.mode === "live" ? "Live" : "Precise"}`,
-                    )}
-                  />
-                  <MetadataRow
-                    label={t("inspections:detail.metadata.mediaType")}
-                    value={t(`inspections:detail.metadata.media.${captureDetail.media_kind}`)}
-                  />
-                  {metadataExpanded ? (
+                  {deviceUsage ? (
                     <>
                       <MetadataRow
-                        label={t("inspections:detail.metadata.camera")}
-                        value={
-                          captureDetail.camera_position
-                            ? t(
-                                `inspections:detail.metadata.cameraPosition.${captureDetail.camera_position}`,
-                              )
-                            : "—"
-                        }
+                        label={t("inspections:detail.metadata.device")}
+                        value={deviceUsage.device_name ?? "—"}
                       />
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.flash")}
-                        value={
-                          captureDetail.flash_mode
-                            ? t(`inspections:detail.metadata.flashMode.${captureDetail.flash_mode}`)
-                            : "—"
-                        }
-                      />
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.roi")}
-                        value={
-                          captureDetail.roi_kind
-                            ? t(`inspections:detail.roiBadge.${captureDetail.roi_kind}`, {
-                                vertices: 0,
-                              })
-                            : "—"
-                        }
-                      />
-                      <MetadataRow
-                        label={t("inspections:detail.metadata.captureTimestamp")}
-                        value={
-                          captureDetail.captured_at
-                            ? dateFmt.format(new Date(captureDetail.captured_at))
-                            : "—"
-                        }
-                      />
+                      {calibration ? (
+                        <MetadataRow
+                          label={t("inspections:detail.metadata.calibration")}
+                          value={formatCalibrationValue(calibration.px_per_mm, t)}
+                        />
+                      ) : null}
+                      {metadataExpanded ? (
+                        <>
+                          {calibration ? (
+                            <>
+                              <MetadataRow
+                                label={t("inspections:detail.metadata.calibrationSource")}
+                                value={t(
+                                  `inspections:detail.metadata.calibrationSourceValue.${calibration.source}`,
+                                )}
+                              />
+                              <MetadataRow
+                                label={t("inspections:detail.metadata.calibrationProfile")}
+                                value={calibration.profile_name ?? "—"}
+                              />
+                              <MetadataRow
+                                label={t("inspections:detail.metadata.calibrationConfidence")}
+                                value={`${Math.round(calibration.confidence * 100)}%`}
+                              />
+                            </>
+                          ) : null}
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.platform")}
+                            value={`${deviceUsage.platform}${deviceUsage.os_version ? ` ${deviceUsage.os_version}` : ""}`}
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.appVersion")}
+                            value={
+                              [
+                                deviceUsage.app_version,
+                                deviceUsage.build_version
+                                  ? t("inspections:detail.metadata.buildValue", {
+                                      build: deviceUsage.build_version,
+                                    })
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ") || "—"
+                            }
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.runtime")}
+                            value={deviceUsage.runtime_version ?? "—"}
+                          />
+                        </>
+                      ) : null}
                     </>
                   ) : null}
-                </>
-              ) : null}
+                  {captureDetail ? (
+                    <>
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.captureMode")}
+                        value={t(
+                          `inspections:capture.mode${captureDetail.mode === "live" ? "Live" : "Precise"}`,
+                        )}
+                      />
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.mediaType")}
+                        value={t(`inspections:detail.metadata.media.${captureDetail.media_kind}`)}
+                      />
+                      {metadataExpanded ? (
+                        <>
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.camera")}
+                            value={
+                              captureDetail.camera_position
+                                ? t(
+                                    `inspections:detail.metadata.cameraPosition.${captureDetail.camera_position}`,
+                                  )
+                                : "—"
+                            }
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.flash")}
+                            value={
+                              captureDetail.flash_mode
+                                ? t(
+                                    `inspections:detail.metadata.flashMode.${captureDetail.flash_mode}`,
+                                  )
+                                : "—"
+                            }
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.roi")}
+                            value={
+                              captureDetail.roi_kind
+                                ? t(`inspections:detail.roiBadge.${captureDetail.roi_kind}`, {
+                                    vertices: 0,
+                                  })
+                                : "—"
+                            }
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.captureTimestamp")}
+                            value={
+                              captureDetail.captured_at
+                                ? dateFmt.format(new Date(captureDetail.captured_at))
+                                : "—"
+                            }
+                          />
+                        </>
+                      ) : null}
+                    </>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+
+            <View className="flex-row gap-sm">
+              <StatTile
+                value={inspection.total_seeds}
+                label={t("inspections:detail.summary.totalSeeds")}
+              />
+              <StatTile
+                value={Number(inspection.mean_length_mm ?? 0).toFixed(2)}
+                label={t("inspections:detail.summary.meanLength")}
+              />
+            </View>
+            <View className="flex-row gap-sm">
+              <StatTile
+                value={Number(inspection.mean_width_mm ?? 0).toFixed(2)}
+                label={t("inspections:detail.summary.meanWidth")}
+              />
+              <StatTile
+                value={Number(inspection.mean_area_mm2 ?? 0).toFixed(2)}
+                label={t("inspections:detail.summary.meanArea")}
+              />
+            </View>
+
+            <View className="gap-md">
+              <View className="flex-row items-end justify-between gap-md">
+                <View>
+                  <Text className="text-h2 font-medium text-fg-primary">
+                    {t("inspections:detail.perSeedTitle")}
+                  </Text>
+                  <Text className="text-caption text-fg-secondary">
+                    {t("inspections:detail.filteredSeedCount", {
+                      count: filteredSeeds.length,
+                      total: seeds.length,
+                    })}
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row flex-wrap gap-sm">
+                {gradeFilters.map((filter) => (
+                  <GradeFilterChip
+                    key={filter}
+                    label={
+                      filter === "all"
+                        ? t("inspections:detail.gradeFilterAll")
+                        : t(`inspections:seedGrade.${filter}`)
+                    }
+                    selected={gradeFilter === filter}
+                    onPress={() => setGradeFilter(filter)}
+                  />
+                ))}
+              </View>
             </View>
           </View>
-        ) : null}
-
-        <View className="flex-row gap-sm">
-          <StatTile
-            value={inspection.total_seeds}
-            label={t("inspections:detail.summary.totalSeeds")}
+        }
+        renderItem={({ item }) => (
+          <SeedCard
+            seed={item}
+            onPress={() => router.push(`/seed/${inspection.id}/${item.index}`)}
+            gradeLabel={t(`inspections:seedGrade.${item.grade}`)}
           />
-          <StatTile
-            value={Number(inspection.mean_length_mm ?? 0).toFixed(2)}
-            label={t("inspections:detail.summary.meanLength")}
-          />
-        </View>
-        <View className="flex-row gap-sm">
-          <StatTile
-            value={Number(inspection.mean_width_mm ?? 0).toFixed(2)}
-            label={t("inspections:detail.summary.meanWidth")}
-          />
-          <StatTile
-            value={Number(inspection.mean_area_mm2 ?? 0).toFixed(2)}
-            label={t("inspections:detail.summary.meanArea")}
-          />
-        </View>
-
-        <View>
-          <Text className="text-h2 font-medium text-fg-primary mb-md">
-            {t("inspections:detail.perSeedTitle")}
-          </Text>
-          <View className="flex-row flex-wrap gap-sm">
-            {seeds.map((s) => (
-              <Pressable
-                key={s.id}
-                onPress={() => router.push(`/seed/${inspection.id}/${s.index}`)}
-                className="basis-[31%] grow items-center gap-xs rounded-lg bg-bg-primary border border-line-tertiary px-md py-md"
-              >
-                <Text className="text-h2 font-medium text-fg-primary">{s.index}</Text>
-                <Pill tone={gradeToTone[s.grade]} label={t(`inspections:seedGrade.${s.grade}`)} />
-                <Text className="text-caption text-fg-secondary">
-                  {Number(s.length_mm).toFixed(1)} × {Number(s.width_mm).toFixed(1)} mm
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {policy.canDeleteInspection(inspection) ? (
-          <Button
-            variant="outline"
-            label={t("common:actions.delete")}
-            onPress={() =>
-              Alert.alert(t("common:actions.delete"), t("inspections:detail.deleteConfirm"), [
-                { text: t("common:actions.cancel"), style: "cancel" },
-                {
-                  text: t("common:actions.delete"),
-                  style: "destructive",
-                  onPress: async () => {
-                    await del.mutateAsync(inspection.id);
-                    router.back();
+        )}
+        ListFooterComponent={
+          policy.canDeleteInspection(inspection) ? (
+            <Button
+              variant="outline"
+              label={t("common:actions.delete")}
+              onPress={() =>
+                Alert.alert(t("common:actions.delete"), t("inspections:detail.deleteConfirm"), [
+                  { text: t("common:actions.cancel"), style: "cancel" },
+                  {
+                    text: t("common:actions.delete"),
+                    style: "destructive",
+                    onPress: async () => {
+                      await del.mutateAsync(inspection.id);
+                      router.back();
+                    },
                   },
-                },
-              ])
-            }
-          />
-        ) : null}
-      </ScrollView>
+                ])
+              }
+            />
+          ) : null
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -441,6 +487,58 @@ function MetadataRow({ label, value }: { label: string; value: string }) {
       <Text className="text-caption text-fg-secondary">{label}</Text>
       <Text className="text-caption text-fg-primary text-right flex-1">{value}</Text>
     </View>
+  );
+}
+
+function SeedCard({
+  seed,
+  gradeLabel,
+  onPress,
+}: {
+  seed: Seed;
+  gradeLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="items-center gap-xs rounded-lg bg-bg-primary border border-line-tertiary px-sm py-md"
+      style={{ flex: 1 }}
+    >
+      <Text className="text-h2 font-medium text-fg-primary">{seed.index}</Text>
+      <Pill tone={gradeToTone[seed.grade]} label={gradeLabel} />
+      <Text className="text-caption text-fg-secondary text-center">
+        {Number(seed.length_mm).toFixed(1)} × {Number(seed.width_mm).toFixed(1)} mm
+      </Text>
+    </Pressable>
+  );
+}
+
+function GradeFilterChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      className={`rounded-full border px-md py-xs ${
+        selected ? "border-brand bg-brand" : "border-line-tertiary bg-bg-primary"
+      }`}
+    >
+      <Text
+        className="text-caption font-medium"
+        style={{ color: selected ? "#FFFFFF" : "#1A1A1A" }}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 

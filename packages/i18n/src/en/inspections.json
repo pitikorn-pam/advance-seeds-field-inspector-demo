@@ -67,6 +67,8 @@
       "meanArea": "Mean area"
     },
     "perSeedTitle": "Per-seed measurements",
+    "gradeFilterAll": "All",
+    "filteredSeedCount": "{{count}} of {{total}} seeds",
     "deleteConfirm": "Delete this inspection? This cannot be undone.",
     "roiBadge": {
       "rect": "ROI · Rect",

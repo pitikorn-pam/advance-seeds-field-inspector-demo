@@ -32,8 +32,11 @@
 - [x] 3.3 Bump `@advance-seeds/types` to 0.2.0; consumers in dashboard + mobile typecheck without changes (dashboard doesn't use frames; mobile reuses the new types)
 - [x] 3.4 Add a unit test for `analyzeFrame` shape conformance (frame ref → result with bbox array) — `packages/types/src/analyzer.test.mjs`
 
-## 4. TFLite analyzer
+## 4. Real analyzer
 
+- [x] 4.0 Phase 1 classical analyzer: decode captured JPEGs, segment seed-like blobs, apply ROI, convert pixel dimensions to mm, and keep mock fallback for failed decode/segmentation
+- [x] 4.0a Cap classical analyzer pixel workload before segmentation and log decode/analyze timing for device tuning
+- [x] 4.0b Android ROI video exporter: burn Rect/Polygon/Circle ROI into recorded Live videos before upload/share/detail playback
 - [ ] 4.1 Export YOLOv11n to TFLite via Ultralytics CLI: `yolo export model=yolo11n.pt format=tflite imgsz=640`
 - [ ] 4.2 Place the resulting `yolo11n.tflite` at `apps/mobile/assets/models/yolo11n-seeds.tflite`
 - [ ] 4.3 Install `react-native-fast-tflite` and `vision-camera-resize-plugin`

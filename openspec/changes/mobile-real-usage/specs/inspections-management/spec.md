@@ -27,12 +27,31 @@ The mobile app SHALL allow an inspector to create a new inspection by selecting 
 - **AND** any temporary captured frame on disk is cleaned up
 
 ### Requirement: Real analysis via SeedAnalyzer adapter
-The mobile app SHALL produce inspection results through a `SeedAnalyzer` interface implemented by a real on-device inference engine — TFLite (cross-platform) or Core ML (iOS, Apple Neural Engine when available) — selected at runtime by `selectAnalyzer()`. The interface SHALL support both single-shot `analyze` (precise mode) and streaming `analyzeFrame` (live mode).
+The mobile app SHALL produce inspection results through a `SeedAnalyzer` interface. Phase 1 SHALL use an on-device classical analyzer for captured JPEG photos, segment seed-like blobs, apply the committed ROI, convert pixels to millimeters using the active calibration `pxPerMm`, and fall back to `MockSeedAnalyzer` only when decoding or segmentation cannot produce usable detections. Later TFLite/Core ML implementations SHALL keep the same interface.
 
 #### Scenario: Analyzer returns shape conformant with AnalysisResult
 - **WHEN** the live analyzer is invoked on a frame
 - **THEN** it returns `AnalysisFrameResult | null`
 - **AND** when non-null, the result includes `summary` (total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2) and `seeds` (per-seed bounding boxes + measurements + grade) — same field shape as single-shot `AnalysisResult`
+
+#### Scenario: Classical analyzer measures a captured photo
+- **GIVEN** a captured JPEG has two seed-like foreground blobs and calibration is locked at 10 px/mm
+- **WHEN** `ClassicalSeedAnalyzer.analyze()` runs
+- **THEN** it returns two `AnalyzedSeed` rows
+- **AND** each row's length, width, and area are converted from pixel measurements to millimeters using the supplied calibration
+- **AND** the result `analyzerId` is `classical-cv-v1`
+
+#### Scenario: Classical analyzer caps pixel workload
+- **GIVEN** a captured JPEG is wider than the configured analysis width cap
+- **WHEN** `ClassicalSeedAnalyzer.analyze()` runs
+- **THEN** the analyzer downscales the pixel buffer before segmentation
+- **AND** it adjusts `pxPerMm` by the same scale so millimeter measurements remain stable
+- **AND** it logs decode time, analysis time, total time, frame size, analysis size, and detected seed count
+
+#### Scenario: Classical analyzer applies ROI
+- **GIVEN** a committed ROI covers only part of the captured frame
+- **WHEN** photo analysis runs
+- **THEN** only seed detections whose bbox centroid is inside the ROI contribute to saved per-seed rows and summary values
 
 #### Scenario: TFLite analyzer is preferred when the model loads
 - **GIVEN** `apps/mobile/assets/models/yolo11n-seeds.tflite` is bundled
@@ -46,11 +65,11 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
 - **THEN** `selectAnalyzer()` prefers `CoreMLSeedAnalyzer` over Tflite
 - **AND** the registered analyzer ID is "coreml-yolo11n"
 
-#### Scenario: Mock fallback when no real analyzer is available
-- **GIVEN** the app cannot load the bundled model (file missing, GPU init fails)
-- **WHEN** `selectAnalyzer()` runs
+#### Scenario: Mock fallback when real analysis is unavailable
+- **GIVEN** the app cannot decode the captured image or the analyzer finds no usable seed-like blobs
+- **WHEN** `ClassicalSeedAnalyzer.analyze()` runs
 - **THEN** it falls back to `MockSeedAnalyzer` and logs a warning explaining the fallback
-- **AND** `analyzeFrame` still returns conformant results (deterministic mocks)
+- **AND** the result `analyzerId` includes the fallback analyzer ID for traceability
 
 ### Requirement: Inspection detail and per-seed view
 The mobile app SHALL show an inspection detail screen with the captured frame, summary measurements, a per-seed grid with bounding-box thumbnails cropped from the source image, and a tap-through to a full-screen per-seed detail view.
@@ -75,6 +94,25 @@ After capture, the mobile app SHALL show a Review screen with the captured frame
 - **THEN** the captured image is rendered with SVG bounding boxes for each detected seed
 - **AND** the summary shows total seeds + mean length/width/area
 - **AND** "Save" persists the inspection; "Discard" deletes the upload and returns to Setup
+
+#### Scenario: Result seed list is virtualized
+- **GIVEN** the analyzer returns many per-seed rows
+- **WHEN** the Inspection Result page renders
+- **THEN** the per-seed list uses a virtualized list with bounded initial render and batch sizes
+- **AND** scrolling loads additional seed rows lazily without blocking the initial result screen
+
+#### Scenario: Detail seed grid is virtualized and filterable
+- **GIVEN** an inspection has saved seeds across grades A, B, C, and reject
+- **WHEN** the Inspection Detail page renders
+- **THEN** the per-seed grid uses a virtualized multi-column list
+- **AND** grade chips let the user filter by All, A, B, C, or Reject
+- **AND** the filtered count is shown without changing saved inspection data
+
+#### Scenario: Android recorded video includes ROI overlay
+- **GIVEN** the user records Live capture on Android with a committed Rect, Polygon, or Circle ROI
+- **WHEN** processing uploads the recording
+- **THEN** the Android ROI video exporter creates an MP4 with the ROI drawn into the video frames before upload
+- **AND** the resulting Inspection Result, Inspection Detail, share, and Recordings playback use the annotated video
 
 ### Requirement: Inspection note and capture metadata
 The mobile app SHALL carry setup notes and capture metadata from Inspection Result into Inspection Detail for both photo and video captures.

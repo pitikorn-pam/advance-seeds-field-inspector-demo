@@ -8,7 +8,7 @@ interface RoiVideoExporterModule {
 let nativeModule: RoiVideoExporterModule | null | undefined;
 
 function getNativeModule() {
-  if (Platform.OS !== "ios") return null;
+  if (Platform.OS !== "ios" && Platform.OS !== "android") return null;
   if (nativeModule !== undefined) return nativeModule;
   try {
     // Loaded lazily so the JS bundle still works before the rebuilt dev
