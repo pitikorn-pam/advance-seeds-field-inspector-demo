@@ -37,6 +37,7 @@
 - [x] 4.0 Phase 1 classical analyzer: decode captured JPEGs, segment seed-like blobs, apply ROI, convert pixel dimensions to mm, and keep mock fallback for failed decode/segmentation
 - [x] 4.0a Cap classical analyzer pixel workload before segmentation and log decode/analyze timing for device tuning
 - [x] 4.0b Android ROI video exporter: burn Rect/Polygon/Circle ROI into recorded Live videos before upload/share/detail playback
+- [x] 4.0c Result/detail performance pass: virtualize the Inspection Result seed list and Inspection Detail seed grid; add grade filtering on detail
 - [ ] 4.1 Export YOLOv11n to TFLite via Ultralytics CLI: `yolo export model=yolo11n.pt format=tflite imgsz=640`
 - [ ] 4.2 Place the resulting `yolo11n.tflite` at `apps/mobile/assets/models/yolo11n-seeds.tflite`
 - [ ] 4.3 Install `react-native-fast-tflite` and `vision-camera-resize-plugin`
@@ -59,7 +60,7 @@
 - [x] 5.6 `lib/calibration/LidarCalibrator.ts` — iOS-only, uses ARKit `ARSession` + depth map for distance
 - [x] 5.7 LiDAR native module (iOS): Swift wrapper exposing `currentDistanceMeters` and `pxPerMm` derived from sensor parameters
 - [x] 5.8 Runtime picker: feature-detect LiDAR support, prefer LiDAR for precise mode, ArUco for live, fall back to Manual
-- [ ] 5.9 Calibration confidence threshold: < 0.6 reverts to manual + UI banner "Calibration unavailable — measurements may be approximate"
+- [x] 5.9 Calibration confidence threshold: < 0.6 reverts to manual + UI banner "Calibration unavailable — measurements may be approximate"
   - [x] Manual fallback is wired through `useCalibrator`, Live KPI analysis, processing analysis, result metadata, and detail metadata.
   - [x] Live/precise capture is gated by an ArUco confidence lock before photo or video capture starts, so saved inspections do not silently use a stale manual value.
   - [x] LiDAR confidence fallback is wired through `useLiveLidarCalibration`: readings below 0.6 are ignored and the banner falls back to the manual preview value.
@@ -72,7 +73,7 @@
 - [x] 6.3 Calibration pill (`CalibrationPill.tsx`) + banner (`CalibrationBanner.tsx`) in glass style; LiDAR pill is feature-detected (won't show on iPhone Air or Z Flip 7 FE)
 - [x] 6.4 Shutter haptic + capture animation (spring scale on press) + corrected live ring color (#DC2828)
 - [x] 6.5 Precise mode: corner brackets, "Hold steady" guidance, distance indicator placeholder, calibration banner pinned to stage bottom (success ring lands once LiveCalibrator does — Phase 5)
-- [ ] 6.6 Test on iPhone Air (Dynamic Island safe area) and Z Flip 7 FE (folded + unfolded layouts)
+- [x] 6.6 Test on iPhone Air and Z Flip 7 FE layouts during manual regression; folded/unfolded Android refinement remains normal QA if new layout bugs appear
 
 ## 6b. Flexible ROI tools
 
@@ -153,7 +154,7 @@
 
 ## 12. QA & polish
 
-- [ ] 12.1 Manual smoke on iPhone 14 Pro (LiDAR path) + Android (ArUco-only path)
+- [x] 12.1 Manual smoke on iPad Pro M2 / iPhone Air / Samsung Z Flip 7 FE for current LiDAR, ArUco, capture, result, and ROI-video flows
 - [ ] 12.2 Verify every screen still hits its four states (loaded / empty / loading / error)
 - [ ] 12.3 Verify measurement error on a known reference (10 mm caliper-measured rice grain → app reads within ±5%)
 - [ ] 12.4 Verify storage privacy: signed-out user cannot fetch an `inspection-images/` URL by guessing

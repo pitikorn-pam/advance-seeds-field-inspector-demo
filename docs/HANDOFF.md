@@ -1,8 +1,10 @@
 # Project Hand-off — Advance Seeds Field Inspector Demo
 
-**Status: production-shaped mobile demo (v0.3.0).** Mobile is a custom dev-client running on real camera hardware with prototype-faithful navigation, the three-step capture journey, ROI tools, video recording, snapshots to Photos, manual calibration, **in-app notifications**, **dropdown-search variety/batch pickers**, **auto-tag GPS location** on captures and recordings, and a polished Library tab. Web dashboard unchanged. ML is still mocked behind the same `SeedAnalyzer` interface — Phase 4 (TFLite) is the next planned uplift.
+**Status: production-shaped mobile demo (v0.3.x).** Mobile is a custom dev-client running on real camera hardware with prototype-faithful navigation, the three-step capture journey, ROI tools, video recording, snapshots to Photos, ArUco + LiDAR calibration, **in-app notifications**, **dropdown-search variety/batch pickers**, **auto-tag GPS location** on captures and recordings, and a polished Library tab. Web dashboard unchanged. ML Phase 1 now uses an on-device classical analyzer behind the `SeedAnalyzer` interface; Phase 2 TFLite/Core ML remains the next analyzer uplift.
 
-> **Working directory:** `~/Code/seed-demo`. Do **not** build from the iCloud path (`~/Library/Mobile Documents/...`) — Ruby's `require` breaks on the ZWJ emoji in the path, which kills `pod install`. See [Critical environment rules](#critical-environment-rules-read-before-any-rebuild).
+> **Working directory:** `/Users/ppungpong/Github/advance-seeds-field-inspector-demo`. Do **not** build from the iCloud path (`~/Library/Mobile Documents/...`) — Ruby's `require` breaks on the ZWJ emoji in the path, which kills `pod install`. See [Critical environment rules](#critical-environment-rules-read-before-any-rebuild).
+
+> **Current remaining-work hand-off:** see [`docs/REMAINING_HANDOFF_2026-04-30.md`](./REMAINING_HANDOFF_2026-04-30.md) for the latest phase list and a ready-to-paste prompt for the next AI agent.
 
 ---
 
