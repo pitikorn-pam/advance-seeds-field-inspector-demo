@@ -17,6 +17,12 @@ import { buildInspectionMetadata, locationDisplayName } from "@/lib/inspections/
 import { addQueueEntry } from "@/lib/sync/store";
 import { replaySyncQueue } from "@/lib/sync/replay";
 import { isQueueableSyncError, syncErrorMessage } from "@/lib/sync/errors";
+import {
+  buildInspectionSavePayload,
+  isLocalUri,
+  toInspectionQueuePayload,
+  type InspectionSavePayload,
+} from "@/lib/inspections/savePayload";
 import { useCreateInspection } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
 import { Button } from "@/components/ui/Button";
@@ -187,7 +193,6 @@ export default function CaptureReview() {
           session.set({ capturedLocation });
         }
       }
-      const trimmedNotes = session.notes.trim();
       const metadata = buildInspectionMetadata({
         roi: session.roi,
         mediaKind,
@@ -217,18 +222,18 @@ export default function CaptureReview() {
           captured_at: capturedAt,
         },
       });
-      const payload = {
-        inspector_id: profile.id,
-        variety_id: session.varietyId,
-        batch_id: session.batchId,
-        calibration_id:
+      const payload = buildInspectionSavePayload({
+        inspectorId: profile.id,
+        varietyId: session.varietyId,
+        batchId: session.batchId,
+        calibrationId:
           session.capturedCalibrationReading?.source === "manual" ? session.calibrationId : null,
-        image_url: session.uploadedImageUrl,
-        ...result.summary,
+        imageUrl: session.uploadedImageUrl,
+        summary: result.summary,
         seeds: result.seeds,
         metadata,
-        notes: trimmedNotes.length > 0 ? trimmedNotes : null,
-      };
+        notes: session.notes,
+      });
       if (isLocalUri(session.uploadedImageUrl)) {
         await enqueueInspection(payload);
         return;
@@ -250,15 +255,16 @@ export default function CaptureReview() {
       router.replace(`/inspections/${id}`);
     } catch (err) {
       if (isQueueableSyncError(err)) {
-        const trimmedNotes = session.notes.trim();
-        await enqueueInspection({
-          inspector_id: profile.id,
-          variety_id: session.varietyId,
-          batch_id: session.batchId,
-          calibration_id:
+        // Reuse the same payload + metadata that the optimistic save tried to
+        // persist so the queued retry produces an identical row server-side.
+        const fallbackPayload = buildInspectionSavePayload({
+          inspectorId: profile.id,
+          varietyId: session.varietyId,
+          batchId: session.batchId,
+          calibrationId:
             session.capturedCalibrationReading?.source === "manual" ? session.calibrationId : null,
-          image_url: session.uploadedImageUrl,
-          ...result.summary,
+          imageUrl: session.uploadedImageUrl,
+          summary: result.summary,
           seeds: result.seeds,
           metadata: buildInspectionMetadata({
             roi: session.roi,
@@ -289,8 +295,9 @@ export default function CaptureReview() {
               captured_at: capturedAt,
             },
           }),
-          notes: trimmedNotes.length > 0 ? trimmedNotes : null,
+          notes: session.notes,
         });
+        await enqueueInspection(fallbackPayload);
         return;
       }
       const reason = syncErrorMessage(err);
@@ -304,42 +311,15 @@ export default function CaptureReview() {
     }
   };
 
-  const enqueueInspection = async (payload: {
-    inspector_id: string;
-    variety_id: string;
-    batch_id: string | null;
-    calibration_id: string | null;
-    image_url: string;
-    total_seeds: number;
-    mean_length_mm: number;
-    mean_width_mm: number;
-    mean_area_mm2: number;
-    metadata: Record<string, unknown> | null;
-    notes: string | null;
-    seeds: typeof result.seeds;
-  }) => {
-    await addQueueEntry({
-      kind: "inspection",
-      data: {
-        inspector_id: payload.inspector_id,
-        variety_id: payload.variety_id,
-        batch_id: payload.batch_id,
-        calibration_id: payload.calibration_id,
-        local_media_uri:
-          mediaKind === "video"
-            ? (session.capturedVideoUri ?? payload.image_url)
-            : (session.capturedImageUri ?? payload.image_url),
-        remote_media_url: isLocalUri(payload.image_url) ? null : payload.image_url,
-        media_kind: mediaKind,
-        total_seeds: payload.total_seeds,
-        mean_length_mm: payload.mean_length_mm,
-        mean_width_mm: payload.mean_width_mm,
-        mean_area_mm2: payload.mean_area_mm2,
-        metadata: payload.metadata,
-        notes: payload.notes,
-        seeds: payload.seeds,
-      },
-    });
+  const enqueueInspection = async (payload: InspectionSavePayload) => {
+    await addQueueEntry(
+      toInspectionQueuePayload({
+        payload,
+        mediaKind,
+        localImageUri: session.capturedImageUri,
+        localVideoUri: session.capturedVideoUri,
+      }),
+    );
     notify({
       kind: "success",
       title: t("notifications:captureSaved.title"),
@@ -656,10 +636,6 @@ export default function CaptureReview() {
       </View>
     </SafeAreaView>
   );
-}
-
-function isLocalUri(uri: string): boolean {
-  return uri.startsWith("file://") || uri.startsWith("/");
 }
 
 function MetadataRow({ label, value }: { label: string; value: string }) {

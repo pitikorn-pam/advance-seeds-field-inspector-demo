@@ -5,7 +5,7 @@
 - [ ] 1.1 Add `@react-native-community/netinfo` if needed for connectivity detection.
 - [x] 1.2 Create `apps/mobile/lib/sync/types.ts` with queue entry, status, inspection payload, and recording payload types.
 - [x] 1.3 Create `apps/mobile/lib/sync/store.ts` backed by AsyncStorage with list/add/update/remove helpers.
-- [ ] 1.4 Add unit tests for queue state transitions and JSON serialization.
+- [x] 1.4 Add unit tests for queue state transitions and JSON serialization. Pure transitions live in `apps/mobile/lib/sync/store.ts` (mirrored to `transitions.mjs`); 11 tests in `transitions.test.mjs` cover add / update / remove / clear-failed / retry-all (failed + stale syncing) / mark-failed (attempts + error extraction) plus a JSON roundtrip guard for AsyncStorage persistence.
 - [x] 1.5 Add `useSyncQueue()` hook exposing counts, entries, retry, retry all, cancel, and clear failed.
 
 ## 2. Replay worker
@@ -19,7 +19,7 @@
 
 ## 3. Capture integration
 
-- [ ] 3.1 Refactor inspection save payload assembly out of `capture/review.tsx` into a reusable queue-safe helper.
+- [x] 3.1 Refactor inspection save payload assembly out of `capture/review.tsx` into a reusable queue-safe helper. New `apps/mobile/lib/inspections/savePayload.ts` exposes `buildInspectionSavePayload` (returns the row shape `useCreateInspection` accepts) + `toInspectionQueuePayload` (wraps it for `addQueueEntry`) + `isLocalUri`. Both happy-path and queueable-error paths now share the same assembly, and the `.mjs` mirror is covered by 8 tests in `savePayload.test.mjs`.
 - [ ] 3.2 On inspection save failure caused by network/service unavailability, enqueue the inspection and navigate to a pending detail state.
   - [x] Queueable network/service save failures now enqueue without showing the blocking error alert.
   - [ ] Pending detail navigation remains.
@@ -39,8 +39,10 @@
 
 ## 5. Verification
 
-- [ ] 5.1 Unit tests for sync store and replay payload handling.
+- [x] 5.1 Unit tests for sync store and replay payload handling.
   - [x] Queueable sync error classifier tests.
+  - [x] Queue state transitions in `transitions.test.mjs` (add / update / remove / clear-failed / retry-all / mark-failed / JSON roundtrip).
+  - [x] Save-payload assembly in `savePayload.test.mjs` (notes trimming, summary fold-in, queue wrapper local/remote URI handling, photo vs video media kind, fallback when both local URIs missing).
 - [x] 5.2 `pnpm -F @advance-seeds/mobile typecheck`
 - [x] 5.3 `pnpm -F @advance-seeds/mobile lint`
 - [x] 5.4 `pnpm -F @advance-seeds/i18n test`

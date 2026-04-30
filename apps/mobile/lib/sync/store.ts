@@ -42,10 +42,23 @@ export function useSyncQueueEntries(): SyncQueueEntry[] {
   return useSyncExternalStore(subscribe, snapshot, snapshot);
 }
 
+// ---- Pure transitions ---------------------------------------------------
+// Mirrored 1:1 in `transitions.mjs` for node-side unit tests. Keep the two
+// files in lockstep — node ESM can't resolve type-stripped TS without an
+// extension, so we duplicate rather than cross-import.
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function newId(): string {
+  return `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export async function addQueueEntry(payload: SyncQueuePayload): Promise<SyncQueueEntry> {
-  const now = new Date().toISOString();
+  const now = nowIso();
   const entry: SyncQueueEntry = {
-    id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    id: newId(),
     status: "pending",
     attempts: 0,
     createdAt: now,
@@ -65,9 +78,7 @@ export async function updateQueueEntry(
 ): Promise<void> {
   const current = await ensureQueueLoaded();
   await persist(
-    current.map((entry) =>
-      entry.id === id ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry,
-    ),
+    current.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: nowIso() } : entry)),
   );
 }
 
@@ -87,10 +98,11 @@ export async function clearFailedQueueEntries(): Promise<void> {
 // processes pending+failed.
 export async function retryAllFailedQueueEntries(): Promise<void> {
   const current = await ensureQueueLoaded();
+  const now = nowIso();
   await persist(
     current.map((entry) =>
       entry.status === "failed" || entry.status === "syncing"
-        ? { ...entry, status: "pending", lastError: null, updatedAt: new Date().toISOString() }
+        ? { ...entry, status: "pending" as SyncQueueStatus, lastError: null, updatedAt: now }
         : entry,
     ),
   );
@@ -98,15 +110,24 @@ export async function retryAllFailedQueueEntries(): Promise<void> {
 
 export async function markQueueEntryFailed(id: string, error: unknown): Promise<void> {
   const current = await ensureQueueLoaded();
-  const entry = current.find((row) => row.id === id);
-  await updateQueueEntry(id, {
-    status: "failed",
-    attempts: (entry?.attempts ?? 0) + 1,
-    lastError: syncErrorMessage(error),
-  });
+  const message = syncErrorMessage(error);
+  const now = nowIso();
+  await persist(
+    current.map((entry) =>
+      entry.id === id
+        ? {
+            ...entry,
+            status: "failed" as SyncQueueStatus,
+            attempts: entry.attempts + 1,
+            lastError: message,
+            updatedAt: now,
+          }
+        : entry,
+    ),
+  );
 }
 
-function syncErrorMessage(error: unknown): string {
+export function syncErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object") {
     const record = error as Record<string, unknown>;
