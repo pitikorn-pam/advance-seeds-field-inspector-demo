@@ -1,12 +1,10 @@
 import { Tabs } from "expo-router";
-import { View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { Camera, Home, MoreHorizontal, Sprout } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type TabGlyphKind = "home" | "camera" | "library" | "more";
+type TabGlyphKind = "home" | "inspect" | "varieties" | "more";
 
 export default function TabsLayout() {
-  const { t } = useTranslation(["common", "varieties"]);
   const insets = useSafeAreaInsets();
 
   // Android gesture navigation reports its inset via insets.bottom. Hardcoding
@@ -30,28 +28,28 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t("common:nav.home"),
+          title: "Home",
           tabBarIcon: ({ color, size }) => <TabGlyph kind="home" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="camera"
+        name="inspect"
         options={{
-          title: t("common:nav.inspect"),
-          tabBarIcon: ({ color, size }) => <TabGlyph kind="camera" color={color} size={size} />,
+          title: "Inspect",
+          tabBarIcon: ({ color, size }) => <TabGlyph kind="inspect" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="library"
+        name="varieties"
         options={{
-          title: t("varieties:title"),
-          tabBarIcon: ({ color, size }) => <TabGlyph kind="library" color={color} size={size} />,
+          title: "Varieties",
+          tabBarIcon: ({ color, size }) => <TabGlyph kind="varieties" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
-          title: t("common:nav.more"),
+          title: "More",
           tabBarIcon: ({ color, size }) => <TabGlyph kind="more" color={color} size={size} />,
         }}
       />
@@ -60,106 +58,13 @@ export default function TabsLayout() {
 }
 
 function TabGlyph({ kind, color, size }: { kind: TabGlyphKind; color: string; size: number }) {
-  if (kind === "more") {
-    return (
-      <View
-        className="flex-row items-center justify-center gap-[3px]"
-        style={{ width: size, height: size }}
-      >
-        {[0, 1, 2].map((index) => (
-          <View
-            key={index}
-            style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: color }}
-          />
-        ))}
-      </View>
-    );
-  }
+  const iconSize = Math.max(size - 2, 20);
+  const strokeWidth = 2.1;
 
-  if (kind === "camera") {
-    return (
-      <View className="items-center justify-center" style={{ width: size, height: size }}>
-        <View
-          style={{
-            width: size * 0.82,
-            height: size * 0.58,
-            borderWidth: 2,
-            borderColor: color,
-            borderRadius: 5,
-          }}
-        >
-          <View
-            style={{
-              position: "absolute",
-              top: -5,
-              left: size * 0.18,
-              width: size * 0.32,
-              height: 5,
-              borderTopLeftRadius: 4,
-              borderTopRightRadius: 4,
-              backgroundColor: color,
-            }}
-          />
-          <View
-            style={{
-              position: "absolute",
-              alignSelf: "center",
-              top: size * 0.11,
-              width: size * 0.22,
-              height: size * 0.22,
-              borderRadius: size * 0.11,
-              backgroundColor: color,
-            }}
-          />
-        </View>
-      </View>
-    );
-  }
-
-  if (kind === "library") {
-    return (
-      <View className="items-center justify-center gap-[2px]" style={{ width: size, height: size }}>
-        {[0, 1, 2].map((index) => (
-          <View
-            key={index}
-            style={{
-              width: size * 0.72,
-              height: 3,
-              borderRadius: 2,
-              backgroundColor: color,
-              opacity: 1 - index * 0.16,
-            }}
-          />
-        ))}
-      </View>
-    );
-  }
-
-  return (
-    <View className="items-center justify-center" style={{ width: size, height: size }}>
-      <View
-        style={{
-          width: size * 0.74,
-          height: size * 0.56,
-          borderWidth: 2,
-          borderColor: color,
-          borderRadius: 4,
-        }}
-      >
-        <View
-          style={{
-            position: "absolute",
-            top: -7,
-            left: size * 0.13,
-            width: size * 0.42,
-            height: size * 0.42,
-            borderLeftWidth: 2,
-            borderTopWidth: 2,
-            borderColor: color,
-            transform: [{ rotate: "45deg" }],
-          }}
-        />
-      </View>
-    </View>
-  );
+  if (kind === "inspect") return <Camera color={color} size={iconSize} strokeWidth={strokeWidth} />;
+  if (kind === "varieties")
+    return <Sprout color={color} size={iconSize} strokeWidth={strokeWidth} />;
+  if (kind === "more")
+    return <MoreHorizontal color={color} size={iconSize} strokeWidth={strokeWidth} />;
+  return <Home color={color} size={iconSize} strokeWidth={strokeWidth} />;
 }

@@ -186,11 +186,7 @@ export default function InspectionDetail() {
 
         {mediaUrl ? (
           <View className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
-            <CaptureMediaPreview
-              uri={mediaUrl}
-              kind={captureMedia.kind}
-              roi={captureMedia.kind === "photo" ? roi : null}
-            />
+            <CaptureMediaPreview uri={mediaUrl} kind={captureMedia.kind} roi={roi} />
           </View>
         ) : null}
 

@@ -21,16 +21,22 @@ The mobile app SHALL expose a `LiveCalibrator` interface that observes camera fr
 On iOS devices with a LiDAR sensor, the mobile app SHALL provide a `LidarCalibrator` that derives `pxPerMm` from depth + camera intrinsics.
 
 #### Scenario: LiDAR locks at 28 cm distance
-- **GIVEN** the user is in precise mode on an iPhone 12 Pro+
+- **GIVEN** the user is in precise mode on an iPhone or iPad with a LiDAR sensor
 - **WHEN** they hold the device 28 cm above a tray
-- **THEN** the calibration pill shows "LiDAR locked / 24.7 px/mm at 28 cm"
-- **AND** confidence is ≥ 0.8
+- **THEN** the calibration banner shows "Calibration locked" with a LiDAR-derived px/mm value and "28 cm"
+- **AND** confidence is ≥ 0.6
 
 #### Scenario: LiDAR unsupported — calibrator is not registered
 - **GIVEN** a device without a LiDAR sensor (iPhone < 12 Pro, all Android)
 - **WHEN** the calibrator picker runs at startup
 - **THEN** `LidarCalibrator` is NOT registered
 - **AND** the picker falls back to ArUco or Manual
+
+#### Scenario: LiDAR cannot lock on a supported iOS device
+- **GIVEN** the user is in precise mode on an iOS device with LiDAR
+- **WHEN** ARKit scene depth is unavailable or confidence is below 0.6
+- **THEN** the shutter remains gated by automatic calibration
+- **AND** the calibration banner falls back to the selected manual profile as an approximate preview value
 
 ### Requirement: ArUco marker calibration cross-platform
 The mobile app SHALL provide an `ArucoCalibrator` that detects a 5 cm × 5 cm ArUco marker (DICT_4X4_50, marker ID 0) in camera frames and computes `pxPerMm` from its pixel size.

@@ -150,6 +150,9 @@ importers:
       '@advance-seeds/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@advance-seeds/lidar-calibrator':
+        specifier: file:./modules/lidar-calibrator
+        version: file:apps/mobile/modules/lidar-calibrator(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))
       '@advance-seeds/roi-video-exporter':
         specifier: file:./modules/roi-video-exporter
         version: file:apps/mobile/modules/roi-video-exporter(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))
@@ -343,6 +346,12 @@ packages:
 
   '@advance-seeds/aruco-calibrator@file:apps/mobile/modules/aruco-calibrator':
     resolution: {directory: apps/mobile/modules/aruco-calibrator, type: directory}
+    peerDependencies:
+      expo: '*'
+      react-native: '*'
+
+  '@advance-seeds/lidar-calibrator@file:apps/mobile/modules/lidar-calibrator':
+    resolution: {directory: apps/mobile/modules/lidar-calibrator, type: directory}
     peerDependencies:
       expo: '*'
       react-native: '*'
@@ -6351,6 +6360,11 @@ snapshots:
       graphql: 16.8.1
 
   '@advance-seeds/aruco-calibrator@file:apps/mobile/modules/aruco-calibrator(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))':
+    dependencies:
+      expo: 54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(graphql@16.8.1)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
+      react-native: 0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0)
+
+  '@advance-seeds/lidar-calibrator@file:apps/mobile/modules/lidar-calibrator(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))':
     dependencies:
       expo: 54.0.33(@babel/core@7.29.0)(@expo/metro-runtime@6.1.2)(expo-router@6.0.23)(graphql@16.8.1)(react-native@0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
       react-native: 0.81.5(@babel/core@7.29.0)(@react-native-community/cli@13.6.9)(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.1.0)

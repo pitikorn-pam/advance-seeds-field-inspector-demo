@@ -23,7 +23,7 @@ interface Props {
  * line, chevron. Tapping a row routes to the inspection detail.
  *
  * Variety tint comes from `color_key` (corn/rice/legume/mungbean) — the
- * same tokens used by the Library tab. Defaulting to the rice tint when
+ * same tokens used by the varieties tab. Defaulting to the rice tint when
  * `color_key` is unset keeps the row readable on imported data.
  *
  * The "View all" link lives here (not separately) because it's logically

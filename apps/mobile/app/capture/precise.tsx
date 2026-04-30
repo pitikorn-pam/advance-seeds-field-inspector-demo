@@ -13,19 +13,18 @@ import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
+import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
 
 /**
  * Precise capture mode.
  *
  * Adds corner brackets, "Hold steady" guidance, distance indicator, and a
- * calibration banner pinned to the bottom of the camera stage. Today the
- * banner shows "Calibration unavailable" because LiveCalibrator (Phase 5)
- * isn't wired yet — the layout is exact so Phase 5 just provides a real
- * `CalibrationReading` object.
+ * calibration banner pinned to the bottom of the camera stage. Precise mode
+ * prefers iOS LiDAR scene-depth scale on supported devices, then falls back to
+ * ArUco if the device has no LiDAR or LiDAR cannot lock.
  *
- * The shutter now requires an automatic ArUco lock. Manual calibration still
- * feeds preview estimates, but persisted inspection measurements only proceed
- * once a visible reference card has produced a live px/mm reading.
+ * Manual calibration still feeds preview estimates, but persisted inspection
+ * measurements only proceed once an automatic calibration source locks.
  *
  * Camera controls (flash / flip / grid) mirror scan mode but live as local
  * state — there's no value carrying them across modes.
@@ -41,9 +40,13 @@ export default function CapturePrecise() {
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
   const calibrator = useCalibrator();
-  const liveAruco = useLiveArucoCalibration(cameraActive && position === "back");
-  const activeCalibration = liveAruco.result?.reading ?? calibrator.reading;
-  const activeCalibrationProfileName = liveAruco.result ? null : calibrator.profileName;
+  const liveLidar = useLiveLidarCalibration(cameraActive && position === "back");
+  const liveAruco = useLiveArucoCalibration(
+    cameraActive && position === "back" && liveLidar.supported !== true,
+  );
+  const automaticCalibration = liveLidar.result ?? liveAruco.result;
+  const activeCalibration = automaticCalibration?.reading ?? calibrator.reading;
+  const activeCalibrationProfileName = automaticCalibration ? null : calibrator.profileName;
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
@@ -81,7 +84,7 @@ export default function CapturePrecise() {
   };
 
   const ensureCalibrationLock = () => {
-    if (liveAruco.locked && liveAruco.result) {
+    if ((liveLidar.locked && liveLidar.result) || (liveAruco.locked && liveAruco.result)) {
       return true;
     }
     Alert.alert(
@@ -121,7 +124,7 @@ export default function CapturePrecise() {
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
-        capturedCalibrationReading: liveAruco.result?.reading ?? null,
+        capturedCalibrationReading: automaticCalibration?.reading ?? null,
         capturedCalibrationProfileName: null,
       });
 
@@ -171,9 +174,9 @@ export default function CapturePrecise() {
               className="text-white/85 mt-xs font-medium"
               style={{ fontSize: 28, letterSpacing: -0.6 }}
             >
-              {liveAruco.locked
+              {automaticCalibration
                 ? t("inspections:capture.calibration.lockedHintBare", {
-                    pxPerMm: liveAruco.result?.reading.pxPerMm.toFixed(1),
+                    pxPerMm: automaticCalibration.reading.pxPerMm.toFixed(1),
                   })
                 : t("inspections:capture.precise.distanceUnknown")}
             </Text>
@@ -183,7 +186,7 @@ export default function CapturePrecise() {
             <CalibrationBanner
               reading={activeCalibration}
               profileName={activeCalibrationProfileName}
-              distanceLabel={calibrator.distanceLabel}
+              distanceLabel={liveLidar.distanceLabel ?? calibrator.distanceLabel}
             />
           </View>
 

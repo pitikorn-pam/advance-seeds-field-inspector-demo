@@ -4,7 +4,7 @@
 TBD - created by archiving change prototype-fidelity-pass. Update Purpose after archive.
 ## Requirements
 ### Requirement: Bottom tab bar with four destinations
-The mobile app SHALL render a bottom tab bar with exactly four destinations in this order: Home, Camera, Library, More. The Camera tab uses a camera icon; the More tab uses an overflow / horizontal-dots icon.
+The mobile app SHALL render a bottom tab bar with exactly four destinations in this order: Home, Inspect, Varieties, More. The Inspect tab uses a camera icon; the More tab uses an overflow / horizontal-dots icon.
 
 #### Scenario: Tab bar visible after sign-in
 - **GIVEN** Jane is signed in and lands on /(tabs)
@@ -12,8 +12,8 @@ The mobile app SHALL render a bottom tab bar with exactly four destinations in t
 - **THEN** the bottom bar shows four tabs in order: Home, Camera, Library, More
 - **AND** the active tab's icon and label are tinted with the brand color
 
-#### Scenario: Camera tab opens capture setup
-- **WHEN** Jane taps the Camera tab from any other tab
+#### Scenario: Inspect tab opens capture setup
+- **WHEN** Jane taps the Inspect tab from any other tab
 - **THEN** she lands on /capture/setup
 - **AND** the capture session is reset to defaults if it was empty, or preserved if she had values mid-flow
 
@@ -35,11 +35,11 @@ The /more screen SHALL render four sections — Manage, Reference, Insights, App
 - **THEN** the auth session is cleared via supabase.signOut()
 - **AND** she is routed to /login
 
-### Requirement: Capture entry from Camera tab and Home CTA
-The mobile app SHALL provide two entry points to the capture flow: the Camera tab in the bottom bar, and a primary CTA on the Home screen labeled "+ New inspection".
+### Requirement: Capture entry from Inspect tab and Home CTA
+The mobile app SHALL provide two entry points to the capture flow: the Inspect tab in the bottom bar, and a primary CTA on the Home screen labeled "+ New inspection".
 
-#### Scenario: Home CTA matches Camera tab destination
-- **WHEN** Jane taps either the Home "+ New inspection" CTA or the Camera tab
+#### Scenario: Home CTA matches Inspect tab destination
+- **WHEN** Jane taps either the Home "+ New inspection" CTA or the Inspect tab
 - **THEN** she lands on /capture/setup with the same initial state
 
 ### Requirement: Three-step capture flow
@@ -66,7 +66,7 @@ The /capture/setup screen's variety selector SHALL open the Library in selection
 
 #### Scenario: Variety selector opens Library
 - **WHEN** Jane taps the variety field on /capture/setup
-- **THEN** /(tabs)/library opens with `?select=variety` and shows the same family-segmented sections
+- **THEN** /(tabs)/varieties opens with `?select=variety` and shows the same family-segmented sections
 - **WHEN** she taps a variety row
 - **THEN** Library dismisses and /capture/setup shows the chosen variety in the selector with name and reference dimensions
 
@@ -85,4 +85,3 @@ The Home screen SHALL show, in vertical order: a greeting line, a hero card with
 - **THEN** the hero card shows "Today: 0" with a yesterday recap underneath
 - **AND** the recent list still renders the most recent prior inspections (not necessarily today's)
 - **AND** the "+ New inspection" CTA is unchanged
-

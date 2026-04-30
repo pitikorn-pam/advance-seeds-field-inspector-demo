@@ -19,7 +19,7 @@ import { Card } from "@/components/ui/Card";
 /**
  * More screen — secondary navigation hub.
  *
- * Tab bar holds Home / Camera / Library / More. Everything that doesn't fit
+ * Tab bar holds Home / Inspect / Varieties / More. Everything that doesn't fit
  * those four primary destinations lives here, grouped semantically:
  *
  *   Account    — personal: Profile, Settings, Sign out

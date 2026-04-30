@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import type { GestureResponderEvent, LayoutChangeEvent } from "react-native";
+import { Plus, Trash2 } from "lucide-react-native";
 import Svg, { Rect, Polygon, Circle as SvgCircle, Polyline } from "react-native-svg";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
 
@@ -38,6 +39,7 @@ const STROKE_WIDTH = 2;
  */
 export function RoiOverlay({ drawingTool, roi, onRoi }: Props) {
   const [layout, setLayout] = useState({ width: 0, height: 0 });
+  const [selectedPolygonVertex, setSelectedPolygonVertex] = useState<number | null>(null);
   // Live drag state — separate from the committed roi so the user sees the
   // shape grow during a drag without committing on every move.
   const [draft, setDraft] = useState<Roi | null>(null);
@@ -57,6 +59,7 @@ export function RoiOverlay({ drawingTool, roi, onRoi }: Props) {
 
   const handleStart = (e: GestureResponderEvent): boolean => {
     if (!drawingTool || layout.width === 0) return false;
+    setSelectedPolygonVertex(null);
     const p = norm(e);
     dragStartRef.current = p;
     if (drawingTool === "rect") {
@@ -128,7 +131,15 @@ export function RoiOverlay({ drawingTool, roi, onRoi }: Props) {
           {renderShape(visible, layout.width, layout.height)}
         </Svg>
       ) : null}
-      {showHandles && roi ? <RoiHandles roi={roi} layout={layout} onUpdate={onRoi} /> : null}
+      {showHandles && roi ? (
+        <RoiHandles
+          roi={roi}
+          layout={layout}
+          selectedPolygonVertex={selectedPolygonVertex}
+          onSelectPolygonVertex={setSelectedPolygonVertex}
+          onUpdate={onRoi}
+        />
+      ) : null}
     </View>
   );
 }
@@ -136,15 +147,31 @@ export function RoiOverlay({ drawingTool, roi, onRoi }: Props) {
 interface RoiHandlesProps {
   roi: Roi;
   layout: { width: number; height: number };
+  selectedPolygonVertex: number | null;
+  onSelectPolygonVertex: (index: number | null) => void;
   onUpdate: (roi: Roi) => void;
 }
 
-function RoiHandles({ roi, layout, onUpdate }: RoiHandlesProps) {
+function RoiHandles({
+  roi,
+  layout,
+  selectedPolygonVertex,
+  onSelectPolygonVertex,
+  onUpdate,
+}: RoiHandlesProps) {
   switch (roi.kind) {
     case "rect":
       return <RectHandles roi={roi} layout={layout} onUpdate={onUpdate} />;
     case "polygon":
-      return roi.closed ? <PolygonHandles roi={roi} layout={layout} onUpdate={onUpdate} /> : null;
+      return roi.closed ? (
+        <PolygonHandles
+          roi={roi}
+          layout={layout}
+          selectedVertex={selectedPolygonVertex}
+          onSelectVertex={onSelectPolygonVertex}
+          onUpdate={onUpdate}
+        />
+      ) : null;
     case "circle":
       return <CircleHandles roi={roi} layout={layout} onUpdate={onUpdate} />;
   }
@@ -213,17 +240,50 @@ function updateRectCorner(
 interface PolygonHandlesProps {
   roi: Extract<Roi, { kind: "polygon" }>;
   layout: { width: number; height: number };
+  selectedVertex: number | null;
+  onSelectVertex: (index: number | null) => void;
   onUpdate: (roi: Roi) => void;
 }
 
-function PolygonHandles({ roi, layout, onUpdate }: PolygonHandlesProps) {
+function PolygonHandles({
+  roi,
+  layout,
+  selectedVertex,
+  onSelectVertex,
+  onUpdate,
+}: PolygonHandlesProps) {
+  const selectedPoint =
+    selectedVertex !== null && roi.points[selectedVertex] ? roi.points[selectedVertex] : null;
+
   return (
     <>
+      {roi.points.map((point, index) => {
+        const next = roi.points[(index + 1) % roi.points.length];
+        const midpoint = {
+          x: (point.x + next.x) / 2,
+          y: (point.y + next.y) / 2,
+        };
+        return (
+          <EdgeAddHandle
+            key={`edge-${index}`}
+            x={midpoint.x * layout.width}
+            y={midpoint.y * layout.height}
+            onPress={() => {
+              const points = [...roi.points];
+              points.splice(index + 1, 0, midpoint);
+              onSelectVertex(index + 1);
+              onUpdate({ ...roi, points });
+            }}
+          />
+        );
+      })}
       {roi.points.map((point, index) => (
         <HandleDot
           key={index}
           x={point.x * layout.width}
           y={point.y * layout.height}
+          selected={selectedVertex === index}
+          onPress={() => onSelectVertex(selectedVertex === index ? null : index)}
           onMove={(dxPx, dyPx) => {
             const dx = dxPx / layout.width;
             const dy = dyPx / layout.height;
@@ -234,6 +294,17 @@ function PolygonHandles({ roi, layout, onUpdate }: PolygonHandlesProps) {
           }}
         />
       ))}
+      {selectedPoint && roi.points.length > 3 ? (
+        <VertexAction
+          x={selectedPoint.x * layout.width}
+          y={selectedPoint.y * layout.height}
+          onDelete={() => {
+            const points = roi.points.filter((_, index) => index !== selectedVertex);
+            onSelectVertex(null);
+            onUpdate({ ...roi, points });
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -284,6 +355,8 @@ function clamp01(value: number): number {
 interface HandleDotProps {
   x: number;
   y: number;
+  selected?: boolean;
+  onPress?: () => void;
   onMove: (dxPx: number, dyPx: number) => void;
 }
 
@@ -293,8 +366,9 @@ interface HandleDotProps {
  * outer hit area is 32 × 32 px for fingertip ergonomics; the visible
  * dot is 14 px so it doesn't dominate the shape it's editing.
  */
-function HandleDot({ x, y, onMove }: HandleDotProps) {
+function HandleDot({ x, y, selected = false, onPress, onMove }: HandleDotProps) {
   const lastRef = useRef<{ pageX: number; pageY: number } | null>(null);
+  const movedRef = useRef(false);
   const HIT = 32;
   const DOT = 14;
 
@@ -302,6 +376,7 @@ function HandleDot({ x, y, onMove }: HandleDotProps) {
     <View
       onStartShouldSetResponder={(e) => {
         lastRef.current = { pageX: e.nativeEvent.pageX, pageY: e.nativeEvent.pageY };
+        movedRef.current = false;
         return true;
       }}
       // Returning true here also captures move events that started on
@@ -313,14 +388,18 @@ function HandleDot({ x, y, onMove }: HandleDotProps) {
         if (!last) return;
         const dx = e.nativeEvent.pageX - last.pageX;
         const dy = e.nativeEvent.pageY - last.pageY;
+        if (Math.abs(dx) + Math.abs(dy) > 2) movedRef.current = true;
         lastRef.current = { pageX: e.nativeEvent.pageX, pageY: e.nativeEvent.pageY };
         onMove(dx, dy);
       }}
       onResponderRelease={() => {
+        if (!movedRef.current) onPress?.();
         lastRef.current = null;
+        movedRef.current = false;
       }}
       onResponderTerminate={() => {
         lastRef.current = null;
+        movedRef.current = false;
       }}
       style={{
         position: "absolute",
@@ -337,12 +416,74 @@ function HandleDot({ x, y, onMove }: HandleDotProps) {
           width: DOT,
           height: DOT,
           borderRadius: DOT / 2,
-          backgroundColor: STROKE,
+          backgroundColor: selected ? "white" : STROKE,
           borderWidth: 2,
-          borderColor: "white",
+          borderColor: selected ? STROKE : "white",
         }}
       />
     </View>
+  );
+}
+
+function EdgeAddHandle({ x, y, onPress }: { x: number; y: number; onPress: () => void }) {
+  const HIT = 30;
+  const DOT = 18;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Add polygon vertex"
+      onPress={onPress}
+      style={{
+        position: "absolute",
+        left: x - HIT / 2,
+        top: y - HIT / 2,
+        width: HIT,
+        height: HIT,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          width: DOT,
+          height: DOT,
+          borderRadius: DOT / 2,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "rgba(0,0,0,0.65)",
+          borderWidth: 1,
+          borderColor: STROKE,
+        }}
+      >
+        <Plus color={STROKE} size={12} strokeWidth={2.5} />
+      </View>
+    </Pressable>
+  );
+}
+
+function VertexAction({ x, y, onDelete }: { x: number; y: number; onDelete: () => void }) {
+  const SIZE = 36;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Delete polygon vertex"
+      onPress={onDelete}
+      style={{
+        position: "absolute",
+        left: Math.max(6, x - SIZE / 2),
+        top: Math.max(6, y - 52),
+        width: SIZE,
+        height: SIZE,
+        borderRadius: SIZE / 2,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.72)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.38)",
+      }}
+    >
+      <Trash2 color="white" size={16} />
+    </Pressable>
   );
 }
 

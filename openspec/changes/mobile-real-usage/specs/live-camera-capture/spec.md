@@ -94,10 +94,12 @@ The mobile app SHALL allow the user to draw an ROI on the live preview using rec
 - **AND** after the rectangle is committed, dragging a corner handle updates the existing rectangle without clearing the ROI
 
 #### Scenario: Polygon ROI
-- **WHEN** the user picks the polygon tool, taps to add vertices, then double-taps to close the shape
+- **WHEN** the user picks the polygon tool, taps to add vertices, then taps Close to close the shape
 - **THEN** the polygon overlay closes and is rendered with draggable vertex handles
 - **AND** point-in-polygon test gates the KPI counter
 - **AND** after the polygon is committed, dragging a vertex handle updates that vertex while preserving a valid closed polygon
+- **AND** tapping an edge midpoint adds a new vertex on that edge
+- **AND** selecting a vertex exposes a delete action when the polygon would still have at least 3 vertices
 
 #### Scenario: Circle ROI
 - **WHEN** the user picks the circle tool, taps a center point, and drags outward to set the radius

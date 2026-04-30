@@ -15,7 +15,7 @@ interface Props<T extends string> {
    * Visual style. "filled" (default) gives both states a fill — the legacy
    * look used by the History tab. "tag" gives the selected option a brand
    * fill and unselected options a frame-only outline, so the active pick
-   * reads as one highlighted tag among ghosts. The Library tab uses "tag"
+   * reads as one highlighted tag among ghosts. The varieties tab uses "tag"
    * because it's the only filter that the user explicitly described as a
    * tag-style button group.
    */

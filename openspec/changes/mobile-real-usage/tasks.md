@@ -53,13 +53,13 @@
   - [x] Live Android frame-processor ArUco readings are wired through Vision Camera with the same plugin name and result contract as iOS.
 - [x] 5.4 ArUco native module (iOS): wrap OpenCV's iOS framework via a small Swift Expo Module
 - [x] 5.5 ArUco native module (Android): wrap OpenCV Android via a Kotlin Expo Module, including captured-image detection and live Vision Camera frame-processor detection.
-- [ ] 5.6 `lib/calibration/LidarCalibrator.ts` — iOS-only, uses ARKit `ARSession` + depth map for distance
-- [ ] 5.7 LiDAR native module (iOS): Swift wrapper exposing `currentDistanceMeters` and `pxPerMm` derived from sensor parameters
-- [ ] 5.8 `lib/calibration/selectCalibrator.ts` runtime picker: feature-detect LiDAR support, prefer LiDAR for precise mode, ArUco for live, fall back to Manual
+- [x] 5.6 `lib/calibration/LidarCalibrator.ts` — iOS-only, uses ARKit `ARSession` + depth map for distance
+- [x] 5.7 LiDAR native module (iOS): Swift wrapper exposing `currentDistanceMeters` and `pxPerMm` derived from sensor parameters
+- [x] 5.8 Runtime picker: feature-detect LiDAR support, prefer LiDAR for precise mode, ArUco for live, fall back to Manual
 - [ ] 5.9 Calibration confidence threshold: < 0.6 reverts to manual + UI banner "Calibration unavailable — measurements may be approximate"
   - [x] Manual fallback is wired through `useCalibrator`, Live KPI analysis, processing analysis, result metadata, and detail metadata.
   - [x] Live/precise capture is gated by an ArUco confidence lock before photo or video capture starts, so saved inspections do not silently use a stale manual value.
-  - [ ] LiDAR confidence fallback remains pending with the native LiDAR calibrator.
+  - [x] LiDAR confidence fallback is wired through `useLiveLidarCalibration`: readings below 0.6 are ignored and the banner falls back to the manual preview value.
 - [x] 5.10 Author the printable ArUco reference card PDF at `docs/calibration/aruco-5cm.pdf`
 
 ## 6. Camera UI build-out (prototype fidelity)
@@ -84,9 +84,9 @@
 - [x] 6b.9 ROI auto-clears on new session via the existing `session.reset()` after Save and sync — no separate reset path needed since ROI lives on the capture session
 - [x] 6b.10 Rectangle ROI re-edit: committed rectangle exposes four corner handles; dragging any handle updates the existing ROI instead of forcing clear + redraw.
 - [x] 6b.11 Polygon ROI re-edit: committed polygon exposes draggable vertex handles; dragging a vertex updates that point while preserving closure.
-- [ ] 6b.12 Polygon ROI edit actions: selected polygon supports adding a vertex on an edge and deleting a selected vertex while preserving a valid closed polygon with ≥ 3 vertices.
+- [x] 6b.12 Polygon ROI edit actions: selected polygon supports adding a vertex on an edge and deleting a selected vertex while preserving a valid closed polygon with ≥ 3 vertices.
 - [x] 6b.13 Circle ROI re-edit: committed circle exposes a center handle for move and an edge handle for radius resize.
-- [ ] 6b.14 ROI edit QA: verify rectangle, polygon, and circle edits update KPI filtering, save to inspection metadata, and render correctly on result/detail/share media.
+- [x] 6b.14 ROI edit QA: verify rectangle, polygon, and circle edits update KPI filtering, save to inspection metadata, and render correctly on result/detail/share media.
 
 ## 7. Processing & review screens
 

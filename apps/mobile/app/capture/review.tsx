@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useCaptureSession } from "@/lib/capture/session";
 import { getCurrentLocation } from "@/lib/capture/location";
+import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
 import { shareImageWithRoi, shareVideo } from "@/lib/capture/imageActions";
 import { displayInspectionNote } from "@/lib/inspections/notes";
 import { buildInspectionMetadata, locationDisplayName } from "@/lib/inspections/metadata";
@@ -122,7 +123,7 @@ export default function CaptureReview() {
   const avgLen = result.summary.mean_length_mm;
   const avgWid = result.summary.mean_width_mm;
   const mediaKind = session.capturedMediaKind;
-  const previewRoi = session.mode === "live" && mediaKind === "photo" ? session.roi : null;
+  const previewRoi = session.mode === "live" ? session.roi : null;
   const note = displayInspectionNote(session.notes);
   const capturedAt = session.capturedAt ?? new Date().toISOString();
   const calibration = session.capturedCalibrationReading;
@@ -157,7 +158,11 @@ export default function CaptureReview() {
     if (!uri) return;
     try {
       if (mediaKind === "video") {
-        await shareVideo(uri, t("inspections:capture.review.shareVideo"));
+        const shareUri =
+          previewRoi && session.capturedVideoUri
+            ? await exportAnnotatedVideo(session.capturedVideoUri, previewRoi)
+            : uri;
+        await shareVideo(shareUri, t("inspections:capture.review.shareVideo"));
       } else {
         await shareImageWithRoi(uri, previewRoi, t("inspections:capture.review.shareImage"));
       }

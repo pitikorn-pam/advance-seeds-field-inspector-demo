@@ -124,7 +124,7 @@ export default function RootLayout() {
                     name="seed/[inspection]/[index]"
                     options={{ headerShown: true, title: "" }}
                   />
-                  {/* `(tabs)/camera` is the tab landing that redirects into
+                  {/* `(tabs)/inspect` is the tab landing that redirects into
                       the fullscreen `/capture/*` group below. The capture
                       stack itself sets headerShown false; the inner mode
                       and variety-picker screens opt into headers from
@@ -132,7 +132,7 @@ export default function RootLayout() {
                   <Stack.Screen name="capture" options={{ headerShown: false }} />
                   <Stack.Screen name="more/history" options={{ headerShown: false }} />
                   <Stack.Screen name="more/recordings" options={{ headerShown: false }} />
-                  <Stack.Screen name="varieties" options={{ headerShown: true, title: "" }} />
+                  <Stack.Screen name="varieties/[id]" options={{ headerShown: true, title: "" }} />
                   <Stack.Screen name="batches" options={{ headerShown: false }} />
                   <Stack.Screen name="reports" options={{ headerShown: false }} />
                   <Stack.Screen name="calibration" options={{ headerShown: false }} />

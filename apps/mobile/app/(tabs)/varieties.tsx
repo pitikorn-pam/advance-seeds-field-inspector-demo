@@ -41,7 +41,7 @@ const empty: FormState = {
 };
 
 /**
- * Library tab — varieties browser. Mirrors the prototype's segmented
+ * Varieties tab — varieties browser. Mirrors the prototype's segmented
  * filter + grouped sections (prototype-fidelity-pass D6).
  *
  * Each section is one variety family (corn / rice / legume / mungbean)
