@@ -218,6 +218,21 @@ export function useInspection(id: string | undefined) {
   });
 }
 
+export function useUpdateSeedGrade() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { inspectionId: string; seedId: string; grade: Seed["grade"] }) => {
+      const { error } = await supabase
+        .from("seeds")
+        .update({ grade: args.grade })
+        .eq("id", args.seedId);
+      if (error) throw error;
+    },
+    onSuccess: (_void, vars) =>
+      qc.invalidateQueries({ queryKey: keys.inspection(vars.inspectionId) }),
+  });
+}
+
 export function useDeleteInspection() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,4 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
+import type { SeedGrade } from "@advance-seeds/types";
 import { useCaptureSession } from "@/lib/capture/session";
 import { ErrorState } from "@/components/ui/States";
 import { SeedDetailView } from "@/components/inspections/SeedDetailView";
@@ -6,12 +7,11 @@ import { SeedDetailView } from "@/components/inspections/SeedDetailView";
 /**
  * Per-seed detail for the IN-PROGRESS capture session.
  *
- * Route: /capture/seed/[index] — pushed from the inspection-result
- * (review) screen so the user can drill into a specific detected seed
- * BEFORE saving. Reads from `useCaptureSession`'s in-memory analysis
- * result; once the inspection is saved, the equivalent path becomes
- * `/seed/[inspection]/[index]`. Both routes render the same
- * `SeedDetailView`.
+ * Edit grade / Reject mutate `session.analysisResult` in place — the
+ * inspection isn't saved yet, so the change lives on the session until
+ * the user taps Save and Sync (which writes the grade as part of the
+ * seed insert payload). When the inspection later saves, the persisted
+ * row carries the user-corrected grade.
  */
 export default function CaptureSeedDetail() {
   const params = useLocalSearchParams<{ index: string }>();
@@ -22,11 +22,16 @@ export default function CaptureSeedDetail() {
   const seed = result?.seeds.find((s) => s.index === seedIndex) ?? null;
   if (!result || !seed) return <ErrorState />;
 
-  // The capture session keeps both a local file URI and the post-upload
-  // remote URL. Prefer local for instant decode in the hero crop;
-  // fall back to whatever's available.
   const sourceUri =
     session.capturedImageUri ?? session.uploadedImageUrl ?? session.capturedVideoUri ?? null;
 
-  return <SeedDetailView seed={seed} sourceUri={sourceUri} />;
+  const onUpdateGrade = (grade: SeedGrade) => {
+    if (!result) return;
+    const nextSeeds = result.seeds.map((s) => (s.index === seed.index ? { ...s, grade } : s));
+    session.set({
+      analysisResult: { ...result, seeds: nextSeeds },
+    });
+  };
+
+  return <SeedDetailView seed={seed} sourceUri={sourceUri} onUpdateGrade={onUpdateGrade} />;
 }

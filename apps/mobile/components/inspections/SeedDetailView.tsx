@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View, Text, Image as RNImage } from "react-native";
+import { Alert, ScrollView, View, Text, Image as RNImage } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -36,6 +36,14 @@ interface Props {
   sourceUri: string | null;
   /** Optional override for the AppTopBar title. Defaults to `Seed #N`. */
   title?: string;
+  /**
+   * Persist a new grade. Saved-inspection wires this to a Supabase
+   * UPDATE; in-capture wires it to a session mutation. When omitted,
+   * Edit grade / Reject buttons are hidden (read-only mode).
+   */
+  onUpdateGrade?: (grade: SeedGrade) => void | Promise<void>;
+  /** Disable the action buttons while a previous mutation is in flight. */
+  busy?: boolean;
 }
 
 /**
@@ -47,12 +55,47 @@ interface Props {
  * Owns its own AppTopBar with a back chevron so the screen reads the
  * same regardless of which stack pushed it.
  */
-export function SeedDetailView({ seed, sourceUri, title }: Props) {
+export function SeedDetailView({ seed, sourceUri, title, onUpdateGrade, busy }: Props) {
   const { t } = useTranslation(["common", "inspections"]);
   const router = useRouter();
   const aspectRatio = seed.length_mm / Math.max(seed.width_mm, 0.001);
   const grade = seed.grade;
   const passed = grade === "A" || grade === "B";
+
+  const onEdit = () => {
+    if (!onUpdateGrade) return;
+    // Lightweight grade picker via Alert. The Settings/Master-data style
+    // chip picker we use elsewhere doesn't fit this screen's footer
+    // layout, but Alert is good enough for a 4-option pick.
+    const opts: SeedGrade[] = ["A", "B", "C", "reject"];
+    Alert.alert(
+      t("inspections:seed.actions.editGrade"),
+      t("inspections:seed.editGradeBody", { current: t(`inspections:seedGrade.${grade}`) }),
+      [
+        { text: t("common:actions.cancel"), style: "cancel" },
+        ...opts
+          .filter((g) => g !== grade)
+          .map((g) => ({
+            text: t(`inspections:seedGrade.${g}`),
+            onPress: () => void onUpdateGrade(g),
+            style: g === "reject" ? ("destructive" as const) : ("default" as const),
+          })),
+      ],
+    );
+  };
+
+  const onReject = () => {
+    if (!onUpdateGrade) return;
+    if (grade === "reject") return;
+    Alert.alert(t("inspections:seed.actions.reject"), t("inspections:seed.rejectConfirm"), [
+      { text: t("common:actions.cancel"), style: "cancel" },
+      {
+        text: t("inspections:seed.actions.reject"),
+        style: "destructive",
+        onPress: () => void onUpdateGrade("reject"),
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -111,15 +154,25 @@ export function SeedDetailView({ seed, sourceUri, title }: Props) {
         </Card>
       </ScrollView>
 
-      <View className="flex-row gap-md px-xl pb-xl">
-        <Button
-          className="flex-1"
-          variant="outline"
-          label={t("inspections:seed.actions.editGrade")}
-          renderLeadingIcon={() => <Edit3 color="#1A1A1A" size={14} />}
-        />
-        <Button className="flex-1" variant="danger" label={t("inspections:seed.actions.reject")} />
-      </View>
+      {onUpdateGrade ? (
+        <View className="flex-row gap-md px-xl pb-xl">
+          <Button
+            className="flex-1"
+            variant="outline"
+            label={t("inspections:seed.actions.editGrade")}
+            renderLeadingIcon={() => <Edit3 color="#1A1A1A" size={14} />}
+            onPress={onEdit}
+            disabled={busy}
+          />
+          <Button
+            className="flex-1"
+            variant="danger"
+            label={t("inspections:seed.actions.reject")}
+            onPress={onReject}
+            disabled={busy || grade === "reject"}
+          />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }

@@ -237,7 +237,9 @@
     "actions": {
       "editGrade": "Edit grade",
       "reject": "Reject"
-    }
+    },
+    "editGradeBody": "Current grade: {{current}}. Pick a new grade.",
+    "rejectConfirm": "Mark this seed as rejected? You can change it back from Edit grade."
   },
   "pending": {
     "title": "Pending inspection",
