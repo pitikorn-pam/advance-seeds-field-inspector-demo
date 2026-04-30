@@ -18,17 +18,14 @@ export interface HyperParams {
   scoreThreshold: number;
   /** IoU threshold for our JS-side NMS (raw YOLO11/8 head only). */
   iouThreshold: number;
-  /** Live worklet inference rate on iOS (Core ML on ANE). */
-  targetFpsIos: number;
-  /** Live worklet inference rate on Android (TFLite + JS-thread). */
-  targetFpsAndroid: number;
+  /** Live worklet inference rate (iOS Core ML + Android TFLite/GPU). */
+  targetFps: number;
 }
 
 export const DEFAULT_HYPERPARAMS: HyperParams = {
-  scoreThreshold: 0.5,
-  iouThreshold: 0.75,
-  targetFpsIos: 30,
-  targetFpsAndroid: 5,
+  scoreThreshold: 0.4,
+  iouThreshold: 0.65,
+  targetFps: 30,
 };
 
 const STORAGE_KEY = "advance-seeds.hyperparams.v1";
@@ -109,8 +106,7 @@ function clamp(p: HyperParams): HyperParams {
   return {
     scoreThreshold: clampNumber(p.scoreThreshold, 0.05, 0.95),
     iouThreshold: clampNumber(p.iouThreshold, 0.1, 0.95),
-    targetFpsIos: clampNumber(Math.round(p.targetFpsIos), 1, 60),
-    targetFpsAndroid: clampNumber(Math.round(p.targetFpsAndroid), 1, 30),
+    targetFps: clampNumber(Math.round(p.targetFps), 1, 60),
   };
 }
 

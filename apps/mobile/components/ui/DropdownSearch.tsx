@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, TextInput, Modal, FlatList } from "react-native";
+import { View, Text, Pressable, TextInput, Modal, FlatList, Dimensions } from "react-native";
 import { Search, X, ChevronDown, Check } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "@/lib/theme";
 
 export interface DropdownItem {
   id: string;
@@ -54,6 +55,8 @@ export function DropdownSearch({
   clearable = false,
 }: Props) {
   const { t } = useTranslation("common");
+  const { resolved } = useTheme();
+  const closeIconColor = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -114,80 +117,100 @@ export function DropdownSearch({
         )}
       </Pressable>
 
-      <Modal
-        visible={open}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setOpen(false)}
-      >
-        <View className="flex-1 bg-bg-secondary">
-          {/* Header — search input + close. We use TextInput with autofocus
-              so users can start typing immediately on open. */}
-          <View className="flex-row items-center gap-md px-xl pt-xl pb-md">
-            <View className="flex-1 flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
-              <Search color="#9D9D9A" size={16} />
-              <TextInput
-                autoFocus
-                placeholder={placeholder}
-                placeholderTextColor="#9D9D9A"
-                value={query}
-                onChangeText={setQuery}
-                className="flex-1 text-body text-fg-primary"
-              />
-              {query ? (
-                <Pressable onPress={() => setQuery("")} accessibilityLabel={t("actions.cancel")}>
-                  <X color="#9D9D9A" size={16} />
-                </Pressable>
-              ) : null}
+      {open ? (
+        <Modal
+          visible={open}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setOpen(false)}
+        >
+          {/* Slide-up sheet rather than full-screen takeover. Tap the dim
+            backdrop OR the close pill at the top-left to dismiss. Capping
+            the sheet height at ~75% of the screen keeps the parent form
+            visible underneath, so the user keeps spatial context. */}
+          <Pressable
+            accessibilityLabel={t("actions.cancel")}
+            onPress={() => setOpen(false)}
+            className="flex-1"
+            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+          />
+          <View
+            className="absolute inset-x-0 bottom-0 bg-bg-secondary rounded-t-2xl"
+            style={{ maxHeight: Dimensions.get("window").height * 0.75 }}
+          >
+            {/* Drag-handle affordance + close icon at the top-left so the
+              user always has an obvious dismissal target without leaving
+              the modal surface. */}
+            <View className="items-center pt-sm">
+              <View className="h-1 w-10 rounded-full bg-line-secondary" />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("actions.cancel")}
-              onPress={() => setOpen(false)}
-              className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
-            >
-              <X color="#1A1A1A" size={18} />
-            </Pressable>
-          </View>
-
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
+            <View className="flex-row items-center gap-md px-xl pt-md pb-md">
               <Pressable
                 accessibilityRole="button"
-                onPress={() => {
-                  onChange(item.id);
-                  setOpen(false);
-                }}
-                className={`flex-row items-center gap-md px-xl py-md ${
-                  index === 0 ? "" : "border-t border-line-tertiary"
-                }`}
+                accessibilityLabel={t("actions.cancel")}
+                onPress={() => setOpen(false)}
+                className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
               >
-                {item.leading ?? null}
-                <View className="flex-1">
-                  <Text className="text-title text-fg-primary font-medium" numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                  {item.meta ? (
-                    <Text className="text-caption text-fg-secondary" numberOfLines={1}>
-                      {item.meta}
-                    </Text>
-                  ) : null}
-                </View>
-                {item.id === value ? <Check color="#0F6E56" size={18} /> : null}
+                <X color={closeIconColor} size={18} />
               </Pressable>
-            )}
-            ListEmptyComponent={
-              <View className="py-2xl items-center">
-                <Text className="text-body text-fg-secondary">
-                  {noResultsLabel ?? t("states.noResults")}
-                </Text>
+              <View className="flex-1 flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
+                <Search color="#9D9D9A" size={16} />
+                <TextInput
+                  autoFocus
+                  placeholder={placeholder}
+                  placeholderTextColor="#9D9D9A"
+                  value={query}
+                  onChangeText={setQuery}
+                  className="flex-1 text-body text-fg-primary"
+                />
+                {query ? (
+                  <Pressable onPress={() => setQuery("")} accessibilityLabel={t("actions.cancel")}>
+                    <X color="#9D9D9A" size={16} />
+                  </Pressable>
+                ) : null}
               </View>
-            }
-          />
-        </View>
-      </Modal>
+            </View>
+
+            <FlatList
+              data={filtered}
+              keyExtractor={(item) => item.id}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item, index }) => (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    onChange(item.id);
+                    setOpen(false);
+                  }}
+                  className={`flex-row items-center gap-md px-xl py-md ${
+                    index === 0 ? "" : "border-t border-line-tertiary"
+                  }`}
+                >
+                  {item.leading ?? null}
+                  <View className="flex-1">
+                    <Text className="text-title text-fg-primary font-medium" numberOfLines={1}>
+                      {item.label}
+                    </Text>
+                    {item.meta ? (
+                      <Text className="text-caption text-fg-secondary" numberOfLines={1}>
+                        {item.meta}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {item.id === value ? <Check color="#0F6E56" size={18} /> : null}
+                </Pressable>
+              )}
+              ListEmptyComponent={
+                <View className="py-2xl items-center">
+                  <Text className="text-body text-fg-secondary">
+                    {noResultsLabel ?? t("states.noResults")}
+                  </Text>
+                </View>
+              }
+            />
+          </View>
+        </Modal>
+      ) : null}
     </>
   );
 }

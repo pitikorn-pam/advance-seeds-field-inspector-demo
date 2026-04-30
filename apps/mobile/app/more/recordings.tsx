@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ScrollView, View, Text, Alert, Pressable } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { FlatList, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -85,6 +85,54 @@ export default function RecordingsScreen() {
   }, [recordings.data, dateRange, durationFilter]);
 
   const hasDateRange = !!dateRange.start || !!dateRange.end;
+
+  // Stable row renderer — keeps FlatList's recycler from re-rendering rows
+  // when unrelated parent state (filters, date picker) changes.
+  const renderRecordingRow = useCallback(
+    ({ item: rec }: { item: Recording }) => (
+      <RecordingRow
+        recording={rec}
+        onShare={async () => {
+          try {
+            await shareVideo(rec.video_url, t("profile:recordings.share"));
+          } catch (err) {
+            const reason = err instanceof Error ? err.message : String(err);
+            Alert.alert(t("common:states.error"), reason);
+          }
+        }}
+        onSave={async () => {
+          try {
+            await saveImageToLibrary(rec.video_url, {
+              title: t("profile:recordings.savedToPhotos"),
+              permissionDeniedTitle: t("profile:recordings.permissionDeniedTitle"),
+              permissionDeniedBody: t("profile:recordings.permissionDeniedBody"),
+            });
+          } catch (err) {
+            const reason = err instanceof Error ? err.message : String(err);
+            Alert.alert(t("common:states.error"), reason);
+          }
+        }}
+        onDelete={() =>
+          Alert.alert(t("common:actions.delete"), t("profile:recordings.deleteConfirm"), [
+            { text: t("common:actions.cancel"), style: "cancel" },
+            {
+              text: t("common:actions.delete"),
+              style: "destructive",
+              onPress: () => {
+                deleteRecording.mutate(rec);
+              },
+            },
+          ])
+        }
+        labels={{
+          share: t("profile:recordings.share"),
+          save: t("profile:recordings.save"),
+          delete: t("common:actions.delete"),
+        }}
+      />
+    ),
+    [t, deleteRecording],
+  );
   const durationOptions: Array<{ value: DurationFilter; label: string }> = [
     { value: "all", label: t("profile:recordings.filters.duration.all") },
     { value: "short", label: t("profile:recordings.filters.duration.short") },
@@ -101,154 +149,134 @@ export default function RecordingsScreen() {
           onPress: () => router.back(),
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <Segmented
-          value={durationFilter}
-          onChange={setDurationFilter}
-          options={durationOptions}
-          variant="tag"
-          scrollable
-        />
+      {/*
+        Use FlatList instead of ScrollView so the recordings list is
+        virtualized. Each row mounts a video preview (`CaptureMediaPreview`),
+        which is expensive — without virtualization, a long history would
+        instantiate every player up-front. Filters, the date-range picker
+        trigger, the loading / empty states, and the pending-sync section
+        all live in `ListHeaderComponent` so they participate in the same
+        scroll surface as the list itself.
+      */}
+      <FlatList
+        data={filtered}
+        keyExtractor={(rec) => rec.id}
+        contentContainerClassName="px-xl py-md gap-md pb-2xl"
+        keyboardShouldPersistTaps="handled"
+        // Virtualization tuning: each row is tall (4:3 video preview) so a
+        // small initial batch + modest window keeps offscreen memory bounded
+        // and mounts more rows as the user scrolls.
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={7}
+        removeClippedSubviews
+        renderItem={renderRecordingRow}
+        ListHeaderComponent={
+          <View className="gap-lg pb-md">
+            <Segmented
+              value={durationFilter}
+              onChange={setDurationFilter}
+              options={durationOptions}
+              variant="tag"
+              scrollable
+            />
 
-        <View className="flex-row items-center gap-xs">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("profile:recordings.filters.selectDate")}
-            className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
-            onPress={() => setDatePickerOpen(true)}
-          >
-            <Calendar color="#0F6E56" size={16} />
-            <View className="flex-1">
-              <Text className="text-caption text-fg-secondary">
-                {t("profile:recordings.filters.dateRange")}
-              </Text>
-              <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
-                {rangeLabel(dateRange, i18n.language, t)}
-              </Text>
+            <View className="flex-row items-center gap-xs">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("profile:recordings.filters.selectDate")}
+                className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
+                onPress={() => setDatePickerOpen(true)}
+              >
+                <Calendar color="#0F6E56" size={16} />
+                <View className="flex-1">
+                  <Text className="text-caption text-fg-secondary">
+                    {t("profile:recordings.filters.dateRange")}
+                  </Text>
+                  <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
+                    {rangeLabel(dateRange, i18n.language, t)}
+                  </Text>
+                </View>
+              </Pressable>
+              {hasDateRange ? (
+                <Button
+                  size="icon"
+                  variant="tinted"
+                  accessibilityLabel={t("common:actions.clear")}
+                  onPress={() => setDateRange({ start: null, end: null })}
+                >
+                  <X color="#1A1A1A" size={16} />
+                </Button>
+              ) : null}
             </View>
-          </Pressable>
-          {hasDateRange ? (
-            <Button
-              size="icon"
-              variant="tinted"
-              accessibilityLabel={t("common:actions.clear")}
-              onPress={() => setDateRange({ start: null, end: null })}
-            >
-              <X color="#1A1A1A" size={16} />
-            </Button>
-          ) : null}
-        </View>
 
-        {pendingRecordings.length > 0 ? (
-          <View className="gap-xs">
-            <Text className="text-caption uppercase tracking-wide text-fg-secondary px-xs">
-              {t("profile:recordings.pendingSection")}
-            </Text>
-            <Card className="p-0">
-              {pendingRecordings.map((row, i) => (
-                <PendingRecordingRow
-                  key={row.entry.id}
-                  row={row}
-                  isLast={i === pendingRecordings.length - 1}
-                  onRetry={async () => {
-                    await retryAllFailedQueueEntries();
-                    void replaySyncQueue();
-                  }}
-                  onDiscard={async () => {
-                    Alert.alert(
-                      t("profile:recordings.pendingDiscardTitle"),
-                      t("profile:recordings.pendingDiscardBody"),
-                      [
-                        { text: t("common:actions.cancel"), style: "cancel" },
-                        {
-                          text: t("common:actions.delete"),
-                          style: "destructive",
-                          onPress: () => {
-                            // User-initiated discard: drop the queue row
-                            // AND the local video file. Recordings the
-                            // worker hasn't synced yet are unrecoverable
-                            // after this.
-                            void deleteLocalMediaForPayload(row.entry.payload);
-                            void removeQueueEntry(row.entry.id);
-                          },
-                        },
-                      ],
-                    );
-                  }}
-                  labels={{
-                    pending: t("profile:recordings.statusPending"),
-                    syncing: t("profile:recordings.statusSyncing"),
-                    failed: t("profile:recordings.statusFailed"),
-                    retry: t("profile:recordings.retry"),
-                    discard: t("common:actions.delete"),
-                  }}
-                />
-              ))}
-            </Card>
+            {pendingRecordings.length > 0 ? (
+              <View className="gap-xs">
+                <Text className="text-caption uppercase tracking-wide text-fg-secondary px-xs">
+                  {t("profile:recordings.pendingSection")}
+                </Text>
+                <Card className="p-0">
+                  {pendingRecordings.map((row, i) => (
+                    <PendingRecordingRow
+                      key={row.entry.id}
+                      row={row}
+                      isLast={i === pendingRecordings.length - 1}
+                      onRetry={async () => {
+                        await retryAllFailedQueueEntries();
+                        void replaySyncQueue();
+                      }}
+                      onDiscard={async () => {
+                        Alert.alert(
+                          t("profile:recordings.pendingDiscardTitle"),
+                          t("profile:recordings.pendingDiscardBody"),
+                          [
+                            { text: t("common:actions.cancel"), style: "cancel" },
+                            {
+                              text: t("common:actions.delete"),
+                              style: "destructive",
+                              onPress: () => {
+                                void deleteLocalMediaForPayload(row.entry.payload);
+                                void removeQueueEntry(row.entry.id);
+                              },
+                            },
+                          ],
+                        );
+                      }}
+                      labels={{
+                        pending: t("profile:recordings.statusPending"),
+                        syncing: t("profile:recordings.statusSyncing"),
+                        failed: t("profile:recordings.statusFailed"),
+                        retry: t("profile:recordings.retry"),
+                        discard: t("common:actions.delete"),
+                      }}
+                    />
+                  ))}
+                </Card>
+              </View>
+            ) : null}
+
+            {recordings.isLoading ? (
+              <Card>
+                <Text className="text-body text-fg-secondary">{t("common:states.loading")}</Text>
+              </Card>
+            ) : null}
           </View>
-        ) : null}
-
-        {recordings.isLoading ? (
-          <Card>
-            <Text className="text-body text-fg-secondary">{t("common:states.loading")}</Text>
-          </Card>
-        ) : (!recordings.data || recordings.data.length === 0) && pendingRecordings.length === 0 ? (
-          <Card>
-            <Text className="text-body text-fg-secondary">{t("profile:recordings.empty")}</Text>
-          </Card>
-        ) : filtered.length === 0 && pendingRecordings.length === 0 ? (
-          <Card>
-            <Text className="text-body text-fg-secondary">{t("profile:recordings.noResults")}</Text>
-          </Card>
-        ) : filtered.length === 0 ? null : (
-          <Card className="p-0">
-            {filtered.map((rec, i) => (
-              <RecordingRow
-                key={rec.id}
-                recording={rec}
-                isLast={i === filtered.length - 1}
-                onShare={async () => {
-                  try {
-                    await shareVideo(rec.video_url, t("profile:recordings.share"));
-                  } catch (err) {
-                    const reason = err instanceof Error ? err.message : String(err);
-                    Alert.alert(t("common:states.error"), reason);
-                  }
-                }}
-                onSave={async () => {
-                  try {
-                    await saveImageToLibrary(rec.video_url, {
-                      title: t("profile:recordings.savedToPhotos"),
-                      permissionDeniedTitle: t("profile:recordings.permissionDeniedTitle"),
-                      permissionDeniedBody: t("profile:recordings.permissionDeniedBody"),
-                    });
-                  } catch (err) {
-                    const reason = err instanceof Error ? err.message : String(err);
-                    Alert.alert(t("common:states.error"), reason);
-                  }
-                }}
-                onDelete={() =>
-                  Alert.alert(t("common:actions.delete"), t("profile:recordings.deleteConfirm"), [
-                    { text: t("common:actions.cancel"), style: "cancel" },
-                    {
-                      text: t("common:actions.delete"),
-                      style: "destructive",
-                      onPress: () => {
-                        deleteRecording.mutate(rec);
-                      },
-                    },
-                  ])
-                }
-                labels={{
-                  share: t("profile:recordings.share"),
-                  save: t("profile:recordings.save"),
-                  delete: t("common:actions.delete"),
-                }}
-              />
-            ))}
-          </Card>
-        )}
-      </ScrollView>
+        }
+        ListEmptyComponent={
+          recordings.isLoading ? null : (!recordings.data || recordings.data.length === 0) &&
+            pendingRecordings.length === 0 ? (
+            <Card>
+              <Text className="text-body text-fg-secondary">{t("profile:recordings.empty")}</Text>
+            </Card>
+          ) : pendingRecordings.length === 0 ? (
+            <Card>
+              <Text className="text-body text-fg-secondary">
+                {t("profile:recordings.noResults")}
+              </Text>
+            </Card>
+          ) : null
+        }
+      />
       <DateRangePicker
         visible={datePickerOpen}
         value={dateRange}
@@ -354,14 +382,12 @@ function formatDuration(ms: number): string {
 
 function RecordingRow({
   recording,
-  isLast,
   onShare,
   onSave,
   onDelete,
   labels,
 }: {
   recording: Recording;
-  isLast: boolean;
   onShare: () => void;
   onSave: () => void;
   onDelete: () => void;
@@ -375,7 +401,7 @@ function RecordingRow({
     minute: "2-digit",
   });
   return (
-    <View className={`gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}>
+    <View className="gap-md p-md mb-md rounded-2xl bg-bg-primary">
       <View className="aspect-[4/3] overflow-hidden rounded-lg bg-black">
         <CaptureMediaPreview uri={recording.video_url} kind="video" />
       </View>

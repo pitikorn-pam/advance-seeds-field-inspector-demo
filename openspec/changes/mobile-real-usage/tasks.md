@@ -166,3 +166,12 @@
 - [ ] 12.4 Verify storage privacy: signed-out user cannot fetch an `inspection-images/` URL by guessing
 - [ ] 12.5 Tag v0.2.0; create GitHub release with build artifacts attached
 - [ ] 12.6 Run `openspec archive mobile-real-usage`
+
+## 13. Field-tested polish (post-pilot QA)
+
+- [x] 13.1 `DropdownSearch` — convert from full-screen modal to slide-up sheet capped at ~75% screen height, with a close-icon affordance at the top-left so the parent form stays visible while picking
+- [x] 13.2 Recordings list (`/more/recordings`) — virtualize with `FlatList` (each row mounts a video preview, so a long history previously instantiated every player on mount); rows render as standalone cards instead of a single card with internal separators
+- [x] 13.3 Profile (`/profile`) — show a one-line role description below the email so a fresh user knows what their account can do (`common:roleDescriptions.{inspector,admin}`)
+- [x] 13.4 Hyperparameters defaults — `scoreThreshold` 0.5 → 0.4, `iouThreshold` 0.75 → 0.65 (dialed in from QA tuning runs against the COCO-class generic model)
+- [x] 13.5 Dark mode — `AppTopBar` actions theme their icon tint via `useTheme().resolved` and `cloneElement`, so the hardcoded `#1A1A1A` chevron / info icons no longer go invisible on the dark `bg-bg-tertiary` surface; `(tabs)/_layout.tsx` sets explicit `tabBarStyle.backgroundColor` + `tabBarInactiveTintColor` for dark mode so the bottom bar contrasts with the chrome
+- [x] 13.6 Sync replay — pre-check `FileSystem.getInfoAsync()` on `local_media_uri` / `local_video_uri` before constructing the upload `FormData`; if the file is gone (iOS purges `tmp/` between launches) drop the queue entry instead of surfacing the raw `NSCocoaErrorDomain Code=260` stack the user can't action

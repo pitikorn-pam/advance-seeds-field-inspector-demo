@@ -1,10 +1,44 @@
+import * as FileSystem from "expo-file-system/legacy";
 import { supabase } from "@/lib/supabase";
 import { createInspectionRemote, createRecordingRemote } from "@/lib/queries";
-import { ensureQueueLoaded, markQueueEntryFailed, updateQueueEntry } from "@/lib/sync/store";
+import {
+  ensureQueueLoaded,
+  markQueueEntryFailed,
+  removeQueueEntry,
+  updateQueueEntry,
+} from "@/lib/sync/store";
 import { applyRemoteMediaUrl } from "@/lib/sync/payloadUpdates";
 import { recordLastSyncedAt } from "@/lib/sync/lastSync";
 import { deleteLocalMediaForPayload } from "@/lib/sync/localMedia";
 import type { InspectionQueuePayload, SyncQueueEntry } from "@/lib/sync/types";
+
+// Marker error for "the local capture file is gone" so replayEntry can drop
+// the queue row instead of leaving a permanently-failed entry the user can't
+// recover. Captured photos/videos that landed in iOS `tmp/` can be purged by
+// the OS between launches; surfacing the raw NSCocoaError 260 to the user is
+// confusing and the entry is unrecoverable anyway.
+const MISSING_LOCAL_MEDIA_MARKER = "advance-seeds:missing-local-media";
+
+class MissingLocalMediaError extends Error {
+  marker = MISSING_LOCAL_MEDIA_MARKER;
+  constructor(uri: string) {
+    super(`Local capture file is no longer on the device: ${uri}`);
+    this.name = "MissingLocalMediaError";
+  }
+}
+
+async function localFileExists(uri: string | null | undefined): Promise<boolean> {
+  if (!uri) return false;
+  // FileSystem only reads file:// URIs; remote URLs and empty strings are
+  // not "local" and treated as missing for this check.
+  if (!uri.startsWith("file://") && !uri.startsWith("/")) return false;
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+    return info.exists;
+  } catch {
+    return false;
+  }
+}
 
 let running = false;
 let rerunPending = false;
@@ -53,6 +87,12 @@ async function replayEntry(entry: SyncQueueEntry) {
     // a DB-insert-only failure doesn't orphan more storage objects.
     let remoteUrl = entry.payload.data.remote_video_url;
     if (!remoteUrl) {
+      // Pre-check the local file. iOS may purge `tmp/` captures between
+      // launches; without this, FormData would attempt to read a missing
+      // path and surface a confusing native NSCocoaError 260 stack.
+      if (!(await localFileExists(entry.payload.data.local_video_uri))) {
+        throw new MissingLocalMediaError(entry.payload.data.local_video_uri);
+      }
       remoteUrl = await uploadMedia("recordings", entry.payload.data.local_video_uri, "video/mp4");
       // Persist immediately. If `createRecordingRemote` then fails, the
       // next retry sees `remote_video_url` populated and skips upload.
@@ -71,6 +111,14 @@ async function replayEntry(entry: SyncQueueEntry) {
     void recordLastSyncedAt();
     void deleteLocalMediaForPayload(entry.payload);
   } catch (err) {
+    if (err instanceof MissingLocalMediaError) {
+      // Unrecoverable: the local file is gone, so retrying will never
+      // succeed. Drop the queue row so "Retry all" doesn't keep surfacing
+      // the same iOS path error to the user.
+      console.warn("[sync] dropping queue entry with missing local media", entry.id);
+      await removeQueueEntry(entry.id);
+      return;
+    }
     await markQueueEntryFailed(entry.id, err);
   }
 }
@@ -78,6 +126,10 @@ async function replayEntry(entry: SyncQueueEntry) {
 async function replayInspection(entryId: string, payload: InspectionQueuePayload): Promise<string> {
   let imageUrl = payload.remote_media_url;
   if (!imageUrl) {
+    // Pre-check the local file (see replayEntry above for context).
+    if (!(await localFileExists(payload.local_media_uri))) {
+      throw new MissingLocalMediaError(payload.local_media_uri);
+    }
     imageUrl = await uploadMedia(
       payload.media_kind === "video" ? "recordings" : "inspection-images",
       payload.local_media_uri,

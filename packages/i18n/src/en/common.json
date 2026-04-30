@@ -59,6 +59,10 @@
     "inspector": "Inspector",
     "admin": "Admin"
   },
+  "roleDescriptions": {
+    "inspector": "Captures field samples and grades seeds in real time.",
+    "admin": "Manages varieties, batches, and inspector accounts."
+  },
   "themes": {
     "light": "Light",
     "dark": "Dark",

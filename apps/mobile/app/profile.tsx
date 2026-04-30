@@ -69,6 +69,14 @@ export default function ProfileScreen() {
               ) : null}
               <Text className="text-caption text-fg-secondary">{profile?.email}</Text>
             </View>
+            {profile?.role ? (
+              <Text
+                className="text-caption text-fg-secondary text-center mt-md px-md"
+                numberOfLines={2}
+              >
+                {t(`common:roleDescriptions.${profile.role}`)}
+              </Text>
+            ) : null}
           </View>
         </Card>
       </ScrollView>
