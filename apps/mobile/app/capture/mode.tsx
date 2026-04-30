@@ -2,7 +2,7 @@ import { ScrollView, View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft, ChevronRight, Target } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Info, Target } from "lucide-react-native";
 import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { Pill } from "@/components/ui/Pill";
@@ -70,6 +70,11 @@ export default function CaptureMode() {
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
+        }}
+        right={{
+          accessibilityLabel: t("inspections:capture.modePicker.infoAction"),
+          renderIcon: () => <Info color="#1A1A1A" size={18} />,
+          onPress: () => router.push("/capture/prerequisites" as never),
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">

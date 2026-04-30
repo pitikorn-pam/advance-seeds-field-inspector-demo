@@ -37,8 +37,7 @@ const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
  *       - "Detected N seeds"      — checked once the analyzer returns the
  *                                    actual count from AnalysisResult.
  *       - "Grading quality…"      — spinner until the full result lands.
- *   • "View results" CTA — disabled until the analyzer completes; on tap,
- *     replaces this route with /capture/review.
+ *   • Auto-routes to /capture/review when analysis completes.
  *
  * Errors fall back to a single-screen retry/cancel state. We don't leave
  * the user staring at a stuck checklist.
@@ -246,7 +245,6 @@ export default function CaptureProcessing() {
     // changes would trigger duplicate uploads.
   }, []);
 
-  const onViewResults = () => router.replace("/capture/review");
   const onCancel = () => {
     session.reset();
     router.replace("/capture/setup");
@@ -304,14 +302,11 @@ export default function CaptureProcessing() {
           />
         </View>
 
-        <View className="mt-3xl" style={{ width: 240 }}>
-          <Button
-            variant="tinted"
-            label={t("inspections:capture.processing.viewResults")}
-            disabled={!done}
-            onPress={onViewResults}
-          />
-        </View>
+        {done ? (
+          <Text className="mt-3xl text-caption text-fg-secondary">
+            {t("inspections:capture.processing.openingResults")}
+          </Text>
+        ) : null}
       </View>
     </SafeAreaView>
   );

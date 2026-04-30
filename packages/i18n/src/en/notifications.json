@@ -1,6 +1,8 @@
 {
   "title": "Notifications",
+  "subtitle": "Recent capture, recording, and sync activity appears here.",
   "detailTitle": "Notification",
+  "detailSubtitle": "Notification details stay available even when related content is no longer present.",
   "empty": "No notifications yet. Captures, recordings, and errors will appear here.",
   "markAllRead": "Mark all read",
   "relatedContent": "Related content",

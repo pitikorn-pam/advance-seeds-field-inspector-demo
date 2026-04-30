@@ -129,10 +129,13 @@ export default function RootLayout() {
                       stack itself sets headerShown false; the inner mode
                       and variety-picker screens opt into headers from
                       their own Stack.Screen options. */}
-                  <Stack.Screen name="capture" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="capture"
+                    options={{ headerShown: false, animation: "slide_from_right" }}
+                  />
                   <Stack.Screen name="more/history" options={{ headerShown: false }} />
                   <Stack.Screen name="more/recordings" options={{ headerShown: false }} />
-                  <Stack.Screen name="varieties/[id]" options={{ headerShown: true, title: "" }} />
+                  <Stack.Screen name="varieties/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="batches" options={{ headerShown: false }} />
                   <Stack.Screen name="reports" options={{ headerShown: false }} />
                   <Stack.Screen name="calibration" options={{ headerShown: false }} />

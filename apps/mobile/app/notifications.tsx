@@ -111,31 +111,23 @@ export default function NotificationsModal() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-      <View className="flex-row items-center gap-md px-xl py-md">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("common:actions.cancel")}
-          className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
-          onPress={() => router.back()}
-        >
-          <X color="#1A1A1A" size={18} />
-        </Pressable>
-        <Text className="flex-1 text-h1 font-medium text-fg-primary">
-          {t("notifications:title")}
-        </Text>
-        {unreadCount > 0 && profile ? (
-          <Pressable
-            accessibilityRole="button"
-            className="flex-row items-center gap-xs rounded-full bg-bg-tertiary px-md py-xs"
-            onPress={() => markAllRead.mutate(profile.id)}
-          >
-            <CheckCheck color="#0F6E56" size={14} />
-            <Text className="text-caption text-brand-deep font-medium">
-              {t("notifications:markAllRead")}
-            </Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <AppTopBar
+        title={t("notifications:title")}
+        left={{
+          accessibilityLabel: t("common:actions.close"),
+          renderIcon: () => <X color="#1A1A1A" size={18} />,
+          onPress: () => router.back(),
+        }}
+        right={
+          unreadCount > 0 && profile
+            ? {
+                accessibilityLabel: t("notifications:markAllRead"),
+                renderIcon: () => <CheckCheck color="#0F6E56" size={18} />,
+                onPress: () => markAllRead.mutate(profile.id),
+              }
+            : undefined
+        }
+      />
 
       {visible.length === 0 ? (
         <View className="flex-1 px-xl">
@@ -145,6 +137,11 @@ export default function NotificationsModal() {
         <FlatList
           data={visible}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <Text className="mb-md text-body text-fg-secondary px-xs">
+              {t("notifications:subtitle")}
+            </Text>
+          }
           renderItem={({ item, index }) => (
             <NotificationRow
               notification={item}
@@ -155,7 +152,7 @@ export default function NotificationsModal() {
           )}
           onEndReachedThreshold={0.4}
           onEndReached={onEndReached}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, paddingTop: 16 }}
           ListFooterComponent={
             hasMore ? (
               <View className="py-md items-center">
@@ -221,28 +218,34 @@ function NotificationDetail({
         }}
       />
 
-      <ScrollView contentContainerClassName="px-xl py-lg gap-lg">
-        <View className="flex-row items-center gap-md">
-          <View
-            className="items-center justify-center"
-            style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: visual.bg }}
-          >
-            <Icon color={visual.color} size={20} />
+      <ScrollView contentContainerClassName="px-xl py-lg gap-md">
+        <Text className="text-body text-fg-secondary px-xs">
+          {t("notifications:detailSubtitle")}
+        </Text>
+
+        <View className="rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg">
+          <View className="flex-row items-center gap-md">
+            <View
+              className="items-center justify-center"
+              style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: visual.bg }}
+            >
+              <Icon color={visual.color} size={22} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-h2 font-medium text-fg-primary">{notification.title}</Text>
+              <Text className="text-caption text-fg-tertiary mt-xs">
+                {dateFmt.format(new Date(notification.created_at))}
+              </Text>
+            </View>
           </View>
-          <View className="flex-1">
-            <Text className="text-h2 font-medium text-fg-primary">{notification.title}</Text>
-            <Text className="text-caption text-fg-tertiary mt-xs">
-              {dateFmt.format(new Date(notification.created_at))}
-            </Text>
-          </View>
+
+          {notification.body ? (
+            <Text className="mt-md text-body text-fg-secondary">{notification.body}</Text>
+          ) : null}
         </View>
 
-        {notification.body ? (
-          <Text className="text-body text-fg-secondary">{notification.body}</Text>
-        ) : null}
-
         {notification.route ? (
-          <View className="rounded-xl border border-line-tertiary bg-bg-primary px-lg py-md gap-sm">
+          <View className="rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg gap-sm">
             <Text className="text-title font-medium text-fg-primary">
               {t("notifications:relatedContent")}
             </Text>
@@ -288,7 +291,7 @@ function NotificationRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      className={`flex-row items-start gap-md py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
+      className={`flex-row items-start gap-md rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg ${isLast ? "" : "mb-md"}`}
     >
       <View
         className="items-center justify-center"

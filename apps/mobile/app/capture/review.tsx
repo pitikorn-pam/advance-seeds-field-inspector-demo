@@ -123,6 +123,10 @@ export default function CaptureReview() {
   const avgLen = result.summary.mean_length_mm;
   const avgWid = result.summary.mean_width_mm;
   const mediaKind = session.capturedMediaKind;
+  const previewMediaUri =
+    mediaKind === "video"
+      ? (session.capturedVideoUri ?? session.uploadedImageUrl)
+      : (session.capturedImageUri ?? session.uploadedImageUrl);
   const previewRoi = session.mode === "live" ? session.roi : null;
   const note = displayInspectionNote(session.notes);
   const capturedAt = session.capturedAt ?? new Date().toISOString();
@@ -217,7 +221,8 @@ export default function CaptureReview() {
         inspector_id: profile.id,
         variety_id: session.varietyId,
         batch_id: session.batchId,
-        calibration_id: session.calibrationId,
+        calibration_id:
+          session.capturedCalibrationReading?.source === "manual" ? session.calibrationId : null,
         image_url: session.uploadedImageUrl,
         ...result.summary,
         seeds: result.seeds,
@@ -250,7 +255,8 @@ export default function CaptureReview() {
           inspector_id: profile.id,
           variety_id: session.varietyId,
           batch_id: session.batchId,
-          calibration_id: session.calibrationId,
+          calibration_id:
+            session.capturedCalibrationReading?.source === "manual" ? session.calibrationId : null,
           image_url: session.uploadedImageUrl,
           ...result.summary,
           seeds: result.seeds,
@@ -407,7 +413,7 @@ export default function CaptureReview() {
           className="rounded-xl overflow-hidden"
           style={{ height: 200, backgroundColor: "#1a1816" }}
         >
-          <CaptureMediaPreview uri={session.uploadedImageUrl} kind={mediaKind} roi={previewRoi} />
+          <CaptureMediaPreview uri={previewMediaUri} kind={mediaKind} roi={previewRoi} />
         </View>
 
         {note ? (

@@ -92,7 +92,23 @@
       "tagFast": "Fast",
       "tagNoCalib": "No calibration",
       "tagAccurate": "Accurate",
-      "tagSlower": "Slower"
+      "tagSlower": "Slower",
+      "infoAction": "Capture prerequisites",
+      "infoTitle": "Capture prerequisites",
+      "infoSubtitle": "Use the mode that matches the device hardware and the confidence needed for the inspection.",
+      "infoClose": "Close",
+      "livePrereqTitle": "Live count",
+      "livePrereqDevice": "Supported on iPhone, iPad, and Android devices that can run the camera smoothly.",
+      "livePrereqCalibration": "LiDAR devices lock scale before live view. Other devices need the 5 cm ArUco card visible until calibration locks.",
+      "livePrereqFrame": "Keep the tray flat and the full seed area inside the frame.",
+      "livePrereqLighting": "Use even light and avoid glare while moving across the tray.",
+      "livePrereqMotion": "Move slowly; fast pans reduce count stability.",
+      "precisePrereqTitle": "Precise",
+      "precisePrereqDevice": "Best on iPad Pro or iPhone Pro with LiDAR. Non-LiDAR devices use ArUco calibration.",
+      "precisePrereqCalibration": "LiDAR devices lock scale first. Without LiDAR, keep the ArUco card visible until calibration locks.",
+      "precisePrereqHold": "Hold the device steady above the tray before tapping capture.",
+      "precisePrereqLighting": "Use bright, even light and avoid shadows over the tray.",
+      "precisePrereqUse": "Use this mode for final measurements and QA records."
     },
     "modeSingle": "Single",
     "modeBatch": "Batch",
@@ -162,7 +178,8 @@
       "lockRequiredTitle": "Calibration lock required",
       "lockRequiredBody": "Keep the 5 cm ArUco card visible until Calibration locked appears, then capture.",
       "unavailableTitle": "Calibration unavailable",
-      "unavailableHint": "Measurements may be approximate"
+      "unavailableHint": "Measurements may be approximate",
+      "recalibrate": "Recalibrate"
     },
     "processing": {
       "title": "Analyzing",
@@ -171,7 +188,8 @@
       "stepCalibration": "Calibration applied",
       "stepDetected": "Detected {{count}} seeds",
       "stepGrading": "Grading quality…",
-      "viewResults": "View results"
+      "viewResults": "View results",
+      "openingResults": "Opening results…"
     },
     "review": {
       "title": "Inspection result",

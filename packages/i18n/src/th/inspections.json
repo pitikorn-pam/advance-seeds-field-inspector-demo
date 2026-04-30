@@ -92,7 +92,23 @@
       "tagFast": "เร็ว",
       "tagNoCalib": "ไม่ต้องสอบเทียบ",
       "tagAccurate": "แม่นยำ",
-      "tagSlower": "ช้ากว่า"
+      "tagSlower": "ช้ากว่า",
+      "infoAction": "ข้อกำหนดก่อนถ่าย",
+      "infoTitle": "ข้อกำหนดก่อนถ่าย",
+      "infoSubtitle": "เลือกโหมดให้เหมาะกับฮาร์ดแวร์ของอุปกรณ์และระดับความมั่นใจที่ต้องการในการตรวจสอบ",
+      "infoClose": "ปิด",
+      "livePrereqTitle": "นับแบบสด",
+      "livePrereqDevice": "รองรับ iPhone, iPad และ Android ที่เปิดกล้องได้ลื่นพอ",
+      "livePrereqCalibration": "อุปกรณ์ที่มี LiDAR จะล็อกสเกลก่อนเปิดภาพสด อุปกรณ์อื่นต้องเห็นการ์ด ArUco 5 ซม. จนล็อกการสอบเทียบ",
+      "livePrereqFrame": "วางถาดให้เรียบและให้พื้นที่เมล็ดทั้งหมดอยู่ในกรอบภาพ",
+      "livePrereqLighting": "ใช้แสงสม่ำเสมอและหลีกเลี่ยงแสงสะท้อนขณะไล่ดูถาด",
+      "livePrereqMotion": "ขยับช้า ๆ เพราะการแพนเร็วทำให้ค่าการนับไม่นิ่ง",
+      "precisePrereqTitle": "แม่นยำ",
+      "precisePrereqDevice": "เหมาะที่สุดกับ iPad Pro หรือ iPhone Pro ที่มี LiDAR อุปกรณ์ที่ไม่มี LiDAR จะใช้การ์ด ArUco",
+      "precisePrereqCalibration": "อุปกรณ์ที่มี LiDAR จะล็อกสเกลก่อน หากไม่มี LiDAR ให้การ์ด ArUco อยู่ในภาพจนล็อกการสอบเทียบ",
+      "precisePrereqHold": "ถืออุปกรณ์ให้นิ่งเหนือถาดก่อนกดถ่าย",
+      "precisePrereqLighting": "ใช้แสงสว่างสม่ำเสมอและหลีกเลี่ยงเงาบนถาด",
+      "precisePrereqUse": "ใช้โหมดนี้สำหรับค่าวัดสุดท้ายและบันทึก QA"
     },
     "modeSingle": "เดี่ยว",
     "modeBatch": "ชุด",
@@ -162,7 +178,8 @@
       "lockRequiredTitle": "ต้องล็อกการสอบเทียบก่อน",
       "lockRequiredBody": "ให้การ์ด ArUco 5 ซม. อยู่ในภาพจนขึ้นว่าสอบเทียบล็อกแล้ว จากนั้นค่อยถ่าย",
       "unavailableTitle": "ยังไม่ได้สอบเทียบ",
-      "unavailableHint": "ค่าวัดอาจไม่แม่นยำ"
+      "unavailableHint": "ค่าวัดอาจไม่แม่นยำ",
+      "recalibrate": "สอบเทียบใหม่"
     },
     "processing": {
       "title": "กำลังวิเคราะห์",
@@ -171,7 +188,8 @@
       "stepCalibration": "ใช้ค่าสอบเทียบแล้ว",
       "stepDetected": "ตรวจพบ {{count}} เมล็ด",
       "stepGrading": "กำลังจัดเกรด…",
-      "viewResults": "ดูผลลัพธ์"
+      "viewResults": "ดูผลลัพธ์",
+      "openingResults": "กำลังเปิดผลลัพธ์…"
     },
     "review": {
       "title": "ผลการตรวจสอบ",

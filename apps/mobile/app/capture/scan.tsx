@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { View, Text, Alert, Linking } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, Alert, Linking, ActivityIndicator, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -19,11 +19,13 @@ import { Toast } from "@/components/ui/Toast";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useRecordingState } from "@/lib/capture/recording";
-import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
+import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
+import { stopLidarCalibration } from "@/lib/calibration/LidarCalibrator";
 import { useNotify } from "@/lib/notifications";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
-import type { ArucoCalibrationResult } from "@/lib/calibration/ArucoCalibrator";
+import type { CalibrationReading } from "@advance-seeds/types";
+import type { LidarCalibrationResult } from "@/lib/calibration/LidarCalibrator";
 
 /**
  * Live capture screen.
@@ -49,23 +51,31 @@ export default function CaptureScan() {
   const session = useCaptureSession();
   const notify = useNotify();
   const cameraRef = useRef<VCCamera>(null);
-  const recordingCalibrationRef = useRef<ArucoCalibrationResult | null>(null);
+  const recordingCalibrationRef = useRef<CalibrationReading | null>(null);
   const [busy, setBusy] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
   const [roiTool, setRoiTool] = useState<RoiKind | null>(null);
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
+  const [lockedLidar, setLockedLidar] = useState<LidarCalibrationResult | null>(null);
+  const [lidarReleased, setLidarReleased] = useState(false);
   // Torch is the LED-as-flashlight control. Vision Camera's `flash: 'on'`
   // option is unreliable on iOS 26 + iPhone 17 series, so we briefly toggle
   // the torch around `takePhoto` instead. See onShutter for the bracket.
   const [torch, setTorch] = useState<"off" | "on">("off");
   // Snapshot toast — surfaces "Snapshot saved" for ~2 s without an Alert.
   const [toast, setToast] = useState<string | null>(null);
-  const calibrator = useCalibrator();
-  const liveAruco = useLiveArucoCalibration(cameraActive && position === "back");
-  const activeCalibration = liveAruco.result?.reading ?? calibrator.reading;
-  const activeCalibrationProfileName = liveAruco.result ? null : calibrator.profileName;
+  const liveLidar = useLiveLidarCalibration(cameraActive && position === "back" && !lockedLidar);
+  const liveAruco = useLiveArucoCalibration(
+    cameraActive && position === "back" && liveLidar.supported === false,
+  );
+  const automaticCalibration = lockedLidar?.reading ?? liveAruco.result?.reading ?? null;
+  const lidarGateActive =
+    cameraActive &&
+    position === "back" &&
+    liveLidar.supported !== false &&
+    (!lockedLidar || !lidarReleased);
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
   const viewfinderCameraProps = useMemo(
     () => ({
@@ -82,6 +92,15 @@ export default function CaptureScan() {
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
   const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
   const toggleGrid = () => setShowGrid((g) => !g);
+  const recalibrateLidar = () => {
+    if (!lockedLidar || recording.isRecording) return;
+    setCameraActive(false);
+    setTorch("off");
+    setLockedLidar(null);
+    setLidarReleased(false);
+    recordingCalibrationRef.current = null;
+    setTimeout(() => setCameraActive(true), 80);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -89,12 +108,40 @@ export default function CaptureScan() {
       setCameraActive(true);
       setTorch("off");
       recordingCalibrationRef.current = null;
+      setLockedLidar(null);
+      setLidarReleased(false);
       return () => {
         setCameraActive(false);
         setTorch("off");
+        setLockedLidar(null);
+        setLidarReleased(false);
       };
     }, []),
   );
+
+  useEffect(() => {
+    if (liveLidar.locked && liveLidar.result && !lockedLidar) {
+      setLockedLidar(liveLidar.result);
+    }
+  }, [liveLidar.locked, liveLidar.result, lockedLidar]);
+
+  useEffect(() => {
+    if (!lockedLidar) {
+      setLidarReleased(false);
+      return;
+    }
+
+    let cancelled = false;
+    void stopLidarCalibration().finally(() => {
+      setTimeout(() => {
+        if (!cancelled) setLidarReleased(true);
+      }, 250);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedLidar]);
 
   const leaveCamera = () => {
     setCameraActive(false);
@@ -104,7 +151,7 @@ export default function CaptureScan() {
 
   // Drives the bottom KPI strip with mock detections every ~200 ms.
   const frameResult = useFrameTicker(!busy, {
-    pxPerMm: activeCalibration?.pxPerMm,
+    pxPerMm: automaticCalibration?.pxPerMm,
   });
 
   const recording = useRecordingState(cameraRef, {
@@ -120,11 +167,8 @@ export default function CaptureScan() {
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
-        capturedCalibrationReading:
-          recordingCalibrationRef.current?.reading ?? liveAruco.result?.reading ?? null,
-        capturedCalibrationProfileName: recordingCalibrationRef.current
-          ? null
-          : activeCalibrationProfileName,
+        capturedCalibrationReading: recordingCalibrationRef.current ?? automaticCalibration,
+        capturedCalibrationProfileName: null,
       });
       setCameraActive(false);
       setTimeout(() => router.push("/capture/processing"), 60);
@@ -150,7 +194,7 @@ export default function CaptureScan() {
   };
 
   const ensureCalibrationLock = () => {
-    if (liveAruco.locked && liveAruco.result) {
+    if (lockedLidar || (liveAruco.locked && liveAruco.result)) {
       return true;
     }
     Alert.alert(
@@ -204,7 +248,7 @@ export default function CaptureScan() {
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
-        capturedCalibrationReading: liveAruco.result?.reading ?? null,
+        capturedCalibrationReading: automaticCalibration,
         capturedCalibrationProfileName: null,
       });
 
@@ -225,7 +269,7 @@ export default function CaptureScan() {
   const onLongPressShutter = () => {
     if (recording.isRecording || busy) return;
     if (!ensureCalibrationLock()) return;
-    recordingCalibrationRef.current = liveAruco.result;
+    recordingCalibrationRef.current = automaticCalibration;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     recording.start();
   };
@@ -237,7 +281,7 @@ export default function CaptureScan() {
     }
     if (busy) return;
     if (!ensureCalibrationLock()) return;
-    recordingCalibrationRef.current = liveAruco.result;
+    recordingCalibrationRef.current = automaticCalibration;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     recording.start();
   };
@@ -282,6 +326,38 @@ export default function CaptureScan() {
     }
   };
 
+  if (lidarGateActive) {
+    return (
+      <View className="flex-1 bg-black">
+        <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
+          <GlassTopBar
+            centerLabel="LiDAR calibration"
+            centerDotColor="#5DCAA5"
+            flashMode={flashMode}
+            onFlashPress={cycleFlash}
+            onBackPress={leaveCamera}
+          />
+          <View className="flex-1 items-center justify-center px-xl">
+            <ActivityIndicator color="#FFFFFF" />
+            <Text className="mt-lg text-center text-white font-medium" style={{ fontSize: 18 }}>
+              {lockedLidar ? "Preparing live camera" : "Hold steady"}
+            </Text>
+            <Text className="mt-xs text-center text-white/65" style={{ fontSize: 13 }}>
+              {lockedLidar
+                ? "LiDAR locked. Releasing depth sensor before live count."
+                : "Hold the iPad still for 1 second until depth scale locks."}
+            </Text>
+            {liveLidar.result ? (
+              <Text className="mt-md text-center text-white/85" style={{ fontSize: 28 }}>
+                {liveLidar.result.reading.pxPerMm.toFixed(1)} px/mm
+              </Text>
+            ) : null}
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-black">
       <Viewfinder
@@ -304,14 +380,29 @@ export default function CaptureScan() {
               recording so the timer takes the spotlight). */}
           {!recording.isRecording ? (
             <View className="items-center mt-xs" pointerEvents="box-none">
-              <CalibrationPill reading={activeCalibration} />
+              <CalibrationPill reading={automaticCalibration} />
               <Text className="mt-xs rounded-full bg-black/45 px-sm py-[2px] text-white/75 text-caption">
-                {liveAruco.locked
+                {lockedLidar
                   ? t("inspections:capture.calibration.lockedHintBare", {
-                      pxPerMm: liveAruco.result?.reading.pxPerMm.toFixed(1),
+                      pxPerMm: lockedLidar.reading.pxPerMm.toFixed(1),
                     })
-                  : t("inspections:capture.calibration.alignMarker")}
+                  : liveAruco.locked
+                    ? t("inspections:capture.calibration.lockedHintBare", {
+                        pxPerMm: liveAruco.result?.reading.pxPerMm.toFixed(1),
+                      })
+                    : t("inspections:capture.calibration.alignMarker")}
               </Text>
+              {lockedLidar ? (
+                <Pressable
+                  accessibilityRole="button"
+                  className="mt-xs rounded-full bg-black/45 px-sm py-[2px]"
+                  onPress={recalibrateLidar}
+                >
+                  <Text className="text-caption font-medium text-white">
+                    {t("inspections:capture.calibration.recalibrate")}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <RecordingTimer durationMs={recording.durationMs} />

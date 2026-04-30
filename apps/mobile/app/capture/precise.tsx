@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { View, Text, Alert } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, Alert, ActivityIndicator, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -11,9 +11,10 @@ import type { FlashMode } from "@/components/camera/GlassTopBar";
 import { ShutterBar } from "@/components/camera/ShutterBar";
 import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
 import { useCaptureSession } from "@/lib/capture/session";
-import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
+import { stopLidarCalibration } from "@/lib/calibration/LidarCalibrator";
+import type { LidarCalibrationResult } from "@/lib/calibration/LidarCalibrator";
 
 /**
  * Precise capture mode.
@@ -23,8 +24,8 @@ import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibrati
  * prefers iOS LiDAR scene-depth scale on supported devices, then falls back to
  * ArUco if the device has no LiDAR or LiDAR cannot lock.
  *
- * Manual calibration still feeds preview estimates, but persisted inspection
- * measurements only proceed once an automatic calibration source locks.
+ * Persisted inspection measurements only proceed once an automatic calibration
+ * source locks.
  *
  * Camera controls (flash / flip / grid) mirror scan mode but live as local
  * state — there's no value carrying them across modes.
@@ -39,14 +40,18 @@ export default function CapturePrecise() {
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
-  const calibrator = useCalibrator();
-  const liveLidar = useLiveLidarCalibration(cameraActive && position === "back");
+  const [lockedLidar, setLockedLidar] = useState<LidarCalibrationResult | null>(null);
+  const [lidarReleased, setLidarReleased] = useState(false);
+  const liveLidar = useLiveLidarCalibration(cameraActive && position === "back" && !lockedLidar);
   const liveAruco = useLiveArucoCalibration(
-    cameraActive && position === "back" && liveLidar.supported !== true,
+    cameraActive && position === "back" && liveLidar.supported === false,
   );
-  const automaticCalibration = liveLidar.result ?? liveAruco.result;
-  const activeCalibration = automaticCalibration?.reading ?? calibrator.reading;
-  const activeCalibrationProfileName = automaticCalibration ? null : calibrator.profileName;
+  const automaticCalibration = lockedLidar ?? liveAruco.result;
+  const lidarGateActive =
+    cameraActive &&
+    position === "back" &&
+    liveLidar.supported !== false &&
+    (!lockedLidar || !lidarReleased);
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
@@ -64,18 +69,54 @@ export default function CapturePrecise() {
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
   const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
   const toggleGrid = () => setShowGrid((g) => !g);
+  const recalibrateLidar = () => {
+    if (!lockedLidar) return;
+    setCameraActive(false);
+    setTorch("off");
+    setLockedLidar(null);
+    setLidarReleased(false);
+    setTimeout(() => setCameraActive(true), 80);
+  };
 
   useFocusEffect(
     useCallback(() => {
       setBusy(false);
       setCameraActive(true);
       setTorch("off");
+      setLockedLidar(null);
+      setLidarReleased(false);
       return () => {
         setCameraActive(false);
         setTorch("off");
+        setLockedLidar(null);
+        setLidarReleased(false);
       };
     }, []),
   );
+
+  useEffect(() => {
+    if (liveLidar.locked && liveLidar.result && !lockedLidar) {
+      setLockedLidar(liveLidar.result);
+    }
+  }, [liveLidar.locked, liveLidar.result, lockedLidar]);
+
+  useEffect(() => {
+    if (!lockedLidar) {
+      setLidarReleased(false);
+      return;
+    }
+
+    let cancelled = false;
+    void stopLidarCalibration().finally(() => {
+      setTimeout(() => {
+        if (!cancelled) setLidarReleased(true);
+      }, 250);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedLidar]);
 
   const leaveCamera = () => {
     setCameraActive(false);
@@ -84,7 +125,7 @@ export default function CapturePrecise() {
   };
 
   const ensureCalibrationLock = () => {
-    if ((liveLidar.locked && liveLidar.result) || (liveAruco.locked && liveAruco.result)) {
+    if (lockedLidar || (liveAruco.locked && liveAruco.result)) {
       return true;
     }
     Alert.alert(
@@ -140,6 +181,38 @@ export default function CapturePrecise() {
     }
   };
 
+  if (lidarGateActive) {
+    return (
+      <View className="flex-1 bg-black">
+        <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
+          <GlassTopBar
+            centerLabel="LiDAR calibration"
+            centerDotColor="#B5D4F4"
+            flashMode={flashMode}
+            onFlashPress={cycleFlash}
+            onBackPress={leaveCamera}
+          />
+          <View className="flex-1 items-center justify-center px-xl">
+            <ActivityIndicator color="#FFFFFF" />
+            <Text className="mt-lg text-center text-white font-medium" style={{ fontSize: 18 }}>
+              {lockedLidar ? "Preparing camera" : "Hold steady"}
+            </Text>
+            <Text className="mt-xs text-center text-white/65" style={{ fontSize: 13 }}>
+              {lockedLidar
+                ? "LiDAR locked. Releasing depth sensor before capture."
+                : "Hold the iPad still for 1 second until depth scale locks."}
+            </Text>
+            {liveLidar.result ? (
+              <Text className="mt-md text-center text-white/85" style={{ fontSize: 28 }}>
+                {liveLidar.result.reading.pxPerMm.toFixed(1)} px/mm
+              </Text>
+            ) : null}
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-black">
       <Viewfinder
@@ -184,10 +257,23 @@ export default function CapturePrecise() {
 
           <View className="mx-md mb-md" pointerEvents="box-none">
             <CalibrationBanner
-              reading={activeCalibration}
-              profileName={activeCalibrationProfileName}
-              distanceLabel={liveLidar.distanceLabel ?? calibrator.distanceLabel}
+              reading={automaticCalibration?.reading ?? null}
+              profileName={null}
+              distanceLabel={
+                lockedLidar ? `${Math.round(lockedLidar.distanceMeters * 100)} cm` : null
+              }
             />
+            {lockedLidar ? (
+              <Pressable
+                accessibilityRole="button"
+                className="mt-sm self-center rounded-full bg-black/[0.62] px-md py-xs"
+                onPress={recalibrateLidar}
+              >
+                <Text className="text-caption font-medium text-white">
+                  {t("inspections:capture.calibration.recalibrate")}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <ShutterBar

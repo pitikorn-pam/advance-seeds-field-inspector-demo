@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Create inspection (mobile capture flow)
-The mobile app SHALL allow an inspector to create a new inspection by selecting variety, batch, and capture mode (Live or Precise), running real YOLOv11n inference on a real captured camera frame, applying live calibration to produce real millimeter measurements, and persisting the resulting analysis.
+The mobile app SHALL allow an inspector to create a new inspection by selecting variety, optional batch, and capture mode (Live or Precise), running real YOLOv11n inference on a real captured camera frame, automatically applying LiDAR or ArUco calibration to produce real millimeter measurements, and persisting the resulting analysis.
 
 #### Scenario: Happy-path Live capture with real ML and ArUco calibration
 - **GIVEN** Jane is on the Home screen with the calibration card placed in front of the tray

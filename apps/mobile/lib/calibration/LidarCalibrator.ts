@@ -1,4 +1,5 @@
 import type { CalibrationReading } from "@advance-seeds/types";
+import { Platform } from "react-native";
 
 const MIN_CONFIDENCE = 0.6;
 
@@ -22,6 +23,10 @@ let nativeModule: NativeLidarCalibratorModule | null | undefined;
 
 function module(): NativeLidarCalibratorModule | null {
   if (nativeModule !== undefined) return nativeModule;
+  if (Platform.OS !== "ios") {
+    nativeModule = null;
+    return nativeModule;
+  }
   try {
     // LiDAR is an optional native capability. Older dev clients and Android
     // should keep using ArUco/manual calibration instead of crashing on import.

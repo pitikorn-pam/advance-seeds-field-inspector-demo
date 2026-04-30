@@ -9,7 +9,7 @@ The mobile app SHALL expose a `LiveCalibrator` interface that observes camera fr
 - **GIVEN** the calibrator is observing frames and no LiDAR / ArUco signal is present
 - **WHEN** a frame is observed
 - **THEN** `observe(frame)` returns `null`
-- **AND** the analyzer falls back to the user's selected manual calibration profile
+- **AND** capture remains gated until an automatic calibration source locks
 
 #### Scenario: Calibrator returns a reading with confidence
 - **GIVEN** a 5 cm ArUco marker is visible in the frame
@@ -26,17 +26,17 @@ On iOS devices with a LiDAR sensor, the mobile app SHALL provide a `LidarCalibra
 - **THEN** the calibration banner shows "Calibration locked" with a LiDAR-derived px/mm value and "28 cm"
 - **AND** confidence is ≥ 0.6
 
-#### Scenario: LiDAR unsupported — calibrator is not registered
+#### Scenario: LiDAR unsupported — ArUco fallback is selected automatically
 - **GIVEN** a device without a LiDAR sensor (iPhone < 12 Pro, all Android)
-- **WHEN** the calibrator picker runs at startup
+- **WHEN** the user opens Live or Precise capture
 - **THEN** `LidarCalibrator` is NOT registered
-- **AND** the picker falls back to ArUco or Manual
+- **AND** the capture screen falls back to ArUco marker calibration without requiring a setup selection
 
 #### Scenario: LiDAR cannot lock on a supported iOS device
 - **GIVEN** the user is in precise mode on an iOS device with LiDAR
 - **WHEN** ARKit scene depth is unavailable or confidence is below 0.6
 - **THEN** the shutter remains gated by automatic calibration
-- **AND** the calibration banner falls back to the selected manual profile as an approximate preview value
+- **AND** the capture screen falls back to ArUco if LiDAR cannot start
 
 ### Requirement: ArUco marker calibration cross-platform
 The mobile app SHALL provide an `ArucoCalibrator` that detects a 5 cm × 5 cm ArUco marker (DICT_4X4_50, marker ID 0) in camera frames and computes `pxPerMm` from its pixel size.
@@ -65,15 +65,26 @@ The mobile app SHALL provide an `ArucoCalibrator` that detects a 5 cm × 5 cm Ar
 - **WHEN** the calibrator observes the frame
 - **THEN** it returns null and the calibration pill shows "Place ArUco card in frame"
 
-### Requirement: Manual fallback when no live calibration is available
-When no automatic calibration is detected, the mobile app SHALL use the user's selected calibration profile and surface this state honestly via the calibration pill.
+### Requirement: Calibration is automatic during capture
+The mobile app SHALL NOT require inspectors to select a calibration profile during New inspection setup. Capture SHALL auto-select the best available calibration source based on device capability and marker visibility.
 
-#### Scenario: Manual fallback after 3 seconds without lock
-- **GIVEN** the user enters live mode and neither LiDAR nor ArUco produces a reading in 3 seconds
-- **WHEN** the timeout elapses
-- **THEN** the manual calibrator emits the selected profile's `pxPerMm`
-- **AND** the calibration pill shows "Calibration unavailable — measurements may be approximate" with the source set to "manual"
-- **AND** measurements are still produced but flagged in the inspection's metadata
+#### Scenario: New inspection setup has no calibration selector
+- **GIVEN** the user opens New inspection
+- **WHEN** setup fields are rendered
+- **THEN** the form asks for variety, optional batch, notes, and location tagging
+- **AND** no "Select calibration" control is shown
+
+#### Scenario: Supported LiDAR device auto-selects LiDAR
+- **GIVEN** the user opens Live or Precise capture on an iOS device with LiDAR
+- **WHEN** LiDAR produces a confidence ≥ 0.6 reading
+- **THEN** the app stores a calibration reading with source "lidar"
+- **AND** the user can capture without placing an ArUco marker in frame
+
+#### Scenario: Non-LiDAR device auto-selects ArUco
+- **GIVEN** the user opens Live or Precise capture on a device without LiDAR
+- **WHEN** the bundled ArUco marker is visible and confidence is ≥ 0.6
+- **THEN** the app stores a calibration reading with source "aruco"
+- **AND** the user can capture without choosing a calibration profile
 
 ### Requirement: Calibration metadata persisted with inspection
 Every inspection row SHALL store the calibration source and value used at capture time.
@@ -81,5 +92,5 @@ Every inspection row SHALL store the calibration source and value used at captur
 #### Scenario: Inspection row has calibration metadata
 - **GIVEN** an inspection is captured with LiDAR locked at 24.7 px/mm
 - **WHEN** the row is saved
-- **THEN** `inspection.calibration_id` is set to the matching profile (creating a synthetic profile if needed)
-- **AND** the captured `pxPerMm` is recorded for traceability
+- **THEN** `inspection.calibration_id` may be null when the source is automatic
+- **AND** the captured source, confidence, and `pxPerMm` are recorded in metadata for traceability

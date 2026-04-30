@@ -3,8 +3,8 @@ import { ScrollView, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { X, MapPin } from "lucide-react-native";
-import { useVarieties, useBatches, useCalibrations } from "@/lib/queries";
+import { ChevronLeft, MapPin } from "lucide-react-native";
+import { useVarieties, useBatches } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -29,9 +29,6 @@ const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
  * is non-mandatory. Continue button is disabled while mandatory fields
  * are unset.
  *
- * Calibration profile selector remains as a button list — only a handful
- * of profiles in the demo dataset, so a full picker is overkill.
- *
  * Auto-tag location toggle records intent in capture session; actual
  * GPS capture is wired by the upcoming expo-location commit.
  */
@@ -42,15 +39,12 @@ export default function CaptureSetup() {
 
   const varieties = useVarieties();
   const batches = useBatches();
-  const calibrations = useCalibrations();
 
-  // Default to first calibration profile so manual calibration is active
-  // out of the box. Don't reset if the user has explicitly cleared.
   useEffect(() => {
-    if (!session.calibrationId && calibrations.data && calibrations.data.length > 0) {
-      session.set({ calibrationId: calibrations.data[0].id });
+    if (session.calibrationId) {
+      session.set({ calibrationId: null });
     }
-  }, [calibrations.data, session]);
+  }, [session]);
 
   const varietyOptions = useMemo<DropdownItem[]>(() => {
     if (!varieties.data) return [];
@@ -78,7 +72,7 @@ export default function CaptureSetup() {
     }));
   }, [batches.data]);
 
-  if (varieties.isLoading || batches.isLoading || calibrations.isLoading) {
+  if (varieties.isLoading || batches.isLoading) {
     return <LoadingState />;
   }
 
@@ -89,16 +83,16 @@ export default function CaptureSetup() {
     router.push("/capture/mode" as never);
   };
 
-  const onClose = () => router.replace("/");
+  const onBack = () => router.replace("/");
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar
         title={t("common:actions.newInspection")}
         left={{
-          accessibilityLabel: t("common:actions.cancel"),
-          renderIcon: () => <X color="#1A1A1A" size={18} />,
-          onPress: onClose,
+          accessibilityLabel: t("common:actions.back"),
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          onPress: onBack,
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
@@ -133,24 +127,6 @@ export default function CaptureSetup() {
             placeholder={t("inspections:capture.batchPlaceholder")}
             clearable
           />
-        </View>
-
-        {/* Calibration profile — small set; button list is fine. */}
-        <View className="gap-xs">
-          <Text className="text-caption uppercase text-fg-secondary px-xs">
-            {t("inspections:capture.selectCalibration")}
-          </Text>
-          <View className="flex-row flex-wrap gap-xs">
-            {calibrations.data?.map((c) => (
-              <Button
-                key={c.id}
-                size="sm"
-                variant={session.calibrationId === c.id ? "primary" : "outline"}
-                label={c.name}
-                onPress={() => session.set({ calibrationId: c.id })}
-              />
-            ))}
-          </View>
         </View>
 
         {/* Notes textarea. */}
