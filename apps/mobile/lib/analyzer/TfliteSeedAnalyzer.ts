@@ -21,17 +21,12 @@ import {
   summarizeSeeds,
 } from "./yolo";
 import type { RawDetection } from "./yolo";
+import { ensureHyperParamsLoaded, getHyperParamsSync } from "./hyperparams";
 
 // Generic COCO yolo11n.tflite acts as a structural placeholder until a
 // seed-trained model is dropped at the same path. See assets/models/README.md.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const MODEL_SOURCE = require("../../assets/models/yolo11n-seeds.tflite");
-
-// Confidence 0.5 trades recall for precision: phantom counts hurt UX more
-// than missed borderline objects. IoU 0.75 keeps near-touching detections
-// distinct so packed produce/seeds aren't merged into one bbox by NMS.
-const SCORE_THRESHOLD = 0.5;
-const IOU_THRESHOLD = 0.75;
 
 // "raw" head emits [1, 4+numClasses, anchors] (YOLO 8/11), "nms" head emits
 // [1, maxDet, 6] with NMS already baked in (YOLO 26 default export).
@@ -117,6 +112,8 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
 
   async analyze(image: ImageRef, options: AnalyzeOptions): Promise<AnalysisResult> {
     const startedAt = Date.now();
+    await ensureHyperParamsLoaded();
+    const hp = getHyperParamsSync();
     const decodeStartedAt = Date.now();
     const pixels = await decodeImage(image);
     const decodeMs = Date.now() - decodeStartedAt;
@@ -131,7 +128,7 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     const out = new Float32Array(outputs[0]);
     const decodeOpts = {
       letterbox: lb,
-      scoreThreshold: SCORE_THRESHOLD,
+      scoreThreshold: hp.scoreThreshold,
       classFilter: options.classFilter ?? null,
     };
     const raw: RawDetection[] =
@@ -140,7 +137,7 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
         : decodeYolo(out, this.outputShape, decodeOpts);
     // YOLO26 already runs NMS in the graph, so re-running it would be a no-op
     // on overlap and a needless O(n²) on JS. Skip when the graph handled it.
-    const kept = this.outputKind === "nms" ? raw : nonMaxSuppression(raw, IOU_THRESHOLD);
+    const kept = this.outputKind === "nms" ? raw : nonMaxSuppression(raw, hp.iouThreshold);
     const seeds = mapDetectionsToSeeds(kept, {
       frameWidth: pixels.width,
       frameHeight: pixels.height,

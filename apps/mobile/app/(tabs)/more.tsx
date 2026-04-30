@@ -10,6 +10,7 @@ import {
   ListChecks,
   BarChart3,
   Settings as SettingsIcon,
+  Sliders,
   Sprout,
   ChevronRight,
   LogOut,
@@ -111,6 +112,12 @@ export default function MoreScreen() {
             renderIcon={() => <Target color="#1A1A1A" size={16} />}
             label={t("more:menu.calibration")}
             onPress={() => router.push("/calibration")}
+          />
+          <Divider />
+          <MenuRow
+            renderIcon={() => <Sliders color="#1A1A1A" size={16} />}
+            label={t("more:menu.hyperparams")}
+            onPress={() => router.push("/more/hyperparams" as never)}
           />
         </Section>
 

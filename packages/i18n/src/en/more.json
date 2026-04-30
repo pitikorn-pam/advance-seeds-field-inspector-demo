@@ -16,7 +16,8 @@
     "varieties": "Varieties",
     "history": "History",
     "reports": "Reports",
-    "settings": "Settings"
+    "settings": "Settings",
+    "hyperparams": "Model hyperparameters"
   },
   "masterData": {
     "varieties": "Varieties",
@@ -39,5 +40,21 @@
     "invalidClass": "Detector class must be a whole number.",
     "invalidLength": "Reference length must be a positive number.",
     "invalidWidth": "Reference width must be a positive number."
+  },
+  "hyperparams": {
+    "title": "Model hyperparameters",
+    "intro": "Tune the live + single-shot inference thresholds and live fps for QA. Settings persist across reloads; tap Reset to revert to defaults.",
+    "scoreThreshold": "Confidence threshold",
+    "scoreThresholdHint": "Drop detections below this score before NMS. Higher = fewer false positives.",
+    "iouThreshold": "NMS IoU threshold",
+    "iouThresholdHint": "JS-side NMS overlap cutoff. YOLO26 (NMS-baked) ignores this.",
+    "targetFpsIos": "Live fps (iOS Core ML)",
+    "targetFpsIosHint": "Worklet inference rate. 30 fps matches the camera; 60 fps doubles ANE thermal load.",
+    "targetFpsAndroid": "Live fps (Android TFLite)",
+    "targetFpsAndroidHint": "JS-thread bridge cost dominates; keep ≤ 10 fps.",
+    "defaults": "Defaults",
+    "reset": "Reset to defaults",
+    "resetTitle": "Reset hyperparameters?",
+    "resetBody": "All values revert to the shipped defaults."
   }
 }

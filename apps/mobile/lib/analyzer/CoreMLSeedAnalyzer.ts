@@ -17,9 +17,8 @@ import {
   summarizeSeeds,
 } from "./yolo";
 import type { RawDetection } from "./yolo";
+import { ensureHyperParamsLoaded, getHyperParamsSync } from "./hyperparams";
 
-const SCORE_THRESHOLD = 0.5;
-const IOU_THRESHOLD = 0.75;
 const MODEL_ASSET = "yolo26n";
 
 type OutputKind = "raw" | "nms";
@@ -91,6 +90,8 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
       throw new Error(`CoreMLSeedAnalyzer needs a uri ImageRef, got ${image.kind}`);
     }
     const startedAt = Date.now();
+    await ensureHyperParamsLoaded();
+    const hp = getHyperParamsSync();
 
     // Source dims drive the inverse-letterbox math + ROI normalization.
     // Image.getSize is async but cheap (RN's image loader caches).
@@ -116,14 +117,14 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
 
     const decodeOpts = {
       letterbox: { scale: fitScale, padX, padY, target: YOLO_INPUT_SIZE },
-      scoreThreshold: SCORE_THRESHOLD,
+      scoreThreshold: hp.scoreThreshold,
       classFilter: options.classFilter ?? null,
     };
     const raw: RawDetection[] =
       this.outputKind === "nms"
         ? decodeYoloNms(out, shape, decodeOpts)
         : decodeYolo(out, shape, decodeOpts);
-    const kept = this.outputKind === "nms" ? raw : nonMaxSuppression(raw, IOU_THRESHOLD);
+    const kept = this.outputKind === "nms" ? raw : nonMaxSuppression(raw, hp.iouThreshold);
     const seeds = mapDetectionsToSeeds(kept, {
       frameWidth: srcW,
       frameHeight: srcH,

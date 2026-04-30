@@ -15,19 +15,8 @@ import {
   summarizeSeeds,
 } from "./yolo";
 import { loadSharedTfliteModel, type TfliteOutputKind } from "./TfliteSeedAnalyzer";
+import { useHyperParams } from "./hyperparams";
 
-const SCORE_THRESHOLD = 0.5;
-const IOU_THRESHOLD = 0.75;
-// Per-platform throttle for the live worklet:
-//   iOS (Core ML on ANE) — ~20–30 ms inference. 30 fps matches the
-//      camera's native preview rate (33 ms budget) so the bbox visibly
-//      tracks the frame the user is seeing. Sweet spot vs power draw:
-//      60 fps would be over budget, force frame coalescing, double the
-//      battery + thermal load with no visible tracking improvement.
-//   Android (TFLite via JS-thread runSync) — bridge cost dominates; 5
-//      fps avoids stacking work on the JS thread.
-const TARGET_FPS_IOS = 30;
-const TARGET_FPS_ANDROID = 5;
 const COREML_ASSET = "yolo26n";
 
 interface Options {
@@ -72,6 +61,7 @@ export function useLiveDetections(options: Options): State {
 
 function useLiveDetectionsCoreML(options: Options): State {
   const { enabled, pxPerMm, classFilter, roi } = options;
+  const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
 
   // Initialised once. Vision Camera proxies the native plugin lookup
@@ -80,6 +70,10 @@ function useLiveDetectionsCoreML(options: Options): State {
     () => VisionCameraProxy.initFrameProcessorPlugin("advanceSeedsRunCoreML", {}),
     [],
   );
+
+  const scoreThreshold = hp.scoreThreshold;
+  const iouThreshold = hp.iouThreshold;
+  const targetFps = hp.targetFpsIos;
 
   const decodeOnJS = useMemo(
     () =>
@@ -104,7 +98,7 @@ function useLiveDetectionsCoreML(options: Options): State {
           const padY = -((frameHeight - cropSize) / 2) * scale;
           const decodeOpts = {
             letterbox: { scale, padX, padY, target: YOLO_INPUT_SIZE },
-            scoreThreshold: SCORE_THRESHOLD,
+            scoreThreshold,
             classFilter: classFilter ? [...classFilter] : null,
           };
           const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
@@ -112,7 +106,7 @@ function useLiveDetectionsCoreML(options: Options): State {
             outputKind === "nms"
               ? decodeYoloNms(out, shape, decodeOpts)
               : decodeYolo(out, shape, decodeOpts);
-          const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, IOU_THRESHOLD);
+          const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, iouThreshold);
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,
             frameHeight,
@@ -127,14 +121,14 @@ function useLiveDetectionsCoreML(options: Options): State {
           });
         },
       ),
-    [classFilter, pxPerMm, roi],
+    [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold],
   );
 
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
       if (!enabled || !plugin) return;
-      runAtTargetFps(TARGET_FPS_IOS, () => {
+      runAtTargetFps(targetFps, () => {
         "worklet";
         try {
           const result = plugin.call(frame, { assetName: COREML_ASSET });
@@ -159,7 +153,7 @@ function useLiveDetectionsCoreML(options: Options): State {
         }
       });
     },
-    [enabled, plugin, decodeOnJS],
+    [enabled, plugin, decodeOnJS, targetFps],
   );
 
   useEffect(() => {
@@ -187,6 +181,10 @@ function useLiveDetectionsTflite(options: Options): State {
   const [ready, setReady] = useState(false);
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const { resize } = useResizePlugin();
+  const hp = useHyperParams();
+  const scoreThreshold = hp.scoreThreshold;
+  const iouThreshold = hp.iouThreshold;
+  const targetFps = hp.targetFpsAndroid;
 
   useEffect(() => {
     let cancelled = false;
@@ -239,14 +237,14 @@ function useLiveDetectionsTflite(options: Options): State {
             : [1, 84, 8400]) as unknown as readonly [number, number, number];
           const decodeOpts = {
             letterbox: lb,
-            scoreThreshold: SCORE_THRESHOLD,
+            scoreThreshold,
             classFilter: classFilter ? [...classFilter] : null,
           };
           const raw =
             outputKind === "nms"
               ? decodeYoloNms(out, shape, decodeOpts)
               : decodeYolo(out, shape, decodeOpts);
-          const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, IOU_THRESHOLD);
+          const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, iouThreshold);
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,
             frameHeight,
@@ -261,14 +259,14 @@ function useLiveDetectionsTflite(options: Options): State {
           });
         },
       ),
-    [classFilter, pxPerMm, roi],
+    [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold],
   );
 
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
       if (!enabled) return;
-      runAtTargetFps(TARGET_FPS_ANDROID, () => {
+      runAtTargetFps(targetFps, () => {
         "worklet";
         try {
           const resized = resize(frame, {
@@ -297,7 +295,7 @@ function useLiveDetectionsTflite(options: Options): State {
         }
       });
     },
-    [enabled, resize, inferOnJS],
+    [enabled, resize, inferOnJS, targetFps],
   );
 
   useEffect(() => {
