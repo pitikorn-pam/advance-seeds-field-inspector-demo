@@ -3,6 +3,7 @@ import { View, Text, Pressable, TextInput, Modal, FlatList, Dimensions } from "r
 import { Search, X, ChevronDown, Check } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
   interpolate,
@@ -37,17 +38,17 @@ interface Props {
   clearable?: boolean;
 }
 
-const SHEET_HEIGHT = Math.round(Dimensions.get("window").height * 0.75);
-const SWIPE_DISMISS_THRESHOLD = SHEET_HEIGHT * 0.25;
+const SHEET_HEIGHT = Dimensions.get("window").height;
+const SWIPE_DISMISS_THRESHOLD = SHEET_HEIGHT * 0.2;
 const SWIPE_VELOCITY_THRESHOLD = 800;
 const ANIMATION_DURATION = 220;
 
 /**
  * Inline dropdown with typeahead search. Tap the trigger button to open
- * a slide-up bottom sheet, type to filter, tap a row to commit. The sheet
- * can be dismissed three ways: tapping the dim backdrop, tapping the
- * close pill at the top-left, or swiping the sheet down past ~25% of its
- * height (or any flick exceeding 800 px/s).
+ * a full-screen slide-up modal, type to filter, tap a row to commit.
+ * The modal can be dismissed two ways: tapping the close pill at the
+ * top-left, or swiping the sheet down past ~20% of its height (or any
+ * flick exceeding 800 px/s).
  *
  * Replaces our previous "open a dedicated picker route" pattern (e.g.
  * /capture/variety-picker.tsx) — keeps the user in-context on the parent
@@ -70,6 +71,7 @@ export function DropdownSearch({
 }: Props) {
   const { t } = useTranslation("common");
   const { resolved } = useTheme();
+  const insets = useSafeAreaInsets();
   const closeIconColor = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
   const [open, setOpen] = useState(false);
   // `mounted` keeps the Modal in the tree while the close animation plays.
@@ -242,11 +244,11 @@ export function DropdownSearch({
 
             <GestureDetector gesture={panGesture}>
               <Animated.View
-                className="absolute inset-x-0 bottom-0 bg-bg-secondary rounded-t-2xl"
-                style={[{ height: SHEET_HEIGHT }, sheetStyle]}
+                className="absolute inset-x-0 bottom-0 bg-bg-secondary"
+                style={[{ height: SHEET_HEIGHT, paddingTop: insets.top }, sheetStyle]}
               >
-                {/* Drag-handle affordance — also the visual cue that the
-                    sheet supports the swipe-down-to-close gesture. */}
+                {/* Drag-handle affordance — keeps the swipe-down-to-close
+                    gesture discoverable on the now full-screen modal. */}
                 <View className="items-center pt-sm pb-xs">
                   <View className="h-1 w-10 rounded-full bg-line-secondary" />
                 </View>
