@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { runAtTargetFps, useFrameProcessor } from "react-native-vision-camera";
 import type { ReadonlyFrameProcessor } from "react-native-vision-camera";
 import { useResizePlugin } from "vision-camera-resize-plugin";
@@ -35,22 +35,32 @@ interface State {
 }
 
 /**
- * Real worklet-thread ML inference for live mode. Loads the bundled YOLO TFLite
- * model once via the shared singleton, resizes each Vision Camera frame to
- * 640×640 RGB float32 with vision-camera-resize-plugin, and runs `model.runSync`
- * directly on the worklet thread — no JS-bridge round-trip per frame.
+ * Live ML inference for the camera preview.
  *
- * Decoding (NMS / class filter / px→mm) happens on the JS thread via a
- * `runOnJS` callback so we don't ship the heavy yolo helpers across the
- * worklet boundary on every tick.
+ * The worklet thread does the cheap part: resize the Vision Camera frame
+ * to 640×640 RGB float32 with vision-camera-resize-plugin. The expensive
+ * part — `model.runSync` and YOLO decode — runs on the JS thread via
+ * `Worklets.createRunOnJS`.
  *
- * The hook owns its frame processor — the camera screen swaps between this
- * and the aruco frame processor based on calibration lock state.
+ * Why JS-thread inference (not worklet-thread):
+ *   When the captured `model` HybridObject travels across the worklet
+ *   serialization boundary, react-native-worklets-core walks its enumerable
+ *   properties to determine shareability. That walk fires the `outputs`
+ *   getter, which throws "this does not have a NativeState" any time the
+ *   model is mid-fast-refresh or has been re-instantiated. The crash kills
+ *   the camera screen.
+ *
+ *   Keeping the model entirely on the JS thread (accessed via a ref) means
+ *   nothing hybrid-shaped is captured by the worklet closure — only a plain
+ *   `runOnJS` callback. ArrayBuffers cross threads cheaply, so the only
+ *   added cost vs. pure-worklet inference is one bridge hop per ≤5 fps
+ *   frame, which is fine for the live KPI strip.
  */
 export function useLiveDetections(options: Options): State {
   const { enabled, pxPerMm, classFilter, roi } = options;
-  const [model, setModel] = useState<TfliteModel | null>(null);
-  const [outputKind, setOutputKind] = useState<TfliteOutputKind>("raw");
+  const modelRef = useRef<TfliteModel | null>(null);
+  const outputKindRef = useRef<TfliteOutputKind>("raw");
+  const [ready, setReady] = useState(false);
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const { resize } = useResizePlugin();
 
@@ -59,8 +69,9 @@ export function useLiveDetections(options: Options): State {
     loadSharedTfliteModel()
       .then((loaded) => {
         if (cancelled) return;
-        setModel(loaded.model);
-        setOutputKind(loaded.outputKind);
+        modelRef.current = loaded.model;
+        outputKindRef.current = loaded.outputKind;
+        setReady(true);
       })
       .catch((err) => {
         console.warn("[live-detections] tflite unavailable", err);
@@ -70,9 +81,12 @@ export function useLiveDetections(options: Options): State {
     };
   }, []);
 
-  // The decode step runs on the JS thread; the worklet posts the raw output
-  // tensor and frame dimensions, the JS side converts to AnalyzedSeed[].
-  const decodeOnJS = useMemo(
+  // JS-thread side: receives the resized frame buffer + frame metadata,
+  // runs inference on the model held in `modelRef`, decodes, and writes
+  // detections into React state. The worklet body only knows about this
+  // function reference — never about `model` directly — so Vision Camera's
+  // worklet serialization can't walk the hybrid object.
+  const inferOnJS = useMemo(
     () =>
       Worklets.createRunOnJS(
         (
@@ -82,19 +96,29 @@ export function useLiveDetections(options: Options): State {
           letterboxScale: number,
           letterboxPadX: number,
           letterboxPadY: number,
-          shape0: number,
-          shape1: number,
-          shape2: number,
           frameTimestampMs: number,
         ) => {
-          const out = new Float32Array(rawBuffer);
+          const model = modelRef.current;
+          if (!model) return;
+          let outputs: ArrayBuffer[];
+          try {
+            outputs = model.runSync([rawBuffer]);
+          } catch (err) {
+            console.warn("[live-detections] runSync failed", err);
+            return;
+          }
+          const out = new Float32Array(outputs[0]);
+          const outputKind = outputKindRef.current;
           const lb = {
             scale: letterboxScale,
             padX: letterboxPadX,
             padY: letterboxPadY,
             target: YOLO_INPUT_SIZE,
           };
-          const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
+          // YOLO26 NMS-baked head: [1, 300, 6]. YOLO11 raw head: [1, 84, 8400].
+          const shape = (outputKind === "nms"
+            ? [1, 300, 6]
+            : [1, 84, 8400]) as unknown as readonly [number, number, number];
           const decodeOpts = {
             letterbox: lb,
             scoreThreshold: SCORE_THRESHOLD,
@@ -119,21 +143,13 @@ export function useLiveDetections(options: Options): State {
           });
         },
       ),
-    [classFilter, outputKind, pxPerMm, roi],
+    [classFilter, pxPerMm, roi],
   );
-
-  // Live worklet path is gated off until we resolve the
-  // "Cannot get hybrid property HybridTfliteModelSpec.outputs" crash that
-  // fires when Vision Camera serializes a frameProcessor closing over a
-  // fast-tflite HybridObject across fast-refresh / re-mount. The single-shot
-  // photo path still uses the loaded model, so processing screens keep
-  // working — only the live KPI strip falls back to the mock ticker for now.
-  const LIVE_WORKLET_ENABLED = false;
 
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
-      if (!LIVE_WORKLET_ENABLED || !enabled || !model) return;
+      if (!enabled) return;
       runAtTargetFps(TARGET_FPS, () => {
         "worklet";
         try {
@@ -142,45 +158,30 @@ export function useLiveDetections(options: Options): State {
             pixelFormat: "rgb",
             dataType: "float32",
           });
-          const out = model.runSync([resized.buffer as ArrayBuffer]);
           // The resize plugin center-crops to the model's square aspect, then
           // scales to 640. Detections come out in 640-px space measured from
           // the top-left of the *cropped square*, NOT the full camera frame.
-          // To map them back to original frame coords we mirror the letterbox
-          // inverse: a detection at cx maps to (cx / scale) + offset.
-          //
-          //   scale = 640 / cropSize           (cropSize = min(w, h))
-          //   offsetX = (frame.w - cropSize)/2  (left margin shaved off)
-          //   offsetY = (frame.h - cropSize)/2
-          //
-          // decodeYolo computes original_x = (cx - padX) / scale, so:
-          //   padX = -offsetX * scale, padY = -offsetY * scale.
-          // Without this fix every bbox piles up in the top-left corner
-          // and the live count drifts as soon as the frame isn't square.
+          // Pass the inverse-letterbox params so decodeYolo lands boxes in
+          // original-frame coords.
           const cropSize = Math.min(frame.width, frame.height);
           const fpScale = YOLO_INPUT_SIZE / cropSize;
           const fpPadX = -((frame.width - cropSize) / 2) * fpScale;
           const fpPadY = -((frame.height - cropSize) / 2) * fpScale;
-          decodeOnJS(
-            out[0],
+          inferOnJS(
+            resized.buffer as ArrayBuffer,
             frame.width,
             frame.height,
             fpScale,
             fpPadX,
             fpPadY,
-            1,
-            outputKind === "nms" ? 300 : 84,
-            outputKind === "nms" ? 6 : 8400,
             frame.timestamp,
           );
         } catch (err) {
-          // Worklet exceptions don't propagate to JS by default; surface them
-          // so we can see resize/runSync failures in dev.
           console.warn("[live-detections] frame processing failed", err);
         }
       });
     },
-    [enabled, model, outputKind, resize, decodeOnJS],
+    [enabled, resize, inferOnJS],
   );
 
   useEffect(() => {
@@ -190,13 +191,9 @@ export function useLiveDetections(options: Options): State {
   return useMemo(
     () => ({
       detections,
-      ready: model !== null,
-      // Don't expose the worklet to <Camera> while the gate above is off —
-      // even a "no-op worklet" still trips Vision Camera's prop walk if it
-      // captures `model`. Returning undefined keeps the camera on its
-      // existing aruco frame processor.
-      frameProcessor: LIVE_WORKLET_ENABLED && enabled && model ? frameProcessor : undefined,
+      ready,
+      frameProcessor: enabled && ready ? frameProcessor : undefined,
     }),
-    [detections, enabled, frameProcessor, model],
+    [detections, enabled, frameProcessor, ready],
   );
 }
