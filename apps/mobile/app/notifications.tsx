@@ -1,14 +1,5 @@
 import { useCallback, useState, useMemo } from "react";
-import {
-  Animated,
-  Dimensions,
-  View,
-  Text,
-  Pressable,
-  FlatList,
-  ActivityIndicator,
-  ScrollView,
-} from "react-native";
+import { View, Text, Pressable, FlatList, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -17,7 +8,6 @@ import type { Notification, NotificationKind } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import {
   useNotifications,
-  useInspections,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
 } from "@/lib/queries";
@@ -34,31 +24,22 @@ const KIND_VISUAL: Record<NotificationKind, { icon: typeof Info; color: string; 
 };
 
 /**
- * Notifications modal. Lazy-loads in pages of 10 — the underlying
- * useNotifications query fetches the most recent 50 in one trip; pagination
- * here is purely client-side rendering for smooth scroll. We start by
- * showing 10 and grow by 10 on each `onEndReached`.
+ * Notifications list. Modal-presented from the bell, so the top-bar X
+ * dismisses the whole panel. Row tap stack-pushes
+ * `/notifications/<id>` for the detail view (back chevron + native iOS
+ * push animation), replacing the previous in-page Animated slide.
  *
- * Mark-as-read happens on item tap (along with optional deep-link
- * navigation via `route`). A "Mark all read" affordance appears in the
- * top bar when unread > 0.
- *
- * Why not server-side pagination with a real cursor? The volume here
- * is small (notifications are user-scoped, prune-able). React Query's
- * single fetch + client slice keeps the implementation simple and the
- * UX (no spinner per page) snappy.
+ * Pagination is purely client-side over the cached useNotifications
+ * fetch.
  */
 export default function NotificationsModal() {
   const { t, i18n } = useTranslation(["common", "notifications"]);
   const router = useRouter();
   const { profile } = useAuth();
   const { data, isLoading, isError, refetch } = useNotifications();
-  const inspections = useInspections();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
   const [pages, setPages] = useState(1);
-  const [selected, setSelected] = useState<Notification | null>(null);
-  const [detailX] = useState(() => new Animated.Value(Dimensions.get("window").width));
 
   const visible = useMemo(() => (data ?? []).slice(0, pages * PAGE_SIZE), [data, pages]);
   const hasMore = (data?.length ?? 0) > visible.length;
@@ -78,29 +59,12 @@ export default function NotificationsModal() {
   const onPressItem = useCallback(
     (item: Notification) => {
       if (item.read_at === null) {
-        // Don't await — optimistic update; user gets immediate dismiss feel.
         markRead.mutate(item.id);
       }
-      setSelected(item);
-      detailX.setValue(Dimensions.get("window").width);
-      Animated.timing(detailX, {
-        toValue: 0,
-        duration: 220,
-        useNativeDriver: true,
-      }).start();
+      router.push(`/notifications/${item.id}` as never);
     },
-    [detailX, markRead],
+    [router, markRead],
   );
-
-  const closeDetail = useCallback(() => {
-    Animated.timing(detailX, {
-      toValue: Dimensions.get("window").width,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) setSelected(null);
-    });
-  }, [detailX]);
 
   const onEndReached = useCallback(() => {
     if (hasMore) setPages((p) => p + 1);
@@ -162,112 +126,6 @@ export default function NotificationsModal() {
           }
         />
       )}
-      {selected ? (
-        <Animated.View
-          className="absolute inset-0 bg-bg-secondary"
-          style={{ transform: [{ translateX: detailX }] }}
-        >
-          <NotificationDetail
-            notification={selected}
-            dateFmt={dateFmt}
-            routeAvailable={routeAvailable(selected.route, inspections.data)}
-            onClose={closeDetail}
-            onOpen={() => {
-              if (selected.route && routeAvailable(selected.route, inspections.data)) {
-                router.push(selected.route as never);
-              }
-            }}
-          />
-        </Animated.View>
-      ) : null}
-    </SafeAreaView>
-  );
-}
-
-function routeAvailable(route: string | null, inspections: { id: string }[] | undefined) {
-  if (!route) return false;
-  if (!route.startsWith("/inspections/")) return true;
-  const id = route.split("/").filter(Boolean)[1];
-  return !!id && !!inspections?.some((row) => row.id === id);
-}
-
-function NotificationDetail({
-  notification,
-  dateFmt,
-  routeAvailable,
-  onClose,
-  onOpen,
-}: {
-  notification: Notification;
-  dateFmt: Intl.DateTimeFormat;
-  routeAvailable: boolean;
-  onClose: () => void;
-  onOpen: () => void;
-}) {
-  const { t } = useTranslation(["common", "notifications"]);
-  const visual = KIND_VISUAL[notification.kind];
-  const Icon = visual.icon;
-  return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-      <AppTopBar
-        title={t("notifications:detailTitle")}
-        left={{
-          accessibilityLabel: t("common:actions.close"),
-          renderIcon: () => <X color="#1A1A1A" size={18} />,
-          onPress: onClose,
-        }}
-      />
-
-      <ScrollView contentContainerClassName="px-xl py-lg gap-md">
-        <Text className="text-body text-fg-secondary px-xs">
-          {t("notifications:detailSubtitle")}
-        </Text>
-
-        <View className="rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg">
-          <View className="flex-row items-center gap-md">
-            <View
-              className="items-center justify-center"
-              style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: visual.bg }}
-            >
-              <Icon color={visual.color} size={22} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-h2 font-medium text-fg-primary">{notification.title}</Text>
-              <Text className="text-caption text-fg-tertiary mt-xs">
-                {dateFmt.format(new Date(notification.created_at))}
-              </Text>
-            </View>
-          </View>
-
-          {notification.body ? (
-            <Text className="mt-md text-body text-fg-secondary">{notification.body}</Text>
-          ) : null}
-        </View>
-
-        {notification.route ? (
-          <View className="rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg gap-sm">
-            <Text className="text-title font-medium text-fg-primary">
-              {t("notifications:relatedContent")}
-            </Text>
-            <Text className="text-caption text-fg-secondary">
-              {routeAvailable
-                ? t("notifications:relatedAvailable")
-                : t("notifications:relatedUnavailable")}
-            </Text>
-            {routeAvailable ? (
-              <Pressable
-                accessibilityRole="button"
-                className="mt-xs self-start rounded-full bg-brand px-md py-xs"
-                onPress={onOpen}
-              >
-                <Text className="text-caption font-medium text-white">
-                  {t("notifications:openRelated")}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-      </ScrollView>
     </SafeAreaView>
   );
 }
