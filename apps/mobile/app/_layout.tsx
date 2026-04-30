@@ -119,6 +119,19 @@ export default function RootLayout() {
                     name="notifications"
                     options={{ presentation: "modal", headerShown: false }}
                   />
+                  {/* Detail must opt out of the parent's modal presentation,
+                      otherwise expo-router stacks a second modal on top of
+                      the notifications list ("modal over modal"). `card` +
+                      `slide_from_right` gives the standard iOS push slide
+                      *within* the modal. */}
+                  <Stack.Screen
+                    name="notifications/[id]"
+                    options={{
+                      presentation: "card",
+                      animation: "slide_from_right",
+                      headerShown: false,
+                    }}
+                  />
                   <Stack.Screen name="inspections/[id]" options={{ headerShown: false }} />
                   <Stack.Screen
                     name="seed/[inspection]/[index]"
