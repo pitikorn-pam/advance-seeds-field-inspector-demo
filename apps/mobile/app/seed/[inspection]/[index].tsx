@@ -1,10 +1,12 @@
-import { ScrollView, View, Text } from "react-native";
+import { useEffect, useState } from "react";
+import { ScrollView, View, Text, Image as RNImage } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams } from "expo-router";
 import { Stack } from "expo-router";
+import { Image as ExpoImage } from "expo-image";
 import { Edit3 } from "lucide-react-native";
-import type { Seed, SeedGrade } from "@advance-seeds/types";
+import type { BoundingBox, Seed, SeedGrade } from "@advance-seeds/types";
 import { useInspection } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
@@ -18,6 +20,9 @@ const GRADE_TONE: Record<SeedGrade, "success" | "info" | "warning" | "danger"> =
   reject: "danger",
 };
 
+const HERO_SIZE = 200;
+const HERO_PADDING = 16; // around the bbox so the seed isn't pixel-tight to the edge
+
 /**
  * Per-seed detail screen.
  *
@@ -27,9 +32,11 @@ const GRADE_TONE: Record<SeedGrade, "success" | "info" | "warning" | "danger"> =
  * inspection detail screen), then locate the matching seed by its 1-based
  * `index` field.
  *
- * Reference comparison and confidence aren't yet stored on the seeds row;
- * we render a derived approximation now and the schema gets extended in
- * a later change.
+ * Hero renders the source inspection photo scaled + translated so the
+ * detected seed's bbox fills a fixed-size square, clipped via
+ * overflow-hidden. No native crop, no extra storage — just CSS-style
+ * positioning over the cached image. Falls back to a token-tinted
+ * placeholder when the source image dims can't be read.
  */
 export default function SeedDetail() {
   const params = useLocalSearchParams<{ inspection: string; index: string }>();
@@ -53,7 +60,7 @@ export default function SeedDetail() {
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["bottom"]}>
       <Stack.Screen options={{ title: `Seed #${seed.index}` }} />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <SeedHero seed={seed} />
+        <SeedHero seed={seed} sourceUri={data.inspection.image_url ?? null} />
 
         <View className="flex-row items-center justify-between">
           <View>
@@ -114,10 +121,7 @@ export default function SeedDetail() {
   );
 }
 
-function SeedHero({ seed }: { seed: Seed }) {
-  // Cropping by bbox lands once Phase 4 ships the captured-image overlay
-  // pipeline. Until then, render a token-tinted placeholder shaped from
-  // the seed's actual measurements so the screen still looks anchored.
+function SeedHero({ seed, sourceUri }: { seed: Seed; sourceUri: string | null }) {
   const tone = GRADE_TONE[seed.grade];
   const ringColor =
     tone === "success"
@@ -128,35 +132,127 @@ function SeedHero({ seed }: { seed: Seed }) {
           ? "#EF9F27"
           : "#DC2828";
 
+  const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    if (!sourceUri) return;
+    let cancelled = false;
+    RNImage.getSize(
+      sourceUri,
+      (width, height) => {
+        if (!cancelled) setDims({ width, height });
+      },
+      () => {
+        // Network/decode error — leave dims null so we fall back to the
+        // stylized placeholder. Not worth alerting the user; per-seed
+        // detail is best-effort.
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceUri]);
+
+  // Compute the displayed image's transform so the seed's bbox fills the
+  // hero square (with HERO_PADDING breathing room) and gets clipped by
+  // the surrounding overflow-hidden container.
+  const projection = projectBboxToHero(seed.bbox, dims);
+
   return (
     <View
       className="items-center justify-center overflow-hidden"
-      style={{ height: 200, borderRadius: 18, backgroundColor: "#1a1816" }}
+      style={{ height: HERO_SIZE, borderRadius: 18, backgroundColor: "#1a1816" }}
     >
-      <View style={{ position: "relative" }}>
+      {sourceUri && projection ? (
         <View
-          style={{
-            width: 100,
-            height: 64,
-            backgroundColor: "#8c6a4a",
-            borderRadius: 32,
-            transform: [{ rotate: "-15deg" }],
-          }}
-        />
-        <View
-          style={{
-            position: "absolute",
-            top: -8,
-            left: -8,
-            right: -8,
-            bottom: -8,
-            borderWidth: 2,
-            borderColor: ringColor,
-            borderRadius: 40,
-            transform: [{ rotate: "-15deg" }],
-          }}
-        />
-      </View>
+          style={{ position: "absolute", inset: 0 }}
+          accessibilityLabel={`Seed #${seed.index} crop`}
+        >
+          <ExpoImage
+            source={{ uri: sourceUri }}
+            cachePolicy="memory-disk"
+            contentFit="cover"
+            style={{
+              position: "absolute",
+              left: projection.left,
+              top: projection.top,
+              width: projection.imageWidth,
+              height: projection.imageHeight,
+            }}
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: projection.bboxLeft,
+              top: projection.bboxTop,
+              width: projection.bboxWidth,
+              height: projection.bboxHeight,
+              borderRadius: 8,
+              borderWidth: 2,
+              borderColor: ringColor,
+            }}
+          />
+        </View>
+      ) : (
+        <SeedShape ringColor={ringColor} />
+      )}
+    </View>
+  );
+}
+
+function projectBboxToHero(bbox: BoundingBox, dims: { width: number; height: number } | null) {
+  if (!dims || dims.width <= 0 || dims.height <= 0) return null;
+  if (bbox.width <= 0 || bbox.height <= 0) return null;
+  const inner = HERO_SIZE - HERO_PADDING * 2;
+  // Scale so the bbox fits inside the inner box (preserve aspect; the long
+  // side hits the inner edge, the short side leaves margin).
+  const scale = Math.min(inner / bbox.width, inner / bbox.height);
+  const imageWidth = dims.width * scale;
+  const imageHeight = dims.height * scale;
+  // Bbox center in DISPLAYED image coords:
+  const bboxCenterDX = (bbox.x + bbox.width / 2) * scale;
+  const bboxCenterDY = (bbox.y + bbox.height / 2) * scale;
+  // Translate so that center lands at HERO_SIZE / 2:
+  const left = HERO_SIZE / 2 - bboxCenterDX;
+  const top = HERO_SIZE / 2 - bboxCenterDY;
+  return {
+    left,
+    top,
+    imageWidth,
+    imageHeight,
+    bboxLeft: left + bbox.x * scale,
+    bboxTop: top + bbox.y * scale,
+    bboxWidth: bbox.width * scale,
+    bboxHeight: bbox.height * scale,
+  };
+}
+
+// Fallback when we can't crop: token-tinted stylized seed shape.
+function SeedShape({ ringColor }: { ringColor: string }) {
+  return (
+    <View style={{ position: "relative" }}>
+      <View
+        style={{
+          width: 100,
+          height: 64,
+          backgroundColor: "#8c6a4a",
+          borderRadius: 32,
+          transform: [{ rotate: "-15deg" }],
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          top: -8,
+          left: -8,
+          right: -8,
+          bottom: -8,
+          borderWidth: 2,
+          borderColor: ringColor,
+          borderRadius: 40,
+          transform: [{ rotate: "-15deg" }],
+        }}
+      />
     </View>
   );
 }
