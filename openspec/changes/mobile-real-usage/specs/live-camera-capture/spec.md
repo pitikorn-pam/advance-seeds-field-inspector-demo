@@ -117,3 +117,40 @@ The mobile app SHALL allow the user to draw an ROI on the live preview using rec
 - **WHEN** the inspection is saved
 - **THEN** the ROI shape (type + normalized coordinates) is stored in `inspections.metadata.roi` for traceability
 - **AND** the result/detail/share media render the same ROI geometry when the media type supports overlays
+
+### Requirement: Live inference crops to the active ROI when one is set
+The mobile app SHALL crop camera frames to the active ROI's square-padded bounding box before resizing for the detector input, instead of always center-cropping the full frame.
+
+#### Scenario: ROI crop concentrates pixels inside the region
+- **GIVEN** the user has drawn a small rectangle ROI in one corner of the preview
+- **WHEN** the live inference worklet processes a frame
+- **THEN** the resize plugin is configured with `crop = ROI bbox padded to a square` and `scale = YOLO_INPUT_SIZE`
+- **AND** the inverse-letterbox math used to map detections back to original-frame pixel coordinates uses the same crop rect
+- **AND** the resulting detections still draw on the camera preview at the correct world positions
+
+#### Scenario: No ROI falls back to centered square crop
+- **GIVEN** no ROI has been drawn for the current session
+- **WHEN** the live inference worklet processes a frame
+- **THEN** the resize plugin uses a centered `min(frame.width, frame.height)` square crop
+- **AND** behaviour matches pre-ROI versions of the app
+
+#### Scenario: ROI close to a frame edge does not get squeezed
+- **GIVEN** the user draws an ROI within a few pixels of the frame edge
+- **WHEN** the worklet computes the square-padded crop
+- **THEN** the square is shifted inward to stay inside the frame rather than shrunk
+
+### Requirement: Live detection overlay interpolates between inference frames
+The detection overlay SHALL animate bounding-box transitions between successive inference outputs so the overlay feels smooth at the device refresh rate even when inference itself runs at 15–30 Hz.
+
+#### Scenario: Slow-moving object appears to track at 60 fps
+- **GIVEN** a banana sits in frame and is detected on every inference cycle
+- **WHEN** the camera is panned slowly so the banana moves a small amount per inference
+- **THEN** the bounding box visibly interpolates its position between detection frames using a layout transition
+- **AND** the user perceives smooth motion rather than 15 Hz snapping
+
+#### Scenario: Object entering / leaving frame fades
+- **WHEN** an object first becomes detected
+- **THEN** the corresponding bounding box fades in over ~120 ms
+- **WHEN** an object stops being detected
+- **THEN** the bounding box fades out over ~160 ms
+- **AND** the fades do not stall the JS thread or the camera preview

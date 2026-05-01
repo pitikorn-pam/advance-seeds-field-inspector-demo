@@ -175,3 +175,16 @@
 - [x] 13.4 Hyperparameters defaults — `scoreThreshold` 0.5 → 0.4, `iouThreshold` 0.75 → 0.65 (dialed in from QA tuning runs against the COCO-class generic model)
 - [x] 13.5 Dark mode — `AppTopBar` actions theme their icon tint via `useTheme().resolved` and `cloneElement`, so the hardcoded `#1A1A1A` chevron / info icons no longer go invisible on the dark `bg-bg-tertiary` surface; `(tabs)/_layout.tsx` sets explicit `tabBarStyle.backgroundColor` + `tabBarInactiveTintColor` for dark mode so the bottom bar contrasts with the chrome
 - [x] 13.6 Sync replay — pre-check `FileSystem.getInfoAsync()` on `local_media_uri` / `local_video_uri` before constructing the upload `FormData`; if the file is gone (iOS purges `tmp/` between launches) drop the queue entry instead of surfacing the raw `NSCocoaErrorDomain Code=260` stack the user can't action
+
+## 14. Live-mode performance pass (post-Z-Flip-7-FE QA)
+
+- [x] 14.1 Live overlay — replace `react-native-svg` `<Svg>/<Rect>` with plain `<View>` borders to avoid the Fabric `addViewAt: failed` mount race that bounced Android into the dev launcher error screen
+- [x] 14.2 Live overlay — wrap each box in `Animated.View` with `LinearTransition` + `FadeIn`/`FadeOut` (Reanimated 3) and key by `(class_id, spatial-bucket)` so the same physical detection visibly interpolates across inference frames; produces ~60 fps perceived box motion from 15–30 fps inference
+- [x] 14.3 Android live worklet — when an ROI is set, pass `crop = ROI bbox padded to a square` to `vision-camera-resize-plugin` instead of always center-cropping the full frame; the inverse-letterbox math uses the same crop rect so detections still land in original-frame coordinates
+- [x] 14.4 ArUco calibration phase 2 — rolling-window median (5 samples) over `pxPerMm`, separate `LOCK_CONFIDENCE = 0.6` / `HOLD_CONFIDENCE = 0.45` thresholds for hysteresis, 1.5 s grace window so the calibration pill doesn't flicker on partial occlusion
+- [x] 14.5 TFLite Android delegate — prefer NNAPI (NPU) over Adreno GPU so inference doesn't compete for GPU bandwidth with the camera preview pipeline; CPU fallback if NNAPI unavailable
+- [x] 14.6 Worklet → JS backpressure — `Worklets.createSharedValue<boolean>(false)` flag set true before `inferOnJS` and reset on completion / error; the worklet skips frames while the JS thread still has a `model.runSync` in flight, so the JS queue can't grow unbounded
+- [x] 14.7 Pre-allocated tensor — reuse a single `Float32Array` across frames instead of `new Float32Array(640*640*3)` per frame; eliminates the scudo "Can't populate more pages" pressure that was starving the camera HAL of buffers
+- [x] 14.8 Camera2 stream-count — gate `video`/`audio` props on `recording.isRecording` so live-only mode uses photo + frameProcessor (2 surfaces) instead of photo + video + audio + frameProcessor (4); Exynos 2400 / Z Flip 7 FE caps at 3 streams and was throwing `ERROR_CAMERA_DEVICE` otherwise
+- [x] 14.9 `setDetections` mounted-guard — `mountedRef` tracks screen lifecycle so a worklet-queued JS callback that lands after navigation doesn't trip "state update on unmounted component"
+- [x] 14.10 Hyperparams playground — collapse `targetFpsIos`/`targetFpsAndroid` into a single `targetFps` (default 30); both platforms now share the same backpressure model, so split tuning is no longer meaningful

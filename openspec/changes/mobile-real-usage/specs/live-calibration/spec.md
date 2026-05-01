@@ -94,3 +94,30 @@ Every inspection row SHALL store the calibration source and value used at captur
 - **WHEN** the row is saved
 - **THEN** `inspection.calibration_id` may be null when the source is automatic
 - **AND** the captured source, confidence, and `pxPerMm` are recorded in metadata for traceability
+
+### Requirement: ArUco lock is temporally smoothed and hysteretic
+The ArUco calibrator SHALL emit a `pxPerMm` derived from a rolling-window median of recent frames, and SHALL use separate confidence thresholds for entering vs maintaining the locked state.
+
+#### Scenario: Single-frame outlier does not perturb the published reading
+- **GIVEN** the ArUco calibrator has accepted four consecutive valid samples around 24.5 px/mm
+- **WHEN** a single noisy fifth sample arrives at 31.2 px/mm (motion blur / corner ambiguity)
+- **THEN** the published reading is the median of the rolling window, not the outlier
+- **AND** the calibration pill remains stable
+
+#### Scenario: Marker dipping below the lock threshold keeps the lock
+- **GIVEN** the calibrator is currently locked
+- **WHEN** a frame's confidence falls between the hold threshold (0.45) and the lock threshold (0.6)
+- **THEN** the lock is retained
+- **AND** the smoothed value continues to update from the new sample
+
+#### Scenario: Marker leaving the frame retains the lock for a brief grace period
+- **GIVEN** the calibrator is currently locked
+- **WHEN** the marker is occluded or leaves the frame for less than 1.5 seconds
+- **THEN** the calibration pill continues to show the locked reading
+- **AND** if the marker returns within the grace window the lock continues without flicker
+
+#### Scenario: Sustained loss releases the lock cleanly
+- **GIVEN** the calibrator is currently locked
+- **WHEN** no valid sample arrives for longer than the grace window
+- **THEN** the calibrator releases its lock and clears its rolling window
+- **AND** the next valid sample must clear the full lock threshold before relocking

@@ -19,6 +19,57 @@ import { useHyperParams } from "./hyperparams";
 
 const COREML_ASSET = "yolo26n";
 
+/** Bounding box of a ROI in normalized [0..1] frame coords, padded to a square
+ *  so the YOLO input keeps its trained 1:1 aspect. */
+interface RoiBboxNorm {
+  x: number;
+  y: number;
+  size: number;
+}
+
+function roiBboxSquareNorm(roi: AnalysisRoi | null | undefined): RoiBboxNorm | null {
+  if (!roi) return null;
+  let minX = 1;
+  let minY = 1;
+  let maxX = 0;
+  let maxY = 0;
+  if (roi.kind === "rect") {
+    minX = roi.x;
+    minY = roi.y;
+    maxX = roi.x + roi.w;
+    maxY = roi.y + roi.h;
+  } else if (roi.kind === "circle") {
+    minX = roi.cx - roi.r;
+    minY = roi.cy - roi.r;
+    maxX = roi.cx + roi.r;
+    maxY = roi.cy + roi.r;
+  } else {
+    if (!roi.closed || roi.points.length < 3) return null;
+    for (const p of roi.points) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+  const w = Math.max(0, maxX - minX);
+  const h = Math.max(0, maxY - minY);
+  if (w <= 0 || h <= 0) return null;
+  // Pad to square around the ROI center so YOLO's 1:1 input doesn't distort.
+  // Clamp to [0..1] but allow the longer axis to drive the crop size; if the
+  // ROI is too close to an edge we shift the square inward instead of shrinking.
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const size = Math.min(1, Math.max(w, h));
+  let x = cx - size / 2;
+  let y = cy - size / 2;
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  if (x + size > 1) x = 1 - size;
+  if (y + size > 1) y = 1 - size;
+  return { x, y, size };
+}
+
 interface Options {
   enabled: boolean;
   pxPerMm: number;
@@ -221,6 +272,10 @@ function useLiveDetectionsTflite(options: Options): State {
   const iouThreshold = hp.iouThreshold;
   const targetFps = hp.targetFps;
   const RENDER_THROTTLE_MS = 50;
+  // Re-derive the ROI crop window only when the ROI shape changes; the worklet
+  // captures a stable plain object via the deps array. `null` keeps the
+  // previous center-crop-to-square behaviour for un-bounded captures.
+  const roiCropNorm = useMemo(() => roiBboxSquareNorm(roi ?? null), [roi]);
 
   useEffect(() => {
     let cancelled = false;
@@ -332,15 +387,34 @@ function useLiveDetectionsTflite(options: Options): State {
         "worklet";
         if (inFlight.value) return;
         try {
+          // ROI-aware crop: when the user has bounded a region, hand the
+          // resize plugin only the ROI bbox (square-padded) so YOLO sees more
+          // pixels per object inside the ROI and detections outside are
+          // physically impossible — both faster and more accurate. With no
+          // ROI we keep the original center-crop-to-square fallback.
+          let cropX = 0;
+          let cropY = 0;
+          let cropSize = Math.min(frame.width, frame.height);
+          if (roiCropNorm) {
+            cropSize = Math.round(roiCropNorm.size * Math.min(frame.width, frame.height));
+            cropX = Math.round(roiCropNorm.x * frame.width);
+            cropY = Math.round(roiCropNorm.y * frame.height);
+            // Re-clamp in pixel space — rounding can push us 1 px past the edge.
+            if (cropX + cropSize > frame.width) cropX = frame.width - cropSize;
+            if (cropY + cropSize > frame.height) cropY = frame.height - cropSize;
+          } else {
+            cropX = Math.round((frame.width - cropSize) / 2);
+            cropY = Math.round((frame.height - cropSize) / 2);
+          }
           const resized = resize(frame, {
+            crop: { x: cropX, y: cropY, width: cropSize, height: cropSize },
             scale: { width: YOLO_INPUT_SIZE, height: YOLO_INPUT_SIZE },
             pixelFormat: "rgb",
             dataType: "float32",
           });
-          const cropSize = Math.min(frame.width, frame.height);
           const fpScale = YOLO_INPUT_SIZE / cropSize;
-          const fpPadX = -((frame.width - cropSize) / 2) * fpScale;
-          const fpPadY = -((frame.height - cropSize) / 2) * fpScale;
+          const fpPadX = -cropX * fpScale;
+          const fpPadY = -cropY * fpScale;
           // Worklets-core 1.6 rejects raw ArrayBuffer as a shared value but
           // accepts typed arrays. .slice() also detaches us from the resize
           // plugin's worklet-owned buffer so the JS thread owns a private copy.
@@ -365,7 +439,7 @@ function useLiveDetectionsTflite(options: Options): State {
         }
       });
     },
-    [enabled, resize, inferOnJS, targetFps, inFlight],
+    [enabled, resize, inferOnJS, targetFps, inFlight, roiCropNorm],
   );
 
   useEffect(() => {
