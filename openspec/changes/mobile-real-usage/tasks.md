@@ -216,3 +216,10 @@
 - [x] 18.5 Android live stream count — while Android live YOLO owns the frame stream, pass `photo: false` to `<Camera>` so ImageCapture is detached during sustained analysis; shutter sets `busy`, detaches the frame processor, re-enables `photo`, waits briefly, then calls `takePhoto`.
 - [x] 18.6 Device evidence — after ImageCapture was detached, `dumpsys media.camera` showed only preview + `ImageReader-1280x720` at `[15 15]`, but Camera2 still emitted repeated `notifyError errorCode=3` / `FrameProcessorBase` timeouts while NNAPI TFLite inference was in flight for roughly 13-second intervals.
 - [x] 18.7 Android TFLite delegate — default Android TFLite to CPU instead of NNAPI/GPU so live inference does not compete with Samsung camera HAL AI/ISP resources.
+
+## 19. Android native live YOLO follow-up
+
+- [x] 19.1 Native frame processor — register `advanceSeedsRunTFLite` from the Android `coreml-runner` module, load the bundled `yolo11n-seeds.tflite` asset, crop/resize YUV frames directly into a reusable 640x640 RGB input tensor, and return only output tensor values/shape to JS.
+- [x] 19.2 JS live path — route Android `useLiveDetections` through the native TFLite frame-processor plugin and keep the old JS-bound resize/TFLite path dormant as a fallback implementation for future reference.
+- [x] 19.3 Camera delivery — restore Android Viewfinder to FHD/30 (`1920x1080`, `fps={30}`) now that live pixels no longer cross the worklet-to-JS boundary.
+- [ ] 19.4 Device verification — rebuild/install on Z Flip 7 FE, confirm native logs include `AdvanceSeedsTFLite ... delegate=cpu`, confirm Camera2 requests `[30 30]`, and run a sustained ArUco + YOLO walkthrough while watching for `maxImages`, `FrameProcessorBase`, and `notifyError errorCode=3`.

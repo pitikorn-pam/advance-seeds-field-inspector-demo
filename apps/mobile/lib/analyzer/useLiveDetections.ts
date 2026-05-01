@@ -97,9 +97,9 @@ interface State {
  *            processor plugin. Inference runs entirely on the worklet
  *            thread; only the decoded output values cross to JS.
  *   • Android — TFLite. The worklet does the resize via
- *            vision-camera-resize-plugin; inference runs on the JS
- *            thread because capturing fast-tflite's HybridObject in a
- *            worklet closure crashes Vision Camera's prop walk.
+ *            native Vision Camera frame-processor plugin. Pixels stay in
+ *            CameraX/YUV memory, the plugin crops/resizes/runs TFLite, and
+ *            only the detector output crosses back to JS.
  *
  * Both paths funnel into the same `decodeOutputOnJS` callback so the
  * KPI strip + DetectionOverlay are platform-agnostic.
@@ -108,7 +108,7 @@ export function useLiveDetections(options: Options): State {
   if (Platform.OS === "ios") {
     return useLiveDetectionsCoreML(options);
   }
-  return useLiveDetectionsTflite(options);
+  return useLiveDetectionsAndroidNative(options);
 }
 
 // ---------------------------------------------------------------------
@@ -231,6 +231,160 @@ function useLiveDetectionsCoreML(options: Options): State {
       });
     },
     [enabled, plugin, decodeOnJS, targetFps],
+  );
+
+  useEffect(() => {
+    if (!enabled) setDetections(null);
+  }, [enabled]);
+
+  return useMemo(
+    () => ({
+      detections,
+      ready: plugin !== null,
+      frameProcessor: enabled && plugin ? frameProcessor : undefined,
+    }),
+    [detections, enabled, frameProcessor, plugin],
+  );
+}
+
+// ---------------------------------------------------------------------
+// Android — native TFLite frame-processor plugin
+// ---------------------------------------------------------------------
+
+function useLiveDetectionsAndroidNative(options: Options): State {
+  const { enabled, pxPerMm, classFilter, roi } = options;
+  const hp = useHyperParams();
+  const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
+  const lastSetAtRef = useRef(0);
+  const RENDER_THROTTLE_MS = 50;
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const plugin = useMemo(
+    () => VisionCameraProxy.initFrameProcessorPlugin("advanceSeedsRunTFLite", {}),
+    [],
+  );
+
+  const scoreThreshold = hp.scoreThreshold;
+  const iouThreshold = hp.iouThreshold;
+  const targetFps = hp.targetFps;
+  const roiCropNorm = useMemo(() => roiBboxSquareNorm(roi ?? null), [roi]);
+
+  const decodeOnJS = useMemo(
+    () =>
+      Worklets.createRunOnJS(
+        (
+          values: number[],
+          shape0: number,
+          shape1: number,
+          shape2: number,
+          frameWidth: number,
+          frameHeight: number,
+          cropX: number,
+          cropY: number,
+          cropSize: number,
+          frameTimestampMs: number,
+          inferElapsedMs: number,
+        ) => {
+          recordInference("tflite-cpu", inferElapsedMs);
+          const out = Float32Array.from(values);
+          const outputKind: "raw" | "nms" = shape2 === 6 ? "nms" : "raw";
+          const fpScale = YOLO_INPUT_SIZE / cropSize;
+          const decodeOpts = {
+            letterbox: {
+              scale: fpScale,
+              padX: -cropX * fpScale,
+              padY: -cropY * fpScale,
+              target: YOLO_INPUT_SIZE,
+            },
+            scoreThreshold,
+            classFilter: classFilter ? [...classFilter] : null,
+          };
+          const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
+          const raw =
+            outputKind === "nms"
+              ? decodeYoloNms(out, shape, decodeOpts)
+              : decodeYolo(out, shape, decodeOpts);
+          const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, iouThreshold);
+          const seeds = mapDetectionsToSeeds(kept, {
+            frameWidth,
+            frameHeight,
+            pxPerMm,
+            roi: roi ?? null,
+          });
+          if (!mountedRef.current) return;
+          const now = Date.now();
+          if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
+          lastSetAtRef.current = now;
+          setDetections({
+            seeds,
+            summary: summarizeSeeds(seeds),
+            frameTimestampMs,
+            analyzerId: "tflite-yolo-live-native",
+          });
+        },
+      ),
+    [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold],
+  );
+
+  const frameProcessor = useFrameProcessor(
+    (frame) => {
+      "worklet";
+      if (!enabled || !plugin) return;
+      runAtTargetFps(targetFps, () => {
+        "worklet";
+        try {
+          let cropX = 0;
+          let cropY = 0;
+          let cropSize = Math.min(frame.width, frame.height);
+          if (roiCropNorm) {
+            cropSize = Math.round(roiCropNorm.size * Math.min(frame.width, frame.height));
+            cropX = Math.round(roiCropNorm.x * frame.width);
+            cropY = Math.round(roiCropNorm.y * frame.height);
+            if (cropX + cropSize > frame.width) cropX = frame.width - cropSize;
+            if (cropY + cropSize > frame.height) cropY = frame.height - cropSize;
+          } else {
+            cropX = Math.round((frame.width - cropSize) / 2);
+            cropY = Math.round((frame.height - cropSize) / 2);
+          }
+          const startedAt = Date.now();
+          const result = plugin.call(frame, {
+            assetName: "yolo11n-seeds.tflite",
+            cropX,
+            cropY,
+            cropSize,
+          });
+          const inferElapsedMs = Date.now() - startedAt;
+          if (!result) return;
+          const r = result as unknown as {
+            shape: number[];
+            values: number[];
+          };
+          const shape = r.shape;
+          decodeOnJS(
+            r.values,
+            shape[0],
+            shape[1],
+            shape[2],
+            frame.width,
+            frame.height,
+            cropX,
+            cropY,
+            cropSize,
+            frame.timestamp,
+            inferElapsedMs,
+          );
+        } catch (err) {
+          console.warn("[live-detections tflite-native] frame processing failed", err);
+        }
+      });
+    },
+    [enabled, plugin, decodeOnJS, targetFps, roiCropNorm],
   );
 
   useEffect(() => {

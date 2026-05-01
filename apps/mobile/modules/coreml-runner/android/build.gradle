@@ -12,4 +12,15 @@ android {
     versionCode 1
     versionName '0.1.0'
   }
+  sourceSets {
+    main {
+      assets.srcDirs += ['../../../assets/models']
+    }
+  }
+}
+
+dependencies {
+  implementation "androidx.camera:camera-core:1.5.0-alpha03"
+  implementation project(":react-native-vision-camera")
+  implementation "com.google.ai.edge.litert:litert:1.4.0"
 }

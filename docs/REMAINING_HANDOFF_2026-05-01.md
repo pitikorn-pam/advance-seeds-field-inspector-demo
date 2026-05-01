@@ -202,23 +202,22 @@ Latest follow-up fix:
 
 **Next steps when resuming:**
 
-1. Run a sustained Z Flip 7 FE walkthrough on the patched JS bundle:
+1. Rebuild/install the native Android dev client, then run a sustained Z Flip
+   7 FE walkthrough on the patched bundle:
    Inspect → Precise/Live → calibration lock → recognizable object in frame
    for 20–30 s, while watching logcat for `maxImages`,
    `ImageAnalysisAnalyzer`, `notifyError errorCode=3`, and
    `FrameProcessorBase` timeouts. Confirm `dumpsys media.camera` shows no
    ImageCapture stream while Android live YOLO is active, and that shutter
-   still captures after the brief CameraX reconfigure wait. Confirm cold-start
-   logs show `[analyzer] tflite delegate=cpu`.
+   still captures after the brief CameraX reconfigure wait. Confirm Camera2
+   requests FHD/30 and native logs show `AdvanceSeedsTFLite ... delegate=cpu`.
 2. If still overflowing, the remaining levers are:
-   - **Drop the resize step into a worklet-side native plugin** so the
-     ImageProxy is released before the JS dispatch (current path holds the
-     proxy through the Uint8Array slice() call).
-   - **Switch the YOLO live worklet to a Vision Camera frame-processor
-     plugin** (the same shape we used for iOS Core ML) so inference happens
-     entirely on the worklet thread without ever crossing to JS. fast-tflite
-     doesn't allow this directly because its HybridObject can't be captured
-     in a worklet, but a thin C++ wrapper plugin would.
+   - **Benchmark native delegate promotion** (NNAPI / GPU) behind a hardware
+     gate. Keep CPU as the stable default on Samsung until the native plugin
+     proves the camera HAL no longer times out at FHD/30.
+   - **Dynamic camera profiles**: if FHD/30 still stalls on a device after the
+     native plugin, fall back at runtime to 720p/15 and surface that the
+     device could not sustain the requested live-analysis profile.
 
 ### 🟡 Android offline-sync QA still pending
 

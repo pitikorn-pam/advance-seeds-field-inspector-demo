@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ReactNode, RefObject } from "react";
-import { View, Text, ActivityIndicator, Linking, Platform } from "react-native";
+import { View, Text, ActivityIndicator, Linking } from "react-native";
 import {
   Camera,
   useCameraDevice,
@@ -56,14 +56,13 @@ export function Viewfinder({
   const camPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
   const device = useCameraDevice(position);
-  const cameraFps = Platform.OS === "android" ? 15 : 30;
-  const cameraResolution =
-    Platform.OS === "android" ? { width: 1280, height: 720 } : { width: 1920, height: 1080 };
+  const cameraFps = 30;
+  const cameraResolution = { width: 1920, height: 1080 };
 
   // Vision Camera requires both `format` and `fps` to constrain capture rate.
-  // Android uses a lower-pressure 720p/15 stream so CameraX does less YUV ->
-  // ARGB work before the live detector resize step; iOS keeps the sharper
-  // 1080p/30 Core ML path.
+  // Both platforms request an FHD/30 stream. Android live inference now runs
+  // in a native frame-processor plugin, so the old JS-bound 720p/15 pressure
+  // cap is no longer the primary control point.
   const format = useCameraFormat(device, [
     { videoResolution: cameraResolution },
     { photoResolution: cameraResolution },
@@ -139,11 +138,8 @@ export function Viewfinder({
         device={device}
         isActive={active}
         photo
-        // Constrain native camera delivery. Android gets 720p/15 because the
-        // resize plugin converts the full camera frame before cropping; keeping
-        // the Camera2 stream smaller gives ImageAnalysis enough room during
-        // sustained ArUco + YOLO work. Vision Camera requires `format` paired
-        // with `fps`.
+        // Constrain native camera delivery. Vision Camera requires `format`
+        // paired with `fps` for Camera2/AVFoundation to honor the request.
         format={format}
         fps={cameraFps}
         style={{ flex: 1 }}

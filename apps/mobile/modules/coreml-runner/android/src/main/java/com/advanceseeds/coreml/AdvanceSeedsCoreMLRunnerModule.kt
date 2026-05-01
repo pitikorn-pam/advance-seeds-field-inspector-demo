@@ -1,14 +1,37 @@
 package com.advanceseeds.coreml
 
+import android.content.Context
+import com.mrousavy.camera.frameprocessors.FrameProcessorPluginRegistry
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
-// Android stub. Core ML is iOS-only; on Android the JS layer routes
-// inference through the existing TFLite analyzer instead.
+object AdvanceSeedsAppContextHolder {
+  @Volatile var context: Context? = null
+}
+
+// Core ML APIs remain iOS-only, but this module also owns the Android native
+// YOLO frame-processor plugin so live camera inference can stay off the JS
+// bridge.
 class AdvanceSeedsCoreMLRunnerModule : Module() {
+  companion object {
+    init {
+      FrameProcessorPluginRegistry.addFrameProcessorPlugin("advanceSeedsRunTFLite") { _, _ ->
+        AdvanceSeedsTfliteFrameProcessorPlugin()
+      }
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("AdvanceSeedsCoreMLRunner")
+
+    OnCreate {
+      AdvanceSeedsAppContextHolder.context = appContext.reactContext?.applicationContext
+    }
+
+    OnDestroy {
+      AdvanceSeedsAppContextHolder.context = null
+    }
 
     AsyncFunction("loadModel") { _: String ->
       throw NotSupportedOnAndroidException()

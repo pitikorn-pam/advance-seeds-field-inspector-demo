@@ -156,13 +156,13 @@ The detection overlay SHALL animate bounding-box transitions between successive 
 - **AND** the fades do not stall the JS thread or the camera preview
 
 ### Requirement: Native camera delivery load is constrained for frame processors
-The Camera component SHALL constrain its native delivery rate and Android stream size via Vision Camera's `format` + `fps` props so the underlying `ImageAnalysis` buffer pool does not overflow on devices that default to high-rate/high-resolution capture.
+The Camera component SHALL constrain its native delivery rate via Vision Camera's `format` + `fps` props so the underlying `ImageAnalysis` buffer pool does not overflow on devices that default to high-rate capture.
 
-#### Scenario: Android camera is configured with a lower-pressure analysis stream
+#### Scenario: Android camera is configured for FHD native analysis
 - **GIVEN** the live capture screen mounts on a device whose default capture rate is 60 fps (e.g. Z Flip 7 FE)
 - **WHEN** the `<Camera>` component is rendered
-- **THEN** `useCameraFormat` selects a 1280x720-or-smaller format that supports 15 fps
-- **AND** the `<Camera>` is given `format` + `fps={15}` on Android so Camera2 delivers a lower-rate, lower-resolution stream to ImageAnalysis
+- **THEN** `useCameraFormat` selects a 1920x1080-or-smaller format that supports 30 fps
+- **AND** the `<Camera>` is given `format` + `fps={30}` on Android so Camera2 delivers a bounded FHD/30 stream to ImageAnalysis
 
 #### Scenario: Android disables ImageCapture while live detection owns the stream
 - **GIVEN** Android live YOLO detection is active
@@ -217,3 +217,25 @@ or GPU workloads.
 - **THEN** it is loaded without NNAPI or Android GPU delegates
 - **AND** analyzer logs report `tflite delegate=cpu`
 - **AND** inference histogram samples are recorded under `tflite-cpu`
+
+### Requirement: Android live YOLO runs inside a native frame-processor plugin
+Android live YOLO inference SHALL run in a Vision Camera native frame-processor
+plugin so camera pixels do not cross from CameraX into JS for every live frame.
+
+#### Scenario: Android live detector keeps pixels native
+- **GIVEN** Android live detections are enabled
+- **WHEN** the frame processor receives a YUV camera frame
+- **THEN** the native plugin crops the active square ROI from the `ImageProxy`
+- **AND** it samples/resizes directly into the 640x640 RGB TFLite input tensor
+- **AND** it runs the bundled `yolo11n-seeds.tflite` model in native code
+- **AND** only the model output tensor values and shape are returned to JS
+- **AND** no `vision-camera-resize-plugin` pixel buffer is copied across the
+  worklet-to-JS boundary for the live Android path
+
+#### Scenario: Android native live detector uses stable CPU fallback first
+- **GIVEN** the native Android live detector loads the bundled TFLite model
+- **WHEN** inference starts on the Z Flip 7 FE class of hardware
+- **THEN** the native interpreter uses the CPU/XNNPACK path by default
+- **AND** logs include the native plugin timing and `delegate=cpu`
+- **AND** hardware delegate promotion remains an explicit future tuning step
+  after the native pipeline proves stable at FHD/30 preview delivery
