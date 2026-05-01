@@ -155,14 +155,27 @@ The detection overlay SHALL animate bounding-box transitions between successive 
 - **THEN** the bounding box fades out over ~160 ms
 - **AND** the fades do not stall the JS thread or the camera preview
 
-### Requirement: Native camera delivery rate is constrained to a frame-processor-friendly fps
-The Camera component SHALL constrain its native delivery rate via Vision Camera's `format` + `fps` props so the underlying `ImageAnalysis` buffer pool does not overflow on devices that default to 60 Hz capture.
+### Requirement: Native camera delivery load is constrained for frame processors
+The Camera component SHALL constrain its native delivery rate and Android stream size via Vision Camera's `format` + `fps` props so the underlying `ImageAnalysis` buffer pool does not overflow on devices that default to high-rate/high-resolution capture.
 
-#### Scenario: Camera is configured with a 30 fps format
+#### Scenario: Android camera is configured with a lower-pressure analysis stream
 - **GIVEN** the live capture screen mounts on a device whose default capture rate is 60 fps (e.g. Z Flip 7 FE)
 - **WHEN** the `<Camera>` component is rendered
-- **THEN** `useCameraFormat` selects a format that supports 30 fps
-- **AND** the `<Camera>` is given `format` + `fps={30}` so Camera2 delivers frames at 30 Hz, not 60 Hz
+- **THEN** `useCameraFormat` selects a 1280x720-or-smaller format that supports 15 fps
+- **AND** the `<Camera>` is given `format` + `fps={15}` on Android so Camera2 delivers a lower-rate, lower-resolution stream to ImageAnalysis
+
+#### Scenario: Android disables ImageCapture while live detection owns the stream
+- **GIVEN** Android live YOLO detection is active
+- **WHEN** the `<Camera>` component is rendered
+- **THEN** the app passes `photo={false}` so CameraX does not maintain an extra ImageCapture surface during sustained analysis
+- **WHEN** the user taps shutter
+- **THEN** live detection is detached, `photo` is re-enabled, and the app waits briefly before calling `takePhoto`
+
+#### Scenario: iOS camera keeps the high-quality Core ML stream
+- **GIVEN** the live capture screen mounts on iOS
+- **WHEN** the `<Camera>` component is rendered
+- **THEN** `useCameraFormat` selects a 1920x1080-or-smaller format that supports 30 fps
+- **AND** the `<Camera>` is given `format` + `fps={30}` on iOS
 
 #### Scenario: ImageAnalysis pool does not overflow during sustained detection
 - **GIVEN** the live detection worklet is running and seeds are visible in frame

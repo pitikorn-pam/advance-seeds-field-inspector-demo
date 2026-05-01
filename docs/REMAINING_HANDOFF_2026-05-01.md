@@ -174,13 +174,32 @@ Latest follow-up fix:
   JS still fills the reusable normalized Float32 tensor before `model.run()`.
   This reduces the time the worklet spends copying while CameraX is waiting
   for the `ImageProxy` to be released.
+- Follow-up Z Flip 7 FE logs while ArUco + YOLO were active did not show the
+  old `maxImages (6)` exception, but Camera2 still emitted repeated
+  `notifyError errorCode=3` and
+  `FrameProcessorBase: Error waiting for new frames: Connection timed out
+(-110)`. `dumpsys media.camera` and `ResizePlugin` logs showed the frame
+  processor still receiving 1920×1080 and converting the full YUV frame to
+  ARGB before cropping to 1080×1080 and scaling to 640×640.
+- Android `Viewfinder` now requests a lower-pressure Camera2 stream:
+  1280×720 / 15 fps via `useCameraFormat` + `fps`. iOS remains at
+  1920×1080 / 30 fps for the Core ML path.
+- Device verification showed 1280×720 / 15 fps did take effect, but the
+  `maxImages (6)` overflow still recurred as soon as object detection
+  started. Follow-up patch now disables `photo` while Android live YOLO owns
+  the frame stream, detaching the ImageCapture surface during sustained
+  analysis. Shutter sets `busy`, removes the frame processor, re-enables
+  `photo`, waits briefly for CameraX to reconfigure, then calls `takePhoto`.
 
 **Next steps when resuming:**
 
 1. Run a sustained Z Flip 7 FE walkthrough on the patched JS bundle:
    Inspect → Precise/Live → calibration lock → recognizable object in frame
-   for 20–30 s, while watching logcat for `maxImages` /
-   `ImageAnalysisAnalyzer`.
+   for 20–30 s, while watching logcat for `maxImages`,
+   `ImageAnalysisAnalyzer`, `notifyError errorCode=3`, and
+   `FrameProcessorBase` timeouts. Confirm `dumpsys media.camera` shows no
+   ImageCapture stream while Android live YOLO is active, and that shutter
+   still captures after the brief CameraX reconfigure wait.
 2. If still overflowing, the remaining levers are:
    - **Drop the resize step into a worklet-side native plugin** so the
      ImageProxy is released before the JS dispatch (current path holds the

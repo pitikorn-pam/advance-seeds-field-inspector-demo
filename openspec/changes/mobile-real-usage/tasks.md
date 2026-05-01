@@ -206,3 +206,11 @@
 
 - [x] 17.1 Capture current device error — Inspect tab opened Expo DevLauncher with `java.lang.IllegalStateException: addViewAt: failed to insert view`, caused by the tab-screen redirect transition
 - [x] 17.2 Intercept Inspect tab press in `(tabs)/_layout.tsx`, prevent the `/inspect` tab screen from mounting, and push directly to `/capture/setup`
+
+## 18. Android live-preview analysis load follow-up
+
+- [x] 18.1 Device evidence — after the uint8 payload + 15 fps hyperparam patch, the old `maxImages (6)` line did not recur in the focused Z Flip 7 FE logcat sample, but Camera2 still reported repeated `notifyError errorCode=3` / `FrameProcessorBase: Error waiting for new frames: Connection timed out (-110)` while ArUco + YOLO detections were active.
+- [x] 18.2 Device evidence — `dumpsys media.camera` showed the frame processor stream still running at 1920x1080, and `ResizePlugin` logged a full-frame YUV 4:2:0 -> ARGB conversion plus 1080x1080 crop before scaling to 640x640.
+- [x] 18.3 Android Viewfinder format — lower Android native camera delivery to 1280x720 / 15 fps via `useCameraFormat` + `fps`, while keeping iOS at 1920x1080 / 30 fps.
+- [x] 18.4 Device evidence — 1280x720 / 15 fps took effect in CameraX logs, but `maxImages (6)` still recurred when object detection started, so resolution/fps alone is not enough.
+- [x] 18.5 Android live stream count — while Android live YOLO owns the frame stream, pass `photo: false` to `<Camera>` so ImageCapture is detached during sustained analysis; shutter sets `busy`, detaches the frame processor, re-enables `photo`, waits briefly, then calls `takePhoto`.

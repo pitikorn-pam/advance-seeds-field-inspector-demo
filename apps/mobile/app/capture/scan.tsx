@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Alert, Linking, ActivityIndicator, Pressable } from "react-native";
+import { View, Text, Alert, Linking, ActivityIndicator, Pressable, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -105,7 +105,11 @@ export default function CaptureScan() {
     classFilter: liveClassFilter,
     roi: session.mode === "live" ? session.roi : null,
   });
-  const activeFrameProcessor = liveDetections.frameProcessor ?? liveAruco.frameProcessor;
+  const activeFrameProcessor = busy
+    ? undefined
+    : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
+  const androidLiveDetectorActive =
+    Platform.OS === "android" && !busy && liveDetections.frameProcessor !== undefined;
   const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
 
   const cycleFlash = () =>
@@ -210,11 +214,12 @@ export default function CaptureScan() {
     () => ({
       video: recordingActive,
       audio: recordingActive,
+      photo: !androidLiveDetectorActive,
       torch: cameraTorch,
       frameProcessor: activeFrameProcessor,
       pixelFormat: "yuv" as const,
     }),
-    [cameraTorch, activeFrameProcessor, recordingActive],
+    [androidLiveDetectorActive, cameraTorch, activeFrameProcessor, recordingActive],
   );
 
   const setRoi = (roi: Roi | null) => session.set({ roi });
@@ -252,6 +257,12 @@ export default function CaptureScan() {
     if (!ensureCalibrationLock()) return;
     setBusy(true);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (Platform.OS === "android") {
+      // Android live detection disables ImageCapture while YOLO owns the
+      // frame stream. Give CameraX a short reconfigure window before
+      // takePhoto so `photo` is back on and the frameProcessor is detached.
+      await new Promise((r) => setTimeout(r, 180));
+    }
     // Torch bracket for explicit "flash: on" + back camera. Auto stays
     // system-decided; off and front-camera skip the bracket.
     //
