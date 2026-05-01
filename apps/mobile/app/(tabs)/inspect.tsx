@@ -1,31 +1,20 @@
-import { useCallback } from "react";
-import { View, ActivityIndicator } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Redirect } from "expo-router";
 
 /**
- * Inspect tab landing — pushes immediately into the /capture/* fullscreen flow.
+ * Inspect tab landing — redirects immediately into the /capture/* fullscreen
+ * flow. Using `<Redirect>` instead of `useFocusEffect + router.replace` is
+ * atomic at the navigator level: there is no intermediate render of an
+ * ActivityIndicator screen, no double-mount of icon-heavy chrome. That fixes
+ * the Fabric `addViewAt: failed` race we hit on Android when lucide-react-native
+ * SVG roots in the placeholder screen and in /capture/setup raced for the
+ * same view IDs during the redirect.
  *
  * Why a redirect tab instead of inlining the setup screen here?
  * The capture flow is fullscreen (no bottom tab bar). Keeping it as a separate
  * Stack at /capture/* lets us render scan / precise over the camera without
  * bottom-tab visual noise. The Inspect tab in the bottom bar still puts
  * "start capture" one tap from anywhere.
- *
- * `useFocusEffect` (not `useEffect`) ensures the redirect runs every time
- * the tab is focused, including on return from a deeper screen.
  */
 export default function InspectTab() {
-  const router = useRouter();
-
-  useFocusEffect(
-    useCallback(() => {
-      router.replace("/capture/setup");
-    }, [router]),
-  );
-
-  return (
-    <View className="flex-1 items-center justify-center bg-bg-secondary">
-      <ActivityIndicator />
-    </View>
-  );
+  return <Redirect href="/capture/setup" />;
 }

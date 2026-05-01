@@ -4,6 +4,7 @@ import { View, Text, ActivityIndicator, Linking } from "react-native";
 import {
   Camera,
   useCameraDevice,
+  useCameraFormat,
   useCameraPermission,
   useMicrophonePermission,
 } from "react-native-vision-camera";
@@ -55,6 +56,16 @@ export function Viewfinder({
   const camPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
   const device = useCameraDevice(position);
+  // Vision Camera requires both `format` and `fps` to constrain capture rate.
+  // Pick the largest 1080p-or-smaller format that supports ≥30 fps for photo +
+  // video — anything bigger would push the ImageAnalysis pool back into the
+  // overflow we just fixed. The format selector uses native pixel-format
+  // matching, so this picks the optimal Camera2 stream config automatically.
+  const format = useCameraFormat(device, [
+    { videoResolution: { width: 1920, height: 1080 } },
+    { photoResolution: { width: 1920, height: 1080 } },
+    { fps: 30 },
+  ]);
   const [requesting, setRequesting] = useState(false);
 
   const requestPermissions = async () => {
@@ -125,6 +136,17 @@ export function Viewfinder({
         device={device}
         isActive={active}
         photo
+        // Constrain the native camera output to 30 fps. Without this the Z
+        // Flip 7 FE / Snapdragon delivers preview at 60 fps, doubling the
+        // rate of `ImageAnalysis` buffer acquisitions the worklet has to
+        // drain — even with `runAtTargetFps` skipping the inner work,
+        // CameraX's pool of 6 ImageProxy slots overflows under sustained
+        // 60 fps + non-trivial worklet work, and the camera stalls with
+        // `maxImages (6) has already been acquired`. 30 fps gives the pool
+        // 33 ms per slot which the worklet + auto-release can comfortably
+        // service. Vision Camera requires `format` paired with `fps`.
+        format={format}
+        fps={30}
         style={{ flex: 1 }}
         // `video` + `audio` deliberately omitted from defaults — they spin up
         // additional native surfaces (encoder, mic stream) that we don't need

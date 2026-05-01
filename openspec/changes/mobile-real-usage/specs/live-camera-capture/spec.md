@@ -154,3 +154,19 @@ The detection overlay SHALL animate bounding-box transitions between successive 
 - **WHEN** an object stops being detected
 - **THEN** the bounding box fades out over ~160 ms
 - **AND** the fades do not stall the JS thread or the camera preview
+
+### Requirement: Native camera delivery rate is constrained to a frame-processor-friendly fps
+The Camera component SHALL constrain its native delivery rate via Vision Camera's `format` + `fps` props so the underlying `ImageAnalysis` buffer pool does not overflow on devices that default to 60 Hz capture.
+
+#### Scenario: Camera is configured with a 30 fps format
+- **GIVEN** the live capture screen mounts on a device whose default capture rate is 60 fps (e.g. Z Flip 7 FE)
+- **WHEN** the `<Camera>` component is rendered
+- **THEN** `useCameraFormat` selects a format that supports 30 fps
+- **AND** the `<Camera>` is given `format` + `fps={30}` so Camera2 delivers frames at 30 Hz, not 60 Hz
+
+#### Scenario: ImageAnalysis pool does not overflow during sustained detection
+- **GIVEN** the live detection worklet is running and seeds are visible in frame
+- **WHEN** detection runs for at least ten seconds
+- **THEN** the Camera2 `ImageAnalysis` stage does not log
+  `IllegalStateException: maxImages (6) has already been acquired, call #close before acquiring more`
+- **AND** the camera preview remains responsive without "stuck" intervals

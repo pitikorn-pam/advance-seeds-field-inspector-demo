@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { View, Text } from "react-native";
+import { Platform, View, Text } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { AnalysisFrameResult } from "@advance-seeds/types";
 import { DEFAULT_CAPTURE_CLASSES } from "@/lib/analyzer/captureClasses";
@@ -30,9 +30,9 @@ const COCO_NAMES: Record<number, string> = Object.fromEntries(
 // Coarse-grained spatial bucket for cross-frame identity. The model output
 // has no track id, so we approximate one by hashing (class, grid cell) — a
 // detection that drifts within ~10% of the stage maps to the same key, so
-// Reanimated treats it as the same view and animates left/top/width/height
-// transitions instead of re-mounting. Empirically smooth for slow camera
-// motion; fast pans still snap (correct behaviour — we don't lie to users).
+// the same Animated.View instance is reused across frames (smoother on iOS
+// where Reanimated layout transitions work; harmless on Android where we
+// fall back to plain Views).
 const GRID = 12;
 function identityKey(classId: number | undefined, cx: number, cy: number) {
   const gx = Math.min(GRID - 1, Math.max(0, Math.floor(cx * GRID)));
@@ -40,15 +40,19 @@ function identityKey(classId: number | undefined, cx: number, cy: number) {
   return `${classId ?? -1}-${gx}-${gy}`;
 }
 
+// Reanimated 4 layout animations on Android Fabric race against
+// absolute-positioned children — the boxes silently fail to mount even though
+// the underlying detections are correct. iOS has no such issue. Gate the
+// animated wrapper on Platform.OS so each platform gets its working subset:
+// iOS = spring-interpolated boxes with fade in/out; Android = static boxes
+// that snap on each detection update.
+const SUPPORTS_LAYOUT_ANIMATION = Platform.OS === "ios";
+
 /**
  * Draws bounding boxes + class labels over the camera preview from the
  * analyzer's live frame output. Coordinates are in frame pixel space; we
  * project them onto the stage box using the simpler "fill" mapping that
  * matches Vision Camera's default `resizeMode='cover'` preview.
- *
- * Box positions are animated via Reanimated `LinearTransition` so detections
- * appear to track motion at native display refresh, even though inference
- * runs at ~15-30 Hz on Android. Entry/exit fades soften appearance/dropout.
  *
  * Pure presentational — no analyzer or worklet code here.
  */
@@ -91,7 +95,34 @@ export function DetectionOverlay({
     <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
       {projected.map((p) => {
         const color = PALETTE[p.className] ?? "#22C55E";
-        return (
+        const boxStyle = {
+          position: "absolute" as const,
+          left: p.projX,
+          top: p.projY,
+          width: p.projW,
+          height: p.projH,
+          borderColor: color,
+          borderWidth: 2,
+          borderRadius: 4,
+        };
+        const label = (
+          <View
+            style={{
+              position: "absolute",
+              left: 0,
+              top: -18,
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              backgroundColor: "rgba(0,0,0,0.62)",
+              borderRadius: 4,
+            }}
+          >
+            <Text style={{ color: "#fff", fontSize: 10, letterSpacing: 0.2 }}>
+              {p.className} · {Math.round(p.length_mm)} mm
+            </Text>
+          </View>
+        );
+        return SUPPORTS_LAYOUT_ANIMATION ? (
           <Animated.View
             key={p.key}
             entering={FadeIn.duration(120)}
@@ -101,33 +132,14 @@ export function DetectionOverlay({
             // 15-30 fps inference. Damping high enough to avoid jiggle on
             // every detection update; mass low enough to track real motion.
             layout={LinearTransition.springify().damping(18).stiffness(160).mass(0.4)}
-            style={{
-              position: "absolute",
-              left: p.projX,
-              top: p.projY,
-              width: p.projW,
-              height: p.projH,
-              borderColor: color,
-              borderWidth: 2,
-              borderRadius: 4,
-            }}
+            style={boxStyle}
           >
-            <View
-              style={{
-                position: "absolute",
-                left: 0,
-                top: -18,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-                backgroundColor: "rgba(0,0,0,0.62)",
-                borderRadius: 4,
-              }}
-            >
-              <Text style={{ color: "#fff", fontSize: 10, letterSpacing: 0.2 }}>
-                {p.className} · {Math.round(p.length_mm)} mm
-              </Text>
-            </View>
+            {label}
           </Animated.View>
+        ) : (
+          <View key={p.key} style={boxStyle}>
+            {label}
+          </View>
         );
       })}
     </View>

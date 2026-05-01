@@ -339,57 +339,64 @@ function useLiveDetectionsTflite(options: Options): State {
           const tensor = tensorRef.current;
           const inv255 = 1 / 255;
           for (let i = 0; i < len; i++) tensor[i] = input[i] * inv255;
-          let outputs: ArrayBuffer[];
+          // Async `model.run()` runs inference on a Nitro background thread
+          // instead of blocking the JS thread for the full 30-50 ms NNAPI
+          // window. That matters when objects are detected: the JS thread
+          // can keep handling React reconciliation + Vision Camera frame
+          // dispatch in parallel with the model. With runSync the same JS
+          // thread did all three serially, which read as visible lag.
           const inferStartedAt = Date.now();
-          try {
-            outputs = model.runSync([tensor.buffer as ArrayBuffer]);
-          } catch (err) {
-            console.warn("[live-detections] runSync failed", err);
-            inFlight.value = false;
-            return;
-          }
-          recordInference(
-            `tflite-${delegateRef.current}` as InferenceSource,
-            Date.now() - inferStartedAt,
-          );
-          const out = new Float32Array(outputs[0]);
-          const outputKind = outputKindRef.current;
-          const lb = {
-            scale: letterboxScale,
-            padX: letterboxPadX,
-            padY: letterboxPadY,
-            target: YOLO_INPUT_SIZE,
-          };
-          const shape = (outputKind === "nms"
-            ? [1, 300, 6]
-            : [1, 84, 8400]) as unknown as readonly [number, number, number];
-          const decodeOpts = {
-            letterbox: lb,
-            scoreThreshold,
-            classFilter: classFilter ? [...classFilter] : null,
-          };
-          const raw =
-            outputKind === "nms"
-              ? decodeYoloNms(out, shape, decodeOpts)
-              : decodeYolo(out, shape, decodeOpts);
-          const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, iouThreshold);
-          const seeds = mapDetectionsToSeeds(kept, {
-            frameWidth,
-            frameHeight,
-            pxPerMm,
-            roi: roi ?? null,
-          });
-          const now = Date.now();
-          if (mountedRef.current && now - lastSetAtRef.current >= RENDER_THROTTLE_MS) {
-            lastSetAtRef.current = now;
-            setDetections({
-              seeds,
-              summary: summarizeSeeds(seeds),
-              frameTimestampMs,
-              analyzerId: "tflite-yolo-live",
+          model
+            .run([tensor.buffer as ArrayBuffer])
+            .then((outputs) => {
+              recordInference(
+                `tflite-${delegateRef.current}` as InferenceSource,
+                Date.now() - inferStartedAt,
+              );
+              const out = new Float32Array(outputs[0]);
+              const outputKind = outputKindRef.current;
+              const lb = {
+                scale: letterboxScale,
+                padX: letterboxPadX,
+                padY: letterboxPadY,
+                target: YOLO_INPUT_SIZE,
+              };
+              const shape = (outputKind === "nms"
+                ? [1, 300, 6]
+                : [1, 84, 8400]) as unknown as readonly [number, number, number];
+              const decodeOpts = {
+                letterbox: lb,
+                scoreThreshold,
+                classFilter: classFilter ? [...classFilter] : null,
+              };
+              const raw =
+                outputKind === "nms"
+                  ? decodeYoloNms(out, shape, decodeOpts)
+                  : decodeYolo(out, shape, decodeOpts);
+              const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, iouThreshold);
+              const seeds = mapDetectionsToSeeds(kept, {
+                frameWidth,
+                frameHeight,
+                pxPerMm,
+                roi: roi ?? null,
+              });
+              const now = Date.now();
+              if (mountedRef.current && now - lastSetAtRef.current >= RENDER_THROTTLE_MS) {
+                lastSetAtRef.current = now;
+                setDetections({
+                  seeds,
+                  summary: summarizeSeeds(seeds),
+                  frameTimestampMs,
+                  analyzerId: "tflite-yolo-live",
+                });
+              }
+            })
+            .catch((err) => {
+              console.warn("[live-detections] run failed", err);
+            })
+            .finally(() => {
+              inFlight.value = false;
             });
-          }
-          inFlight.value = false;
         },
       ),
     [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold, inFlight],
@@ -405,7 +412,16 @@ function useLiveDetectionsTflite(options: Options): State {
       if (inFlight.value) return;
       runAtTargetFps(targetFps, () => {
         "worklet";
+        // Re-check + set inFlight as the FIRST thing inside the gated block.
+        // Setting after `resize()` opened a 5-10 ms race window during which
+        // multiple worklet invocations could pass the check, each acquiring an
+        // image from CameraX's `ImageAnalysis` pool (size 6). When the pool
+        // ran out, Camera2 threw `IllegalStateException: maxImages (6) has
+        // already been acquired` and stalled the preview — the visible
+        // "stuck/laggy when objects detected" symptom. Atomic gate first;
+        // resize the frame only if we won the race.
         if (inFlight.value) return;
+        inFlight.value = true;
         try {
           // ROI-aware crop: when the user has bounded a region, hand the
           // resize plugin only the ROI bbox (square-padded) so YOLO sees more
@@ -438,7 +454,6 @@ function useLiveDetectionsTflite(options: Options): State {
           // Worklets-core 1.6 rejects raw ArrayBuffer as a shared value but
           // accepts typed arrays. .slice() also detaches us from the resize
           // plugin's worklet-owned buffer so the JS thread owns a private copy.
-          inFlight.value = true;
           inferOnJS(
             resized.slice(),
             frame.width,

@@ -114,47 +114,128 @@ OpenSpec amended:
 - **End-to-end live test still pending the user** — they wanted to test the
   ROI-crop + bbox-interpolation + calibration-phase-2 deltas in real use.
 
+## Open issues
+
+### 🔴 Android live preview stutters when objects are detected (still open)
+
+The reproduction is: open Inspect → Precise (or Live) on the Z Flip 7 FE,
+let calibration lock, point the camera at an object the model recognises.
+The preview goes laggy and the bounding boxes don't update smoothly. iOS
+is unaffected.
+
+Things attempted today, none of which fully resolved it:
+
+- ROI-aware crop (less work per inference, but not the bottleneck).
+- Reanimated layout animations gated to iOS (avoids Fabric race).
+- Pre-allocated tensor reuse (kills scudo allocator churn).
+- Render throttle 50 ms (decouples React rate from inference rate).
+- Worklet → JS backpressure via `Worklets.createSharedValue<boolean>` so
+  at most one inference is in flight.
+- Camera2 stream count gated to 2 (photo + frameProcessor).
+- TFLite Android delegate bumped to NNAPI (frees Adreno GPU for preview).
+- SVG bounding boxes replaced with plain `<View>` borders.
+- `react-native-svg` 15.12 → 15.15.4 for Fabric mount-race fixes.
+- Inspect tab routing changed from `useFocusEffect + router.replace` to
+  `<Redirect>` (atomic, no double-mount).
+- `model.runSync` → `model.run` (async, off JS thread).
+- Atomic check-then-set of `inFlight.value` _before_ `resize()` is called
+  in the worklet.
+- Camera native delivery rate constrained to **30 fps via `useCameraFormat` +
+  `fps={30}`** on the `<Camera>` instance (Vision Camera was passing through
+  the device's native 60 fps under the hood, doubling pool pressure).
+
+The smoking-gun log line during the stutter is:
+
+```
+W ImageReader_JNI: Unable to acquire a buffer item, very likely client tried
+                    to acquire more than maxImages buffers
+E ImageAnalysisAnalyzer: java.lang.IllegalStateException: maxImages (6) has
+                          already been acquired, call #close before acquiring more.
+```
+
+CameraX's `ImageAnalysis` stage has a hardcoded buffer pool of 6 ImageProxy
+slots. Vision Camera doesn't expose the pool size. Sustained pool overflow
+stalls the camera HAL → preview goes still → bounding boxes appear "stuck".
+The 30 fps cap shipped at end of this session was the most promising
+intervention but **was not verified** before pausing for distribution work.
+
+**Next steps when resuming:**
+
+1. Verify the `fps={30}` cap actually fixed it. If yes, close this issue.
+2. If still overflowing, the next levers are:
+   - **Lower hyperparam `targetFps` default to 15** (halves worklet work).
+   - **Drop the resize step into a worklet-side native plugin** so the
+     ImageProxy is released before the JS dispatch (current path holds the
+     proxy through the Float32Array slice() call).
+   - **Switch the YOLO live worklet to a Vision Camera frame-processor
+     plugin** (the same shape we used for iOS Core ML) so inference happens
+     entirely on the worklet thread without ever crossing to JS. fast-tflite
+     doesn't allow this directly because its HybridObject can't be captured
+     in a worklet, but a thin C++ wrapper plugin would.
+
+### 🟡 Android offline-sync QA still pending
+
+Manual airplane-mode replay walkthrough (`mobile-offline-sync` tasks 5.5–5.7)
+not validated on this device.
+
 ## What's next
 
-### Pending user verification
+### User-driven (today's focus)
 
-1. Real-device walkthrough on the Z Flip 7 FE for the new features:
-   - ROI drawn → live preview should feel snappier inside the region;
-     box positions should be more pixel-accurate for objects in the ROI.
-   - Box motion under slow camera pan should appear smooth at display
-     refresh rate, not snap at 15–30 Hz.
-   - Calibration pill should stop flickering when the marker partially
-     occludes or briefly leaves the frame.
+**Firebase App Distribution flow** — the user is taking over this:
 
-### Earlier handoff items still untouched
+```bash
+# 1. Build a fresh preview APK on EAS (~10-15 min, runs in cloud).
+pnpm -F @advance-seeds/mobile build:preview:android
 
-2. **Android offline-sync QA** — manual airplane-mode replay walkthrough
-   (`mobile-offline-sync` tasks 5.5–5.7) on the device.
-3. **Distribution prep** —
-   - `eas build --profile preview --platform ios|android`.
-   - Firebase App Distribution invite groups (`internal`, `pilot`).
-   - README + `docs/demo-script.md` update for the Firebase invite flow.
-   - Storage RLS audit (signed-out URL guess test).
-   - Tag `v0.2.0`, archive the `mobile-real-usage` change.
+# 2. Distribute the latest finished build to the `internal` group.
+#    Wait until step 1 finishes; the script reads from EAS build:list.
+pnpm -F @advance-seeds/mobile dist:android
+
+# 3. Promote the same APK to the pilot group when ready.
+FIREBASE_GROUPS=pilot pnpm -F @advance-seeds/mobile dist:android
+```
+
+All three commands work as-is with the current commit. **Before running
+step 3 the `pilot` tester group needs to exist in Firebase** — App
+Distribution → Testers & groups → Add group → alias `pilot`. Otherwise
+step 3 fails with the clarified error message (HTTP 404 → "Group `pilot`
+not found in Firebase. Create it under...").
+
+Step 1's first run uploads ~30 MB now (was ~290 MB before this session's
+`.easignore` shipped — `ios/` and `android/` are excluded so EAS regenerates
+them via CNG on the build worker).
+
+### Pending after Firebase work
+
+1. Real-device walkthrough on the Z Flip 7 FE to confirm whether the
+   `fps={30}` cap resolved the live-preview stutter (see Open Issues).
+2. **Android offline-sync QA** — manual airplane-mode replay walkthrough.
+3. Tag `v0.2.0`, archive the `mobile-real-usage` change.
 
 ### Optional next-pass polish
 
-4. Per-frame inference-time histogram in the hyperparams playground (one
-   counter per source — NNAPI / GPU / CPU — with rolling p50 / p95). Lets
-   QA tune `targetFps` against actual measured cost rather than a guess.
-5. Multi-marker ArUco (currently single marker ID 0). With `DICT_4X4_50` we
-   could place 2–4 markers and average their derived `pxPerMm` for tighter
-   confidence.
-6. A `withSpring` instead of `LinearTransition` on the overlay for slightly
-   organic motion under fast pans (currently snaps because spatial-bucket
-   identity changes).
+(All deferred — none currently blocking.)
+
+- Multi-marker ArUco upgrade (native + JS already shipped at commit
+  `f7c9001`; only the **multi-marker calibration-card design** is missing,
+  user can place a single 5 cm card and ignore the multi-card path).
+- `withSpring` overlay transitions for organic motion under fast pans.
+- Inference-time histogram already shipped (commit `f7c9001`).
 
 ## Commit hygiene
 
-- `957aa43` shipped 11 files for the perf-pass.
-- The follow-on ROI-crop / overlay-interpolation / calibration-phase-2
-  changes (4 files) are uncommitted at the time of this handoff. Run
-  `git diff --stat` to confirm before committing as one feature commit.
+- Today's commits, newest first:
+  - `f7c9001` live-mode polish (inference timings, spring overlay, multi-marker ArUco)
+  - `6e4ff78` live-mode quality pass (ROI crop, bbox interpolation, calibration smoothing)
+  - `957aa43` unblock Android live detection (Camera2 streams, NNAPI, Fabric)
+  - `92f4d1b` video captures produce real seed analysis + back-button fix
+  - `d28c5c1` EAS upload trim + Firebase App Distribution runbook
+- The next commit (closing this session) bundles: `<Redirect>` atomic
+  inspect routing, `react-native-svg` bump to 15.15.4 + native rebuild,
+  `expo-video-thumbnails` linked, `model.run` async, atomic `inFlight`
+  check-then-set, Camera native fps cap at 30 via `useCameraFormat`, and
+  the Firebase script's "group not found" hint.
 
 ## Local dev reminders (unchanged from prior handoff)
 
