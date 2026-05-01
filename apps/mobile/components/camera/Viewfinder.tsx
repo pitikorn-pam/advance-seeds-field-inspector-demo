@@ -34,6 +34,8 @@ interface Props {
    * audio: false rather than crashing the camera mount.
    */
   cameraProps?: Omit<Partial<CameraProps>, "ref" | "device" | "isActive">;
+  /** Android live analysis can request a lower-pressure camera stream. */
+  performanceProfile?: "quality" | "low";
   /** Wrapper-level className (NativeWind). Default: flex-1 black. */
   className?: string;
 }
@@ -50,20 +52,27 @@ export function Viewfinder({
   showGrid = false,
   children,
   cameraProps,
+  performanceProfile = "quality",
   className,
 }: Props) {
   const { t } = useTranslation();
   const camPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
   const device = useCameraDevice(position);
-  const preferredCameraFps = Platform.OS === "android" ? 60 : 30;
-  const cameraResolution = { width: 1920, height: 1080 };
+  const lowPressureAndroid = Platform.OS === "android" && performanceProfile === "low";
+  const preferredCameraFps = lowPressureAndroid ? 15 : Platform.OS === "android" ? 60 : 30;
+  const cameraResolution = lowPressureAndroid
+    ? { width: 1280, height: 720 }
+    : { width: 1920, height: 1080 };
 
   // Vision Camera requires both `format` and `fps` to constrain capture rate.
   // Android prefers FHD/60 so preview motion can stay smooth while native YOLO
   // is throttled separately by the live detector's targetFps. Some FHD formats
   // on Samsung report a lower maxFps though, so the actual fps prop is clamped
   // to the selected format's supported range before mounting Camera.
+  // When Android live YOLO is attached, callers can switch to the low-pressure
+  // profile to keep CameraX responsive on devices whose CPU path cannot sustain
+  // FHD analysis.
   const format = useCameraFormat(device, [
     { videoResolution: cameraResolution },
     { photoResolution: cameraResolution },

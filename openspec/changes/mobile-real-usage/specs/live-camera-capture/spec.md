@@ -167,6 +167,13 @@ The Camera component SHALL constrain its native delivery rate via Vision Camera'
 - **AND** devices with FHD/60 support receive a bounded FHD/60 preview stream while devices whose selected FHD format tops out at 30 receive FHD/30 instead of a `format/invalid-fps` error
 - **AND** live YOLO inference is throttled separately by the hyperparameter `targetFps`
 
+#### Scenario: Android switches to low-pressure delivery when live YOLO is attached
+- **GIVEN** Android live YOLO owns the frame processor stream
+- **WHEN** the `<Camera>` component is rendered for Live or Precise capture
+- **THEN** `useCameraFormat` selects a 1280x720-or-smaller format while preferring 15 fps
+- **AND** the Android native YOLO frame processor caps the requested inference rate to 5 fps until a faster delegate/model profile is proven
+- **AND** leaving live YOLO restores the quality camera profile for capture setup and still-photo handoff
+
 #### Scenario: Android disables ImageCapture while live detection owns the stream
 - **GIVEN** Android live YOLO detection is active
 - **WHEN** the `<Camera>` component is rendered

@@ -201,6 +201,12 @@ inference ... elapsed=979ms/1022ms delegate=cpu`). That is roughly 1 fps,
   screens use those dimensions for DetectionOverlay and KPI ROI projection
   instead of hard-coded 1920x1080, which could make boxes project incorrectly
   or off-stage when CameraX selected a different stream size.
+- Android live YOLO now uses a low-pressure camera profile while the frame
+  processor is attached: `Viewfinder` requests 1280x720 / 15 fps and the
+  Android native YOLO hook caps inference requests to 5 fps. This is a
+  stability fallback for the measured ~1s CPU inference path; it does not make
+  the model capable of 30 fps, but it prevents the app from over-requesting
+  frames while preview responsiveness is the priority.
 - Android `Viewfinder` now requests a lower-pressure Camera2 stream:
   1280×720 / 15 fps via `useCameraFormat` + `fps`. iOS remains at
   1920×1080 / 30 fps for the Core ML path.

@@ -414,6 +414,7 @@ export default function CaptureScan() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
+        performanceProfile={androidLiveDetectorActive ? "low" : "quality"}
         cameraProps={viewfinderCameraProps}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">

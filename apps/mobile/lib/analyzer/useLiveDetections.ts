@@ -274,7 +274,11 @@ function useLiveDetectionsAndroidNative(options: Options): State {
 
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
-  const targetFps = hp.targetFps;
+  // The current Android CPU/native YOLO11n path measures roughly 1s/frame on
+  // the Z Flip 7 FE class device. Capping the requested rate avoids building
+  // camera pressure while keeping preview responsive until a faster delegate or
+  // smaller model profile is proven.
+  const targetFps = Math.min(hp.targetFps, 5);
   const roiCropNorm = useMemo(() => roiBboxSquareNorm(roi ?? null), [roi]);
 
   const decodeOnJS = useMemo(
