@@ -63,6 +63,12 @@ pnpm -F @advance-seeds/mobile dist:android
 FIREBASE_GROUPS=pilot pnpm -F @advance-seeds/mobile dist:android
 ```
 
+> **Note:** `FIREBASE_GROUPS` must match an existing group **alias** (lowercase
+> identifier, not display name) under Firebase Console → App Distribution →
+> Testers & groups. A missing alias surfaces as `HTTP 404, Requested entity
+was not found` _after_ the APK uploads. List existing aliases with
+> `firebase appdistribution:group:list --project advance-seeds-field-inspector`.
+
 Testers get an email link; tapping it opens the Firebase App Tester app,
 which installs the APK with one confirmation.
 
