@@ -27,6 +27,7 @@ import {
 } from "./yolo";
 import type { RawDetection } from "./yolo";
 import { ensureHyperParamsLoaded, getHyperParamsSync } from "./hyperparams";
+import { recordInference } from "./inferenceStats";
 
 // Generic COCO yolo11n.tflite acts as a structural placeholder until a
 // seed-trained model is dropped at the same path. See assets/models/README.md.
@@ -37,6 +38,12 @@ const MODEL_SOURCE = require("../../assets/models/yolo11n-seeds.tflite");
 // [1, maxDet, 6] with NMS already baked in (YOLO 26 default export).
 export type TfliteOutputKind = "raw" | "nms";
 
+/** Which delegate the loaded TFLite graph is actually running under. We
+ *  surface this so the inference-time histogram in the hyperparams playground
+ *  can label timing samples with a `tflite-nnapi` / `tflite-android-gpu` /
+ *  `tflite-cpu` source. */
+export type TfliteDelegate = "nnapi" | "android-gpu" | "cpu";
+
 export interface LoadedTfliteModel {
   model: TfliteModel;
   outputKind: TfliteOutputKind;
@@ -44,6 +51,7 @@ export interface LoadedTfliteModel {
    *  native state across fast-refresh, so reading `model.outputs` repeatedly
    *  is unsafe. Capture once at load time and reuse. */
   outputShape: readonly [number, number, number];
+  delegate: TfliteDelegate;
 }
 
 // Persist across fast-refresh: Metro HMR re-evaluates this module on every
@@ -69,10 +77,12 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
       // the dedicated NPU on Snapdragon/Exynos, leaving the GPU free.
       // Falls back to GPU then CPU if NNAPI isn't available.
       let model: TfliteModel | null = null;
+      let activeDelegate: TfliteDelegate = "cpu";
       if (Platform.OS === "android") {
         for (const delegate of ["nnapi", "android-gpu"] as TensorflowModelDelegate[]) {
           try {
             model = await loadTensorflowModel(MODEL_SOURCE, [delegate]);
+            activeDelegate = delegate as TfliteDelegate;
             console.info(`[analyzer] tflite delegate=${delegate}`);
             break;
           } catch (err) {
@@ -82,6 +92,7 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
       }
       if (!model) {
         model = await loadTensorflowModel(MODEL_SOURCE, []);
+        activeDelegate = "cpu";
         if (Platform.OS === "android") console.info("[analyzer] tflite delegate=cpu");
       }
       const inputs = model.inputs;
@@ -111,7 +122,7 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
         outShape[1],
         outShape[2],
       ];
-      return { model, outputKind, outputShape };
+      return { model, outputKind, outputShape, delegate: activeDelegate };
     })().catch((err) => {
       // Reset both the local closure and the global slot so next call retries.
       globalSlot[GLOBAL_KEY] = null;
@@ -129,11 +140,12 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     private readonly model: TfliteModel,
     private readonly outputKind: TfliteOutputKind,
     private readonly outputShape: readonly [number, number, number],
+    readonly delegate: TfliteDelegate,
   ) {}
 
   static async load(): Promise<TfliteSeedAnalyzer> {
-    const { model, outputKind, outputShape } = await loadSharedTfliteModel();
-    return new TfliteSeedAnalyzer(model, outputKind, outputShape);
+    const { model, outputKind, outputShape, delegate } = await loadSharedTfliteModel();
+    return new TfliteSeedAnalyzer(model, outputKind, outputShape, delegate);
   }
 
   async analyze(image: ImageRef, options: AnalyzeOptions): Promise<AnalysisResult> {
@@ -151,6 +163,7 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     const inferStartedAt = Date.now();
     const outputs = this.model.runSync([lb.tensor.buffer as ArrayBuffer]);
     const inferMs = Date.now() - inferStartedAt;
+    recordInference(`tflite-${this.delegate}`, inferMs);
     const out = new Float32Array(outputs[0]);
     const decodeOpts = {
       letterbox: lb,

@@ -41,6 +41,31 @@ a parent` from `react-native-svg <Rect>` was bouncing the JS bundle to
   per-platform tuning is no longer meaningful. Playground UI + en/th i18n
   updated; field renamed in `HyperParams` interface.
 
+### Live-mode polish (committed in this session, post-6e4ff78)
+
+- **Inference-time histogram** — every analyzer path now calls
+  `recordInference(source, ms)` after each `runSync` / plugin call. The
+  hyperparams playground renders rolling **p50 / p95 / p99 + bucket
+  histogram** per delegate (`coreml`, `tflite-nnapi`, `tflite-android-gpu`,
+  `tflite-cpu`). Lets QA tune `targetFps` against measured cost rather
+  than a guess. Updates coalesce at 200 ms so the playground doesn't
+  re-render at inference rate.
+- **Spring-physics overlay** — `DetectionOverlay` swapped
+  `LinearTransition.duration(120)` for
+  `LinearTransition.springify().damping(18).stiffness(160).mass(0.4)`.
+  Boxes now have a slight settle when tracking motion rather than the
+  mechanical linear ease.
+- **Multi-marker ArUco** — both Android Kotlin and iOS Obj-C++ native
+  paths now compute `pxPerMm` for every detected marker, surface a
+  `multiMedianPxPerMm` + `markerCount`, and boost confidence by 0.05 per
+  extra marker (capped at 1.0). JS prefers the median when `count > 1`.
+  Wire format extended from 6-tuple → 8-tuple; older JS bundles ignore
+  the trailing fields gracefully.
+- **Native rebuild required** — the multi-marker change touches Android
+  Kotlin and iOS Obj-C++. Android already rebuilt as part of this commit
+  (`expo run:android` against the Z Flip 7 FE). iOS rebuild needed when
+  next testing on the iPhone Air.
+
 ### Live-mode quality (committed in this session, post-957aa43)
 
 - **ROI-aware inference crop** — when the user has bounded an ROI, pass a

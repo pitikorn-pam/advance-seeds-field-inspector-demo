@@ -141,11 +141,19 @@ object ArucoDetectorBridge {
         return null
       }
 
+      // Compute pxPerMm for every detected marker, not just the largest. The
+      // primary "best" marker (largest visible area) still drives confidence
+      // scoring, but we expose the per-marker px/mm list so JS can take a
+      // median across multiple physical markers in the same frame for
+      // tighter calibration when an inspector lays out a multi-marker card.
+      val perMarkerPxPerMm = mutableListOf<Double>()
       var bestIndex = 0
       var bestArea = 0.0
       corners.forEachIndexed { index, mat ->
         val points = matToPoints(mat)
         val area = polygonArea(points)
+        val pxWidth = edgeLength(points) * pixelScale
+        if (pxWidth > 0) perMarkerPxPerMm.add(pxWidth / markerSizeMm)
         if (area > bestArea) {
           bestArea = area
           bestIndex = index
@@ -158,10 +166,23 @@ object ArucoDetectorBridge {
 
       val imageArea = gray.cols().toDouble() * gray.rows().toDouble()
       val areaRatio = if (imageArea > 0) min(1.0, bestArea / imageArea / 0.08) else 0.0
-      val confidence = max(0.6, min(1.0, 0.65 + areaRatio * 0.35))
+      val singleConfidence = max(0.6, min(1.0, 0.65 + areaRatio * 0.35))
       val markerId = ids.get(bestIndex, 0)?.firstOrNull()?.toInt() ?: return null
+      val markerCount = perMarkerPxPerMm.size
+      // Median across all markers in this frame; falls back to the best
+      // marker's value when only one was found.
+      val multiMedianPxPerMm = if (markerCount > 1) {
+        val sorted = perMarkerPxPerMm.sorted()
+        val mid = sorted.size / 2
+        if (sorted.size % 2 == 0) (sorted[mid - 1] + sorted[mid]) / 2 else sorted[mid]
+      } else {
+        pixelWidth / markerSizeMm
+      }
+      // Multi-marker agreement boosts confidence: with N≥2 markers giving
+      // consistent px/mm, we trust the lock more than a single marker.
+      val confidence = if (markerCount > 1) min(1.0, singleConfidence + 0.05 * (markerCount - 1)) else singleConfidence
       logDetection(
-        "markers=${corners.size} bestId=$markerId pixelWidth=${"%.1f".format(pixelWidth)} confidence=${"%.2f".format(confidence)} frame=${gray.cols()}x${gray.rows()}"
+        "markers=${corners.size} bestId=$markerId pixelWidth=${"%.1f".format(pixelWidth)} confidence=${"%.2f".format(confidence)} multi=${"%.2f".format(multiMedianPxPerMm)} frame=${gray.cols()}x${gray.rows()}"
       )
 
       return mapOf(
@@ -171,6 +192,8 @@ object ArucoDetectorBridge {
         "observedAtMs" to System.currentTimeMillis().toDouble(),
         "markerSizeMm" to markerSizeMm,
         "pixelWidth" to pixelWidth,
+        "markerCount" to markerCount.toDouble(),
+        "multiMedianPxPerMm" to multiMedianPxPerMm,
       )
     } finally {
       ids.release()
@@ -189,6 +212,11 @@ object ArucoDetectorBridge {
   }
 
   private fun resultToValues(result: Map<String, Any>): List<Double> {
+    // Ordering is part of the JS contract — we append (markerCount,
+    // multiMedianPxPerMm) to the original 6-tuple so older JS clients that
+    // destructure indices [0..5] still see the legacy single-marker fields,
+    // while new clients (useLiveArucoCalibration phase-2) read [6..7] for
+    // multi-marker averaging.
     return listOf(
       (result["pxPerMm"] as Number).toDouble(),
       (result["markerId"] as Number).toDouble(),
@@ -196,6 +224,8 @@ object ArucoDetectorBridge {
       (result["observedAtMs"] as Number).toDouble(),
       (result["markerSizeMm"] as Number).toDouble(),
       (result["pixelWidth"] as Number).toDouble(),
+      (result["markerCount"] as? Number)?.toDouble() ?: 1.0,
+      (result["multiMedianPxPerMm"] as? Number)?.toDouble() ?: (result["pxPerMm"] as Number).toDouble(),
     )
   }
 

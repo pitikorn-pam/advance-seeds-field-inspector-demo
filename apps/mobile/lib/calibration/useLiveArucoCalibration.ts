@@ -56,13 +56,27 @@ export function useLiveArucoCalibration(enabled: boolean): LiveArucoState {
       observedAtMs: number,
       markerSizeMm: number,
       pixelWidth: number,
+      markerCount: number,
+      multiMedianPxPerMm: number,
     ) => {
       const buffer = bufferRef.current;
       const now = Date.now();
       const threshold = wasLockedRef.current ? HOLD_CONFIDENCE : LOCK_CONFIDENCE;
 
-      if (pxPerMm !== null && confidence >= threshold) {
-        buffer.push({ pxPerMm, markerId, confidence, observedAtMs, markerSizeMm, pixelWidth });
+      // When the native detector saw multiple markers in this frame, the
+      // median across all of them is a tighter estimate than any single
+      // marker's pxPerMm. Fall back to the single-marker value otherwise.
+      const effectivePxPerMm = markerCount > 1 ? multiMedianPxPerMm : pxPerMm;
+
+      if (effectivePxPerMm !== null && effectivePxPerMm > 0 && confidence >= threshold) {
+        buffer.push({
+          pxPerMm: effectivePxPerMm,
+          markerId,
+          confidence,
+          observedAtMs,
+          markerSizeMm,
+          pixelWidth,
+        });
         if (buffer.length > SMOOTHING_WINDOW) buffer.shift();
         const smoothedPxPerMm = median(buffer.map((r) => r.pxPerMm));
         const smoothedConfidence = median(buffer.map((r) => r.confidence));
@@ -110,7 +124,7 @@ export function useLiveArucoCalibration(enabled: boolean): LiveArucoState {
         "worklet";
         const next = detectNativeArucoCalibrationInFrame(frame);
         if (!next) {
-          onDetection(null, 0, 0, 0, 0, 0);
+          onDetection(null, 0, 0, 0, 0, 0, 0, 0);
           return;
         }
         onDetection(
@@ -120,6 +134,8 @@ export function useLiveArucoCalibration(enabled: boolean): LiveArucoState {
           next.observedAtMs,
           next.markerSizeMm,
           next.pixelWidth,
+          next.markerCount ?? 1,
+          next.multiMedianPxPerMm ?? next.pxPerMm,
         );
       });
     },

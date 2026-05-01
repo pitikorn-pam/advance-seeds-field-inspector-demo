@@ -89,10 +89,20 @@ double polygonArea(const std::vector<cv::Point2f> &corners) {
     return nil;
   }
 
+  // Phase-2 multi-marker: compute pxPerMm for every detected marker so we
+  // can publish a median across multiple physical markers in the same frame
+  // alongside the legacy "best marker" tuple. The largest marker still wins
+  // the bestIndex slot (drives confidence scoring + markerId selection).
+  std::vector<double> perMarkerPxPerMm;
+  perMarkerPxPerMm.reserve(markerCorners.size());
   int bestIndex = 0;
   double bestArea = 0;
   for (int i = 0; i < (int)markerCorners.size(); i++) {
     const double area = polygonArea(markerCorners[i]);
+    const double edge = edgeLength(markerCorners[i]);
+    if (edge > 0 && markerSizeMm > 0) {
+      perMarkerPxPerMm.push_back(edge / markerSizeMm);
+    }
     if (area > bestArea) {
       bestArea = area;
       bestIndex = i;
@@ -106,7 +116,22 @@ double polygonArea(const std::vector<cv::Point2f> &corners) {
 
   const double imageArea = (double)bgr.cols * (double)bgr.rows;
   const double areaRatio = imageArea > 0 ? std::min(1.0, bestArea / imageArea / 0.08) : 0.0;
-  const double confidence = std::max(0.6, std::min(1.0, 0.65 + areaRatio * 0.35));
+  const double singleConfidence = std::max(0.6, std::min(1.0, 0.65 + areaRatio * 0.35));
+  const int markerCount = (int)perMarkerPxPerMm.size();
+  double multiMedianPxPerMm = pixelWidth / markerSizeMm;
+  if (markerCount > 1) {
+    std::vector<double> sorted = perMarkerPxPerMm;
+    std::sort(sorted.begin(), sorted.end());
+    const int mid = markerCount / 2;
+    multiMedianPxPerMm = (markerCount % 2 == 0)
+      ? (sorted[mid - 1] + sorted[mid]) / 2.0
+      : sorted[mid];
+  }
+  // Multi-marker agreement boosts confidence: each extra marker adds 0.05
+  // up to 1.0 cap.
+  const double confidence = markerCount > 1
+    ? std::min(1.0, singleConfidence + 0.05 * (double)(markerCount - 1))
+    : singleConfidence;
 
   return @{
     @"pxPerMm": @(pixelWidth / markerSizeMm),
@@ -114,7 +139,9 @@ double polygonArea(const std::vector<cv::Point2f> &corners) {
     @"confidence": @(confidence),
     @"observedAtMs": @([[NSDate date] timeIntervalSince1970] * 1000.0),
     @"markerSizeMm": @(markerSizeMm),
-    @"pixelWidth": @(pixelWidth)
+    @"pixelWidth": @(pixelWidth),
+    @"markerCount": @(markerCount),
+    @"multiMedianPxPerMm": @(multiMedianPxPerMm)
   };
 }
 

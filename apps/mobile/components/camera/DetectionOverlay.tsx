@@ -96,7 +96,11 @@ export function DetectionOverlay({
             key={p.key}
             entering={FadeIn.duration(120)}
             exiting={FadeOut.duration(160)}
-            layout={LinearTransition.duration(120)}
+            // Springify gives a slight overshoot+settle which feels organic
+            // under camera motion — pure linear easing reads as mechanical at
+            // 15-30 fps inference. Damping high enough to avoid jiggle on
+            // every detection update; mass low enough to track real motion.
+            layout={LinearTransition.springify().damping(18).stiffness(160).mass(0.4)}
             style={{
               position: "absolute",
               left: p.projX,

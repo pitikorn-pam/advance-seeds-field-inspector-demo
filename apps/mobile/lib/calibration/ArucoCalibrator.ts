@@ -12,11 +12,20 @@ export interface NativeArucoDetection {
   observedAtMs: number;
   markerSizeMm: number;
   pixelWidth: number;
+  /** Phase-2 multi-marker: how many markers were visible in the frame. 1 for
+   *  single-marker detection (legacy / no upgrade). */
+  markerCount?: number;
+  /** Phase-2 multi-marker: median pxPerMm across all detected markers. Equal
+   *  to `pxPerMm` when only one marker was visible. */
+  multiMedianPxPerMm?: number;
 }
 
 type NativeArucoFrameDetection =
   | NativeArucoDetection
-  | [number, number, number, number, number, number];
+  // Wire format: 6-tuple (legacy build) or 8-tuple (phase-2 build with
+  // markerCount + multiMedianPxPerMm appended).
+  | [number, number, number, number, number, number]
+  | [number, number, number, number, number, number, number, number];
 
 interface NativeArucoCalibratorModule {
   detectInImageAsync(uri: string, markerSizeMm: number): Promise<NativeArucoDetection | null>;
@@ -95,7 +104,7 @@ export function detectNativeArucoCalibrationInFrame(frame: Frame): NativeArucoDe
     | null
     | undefined;
   if (!result) return null;
-  const detection = Array.isArray(result)
+  const detection: NativeArucoDetection = Array.isArray(result)
     ? {
         pxPerMm: result[0],
         markerId: result[1],
@@ -103,6 +112,8 @@ export function detectNativeArucoCalibrationInFrame(frame: Frame): NativeArucoDe
         observedAtMs: result[3],
         markerSizeMm: result[4],
         pixelWidth: result[5],
+        markerCount: result.length >= 8 ? result[6] : 1,
+        multiMedianPxPerMm: result.length >= 8 ? result[7] : result[0],
       }
     : result;
   if (detection.confidence < MIN_CONFIDENCE || detection.pxPerMm <= 0) return null;

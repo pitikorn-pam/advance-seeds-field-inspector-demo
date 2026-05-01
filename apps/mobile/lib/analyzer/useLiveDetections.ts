@@ -14,8 +14,13 @@ import {
   nonMaxSuppression,
   summarizeSeeds,
 } from "./yolo";
-import { loadSharedTfliteModel, type TfliteOutputKind } from "./TfliteSeedAnalyzer";
+import {
+  loadSharedTfliteModel,
+  type TfliteDelegate,
+  type TfliteOutputKind,
+} from "./TfliteSeedAnalyzer";
 import { useHyperParams } from "./hyperparams";
+import { recordInference, type InferenceSource } from "./inferenceStats";
 
 const COREML_ASSET = "yolo26n";
 
@@ -146,7 +151,9 @@ function useLiveDetectionsCoreML(options: Options): State {
           frameWidth: number,
           frameHeight: number,
           frameTimestampMs: number,
+          inferElapsedMs: number,
         ) => {
+          recordInference("coreml", inferElapsedMs);
           const out = Float32Array.from(values);
           const outputKind: "raw" | "nms" = shape2 === 6 ? "nms" : "raw";
           // Vision uses `scaleFit` (aspect-fit + center crop) when handing
@@ -195,7 +202,12 @@ function useLiveDetectionsCoreML(options: Options): State {
       runAtTargetFps(targetFps, () => {
         "worklet";
         try {
+          // Time only the native plugin call, which is where the Core ML
+          // VNCoreMLRequest runs synchronously on the worklet thread; that
+          // dominates everything else this worklet does.
+          const startedAt = Date.now();
           const result = plugin.call(frame, { assetName: COREML_ASSET });
+          const inferElapsedMs = Date.now() - startedAt;
           if (!result) return;
           // Plugin returns { outputName, shape: number[], values: number[] }.
           const r = result as unknown as {
@@ -211,6 +223,7 @@ function useLiveDetectionsCoreML(options: Options): State {
             frame.width,
             frame.height,
             frame.timestamp,
+            inferElapsedMs,
           );
         } catch (err) {
           console.warn("[live-detections coreml] frame processing failed", err);
@@ -242,6 +255,7 @@ function useLiveDetectionsTflite(options: Options): State {
   const { enabled, pxPerMm, classFilter, roi } = options;
   const modelRef = useRef<TfliteModel | null>(null);
   const outputKindRef = useRef<TfliteOutputKind>("raw");
+  const delegateRef = useRef<TfliteDelegate>("cpu");
   const [ready, setReady] = useState(false);
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const lastSetAtRef = useRef(0);
@@ -284,6 +298,7 @@ function useLiveDetectionsTflite(options: Options): State {
         if (cancelled) return;
         modelRef.current = loaded.model;
         outputKindRef.current = loaded.outputKind;
+        delegateRef.current = loaded.delegate;
         setReady(true);
       })
       .catch((err) => {
@@ -325,6 +340,7 @@ function useLiveDetectionsTflite(options: Options): State {
           const inv255 = 1 / 255;
           for (let i = 0; i < len; i++) tensor[i] = input[i] * inv255;
           let outputs: ArrayBuffer[];
+          const inferStartedAt = Date.now();
           try {
             outputs = model.runSync([tensor.buffer as ArrayBuffer]);
           } catch (err) {
@@ -332,6 +348,10 @@ function useLiveDetectionsTflite(options: Options): State {
             inFlight.value = false;
             return;
           }
+          recordInference(
+            `tflite-${delegateRef.current}` as InferenceSource,
+            Date.now() - inferStartedAt,
+          );
           const out = new Float32Array(outputs[0]);
           const outputKind = outputKindRef.current;
           const lb = {

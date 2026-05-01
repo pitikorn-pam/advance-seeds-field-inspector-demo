@@ -9,6 +9,7 @@ import {
   setHyperParams,
   useHyperParams,
 } from "@/lib/analyzer/hyperparams";
+import { type InferenceStat, useInferenceStats } from "@/lib/analyzer/inferenceStats";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -29,6 +30,7 @@ export default function HyperParamsScreen() {
   const { t } = useTranslation(["common", "more"]);
   const router = useRouter();
   const hp = useHyperParams();
+  const stats = useInferenceStats();
 
   const onReset = () => {
     Alert.alert(t("more:hyperparams.resetTitle"), t("more:hyperparams.resetBody"), [
@@ -80,6 +82,22 @@ export default function HyperParamsScreen() {
           format={(v) => `${v} fps`}
           onPick={(v) => void setHyperParams({ targetFps: v })}
         />
+
+        {stats.length > 0 ? (
+          <Card>
+            <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-xs">
+              {t("more:hyperparams.inferenceStats")}
+            </Text>
+            <Text className="text-caption text-fg-tertiary mb-md">
+              {t("more:hyperparams.inferenceStatsHint")}
+            </Text>
+            <View className="gap-md">
+              {stats.map((s) => (
+                <InferenceStatRow key={s.source} stat={s} />
+              ))}
+            </View>
+          </Card>
+        ) : null}
 
         <Card>
           <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-xs">
@@ -150,5 +168,42 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+function InferenceStatRow({ stat }: { stat: InferenceStat }) {
+  const maxBucket = Math.max(1, ...stat.buckets);
+  return (
+    <View>
+      <View className="flex-row items-baseline justify-between">
+        <Text className="text-body font-medium text-fg-primary">{stat.source}</Text>
+        <Text className="text-caption text-fg-tertiary">
+          n={stat.count} (total {stat.total})
+        </Text>
+      </View>
+      <Text className="text-caption text-fg-secondary mt-[2px]">
+        p50 {stat.p50}ms · p95 {stat.p95}ms · p99 {stat.p99}ms
+      </Text>
+      <View className="mt-sm flex-row items-end gap-[3px] h-[36px]">
+        {stat.buckets.map((count, i) => {
+          const heightPct = count === 0 ? 4 : 4 + (count / maxBucket) * 96;
+          const edge = stat.bucketEdgesMs[i];
+          const label = i === stat.buckets.length - 1 ? "≥" : `<${edge}`;
+          return (
+            <View key={i} className="flex-1 items-center">
+              <View
+                style={{
+                  height: `${heightPct}%`,
+                  width: "100%",
+                  backgroundColor: count > 0 ? "#0F6E56" : "#E0E0DC",
+                  borderRadius: 2,
+                }}
+              />
+              <Text style={{ fontSize: 9, color: "#9D9D9A", marginTop: 2 }}>{label}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
   );
 }

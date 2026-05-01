@@ -188,3 +188,10 @@
 - [x] 14.8 Camera2 stream-count — gate `video`/`audio` props on `recording.isRecording` so live-only mode uses photo + frameProcessor (2 surfaces) instead of photo + video + audio + frameProcessor (4); Exynos 2400 / Z Flip 7 FE caps at 3 streams and was throwing `ERROR_CAMERA_DEVICE` otherwise
 - [x] 14.9 `setDetections` mounted-guard — `mountedRef` tracks screen lifecycle so a worklet-queued JS callback that lands after navigation doesn't trip "state update on unmounted component"
 - [x] 14.10 Hyperparams playground — collapse `targetFpsIos`/`targetFpsAndroid` into a single `targetFps` (default 30); both platforms now share the same backpressure model, so split tuning is no longer meaningful
+
+## 15. Live-mode polish pass
+
+- [x] 15.1 Inference-time histogram — module-level ring buffer (last 100 samples per delegate) recorded from CoreML / TFLite-NNAPI / TFLite-android-gpu / TFLite-CPU paths; hyperparams playground renders rolling p50 / p95 / p99 + bucketed histogram per source via a `useSyncExternalStore` hook with 200 ms coalesced updates
+- [x] 15.2 Reanimated overlay — swap `LinearTransition.duration(120)` for `LinearTransition.springify().damping(18).stiffness(160).mass(0.4)` so detection boxes track motion with a slight settle instead of mechanical linear ease; the spring config is tuned to track real motion without jiggling on every detection update
+- [x] 15.3 Multi-marker ArUco — native (Android Kotlin + iOS Obj-C++) computes `pxPerMm` for every detected marker, returns a median across all of them as `multiMedianPxPerMm` plus a `markerCount`, and boosts confidence by 0.05 per extra marker (capped at 1.0); JS reads the new fields and prefers the median when `markerCount > 1`. Wire format is the original 6-tuple extended to 8 elements so older JS bundles ignore the trailing fields gracefully
+- [ ] 15.4 Manual device verification on Z Flip 7 FE — confirm histogram populates, spring overlay reads as smooth, and 2-marker calibration tightens the px/mm reading vs a single marker

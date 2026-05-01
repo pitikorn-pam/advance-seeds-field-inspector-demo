@@ -51,10 +51,17 @@ NSDictionary<NSString *, id> *detectInGrayMat(const cv::Mat &gray, double marker
     return nil;
   }
 
+  // Phase-2 multi-marker: median across all detected markers + count, in
+  // addition to the legacy "best marker" tuple. See AdvanceSeedsArucoDetector.mm
+  // for the same logic; this is the live-frame variant.
+  std::vector<double> perMarkerPxPerMm;
+  perMarkerPxPerMm.reserve(markerCorners.size());
   int bestIndex = 0;
   double bestArea = 0;
   for (int i = 0; i < (int)markerCorners.size(); i++) {
     const double area = polygonArea(markerCorners[i]);
+    const double edge = edgeLength(markerCorners[i]);
+    if (edge > 0 && markerSizeMm > 0) perMarkerPxPerMm.push_back(edge / markerSizeMm);
     if (area > bestArea) {
       bestArea = area;
       bestIndex = i;
@@ -68,7 +75,20 @@ NSDictionary<NSString *, id> *detectInGrayMat(const cv::Mat &gray, double marker
 
   const double imageArea = (double)gray.cols * (double)gray.rows;
   const double areaRatio = imageArea > 0 ? std::min(1.0, bestArea / imageArea / 0.08) : 0.0;
-  const double confidence = std::max(0.6, std::min(1.0, 0.65 + areaRatio * 0.35));
+  const double singleConfidence = std::max(0.6, std::min(1.0, 0.65 + areaRatio * 0.35));
+  const int markerCount = (int)perMarkerPxPerMm.size();
+  double multiMedianPxPerMm = pixelWidth / markerSizeMm;
+  if (markerCount > 1) {
+    std::vector<double> sorted = perMarkerPxPerMm;
+    std::sort(sorted.begin(), sorted.end());
+    const int mid = markerCount / 2;
+    multiMedianPxPerMm = (markerCount % 2 == 0)
+      ? (sorted[mid - 1] + sorted[mid]) / 2.0
+      : sorted[mid];
+  }
+  const double confidence = markerCount > 1
+    ? std::min(1.0, singleConfidence + 0.05 * (double)(markerCount - 1))
+    : singleConfidence;
 
   return @{
     @"pxPerMm": @(pixelWidth / markerSizeMm),
@@ -76,7 +96,9 @@ NSDictionary<NSString *, id> *detectInGrayMat(const cv::Mat &gray, double marker
     @"confidence": @(confidence),
     @"observedAtMs": @([[NSDate date] timeIntervalSince1970] * 1000.0),
     @"markerSizeMm": @(markerSizeMm),
-    @"pixelWidth": @(pixelWidth)
+    @"pixelWidth": @(pixelWidth),
+    @"markerCount": @(markerCount),
+    @"multiMedianPxPerMm": @(multiMedianPxPerMm)
   };
 }
 

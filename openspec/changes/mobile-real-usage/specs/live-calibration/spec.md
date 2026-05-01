@@ -121,3 +121,29 @@ The ArUco calibrator SHALL emit a `pxPerMm` derived from a rolling-window median
 - **WHEN** no valid sample arrives for longer than the grace window
 - **THEN** the calibrator releases its lock and clears its rolling window
 - **AND** the next valid sample must clear the full lock threshold before relocking
+
+### Requirement: Multi-marker ArUco averaging
+When multiple ArUco markers are visible in the same frame, the native detector SHALL compute `pxPerMm` for each marker independently and surface a `multiMedianPxPerMm` field alongside the legacy single-marker tuple. The JS calibrator SHALL prefer the median value when `markerCount > 1`.
+
+#### Scenario: Two markers in frame yield a tighter median estimate
+- **GIVEN** the inspector places two 5 cm ArUco cards in view, each derived as 24.6 and 24.9 px/mm respectively
+- **WHEN** the native detector processes a frame
+- **THEN** it returns `markerCount = 2` and `multiMedianPxPerMm ≈ 24.75`
+- **AND** `useLiveArucoCalibration` publishes the median value rather than the largest-marker pxPerMm
+
+#### Scenario: Multi-marker confidence is boosted
+- **GIVEN** N markers are detected in a frame with single-marker confidence 0.7
+- **WHEN** N ≥ 2
+- **THEN** the published confidence is `min(1.0, 0.7 + 0.05 * (N - 1))`
+- **AND** confidence does not exceed 1.0 regardless of marker count
+
+#### Scenario: Single-marker frames keep legacy behaviour
+- **GIVEN** only one marker is visible
+- **WHEN** the detector returns `markerCount = 1`
+- **THEN** `multiMedianPxPerMm` equals the single-marker `pxPerMm`
+- **AND** the published reading and confidence match the pre-multi-marker behaviour
+
+#### Scenario: Native upgrade is wire-compatible with older JS bundles
+- **GIVEN** an older JS bundle that destructures the first 6 elements of the native frame-processor return tuple
+- **WHEN** the new native build emits an 8-tuple `[pxPerMm, markerId, confidence, observedAtMs, markerSizeMm, pixelWidth, markerCount, multiMedianPxPerMm]`
+- **THEN** the old JS bundle ignores indices 6 and 7 and continues to operate on single-marker semantics
