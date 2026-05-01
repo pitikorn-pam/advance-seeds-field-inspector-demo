@@ -106,16 +106,6 @@ export default function CaptureScan() {
     roi: session.mode === "live" ? session.roi : null,
   });
   const activeFrameProcessor = liveDetections.frameProcessor ?? liveAruco.frameProcessor;
-  const viewfinderCameraProps = useMemo(
-    () => ({
-      video: true,
-      audio: true,
-      torch: cameraTorch,
-      frameProcessor: activeFrameProcessor,
-      pixelFormat: "yuv" as const,
-    }),
-    [cameraTorch, activeFrameProcessor],
-  );
   const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
 
   const cycleFlash = () =>
@@ -208,6 +198,24 @@ export default function CaptureScan() {
       Alert.alert(t("common:states.error"), err.message);
     },
   });
+
+  // Z Flip 7 FE / Exynos 2400 caps at 3 simultaneous Camera2 streams. Photo
+  // (always on, default in <Viewfinder>) + frame processor = 2 surfaces.
+  // Adding `video: true` would spin up an MP4 encoder pipeline (3rd stream)
+  // and `audio: true` would attach a mic AudioRecord — combined that pushes
+  // the HAL past its limit and triggers ERROR_CAMERA_DEVICE. So we only enable
+  // them while a recording is actively in progress.
+  const recordingActive = recording.isRecording;
+  const viewfinderCameraProps = useMemo(
+    () => ({
+      video: recordingActive,
+      audio: recordingActive,
+      torch: cameraTorch,
+      frameProcessor: activeFrameProcessor,
+      pixelFormat: "yuv" as const,
+    }),
+    [cameraTorch, activeFrameProcessor, recordingActive],
+  );
 
   const setRoi = (roi: Roi | null) => session.set({ roi });
 

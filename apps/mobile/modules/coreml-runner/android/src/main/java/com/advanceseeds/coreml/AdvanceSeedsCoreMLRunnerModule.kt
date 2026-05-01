@@ -12,10 +12,12 @@ class AdvanceSeedsCoreMLRunnerModule : Module() {
 
     AsyncFunction("loadModel") { _: String ->
       throw NotSupportedOnAndroidException()
+      Unit
     }
 
     AsyncFunction("runOnImageURL") { _: String, _: String ->
       throw NotSupportedOnAndroidException()
+      Unit
     }
   }
 }

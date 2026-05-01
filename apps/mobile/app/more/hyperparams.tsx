@@ -15,8 +15,7 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 
 const SCORE_PRESETS = [0.25, 0.4, 0.5, 0.6, 0.75];
 const IOU_PRESETS = [0.45, 0.55, 0.65, 0.75, 0.85];
-const FPS_IOS_PRESETS = [5, 10, 15, 30, 60];
-const FPS_ANDROID_PRESETS = [3, 5, 10, 15];
+const FPS_PRESETS = [5, 10, 15, 30, 60];
 
 /**
  * Hyperparameters playground for QA. Persisted to AsyncStorage so a
@@ -74,21 +73,12 @@ export default function HyperParamsScreen() {
         />
 
         <ParamCard
-          label={t("more:hyperparams.targetFpsIos")}
-          hint={t("more:hyperparams.targetFpsIosHint")}
-          value={hp.targetFpsIos}
-          presets={FPS_IOS_PRESETS}
+          label={t("more:hyperparams.targetFps")}
+          hint={t("more:hyperparams.targetFpsHint")}
+          value={hp.targetFps}
+          presets={FPS_PRESETS}
           format={(v) => `${v} fps`}
-          onPick={(v) => void setHyperParams({ targetFpsIos: v })}
-        />
-
-        <ParamCard
-          label={t("more:hyperparams.targetFpsAndroid")}
-          hint={t("more:hyperparams.targetFpsAndroidHint")}
-          value={hp.targetFpsAndroid}
-          presets={FPS_ANDROID_PRESETS}
-          format={(v) => `${v} fps`}
-          onPick={(v) => void setHyperParams({ targetFpsAndroid: v })}
+          onPick={(v) => void setHyperParams({ targetFps: v })}
         />
 
         <Card>
@@ -96,9 +86,8 @@ export default function HyperParamsScreen() {
             {t("more:hyperparams.defaults")}
           </Text>
           <Text className="text-caption text-fg-tertiary">
-            score {DEFAULT_HYPERPARAMS.scoreThreshold} · iou {DEFAULT_HYPERPARAMS.iouThreshold} ·
-            iOS {DEFAULT_HYPERPARAMS.targetFpsIos} fps · Android{" "}
-            {DEFAULT_HYPERPARAMS.targetFpsAndroid} fps
+            score {DEFAULT_HYPERPARAMS.scoreThreshold} · iou {DEFAULT_HYPERPARAMS.iouThreshold} ·{" "}
+            {DEFAULT_HYPERPARAMS.targetFps} fps
           </Text>
           <Button
             className="mt-md"

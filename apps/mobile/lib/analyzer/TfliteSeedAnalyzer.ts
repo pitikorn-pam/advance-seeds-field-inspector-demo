@@ -1,7 +1,12 @@
+import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import { toByteArray } from "base64-js";
 import jpeg from "jpeg-js";
-import { loadTensorflowModel, type TfliteModel } from "react-native-fast-tflite";
+import {
+  loadTensorflowModel,
+  type TensorflowModelDelegate,
+  type TfliteModel,
+} from "react-native-fast-tflite";
 import type {
   AnalysisFrameResult,
   AnalysisResult,
@@ -57,7 +62,28 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
   let modelPromise = globalSlot[GLOBAL_KEY] ?? null;
   if (!modelPromise) {
     modelPromise = (async () => {
-      const model = await loadTensorflowModel(MODEL_SOURCE, []);
+      // Hardware acceleration on Android: prefer NNAPI (NPU/DSP) over the
+      // GPU delegate. The GPU delegate competes for GPU bandwidth with the
+      // camera preview pipeline — when both run on the same SoC GPU, the
+      // preview drops frames as soon as inference fires. NNAPI offloads to
+      // the dedicated NPU on Snapdragon/Exynos, leaving the GPU free.
+      // Falls back to GPU then CPU if NNAPI isn't available.
+      let model: TfliteModel | null = null;
+      if (Platform.OS === "android") {
+        for (const delegate of ["nnapi", "android-gpu"] as TensorflowModelDelegate[]) {
+          try {
+            model = await loadTensorflowModel(MODEL_SOURCE, [delegate]);
+            console.info(`[analyzer] tflite delegate=${delegate}`);
+            break;
+          } catch (err) {
+            console.warn(`[analyzer] ${delegate} delegate unavailable`, err);
+          }
+        }
+      }
+      if (!model) {
+        model = await loadTensorflowModel(MODEL_SOURCE, []);
+        if (Platform.OS === "android") console.info("[analyzer] tflite delegate=cpu");
+      }
       const inputs = model.inputs;
       const outputs = model.outputs;
       if (inputs.length !== 1 || outputs.length !== 1) {

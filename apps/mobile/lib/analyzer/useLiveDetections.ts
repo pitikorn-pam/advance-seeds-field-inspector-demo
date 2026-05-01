@@ -63,6 +63,15 @@ function useLiveDetectionsCoreML(options: Options): State {
   const { enabled, pxPerMm, classFilter, roi } = options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
+  const lastSetAtRef = useRef(0);
+  const RENDER_THROTTLE_MS = 50;
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Initialised once. Vision Camera proxies the native plugin lookup
   // through JSI; the resulting object is worklet-shareable.
@@ -73,7 +82,7 @@ function useLiveDetectionsCoreML(options: Options): State {
 
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
-  const targetFps = hp.targetFpsIos;
+  const targetFps = hp.targetFps;
 
   const decodeOnJS = useMemo(
     () =>
@@ -113,6 +122,10 @@ function useLiveDetectionsCoreML(options: Options): State {
             pxPerMm,
             roi: roi ?? null,
           });
+          if (!mountedRef.current) return;
+          const now = Date.now();
+          if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
+          lastSetAtRef.current = now;
           setDetections({
             seeds,
             summary: summarizeSeeds(seeds),
@@ -180,11 +193,34 @@ function useLiveDetectionsTflite(options: Options): State {
   const outputKindRef = useRef<TfliteOutputKind>("raw");
   const [ready, setReady] = useState(false);
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
+  const lastSetAtRef = useRef(0);
+  // Tracks whether the consuming screen is still mounted. A worklet-dispatched
+  // inferOnJS callback can land on the JS thread after the user has already
+  // navigated away from /capture/scan, and a stale setDetections then triggers
+  // React's "state update on unmounted component" warning.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  // Pre-allocate the inference tensor once; reusing avoids ~5 MB Float32Array
+  // allocations per frame which were starving Android's scudo allocator and
+  // causing the camera service to back off (errorCode=3 ERROR_CAMERA_DEVICE).
+  const tensorRef = useRef<Float32Array | null>(null);
+  // Worklet-readable in-flight flag so the frame processor can skip frames
+  // while a previous inference is still running on the JS thread. Without
+  // this, frames pile up in the JS queue (model.runSync is ~30–60 ms; at
+  // 30 fps the queue grows by ~17 ms per frame) and detections lag visibly
+  // behind motion. SharedValue gives us atomic worklet↔JS reads.
+  const inFlight = useMemo(() => Worklets.createSharedValue(false), []);
   const { resize } = useResizePlugin();
   const hp = useHyperParams();
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
-  const targetFps = hp.targetFpsAndroid;
+  const targetFps = hp.targetFps;
+  const RENDER_THROTTLE_MS = 50;
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +243,7 @@ function useLiveDetectionsTflite(options: Options): State {
     () =>
       Worklets.createRunOnJS(
         (
-          rawBuffer: ArrayBuffer,
+          input: Float32Array,
           frameWidth: number,
           frameHeight: number,
           letterboxScale: number,
@@ -216,12 +252,29 @@ function useLiveDetectionsTflite(options: Options): State {
           frameTimestampMs: number,
         ) => {
           const model = modelRef.current;
-          if (!model) return;
+          if (!model) {
+            inFlight.value = false;
+            return;
+          }
+          // worklets-core 1.6 ships a Float32Array view whose .buffer is not
+          // exposed across the boundary. Copy into a fresh Float32Array so we
+          // own a plain ArrayBuffer. While iterating, normalize [0..255] →
+          // [0..1] (vision-camera-resize-plugin emits raw pixel values; YOLO
+          // weights expect normalized inputs — iOS Core ML normalizes via
+          // Vision's MLImageConstraint, but TFLite does not).
+          const len = input.length;
+          if (!tensorRef.current || tensorRef.current.length !== len) {
+            tensorRef.current = new Float32Array(len);
+          }
+          const tensor = tensorRef.current;
+          const inv255 = 1 / 255;
+          for (let i = 0; i < len; i++) tensor[i] = input[i] * inv255;
           let outputs: ArrayBuffer[];
           try {
-            outputs = model.runSync([rawBuffer]);
+            outputs = model.runSync([tensor.buffer as ArrayBuffer]);
           } catch (err) {
             console.warn("[live-detections] runSync failed", err);
+            inFlight.value = false;
             return;
           }
           const out = new Float32Array(outputs[0]);
@@ -251,23 +304,33 @@ function useLiveDetectionsTflite(options: Options): State {
             pxPerMm,
             roi: roi ?? null,
           });
-          setDetections({
-            seeds,
-            summary: summarizeSeeds(seeds),
-            frameTimestampMs,
-            analyzerId: "tflite-yolo-live",
-          });
+          const now = Date.now();
+          if (mountedRef.current && now - lastSetAtRef.current >= RENDER_THROTTLE_MS) {
+            lastSetAtRef.current = now;
+            setDetections({
+              seeds,
+              summary: summarizeSeeds(seeds),
+              frameTimestampMs,
+              analyzerId: "tflite-yolo-live",
+            });
+          }
+          inFlight.value = false;
         },
       ),
-    [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold],
+    [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold, inFlight],
   );
 
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
       if (!enabled) return;
+      // Drop frames while the JS thread is still inferring the previous
+      // one. Without this back-pressure, runSync calls queue up indefinitely
+      // and detection visibly lags real motion.
+      if (inFlight.value) return;
       runAtTargetFps(targetFps, () => {
         "worklet";
+        if (inFlight.value) return;
         try {
           const resized = resize(frame, {
             scale: { width: YOLO_INPUT_SIZE, height: YOLO_INPUT_SIZE },
@@ -278,11 +341,12 @@ function useLiveDetectionsTflite(options: Options): State {
           const fpScale = YOLO_INPUT_SIZE / cropSize;
           const fpPadX = -((frame.width - cropSize) / 2) * fpScale;
           const fpPadY = -((frame.height - cropSize) / 2) * fpScale;
-          // Clone the resize plugin's worklet-owned buffer; structured-clone
-          // can't transfer the SharedArrayBuffer view it returns directly.
-          const cloned = resized.slice().buffer;
+          // Worklets-core 1.6 rejects raw ArrayBuffer as a shared value but
+          // accepts typed arrays. .slice() also detaches us from the resize
+          // plugin's worklet-owned buffer so the JS thread owns a private copy.
+          inFlight.value = true;
           inferOnJS(
-            cloned as ArrayBuffer,
+            resized.slice(),
             frame.width,
             frame.height,
             fpScale,
@@ -291,11 +355,17 @@ function useLiveDetectionsTflite(options: Options): State {
             frame.timestamp,
           );
         } catch (err) {
-          console.warn("[live-detections] frame processing failed", err);
+          const e = err as { message?: string; name?: string } | undefined;
+          console.warn(
+            "[live-detections] frame processing failed",
+            String(e?.name ?? "?"),
+            String(e?.message ?? err),
+          );
+          inFlight.value = false;
         }
       });
     },
-    [enabled, resize, inferOnJS, targetFps],
+    [enabled, resize, inferOnJS, targetFps, inFlight],
   );
 
   useEffect(() => {
