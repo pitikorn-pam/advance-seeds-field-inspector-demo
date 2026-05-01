@@ -100,6 +100,9 @@ private object AndroidTfliteRunner {
     private val inputBuffer: ByteBuffer
     private val outputBuffer: ByteBuffer
     private val outputFloatCount = outputShape.fold(1) { acc, v -> acc * v }
+    private var mapKey = ""
+    private val srcXMap = IntArray(INPUT_SIZE)
+    private val srcYMap = IntArray(INPUT_SIZE)
 
     init {
       val inputShape = inputTensor.shape()
@@ -137,26 +140,40 @@ private object AndroidTfliteRunner {
       val yBuffer = yPlane.buffer.duplicate()
       val uBuffer = uPlane.buffer.duplicate()
       val vBuffer = vPlane.buffer.duplicate()
-      val scale = cropSize.toDouble() / INPUT_SIZE
+      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize)
+      val yRowStride = yPlane.rowStride
+      val yPixelStride = yPlane.pixelStride
+      val uRowStride = uPlane.rowStride
+      val uPixelStride = uPlane.pixelStride
+      val vRowStride = vPlane.rowStride
+      val vPixelStride = vPlane.pixelStride
 
       for (outY in 0 until INPUT_SIZE) {
-        val srcY = (cropY + ((outY + 0.5) * scale).toInt()).coerceIn(0, frameHeight - 1)
+        val srcY = srcYMap[outY]
+        val yRowOffset = srcY * yRowStride
+        val uvY = srcY / 2
+        val uRowOffset = uvY * uRowStride
+        val vRowOffset = uvY * vRowStride
         for (outX in 0 until INPUT_SIZE) {
-          val srcX = (cropX + ((outX + 0.5) * scale).toInt()).coerceIn(0, frameWidth - 1)
-          val yValue = yBuffer.get(srcY * yPlane.rowStride + srcX * yPlane.pixelStride).toInt() and 0xff
+          val srcX = srcXMap[outX]
+          val yValue = yBuffer.get(yRowOffset + srcX * yPixelStride).toInt() and 0xff
           val uvX = srcX / 2
-          val uvY = srcY / 2
-          val uValue = uBuffer.get(uvY * uPlane.rowStride + uvX * uPlane.pixelStride).toInt() and 0xff
-          val vValue = vBuffer.get(uvY * vPlane.rowStride + uvX * vPlane.pixelStride).toInt() and 0xff
-          val rgb = yuvToRgb(yValue, uValue, vValue)
+          val uValue = uBuffer.get(uRowOffset + uvX * uPixelStride).toInt() and 0xff
+          val vValue = vBuffer.get(vRowOffset + uvX * vPixelStride).toInt() and 0xff
+          val c = yValue - 16
+          val d = uValue - 128
+          val e = vValue - 128
+          val r = clamp((298 * c + 409 * e + 128) shr 8)
+          val g = clamp((298 * c - 100 * d - 208 * e + 128) shr 8)
+          val b = clamp((298 * c + 516 * d + 128) shr 8)
           if (inputType == DataType.FLOAT32) {
-            inputBuffer.putFloat(rgb[0] / 255f)
-            inputBuffer.putFloat(rgb[1] / 255f)
-            inputBuffer.putFloat(rgb[2] / 255f)
+            inputBuffer.putFloat(r / 255f)
+            inputBuffer.putFloat(g / 255f)
+            inputBuffer.putFloat(b / 255f)
           } else {
-            inputBuffer.put(rgb[0].toByte())
-            inputBuffer.put(rgb[1].toByte())
-            inputBuffer.put(rgb[2].toByte())
+            inputBuffer.put(r.toByte())
+            inputBuffer.put(g.toByte())
+            inputBuffer.put(b.toByte())
           }
         }
       }
@@ -179,14 +196,21 @@ private object AndroidTfliteRunner {
       return values
     }
 
-    private fun yuvToRgb(y: Int, u: Int, v: Int): IntArray {
-      val c = y - 16
-      val d = u - 128
-      val e = v - 128
-      val r = clamp((298 * c + 409 * e + 128) shr 8)
-      val g = clamp((298 * c - 100 * d - 208 * e + 128) shr 8)
-      val b = clamp((298 * c + 516 * d + 128) shr 8)
-      return intArrayOf(r, g, b)
+    private fun updateCoordinateMaps(
+      frameWidth: Int,
+      frameHeight: Int,
+      cropX: Int,
+      cropY: Int,
+      cropSize: Int,
+    ) {
+      val key = "$frameWidth:$frameHeight:$cropX:$cropY:$cropSize"
+      if (key == mapKey) return
+      mapKey = key
+      val scale = cropSize.toDouble() / INPUT_SIZE
+      for (i in 0 until INPUT_SIZE) {
+        srcXMap[i] = (cropX + ((i + 0.5) * scale).toInt()).coerceIn(0, frameWidth - 1)
+        srcYMap[i] = (cropY + ((i + 0.5) * scale).toInt()).coerceIn(0, frameHeight - 1)
+      }
     }
 
     private fun clamp(value: Int): Int = min(255, max(0, value))

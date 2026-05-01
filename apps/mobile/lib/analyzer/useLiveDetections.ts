@@ -120,7 +120,7 @@ function useLiveDetectionsCoreML(options: Options): State {
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const lastSetAtRef = useRef(0);
-  const RENDER_THROTTLE_MS = 50;
+  const RENDER_THROTTLE_MS = 33;
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;

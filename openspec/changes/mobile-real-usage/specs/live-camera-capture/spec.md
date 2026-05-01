@@ -158,11 +158,12 @@ The detection overlay SHALL animate bounding-box transitions between successive 
 ### Requirement: Native camera delivery load is constrained for frame processors
 The Camera component SHALL constrain its native delivery rate via Vision Camera's `format` + `fps` props so the underlying `ImageAnalysis` buffer pool does not overflow on devices that default to high-rate capture.
 
-#### Scenario: Android camera is configured for FHD native analysis
+#### Scenario: Android camera is configured for FHD high-refresh preview
 - **GIVEN** the live capture screen mounts on a device whose default capture rate is 60 fps (e.g. Z Flip 7 FE)
 - **WHEN** the `<Camera>` component is rendered
-- **THEN** `useCameraFormat` selects a 1920x1080-or-smaller format that supports 30 fps
-- **AND** the `<Camera>` is given `format` + `fps={30}` on Android so Camera2 delivers a bounded FHD/30 stream to ImageAnalysis
+- **THEN** `useCameraFormat` selects a 1920x1080-or-smaller format that supports 60 fps
+- **AND** the `<Camera>` is given `format` + `fps={60}` on Android so Camera2 delivers a bounded FHD/60 preview stream
+- **AND** live YOLO inference is throttled separately by the hyperparameter `targetFps`
 
 #### Scenario: Android disables ImageCapture while live detection owns the stream
 - **GIVEN** Android live YOLO detection is active
@@ -239,3 +240,20 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 - **AND** logs include the native plugin timing and `delegate=cpu`
 - **AND** hardware delegate promotion remains an explicit future tuning step
   after the native pipeline proves stable at FHD/30 preview delivery
+
+#### Scenario: Android native live detector avoids per-frame pixel allocation
+- **GIVEN** Android live detections are enabled
+- **WHEN** the native plugin samples the active crop into the TFLite input
+- **THEN** it reuses preallocated input/output buffers
+- **AND** it reuses crop coordinate maps while the frame size and crop are unchanged
+- **AND** it writes RGB values directly into the input tensor without allocating
+  per-pixel arrays
+
+#### Scenario: Android live default increases after native migration
+- **GIVEN** a device has hyperparams persisted from the v2 store where live
+  `targetFps` defaulted to 15
+- **WHEN** hyperparams hydrate after the native Android migration
+- **THEN** the app writes the v3 store
+- **AND** missing or old-default `targetFps` values of 15 or higher migrate to
+  the new 30 fps live inference target
+- **AND** explicit lower tuning values such as 5 or 10 are preserved

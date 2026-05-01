@@ -25,11 +25,11 @@ export interface HyperParams {
 export const DEFAULT_HYPERPARAMS: HyperParams = {
   scoreThreshold: 0.4,
   iouThreshold: 0.65,
-  targetFps: 15,
+  targetFps: 30,
 };
 
-const STORAGE_KEY = "advance-seeds.hyperparams.v2";
-const LEGACY_STORAGE_KEY = "advance-seeds.hyperparams.v1";
+const STORAGE_KEY = "advance-seeds.hyperparams.v3";
+const LEGACY_STORAGE_KEYS = ["advance-seeds.hyperparams.v2", "advance-seeds.hyperparams.v1"];
 
 let current: HyperParams = { ...DEFAULT_HYPERPARAMS };
 let loaded = false;
@@ -46,7 +46,17 @@ export function ensureHyperParamsLoaded(): Promise<void> {
     loadPromise = (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const legacyRaw = raw ? null : await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+        let legacyRaw: string | null = null;
+        let legacyKey: string | null = null;
+        if (!raw) {
+          for (const key of LEGACY_STORAGE_KEYS) {
+            legacyRaw = await AsyncStorage.getItem(key);
+            if (legacyRaw) {
+              legacyKey = key;
+              break;
+            }
+          }
+        }
         if (raw || legacyRaw) {
           const isLegacy = !raw && Boolean(legacyRaw);
           const parsed = JSON.parse(raw ?? legacyRaw ?? "{}") as Partial<HyperParams>;
@@ -54,7 +64,7 @@ export function ensureHyperParamsLoaded(): Promise<void> {
             ? migrateLegacyHyperParams(parsed)
             : clamp({ ...DEFAULT_HYPERPARAMS, ...parsed });
           await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-          await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
+          if (legacyKey) await AsyncStorage.removeItem(legacyKey);
         }
       } catch (err) {
         console.warn("[hyperparams] load failed; using defaults", err);
@@ -119,11 +129,11 @@ function clamp(p: HyperParams): HyperParams {
 
 function migrateLegacyHyperParams(parsed: Partial<HyperParams>): HyperParams {
   const migrated = { ...DEFAULT_HYPERPARAMS, ...parsed };
-  // v1 shipped with a 30 fps live default. On Android that keeps too much
-  // pressure on CameraX's ImageAnalysis pool, so legacy 30+ values are treated
-  // as the old default and moved to the safer v2 default. Explicit lower
-  // tuning values are preserved.
-  if (parsed.targetFps === undefined || parsed.targetFps >= 30) {
+  // v2 shipped with a conservative 15 fps live default while Android pixels
+  // still crossed into JS. The Android detector is now native, so missing or
+  // old default values migrate to the new 30 fps live target. Explicitly tuned
+  // low values below 15 are preserved.
+  if (parsed.targetFps === undefined || parsed.targetFps >= 15) {
     migrated.targetFps = DEFAULT_HYPERPARAMS.targetFps;
   }
   return clamp(migrated);

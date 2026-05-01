@@ -199,6 +199,13 @@ Latest follow-up fix:
   inference appeared to stay in flight for ~13-second intervals. Android
   TFLite now defaults to CPU to avoid competing with Samsung camera HAL
   AI/ISP resources on NNAPI/GPU.
+- Native Android live YOLO now owns the live path via Vision Camera plugin
+  `advanceSeedsRunTFLite`: the plugin samples YUV directly into the TFLite
+  input tensor and only returns output values/shape to JS. Follow-up smoothness
+  patch removes per-pixel allocation in the Kotlin YUV→RGB loop, caches crop
+  coordinate maps, migrates default `targetFps` back to 30 via
+  `advance-seeds.hyperparams.v3`, and requests Android FHD/60 preview while
+  keeping inference throttled separately.
 
 **Next steps when resuming:**
 
@@ -210,12 +217,15 @@ Latest follow-up fix:
    `FrameProcessorBase` timeouts. Confirm `dumpsys media.camera` shows no
    ImageCapture stream while Android live YOLO is active, and that shutter
    still captures after the brief CameraX reconfigure wait. Confirm Camera2
-   requests FHD/30 and native logs show `AdvanceSeedsTFLite ... delegate=cpu`.
+   accepts FHD/60 or the nearest supported FHD range, native logs show
+   `AdvanceSeedsTFLite ... delegate=cpu`, and native elapsed timings are
+   stable after the allocation fix.
 2. If still overflowing, the remaining levers are:
    - **Benchmark native delegate promotion** (NNAPI / GPU) behind a hardware
      gate. Keep CPU as the stable default on Samsung until the native plugin
-     proves the camera HAL no longer times out at FHD/30.
-   - **Dynamic camera profiles**: if FHD/30 still stalls on a device after the
+     proves the camera HAL no longer times out at FHD/60 preview + 30 fps
+     inference.
+   - **Dynamic camera profiles**: if FHD/60 still stalls on a device after the
      native plugin, fall back at runtime to 720p/15 and surface that the
      device could not sustain the requested live-analysis profile.
 

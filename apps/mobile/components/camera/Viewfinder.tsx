@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ReactNode, RefObject } from "react";
-import { View, Text, ActivityIndicator, Linking } from "react-native";
+import { View, Text, ActivityIndicator, Linking, Platform } from "react-native";
 import {
   Camera,
   useCameraDevice,
@@ -56,13 +56,13 @@ export function Viewfinder({
   const camPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
   const device = useCameraDevice(position);
-  const cameraFps = 30;
+  const cameraFps = Platform.OS === "android" ? 60 : 30;
   const cameraResolution = { width: 1920, height: 1080 };
 
   // Vision Camera requires both `format` and `fps` to constrain capture rate.
-  // Both platforms request an FHD/30 stream. Android live inference now runs
-  // in a native frame-processor plugin, so the old JS-bound 720p/15 pressure
-  // cap is no longer the primary control point.
+  // Android requests FHD/60 so preview motion can stay smooth while native
+  // YOLO is throttled separately by the live detector's targetFps. iOS keeps
+  // FHD/30 for the existing Core ML path.
   const format = useCameraFormat(device, [
     { videoResolution: cameraResolution },
     { photoResolution: cameraResolution },

@@ -223,3 +223,10 @@
 - [x] 19.2 JS live path — route Android `useLiveDetections` through the native TFLite frame-processor plugin and keep the old JS-bound resize/TFLite path dormant as a fallback implementation for future reference.
 - [x] 19.3 Camera delivery — restore Android Viewfinder to FHD/30 (`1920x1080`, `fps={30}`) now that live pixels no longer cross the worklet-to-JS boundary.
 - [ ] 19.4 Device verification — rebuild/install on Z Flip 7 FE, confirm native logs include `AdvanceSeedsTFLite ... delegate=cpu`, confirm Camera2 requests `[30 30]`, and run a sustained ArUco + YOLO walkthrough while watching for `maxImages`, `FrameProcessorBase`, and `notifyError errorCode=3`.
+
+## 20. Android native live smoothness follow-up
+
+- [x] 20.1 Native pixel loop — remove the per-pixel `IntArray` allocation from Android YUV→RGB conversion, cache crop coordinate maps while frame size/crop are stable, and write RGB directly into the reusable TFLite input tensor.
+- [x] 20.2 Live defaults — migrate hyperparams to v3 with `targetFps` default 30; old v2 default values of 15+ migrate to 30 while explicit low tuning values remain preserved.
+- [x] 20.3 Camera preview — request Android FHD/60 from Vision Camera while keeping native YOLO throttled by `targetFps`; iOS remains FHD/30.
+- [ ] 20.4 Device verification — rebuild/install on Z Flip 7 FE, confirm Camera2 accepts `[60 60]` or the nearest supported FHD range, confirm `AdvanceSeedsTFLite` elapsed timings drop after the allocation fix, and check whether ArUco + YOLO feels smooth without `maxImages` / `FrameProcessorBase` errors.
