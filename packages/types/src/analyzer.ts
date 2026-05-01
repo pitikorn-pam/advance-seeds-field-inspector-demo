@@ -101,6 +101,9 @@ export interface AnalysisFrameResult {
   seeds: AnalyzedSeed[];
   summary: AnalysisSummary;
   frameTimestampMs: number;
+  /** Native frame dimensions used for bbox coordinates. */
+  frameWidth?: number;
+  frameHeight?: number;
   analyzerId: string;
 }
 

@@ -192,6 +192,15 @@ Latest follow-up fix:
   to the selected format's `minFps...maxFps` before mounting `<Camera>`. This
   preserves FHD/60 on devices/formats that support it and falls back to FHD/30
   instead of failing the camera session.
+- Follow-up logcat showed native CPU inference at 1920x1080 input delivery
+  taking about 980-1022 ms per frame (`AdvanceSeedsTFLite: native live
+inference ... elapsed=979ms/1022ms delegate=cpu`). That is roughly 1 fps,
+  so 30 fps live inference is not achievable on the current CPU YOLO11n 640
+  pipeline without a faster delegate/model/input profile.
+- Live detection results now carry actual native frame dimensions. Capture
+  screens use those dimensions for DetectionOverlay and KPI ROI projection
+  instead of hard-coded 1920x1080, which could make boxes project incorrectly
+  or off-stage when CameraX selected a different stream size.
 - Android `Viewfinder` now requests a lower-pressure Camera2 stream:
   1280×720 / 15 fps via `useCameraFormat` + `fps`. iOS remains at
   1920×1080 / 30 fps for the Core ML path.

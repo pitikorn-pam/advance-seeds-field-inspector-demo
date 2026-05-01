@@ -188,6 +188,8 @@ function useLiveDetectionsCoreML(options: Options): State {
             seeds,
             summary: summarizeSeeds(seeds),
             frameTimestampMs,
+            frameWidth,
+            frameHeight,
             analyzerId: "coreml-yolo-live",
           });
         },
@@ -256,7 +258,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const lastSetAtRef = useRef(0);
-  const RENDER_THROTTLE_MS = 50;
+  const RENDER_THROTTLE_MS = 33;
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -325,6 +327,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             seeds,
             summary: summarizeSeeds(seeds),
             frameTimestampMs,
+            frameWidth,
+            frameHeight,
             analyzerId: "tflite-yolo-live-native",
           });
         },
@@ -540,6 +544,8 @@ function useLiveDetectionsTflite(options: Options): State {
                   seeds,
                   summary: summarizeSeeds(seeds),
                   frameTimestampMs,
+                  frameWidth,
+                  frameHeight,
                   analyzerId: "tflite-yolo-live",
                 });
               }

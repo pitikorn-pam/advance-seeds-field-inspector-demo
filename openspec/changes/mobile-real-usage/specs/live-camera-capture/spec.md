@@ -24,6 +24,7 @@ The mobile app SHALL provide a "Live" capture mode that runs YOLOv11n inference 
 - **WHEN** they hold the camera over a tray of seeds
 - **THEN** colored rings appear around each detected seed within 200 ms of the seed entering the frame
 - **AND** the KPI strip updates "Count / Avg mm / Grade A%" continuously
+- **AND** the overlay projection uses the actual native frame dimensions returned with the live detection result rather than a hard-coded camera size
 
 #### Scenario: Live shutter persists the latest frame
 - **WHEN** the user taps the shutter in live mode

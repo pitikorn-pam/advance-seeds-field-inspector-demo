@@ -282,8 +282,8 @@ export default function CapturePrecise() {
             {stageSize && liveDetections.detections ? (
               <DetectionOverlay
                 frameResult={liveDetections.detections}
-                frameWidth={1920}
-                frameHeight={1080}
+                frameWidth={liveDetections.detections.frameWidth ?? 1920}
+                frameHeight={liveDetections.detections.frameHeight ?? 1080}
                 stageWidth={stageSize.width}
                 stageHeight={stageSize.height}
               />
