@@ -219,6 +219,13 @@ on this device`, so the native live path remained CPU/XNNPACK. The 1280x720
   still pulled CameraView average FPS toward ~5 fps. Follow-up patch dispatches
   the heavy native TFLite call through Vision Camera `runAsync(frame, ...)` so
   preview frames are not blocked while CPU inference self-drops when busy.
+- Android annotation root cause: the TFLite NMS output reports normalized
+  `x1,y1,x2,y2` values in `0..1`, while the shared decoder had assumed
+  640-pixel coordinates. The decoder now detects normalized NMS rows and scales
+  by the model input size before projecting boxes to the camera frame. Android
+  native live also caps its effective score threshold at 0.25 because the
+  TFLite export produced lower confidence than the iOS Core ML path for the
+  same Banana target.
 - Android `Viewfinder` now requests a lower-pressure Camera2 stream:
   1280×720 / 30 fps via `useCameraFormat` + `fps`. iOS remains at
   1920×1080 / 30 fps for the Core ML path.

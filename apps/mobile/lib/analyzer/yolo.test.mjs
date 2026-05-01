@@ -111,6 +111,24 @@ test("decodeYoloNms reads post-NMS [maxDet,6] rows and applies classFilter", () 
   assert.equal(det[1].classId, 46);
 });
 
+test("decodeYoloNms supports normalized post-NMS boxes", () => {
+  const shape = [1, 2, 6];
+  const out = new Float32Array(2 * 6);
+  out.set([0.25, 0.1, 0.5, 0.35, 0.7, 46], 0);
+  out.set([0, 0, 0, 0, 0, 0], 6);
+
+  const det = decodeYoloNms(out, shape, {
+    letterbox: { scale: 1, padX: 0, padY: 0, target: 640 },
+    scoreThreshold: 0.5,
+    classFilter: [46],
+  });
+
+  assert.equal(det.length, 1);
+  assert.equal(det[0].classId, 46);
+  assert.equal(Math.round(det[0].x), 160);
+  assert.equal(Math.round(det[0].width), 160);
+});
+
 test("mapDetectionsToSeeds applies ROI and converts mm", () => {
   const detections = [
     { x: 10, y: 10, width: 30, height: 10, score: 0.8, classId: 0 },

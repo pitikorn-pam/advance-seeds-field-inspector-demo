@@ -91,7 +91,7 @@ export function decodeYoloNms(output, shape, options) {
   }
   const scoreThreshold = options.scoreThreshold ?? 0.25;
   const classFilter = options.classFilter ?? null;
-  const { scale, padX, padY } = options.letterbox;
+  const { scale, padX, padY, target } = options.letterbox;
 
   const detections = [];
   for (let i = 0; i < maxDet; i++) {
@@ -100,10 +100,17 @@ export function decodeYoloNms(output, shape, options) {
     if (score < scoreThreshold) continue;
     const classId = Math.round(output[base + 5]);
     if (classFilter && !classFilter.includes(classId)) continue;
-    const x1 = (output[base + 0] - padX) / scale;
-    const y1 = (output[base + 1] - padY) / scale;
-    const x2 = (output[base + 2] - padX) / scale;
-    const y2 = (output[base + 3] - padY) / scale;
+    const rawX1 = output[base + 0];
+    const rawY1 = output[base + 1];
+    const rawX2 = output[base + 2];
+    const rawY2 = output[base + 3];
+    const normalized =
+      Math.max(Math.abs(rawX1), Math.abs(rawY1), Math.abs(rawX2), Math.abs(rawY2)) <= 1.5;
+    const factor = normalized ? target : 1;
+    const x1 = (rawX1 * factor - padX) / scale;
+    const y1 = (rawY1 * factor - padY) / scale;
+    const x2 = (rawX2 * factor - padX) / scale;
+    const y2 = (rawY2 * factor - padY) / scale;
     const width = x2 - x1;
     const height = y2 - y1;
     if (width <= 1 || height <= 1) continue;

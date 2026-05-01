@@ -263,6 +263,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const lastSetAtRef = useRef(0);
+  const lastDecodeLogAtRef = useRef(0);
   const RENDER_THROTTLE_MS = 33;
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -278,6 +279,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   );
 
   const scoreThreshold = hp.scoreThreshold;
+  const liveScoreThreshold = Math.min(scoreThreshold, 0.25);
   const iouThreshold = hp.iouThreshold;
   // The current Android CPU/native YOLO11n path is too slow for every camera
   // frame. Keep inference intentionally sparse; runAsync below lets preview
@@ -314,7 +316,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               padY: -cropY * fpScale,
               target: YOLO_INPUT_SIZE,
             },
-            scoreThreshold,
+            scoreThreshold: liveScoreThreshold,
             classFilter: classFilter ? [...classFilter] : null,
           };
           const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
@@ -329,6 +331,36 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             pxPerMm,
             roi: roi ?? null,
           });
+          const logNow = Date.now();
+          if (__DEV__ && logNow - lastDecodeLogAtRef.current > 2000) {
+            lastDecodeLogAtRef.current = logNow;
+            const allRaw =
+              outputKind === "nms"
+                ? decodeYoloNms(out, shape, {
+                    ...decodeOpts,
+                    classFilter: null,
+                  })
+                : decodeYolo(out, shape, {
+                    ...decodeOpts,
+                    classFilter: null,
+                  });
+            const top = allRaw
+              .slice()
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 3)
+              .map((d) => `${d.classId}:${d.score.toFixed(2)}`)
+              .join(",");
+            const topTensor =
+              outputKind === "nms"
+                ? Array.from({ length: Math.min(shape1, 5) }, (_, i) => {
+                    const base = i * 6;
+                    return `${Math.round(out[base + 5] ?? -1)}:${(out[base + 4] ?? 0).toFixed(3)}@[${(out[base + 0] ?? 0).toFixed(2)},${(out[base + 1] ?? 0).toFixed(2)},${(out[base + 2] ?? 0).toFixed(2)},${(out[base + 3] ?? 0).toFixed(2)}]`;
+                  }).join(",")
+                : "raw-head";
+            console.info(
+              `[live-detections android-native] shape=${shape.join("x")} frame=${frameWidth}x${frameHeight} crop=${cropX},${cropY},${cropSize} delegate=${delegate} filter=${classFilter ? [...classFilter].join(",") : "any"} threshold=${liveScoreThreshold}/${scoreThreshold} all=${allRaw.length} raw=${raw.length} kept=${kept.length} seeds=${seeds.length} top=${top} tensor=${topTensor}`,
+            );
+          }
           if (!mountedRef.current) return;
           const now = Date.now();
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
@@ -343,7 +375,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           });
         },
       ),
-    [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold],
+    [classFilter, pxPerMm, roi, liveScoreThreshold, scoreThreshold, iouThreshold],
   );
 
   const frameProcessor = useFrameProcessor(

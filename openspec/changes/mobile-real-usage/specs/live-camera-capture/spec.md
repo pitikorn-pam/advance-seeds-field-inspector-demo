@@ -262,6 +262,15 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 - **AND** preview FPS remains governed by the camera profile rather than the
   current CPU inference elapsed time
 
+#### Scenario: Android native live detector decodes TFLite NMS output
+- **GIVEN** the Android TFLite model returns `[1,maxDet,6]` post-NMS rows
+- **WHEN** the row coordinates are normalized `x1,y1,x2,y2` values in `0..1`
+- **THEN** the shared YOLO decoder scales those coordinates by the model input
+  size before mapping them back to the camera frame
+- **AND** the Android native live path caps its effective live score threshold
+  at `0.25` to account for the lower confidence calibration observed from the
+  TFLite export while preserving the selected class filter
+
 #### Scenario: Android native live detector avoids per-frame pixel allocation
 - **GIVEN** Android live detections are enabled
 - **WHEN** the native plugin samples the active crop into the TFLite input
