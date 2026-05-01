@@ -1,0 +1,25 @@
+# EAS-only ignore file. Mirrors .gitignore plus heavyweight local caches that
+# EAS doesn't need (it regenerates native projects via `expo prebuild` on the
+# build worker). Without this, EAS uploads ~300 MB on every build because the
+# local ios/ and android/ trees include Pods + Gradle artifacts that aren't
+# tracked in git but still live on disk after `expo run:` commands.
+
+# Native projects — regenerated on the EAS worker via CNG.
+ios/
+android/
+!modules/roi-video-exporter/ios/
+!modules/roi-video-exporter/ios/**
+
+# Local Expo / Metro caches.
+.expo/
+.expo-shared/
+
+# Local module build artifacts.
+modules/*/android/build/
+modules/*/android/.gradle/
+modules/*/ios/Pods/
+modules/*/ios/build/
+
+# Logs + scratch.
+*.log
+.DS_Store
