@@ -2,11 +2,7 @@ import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import { toByteArray } from "base64-js";
 import jpeg from "jpeg-js";
-import {
-  loadTensorflowModel,
-  type TensorflowModelDelegate,
-  type TfliteModel,
-} from "react-native-fast-tflite";
+import { loadTensorflowModel, type TfliteModel } from "react-native-fast-tflite";
 import type {
   AnalysisFrameResult,
   AnalysisResult,
@@ -70,25 +66,17 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
   let modelPromise = globalSlot[GLOBAL_KEY] ?? null;
   if (!modelPromise) {
     modelPromise = (async () => {
-      // Hardware acceleration on Android: prefer NNAPI (NPU/DSP) over the
-      // GPU delegate. The GPU delegate competes for GPU bandwidth with the
-      // camera preview pipeline — when both run on the same SoC GPU, the
-      // preview drops frames as soon as inference fires. NNAPI offloads to
-      // the dedicated NPU on Snapdragon/Exynos, leaving the GPU free.
-      // Falls back to GPU then CPU if NNAPI isn't available.
+      // Android live camera stability beats peak benchmark speed here. On the
+      // Z Flip 7 FE, NNAPI inference coincides with Camera2
+      // FrameProcessorBase timeouts while the camera HAL is also running its
+      // own Samsung AI/ISP path. Keep Android TFLite on CPU so live inference
+      // does not compete with the camera pipeline's NPU/GPU resources.
       let model: TfliteModel | null = null;
       let activeDelegate: TfliteDelegate = "cpu";
       if (Platform.OS === "android") {
-        for (const delegate of ["nnapi", "android-gpu"] as TensorflowModelDelegate[]) {
-          try {
-            model = await loadTensorflowModel(MODEL_SOURCE, [delegate]);
-            activeDelegate = delegate as TfliteDelegate;
-            console.info(`[analyzer] tflite delegate=${delegate}`);
-            break;
-          } catch (err) {
-            console.warn(`[analyzer] ${delegate} delegate unavailable`, err);
-          }
-        }
+        model = await loadTensorflowModel(MODEL_SOURCE, []);
+        activeDelegate = "cpu";
+        console.info("[analyzer] tflite delegate=cpu");
       }
       if (!model) {
         model = await loadTensorflowModel(MODEL_SOURCE, []);

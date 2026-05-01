@@ -190,6 +190,15 @@ Latest follow-up fix:
   the frame stream, detaching the ImageCapture surface during sustained
   analysis. Shutter sets `busy`, removes the frame processor, re-enables
   `photo`, waits briefly for CameraX to reconfigure, then calls `takePhoto`.
+- Follow-up after detaching ImageCapture: `dumpsys media.camera` confirmed only
+  two active streams while live YOLO was active (`SurfaceTexture-...`
+  preview + `ImageReader-1280x720...`, `aeTargetFpsRange [15 15]`), but the
+  preview still stalled with repeated `notifyError errorCode=3` /
+  `FrameProcessorBase` timeouts. The old `maxImages` exception was absent in
+  this sample. `ResizePlugin` work took only a few ms, while live NNAPI
+  inference appeared to stay in flight for ~13-second intervals. Android
+  TFLite now defaults to CPU to avoid competing with Samsung camera HAL
+  AI/ISP resources on NNAPI/GPU.
 
 **Next steps when resuming:**
 
@@ -199,7 +208,8 @@ Latest follow-up fix:
    `ImageAnalysisAnalyzer`, `notifyError errorCode=3`, and
    `FrameProcessorBase` timeouts. Confirm `dumpsys media.camera` shows no
    ImageCapture stream while Android live YOLO is active, and that shutter
-   still captures after the brief CameraX reconfigure wait.
+   still captures after the brief CameraX reconfigure wait. Confirm cold-start
+   logs show `[analyzer] tflite delegate=cpu`.
 2. If still overflowing, the remaining levers are:
    - **Drop the resize step into a worklet-side native plugin** so the
      ImageProxy is released before the JS dispatch (current path holds the

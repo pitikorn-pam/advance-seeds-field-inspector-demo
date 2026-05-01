@@ -205,3 +205,15 @@ under sustained detections.
 - **THEN** the app writes the v2 store
 - **AND** missing or 30+ legacy `targetFps` values migrate to 15
 - **AND** explicit lower tuning values such as 5, 10, or 15 are preserved
+
+### Requirement: Android TFLite avoids camera-pipeline delegate contention
+Android TFLite inference SHALL default to the CPU delegate while the live camera
+pipeline is active so ML inference does not compete with the camera HAL's NPU
+or GPU workloads.
+
+#### Scenario: Android TFLite loads on CPU
+- **GIVEN** the app loads the shared Android TFLite model
+- **WHEN** the model is initialized
+- **THEN** it is loaded without NNAPI or Android GPU delegates
+- **AND** analyzer logs report `tflite delegate=cpu`
+- **AND** inference histogram samples are recorded under `tflite-cpu`

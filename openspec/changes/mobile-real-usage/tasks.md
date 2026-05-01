@@ -214,3 +214,5 @@
 - [x] 18.3 Android Viewfinder format — lower Android native camera delivery to 1280x720 / 15 fps via `useCameraFormat` + `fps`, while keeping iOS at 1920x1080 / 30 fps.
 - [x] 18.4 Device evidence — 1280x720 / 15 fps took effect in CameraX logs, but `maxImages (6)` still recurred when object detection started, so resolution/fps alone is not enough.
 - [x] 18.5 Android live stream count — while Android live YOLO owns the frame stream, pass `photo: false` to `<Camera>` so ImageCapture is detached during sustained analysis; shutter sets `busy`, detaches the frame processor, re-enables `photo`, waits briefly, then calls `takePhoto`.
+- [x] 18.6 Device evidence — after ImageCapture was detached, `dumpsys media.camera` showed only preview + `ImageReader-1280x720` at `[15 15]`, but Camera2 still emitted repeated `notifyError errorCode=3` / `FrameProcessorBase` timeouts while NNAPI TFLite inference was in flight for roughly 13-second intervals.
+- [x] 18.7 Android TFLite delegate — default Android TFLite to CPU instead of NNAPI/GPU so live inference does not compete with Samsung camera HAL AI/ISP resources.
