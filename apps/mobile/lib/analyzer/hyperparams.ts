@@ -25,10 +25,11 @@ export interface HyperParams {
 export const DEFAULT_HYPERPARAMS: HyperParams = {
   scoreThreshold: 0.4,
   iouThreshold: 0.65,
-  targetFps: 30,
+  targetFps: 15,
 };
 
-const STORAGE_KEY = "advance-seeds.hyperparams.v1";
+const STORAGE_KEY = "advance-seeds.hyperparams.v2";
+const LEGACY_STORAGE_KEY = "advance-seeds.hyperparams.v1";
 
 let current: HyperParams = { ...DEFAULT_HYPERPARAMS };
 let loaded = false;
@@ -45,9 +46,15 @@ export function ensureHyperParamsLoaded(): Promise<void> {
     loadPromise = (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw) as Partial<HyperParams>;
-          current = clamp({ ...DEFAULT_HYPERPARAMS, ...parsed });
+        const legacyRaw = raw ? null : await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+        if (raw || legacyRaw) {
+          const isLegacy = !raw && Boolean(legacyRaw);
+          const parsed = JSON.parse(raw ?? legacyRaw ?? "{}") as Partial<HyperParams>;
+          current = isLegacy
+            ? migrateLegacyHyperParams(parsed)
+            : clamp({ ...DEFAULT_HYPERPARAMS, ...parsed });
+          await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+          await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
         }
       } catch (err) {
         console.warn("[hyperparams] load failed; using defaults", err);
@@ -108,6 +115,18 @@ function clamp(p: HyperParams): HyperParams {
     iouThreshold: clampNumber(p.iouThreshold, 0.1, 0.95),
     targetFps: clampNumber(Math.round(p.targetFps), 1, 60),
   };
+}
+
+function migrateLegacyHyperParams(parsed: Partial<HyperParams>): HyperParams {
+  const migrated = { ...DEFAULT_HYPERPARAMS, ...parsed };
+  // v1 shipped with a 30 fps live default. On Android that keeps too much
+  // pressure on CameraX's ImageAnalysis pool, so legacy 30+ values are treated
+  // as the old default and moved to the safer v2 default. Explicit lower
+  // tuning values are preserved.
+  if (parsed.targetFps === undefined || parsed.targetFps >= 30) {
+    migrated.targetFps = DEFAULT_HYPERPARAMS.targetFps;
+  }
+  return clamp(migrated);
 }
 
 function clampNumber(v: number, lo: number, hi: number): number {

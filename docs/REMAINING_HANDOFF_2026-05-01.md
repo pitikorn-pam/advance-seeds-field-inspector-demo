@@ -156,17 +156,35 @@ E ImageAnalysisAnalyzer: java.lang.IllegalStateException: maxImages (6) has
 CameraX's `ImageAnalysis` stage has a hardcoded buffer pool of 6 ImageProxy
 slots. Vision Camera doesn't expose the pool size. Sustained pool overflow
 stalls the camera HAL → preview goes still → bounding boxes appear "stuck".
-The 30 fps cap shipped at end of this session was the most promising
-intervention but **was not verified** before pausing for distribution work.
+The 30 fps cap shipped at end of the prior session. Follow-up verification
+confirmed the Camera2 session was requesting 30 Hz (`aeTargetFpsRange [30 30]`,
+`frameDuration 33333000`) and `dumpsys media.camera` showed
+`Camera error traces (0)`. A focused logcat window after foregrounding the app
+showed repeated `[analyzer] selected tflite-yolo` and no `maxImages` /
+`ImageAnalysisAnalyzer` errors, but a sustained hand-held object-detection
+walkthrough is still needed before closing this issue.
+
+Latest follow-up fix:
+
+- Legacy/default live hyperparam `targetFps` lowered from 30 → 15 via
+  `advance-seeds.hyperparams.v2`; legacy v1 persisted values at 30+ migrate to
+  15 so existing devices do not keep the old high-pressure inference rate.
+- Android live resize output changed from `Float32Array` to `Uint8Array`.
+  The worklet-to-JS payload for 640×640 RGB drops from ~4.9 MB to ~1.2 MB;
+  JS still fills the reusable normalized Float32 tensor before `model.run()`.
+  This reduces the time the worklet spends copying while CameraX is waiting
+  for the `ImageProxy` to be released.
 
 **Next steps when resuming:**
 
-1. Verify the `fps={30}` cap actually fixed it. If yes, close this issue.
-2. If still overflowing, the next levers are:
-   - **Lower hyperparam `targetFps` default to 15** (halves worklet work).
+1. Run a sustained Z Flip 7 FE walkthrough on the patched JS bundle:
+   Inspect → Precise/Live → calibration lock → recognizable object in frame
+   for 20–30 s, while watching logcat for `maxImages` /
+   `ImageAnalysisAnalyzer`.
+2. If still overflowing, the remaining levers are:
    - **Drop the resize step into a worklet-side native plugin** so the
      ImageProxy is released before the JS dispatch (current path holds the
-     proxy through the Float32Array slice() call).
+     proxy through the Uint8Array slice() call).
    - **Switch the YOLO live worklet to a Vision Camera frame-processor
      plugin** (the same shape we used for iOS Core ML) so inference happens
      entirely on the worklet thread without ever crossing to JS. fast-tflite

@@ -271,8 +271,9 @@ function useLiveDetectionsTflite(options: Options): State {
     };
   }, []);
   // Pre-allocate the inference tensor once; reusing avoids ~5 MB Float32Array
-  // allocations per frame which were starving Android's scudo allocator and
-  // causing the camera service to back off (errorCode=3 ERROR_CAMERA_DEVICE).
+  // allocations per frame. The worklet ships compact uint8 RGB pixels across
+  // the JS boundary, then this tensor is filled with normalized float input
+  // for TFLite.
   const tensorRef = useRef<Float32Array | null>(null);
   // Worklet-readable in-flight flag so the frame processor can skip frames
   // while a previous inference is still running on the JS thread. Without
@@ -313,7 +314,7 @@ function useLiveDetectionsTflite(options: Options): State {
     () =>
       Worklets.createRunOnJS(
         (
-          input: Float32Array,
+          input: Uint8Array,
           frameWidth: number,
           frameHeight: number,
           letterboxScale: number,
@@ -326,12 +327,10 @@ function useLiveDetectionsTflite(options: Options): State {
             inFlight.value = false;
             return;
           }
-          // worklets-core 1.6 ships a Float32Array view whose .buffer is not
-          // exposed across the boundary. Copy into a fresh Float32Array so we
-          // own a plain ArrayBuffer. While iterating, normalize [0..255] →
-          // [0..1] (vision-camera-resize-plugin emits raw pixel values; YOLO
-          // weights expect normalized inputs — iOS Core ML normalizes via
-          // Vision's MLImageConstraint, but TFLite does not).
+          // Copy into a reusable Float32Array and normalize [0..255] → [0..1].
+          // Keeping the worklet output as Uint8Array cuts the cross-runtime
+          // copy from ~4.9 MB to ~1.2 MB for 640x640 RGB and avoids the native
+          // resize plugin's float conversion while the ImageProxy is held.
           const len = input.length;
           if (!tensorRef.current || tensorRef.current.length !== len) {
             tensorRef.current = new Float32Array(len);
@@ -446,14 +445,16 @@ function useLiveDetectionsTflite(options: Options): State {
             crop: { x: cropX, y: cropY, width: cropSize, height: cropSize },
             scale: { width: YOLO_INPUT_SIZE, height: YOLO_INPUT_SIZE },
             pixelFormat: "rgb",
-            dataType: "float32",
+            dataType: "uint8",
           });
           const fpScale = YOLO_INPUT_SIZE / cropSize;
           const fpPadX = -cropX * fpScale;
           const fpPadY = -cropY * fpScale;
           // Worklets-core 1.6 rejects raw ArrayBuffer as a shared value but
-          // accepts typed arrays. .slice() also detaches us from the resize
-          // plugin's worklet-owned buffer so the JS thread owns a private copy.
+          // accepts typed arrays. .slice() detaches us from the resize plugin's
+          // worklet-owned buffer so the JS thread owns a private copy; using
+          // uint8 keeps that critical section small while CameraX is waiting
+          // for the ImageProxy to be released.
           inferOnJS(
             resized.slice(),
             frame.width,

@@ -170,3 +170,25 @@ The Camera component SHALL constrain its native delivery rate via Vision Camera'
 - **THEN** the Camera2 `ImageAnalysis` stage does not log
   `IllegalStateException: maxImages (6) has already been acquired, call #close before acquiring more`
 - **AND** the camera preview remains responsive without "stuck" intervals
+
+### Requirement: Android live inference limits JS-bound frame payload cost
+Android live TFLite inference SHALL keep the worklet-to-JS frame payload small
+enough that the frame processor releases CameraX `ImageProxy` buffers promptly
+under sustained detections.
+
+#### Scenario: Android resize output crosses to JS as uint8 pixels
+- **GIVEN** Android live detections are enabled
+- **WHEN** the frame processor resizes a camera frame to YOLO input size
+- **THEN** it requests `dataType: "uint8"` from `vision-camera-resize-plugin`
+- **AND** the JS inference callback copies those bytes into the reusable
+  `Float32Array` tensor while normalizing values to `[0..1]`
+- **AND** the payload crossing the worklet boundary for 640x640 RGB is about
+  1.2 MB rather than about 4.9 MB
+
+#### Scenario: Legacy hyperparams migrate to safer Android live defaults
+- **GIVEN** a device has hyperparams persisted from the v1 store where live
+  `targetFps` defaulted to 30
+- **WHEN** hyperparams hydrate after upgrade
+- **THEN** the app writes the v2 store
+- **AND** missing or 30+ legacy `targetFps` values migrate to 15
+- **AND** explicit lower tuning values such as 5, 10, or 15 are preserved

@@ -195,3 +195,9 @@
 - [x] 15.2 Reanimated overlay — swap `LinearTransition.duration(120)` for `LinearTransition.springify().damping(18).stiffness(160).mass(0.4)` so detection boxes track motion with a slight settle instead of mechanical linear ease; the spring config is tuned to track real motion without jiggling on every detection update
 - [x] 15.3 Multi-marker ArUco — native (Android Kotlin + iOS Obj-C++) computes `pxPerMm` for every detected marker, returns a median across all of them as `multiMedianPxPerMm` plus a `markerCount`, and boosts confidence by 0.05 per extra marker (capped at 1.0); JS reads the new fields and prefers the median when `markerCount > 1`. Wire format is the original 6-tuple extended to 8 elements so older JS bundles ignore the trailing fields gracefully
 - [ ] 15.4 Manual device verification on Z Flip 7 FE — confirm histogram populates, spring overlay reads as smooth, and 2-marker calibration tightens the px/mm reading vs a single marker
+
+## 16. Android live-preview stability follow-up
+
+- [x] 16.1 Device evidence — confirm the Z Flip 7 FE camera session is now constrained to 30 Hz at the Camera2 layer (`aeTargetFpsRange [30 30]`, `frameDuration 33333000`) with no camera error traces in `dumpsys media.camera`
+- [x] 16.2 Android worklet payload — switch live TFLite resize output from `Float32Array` to `Uint8Array`, cutting the 640x640 RGB worklet-to-JS copy from ~4.9 MB to ~1.2 MB while keeping JS-side normalization into the reusable Float32 tensor
+- [x] 16.3 Hyperparams migration — move stored hyperparams from v1 to v2 and lower legacy/default `targetFps` from 30 to 15 so existing devices do not keep the old high-pressure live inference rate after upgrade
