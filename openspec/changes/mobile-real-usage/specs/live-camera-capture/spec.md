@@ -161,8 +161,9 @@ The Camera component SHALL constrain its native delivery rate via Vision Camera'
 #### Scenario: Android camera is configured for FHD high-refresh preview
 - **GIVEN** the live capture screen mounts on a device whose default capture rate is 60 fps (e.g. Z Flip 7 FE)
 - **WHEN** the `<Camera>` component is rendered
-- **THEN** `useCameraFormat` selects a 1920x1080-or-smaller format that supports 60 fps
-- **AND** the `<Camera>` is given `format` + `fps={60}` on Android so Camera2 delivers a bounded FHD/60 preview stream
+- **THEN** `useCameraFormat` selects a 1920x1080-or-smaller format while preferring 60 fps
+- **AND** the `<Camera>` is given `format` plus an Android `fps` value clamped to the selected format's supported `minFps...maxFps` range
+- **AND** devices with FHD/60 support receive a bounded FHD/60 preview stream while devices whose selected FHD format tops out at 30 receive FHD/30 instead of a `format/invalid-fps` error
 - **AND** live YOLO inference is throttled separately by the hyperparameter `targetFps`
 
 #### Scenario: Android disables ImageCapture while live detection owns the stream

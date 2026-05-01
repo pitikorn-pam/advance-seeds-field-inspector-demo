@@ -181,6 +181,17 @@ Latest follow-up fix:
 (-110)`. `dumpsys media.camera` and `ResizePlugin` logs showed the frame
   processor still receiving 1920×1080 and converting the full YUV frame to
   ARGB before cropping to 1080×1080 and scaling to 640×640.
+
+2026-05-02 follow-up:
+
+- The unconditional Android FHD/60 camera request regressed camera startup on
+  the Z Flip 7 FE when Vision Camera selected an FHD format whose supported
+  range did not include 60. Logcat showed `format/invalid-fps` followed by
+  `CameraView: invokeOnAverageFpsChanged(0.0)`.
+- `Viewfinder` now still prefers 60 fps on Android, but clamps the `fps` prop
+  to the selected format's `minFps...maxFps` before mounting `<Camera>`. This
+  preserves FHD/60 on devices/formats that support it and falls back to FHD/30
+  instead of failing the camera session.
 - Android `Viewfinder` now requests a lower-pressure Camera2 stream:
   1280×720 / 15 fps via `useCameraFormat` + `fps`. iOS remains at
   1920×1080 / 30 fps for the Core ML path.

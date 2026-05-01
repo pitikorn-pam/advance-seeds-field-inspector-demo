@@ -56,18 +56,23 @@ export function Viewfinder({
   const camPerm = useCameraPermission();
   const micPerm = useMicrophonePermission();
   const device = useCameraDevice(position);
-  const cameraFps = Platform.OS === "android" ? 60 : 30;
+  const preferredCameraFps = Platform.OS === "android" ? 60 : 30;
   const cameraResolution = { width: 1920, height: 1080 };
 
   // Vision Camera requires both `format` and `fps` to constrain capture rate.
-  // Android requests FHD/60 so preview motion can stay smooth while native
-  // YOLO is throttled separately by the live detector's targetFps. iOS keeps
-  // FHD/30 for the existing Core ML path.
+  // Android prefers FHD/60 so preview motion can stay smooth while native YOLO
+  // is throttled separately by the live detector's targetFps. Some FHD formats
+  // on Samsung report a lower maxFps though, so the actual fps prop is clamped
+  // to the selected format's supported range before mounting Camera.
   const format = useCameraFormat(device, [
     { videoResolution: cameraResolution },
     { photoResolution: cameraResolution },
-    { fps: cameraFps },
+    { fps: preferredCameraFps },
   ]);
+  const cameraFps = useMemo(() => {
+    if (!format) return preferredCameraFps;
+    return Math.max(format.minFps, Math.min(preferredCameraFps, format.maxFps));
+  }, [format, preferredCameraFps]);
   const [requesting, setRequesting] = useState(false);
 
   const requestPermissions = async () => {
