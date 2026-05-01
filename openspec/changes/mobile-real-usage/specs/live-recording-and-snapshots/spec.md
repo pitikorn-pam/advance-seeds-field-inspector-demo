@@ -58,3 +58,25 @@ Recorded videos SHALL be stored in a separate `recordings` Supabase Storage buck
 - **WHEN** the user releases the long-press
 - **THEN** an alert appears: "Recording too large to upload. Save locally?" with options "Save to Photos" / "Discard"
 - **AND** the cloud upload is skipped to avoid runaway Supabase storage costs
+
+### Requirement: Video captures produce a real seed analysis result
+A capture saved as a video recording SHALL produce the same shape of `AnalysisResult` as a photo capture — not an empty placeholder — so the Inspection Result page shows the same seed list, KPI strip, and per-seed drill-down regardless of media kind.
+
+#### Scenario: Video capture extracts a midpoint thumbnail and runs the single-shot analyzer
+- **GIVEN** the user finishes a 12-second recording with seeds visible throughout
+- **WHEN** the processing screen runs analysis
+- **THEN** it extracts a still image from the video at duration / 2 (midpoint)
+- **AND** runs the same `analyzer.analyze` call that a photo capture would use
+- **AND** the resulting `AnalysisResult.summary.total_seeds > 0` whenever the midpoint frame contains seeds the model can detect
+
+#### Scenario: ArUco calibration is re-applied to the video thumbnail
+- **GIVEN** a 5 cm ArUco marker is visible in the recording's midpoint frame
+- **WHEN** processing runs ArUco detection on the extracted thumbnail
+- **THEN** it derives `pxPerMm` from the marker
+- **AND** overrides any session-level manual fallback so the saved inspection's `length_mm` / `width_mm` use the marker-derived calibration
+
+#### Scenario: Thumbnail extraction failure falls back gracefully
+- **GIVEN** `expo-video-thumbnails` cannot decode the recording (corrupted MP4 / codec mismatch)
+- **WHEN** thumbnail extraction throws
+- **THEN** the processing screen surfaces an empty `AnalysisResult` with `analyzerId: "skip-video"` so the Review page still mounts with the recording metadata + media
+- **AND** the user is not stuck on the processing spinner

@@ -102,6 +102,16 @@ export default function InspectionDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(["common", "inspections"]);
   const router = useRouter();
+
+  // Inspection detail can be reached either via push (from a list — back goes
+  // there) or via `router.replace` from `/capture/review` after save. The
+  // replace clears the capture stack so there's nothing left to pop, and a
+  // bare `router.back()` then throws "GO_BACK was not handled by any
+  // navigator". Guarding with canGoBack falls back to the tabs root.
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/");
+  };
   const { profile } = useAuth();
   const policy = policyFor(profile);
   const { data, isLoading, isError, refetch } = useInspection(id);
@@ -165,7 +175,7 @@ export default function InspectionDetail() {
         left={{
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
-          onPress: () => router.back(),
+          onPress: handleBack,
         }}
         right={{
           accessibilityLabel: t("common:actions.more"),
@@ -468,7 +478,7 @@ export default function InspectionDetail() {
                     style: "destructive",
                     onPress: async () => {
                       await del.mutateAsync(inspection.id);
-                      router.back();
+                      handleBack();
                     },
                   },
                 ])

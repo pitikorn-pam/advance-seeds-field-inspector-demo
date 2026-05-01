@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { Check } from "lucide-react-native";
 import type { AnalysisResult } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
@@ -232,7 +233,6 @@ export default function CaptureProcessing() {
             console.warn("[processing] aruco calibration unavailable", err);
           }
         }
-        const pxPerMm = calibrationReading?.pxPerMm ?? 38.4;
         // Source the class filter from the inspected variety. Empty array
         // means "no filter" (analyzer keeps every class), so we fall back to
         // the demo default whenever a variety has no COCO mapping yet.
@@ -241,13 +241,46 @@ export default function CaptureProcessing() {
           activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
             ? [activeVariety.coco_class_id]
             : [...DEFAULT_CAPTURE_CLASS_IDS];
-        // Video captures aren't a sample frame — handing an .mp4 URI to the
-        // image-only analyzer (CoreML / TFLite + jpeg-js) fails immediately.
-        // Skip inference for video and surface an empty AnalysisResult so the
-        // Review screen still mounts with the recording metadata + media.
+        // For video captures we extract a representative still (middle frame)
+        // and run the same single-shot analyzer on it — identical accuracy to
+        // photo capture. We pick midpoint rather than first frame because it
+        // dodges any motion blur from the user pressing record. ArUco
+        // calibration also runs on the thumbnail so video flows benefit from
+        // marker-based px/mm.
+        let analyzerImageUri = sourceUri;
+        if (session.capturedMediaKind === "video") {
+          const midpointMs = Math.max(0, Math.floor((session.recordingDurationMs ?? 0) / 2));
+          try {
+            const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(sourceUri, {
+              time: midpointMs,
+              quality: 0.9,
+            });
+            analyzerImageUri = thumbUri;
+            // Try ArUco on the freshly-extracted frame. Without this video
+            // flows used the manual fallback px/mm even when the calibration
+            // card was visible during the recording.
+            try {
+              const aruco = await detectArucoCalibration(thumbUri);
+              if (aruco) {
+                calibrationReading = aruco.reading;
+                session.set({
+                  capturedCalibrationReading: aruco.reading,
+                  capturedCalibrationProfileName: null,
+                });
+              }
+            } catch (err) {
+              console.warn("[processing] aruco on video thumbnail failed", err);
+            }
+          } catch (err) {
+            console.warn("[processing] video thumbnail extraction failed", err);
+          }
+        }
+        const effectivePxPerMm = calibrationReading?.pxPerMm ?? 38.4;
         const result: AnalysisResult =
-          session.capturedMediaKind === "video"
-            ? {
+          analyzerImageUri === sourceUri && session.capturedMediaKind === "video"
+            ? // Thumbnail extraction failed — fall back to empty result so the
+              // Review page still mounts with the video.
+              {
                 analyzerId: "skip-video",
                 durationMs: 0,
                 seeds: [],
@@ -259,8 +292,12 @@ export default function CaptureProcessing() {
                 },
               }
             : await analyzer.analyze(
-                { kind: "uri", uri: sourceUri },
-                { pxPerMm, classFilter, roi: session.mode === "live" ? session.roi : null },
+                { kind: "uri", uri: analyzerImageUri },
+                {
+                  pxPerMm: effectivePxPerMm,
+                  classFilter,
+                  roi: session.mode === "live" ? session.roi : null,
+                },
               );
         if (cancelledRef.current) return;
 
