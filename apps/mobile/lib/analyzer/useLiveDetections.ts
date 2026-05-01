@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
-import { VisionCameraProxy, runAtTargetFps, useFrameProcessor } from "react-native-vision-camera";
+import {
+  VisionCameraProxy,
+  runAsync,
+  runAtTargetFps,
+  useFrameProcessor,
+} from "react-native-vision-camera";
 import type { ReadonlyFrameProcessor } from "react-native-vision-camera";
 import { useResizePlugin } from "vision-camera-resize-plugin";
 import { Worklets } from "react-native-worklets-core";
@@ -274,10 +279,9 @@ function useLiveDetectionsAndroidNative(options: Options): State {
 
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
-  // The current Android CPU/native YOLO11n path measures roughly 1s/frame on
-  // the Z Flip 7 FE class device. Capping the requested rate avoids building
-  // camera pressure while keeping preview responsive until a faster delegate or
-  // smaller model profile is proven.
+  // The current Android CPU/native YOLO11n path is too slow for every camera
+  // frame. Keep inference intentionally sparse; runAsync below lets preview
+  // delivery continue while the latest eligible frame is analyzed.
   const targetFps = Math.min(hp.targetFps, 5);
   const roiCropNorm = useMemo(() => roiBboxSquareNorm(roi ?? null), [roi]);
 
@@ -296,8 +300,10 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           cropSize: number,
           frameTimestampMs: number,
           inferElapsedMs: number,
+          delegate: string,
         ) => {
-          recordInference("tflite-cpu", inferElapsedMs);
+          const source: InferenceSource = delegate === "gpu" ? "tflite-android-gpu" : "tflite-cpu";
+          recordInference(source, inferElapsedMs);
           const out = Float32Array.from(values);
           const outputKind: "raw" | "nms" = shape2 === 6 ? "nms" : "raw";
           const fpScale = YOLO_INPUT_SIZE / cropSize;
@@ -346,50 +352,55 @@ function useLiveDetectionsAndroidNative(options: Options): State {
       if (!enabled || !plugin) return;
       runAtTargetFps(targetFps, () => {
         "worklet";
-        try {
-          let cropX = 0;
-          let cropY = 0;
-          let cropSize = Math.min(frame.width, frame.height);
-          if (roiCropNorm) {
-            cropSize = Math.round(roiCropNorm.size * Math.min(frame.width, frame.height));
-            cropX = Math.round(roiCropNorm.x * frame.width);
-            cropY = Math.round(roiCropNorm.y * frame.height);
-            if (cropX + cropSize > frame.width) cropX = frame.width - cropSize;
-            if (cropY + cropSize > frame.height) cropY = frame.height - cropSize;
-          } else {
-            cropX = Math.round((frame.width - cropSize) / 2);
-            cropY = Math.round((frame.height - cropSize) / 2);
+        runAsync(frame, () => {
+          "worklet";
+          try {
+            let cropX = 0;
+            let cropY = 0;
+            let cropSize = Math.min(frame.width, frame.height);
+            if (roiCropNorm) {
+              cropSize = Math.round(roiCropNorm.size * Math.min(frame.width, frame.height));
+              cropX = Math.round(roiCropNorm.x * frame.width);
+              cropY = Math.round(roiCropNorm.y * frame.height);
+              if (cropX + cropSize > frame.width) cropX = frame.width - cropSize;
+              if (cropY + cropSize > frame.height) cropY = frame.height - cropSize;
+            } else {
+              cropX = Math.round((frame.width - cropSize) / 2);
+              cropY = Math.round((frame.height - cropSize) / 2);
+            }
+            const startedAt = Date.now();
+            const result = plugin.call(frame, {
+              assetName: "yolo11n-seeds.tflite",
+              cropX,
+              cropY,
+              cropSize,
+            });
+            const inferElapsedMs = Date.now() - startedAt;
+            if (!result) return;
+            const r = result as unknown as {
+              shape: number[];
+              values: number[];
+              delegate?: string;
+            };
+            const shape = r.shape;
+            decodeOnJS(
+              r.values,
+              shape[0],
+              shape[1],
+              shape[2],
+              frame.width,
+              frame.height,
+              cropX,
+              cropY,
+              cropSize,
+              frame.timestamp,
+              inferElapsedMs,
+              r.delegate ?? "cpu",
+            );
+          } catch (err) {
+            console.warn("[live-detections tflite-native] frame processing failed", err);
           }
-          const startedAt = Date.now();
-          const result = plugin.call(frame, {
-            assetName: "yolo11n-seeds.tflite",
-            cropX,
-            cropY,
-            cropSize,
-          });
-          const inferElapsedMs = Date.now() - startedAt;
-          if (!result) return;
-          const r = result as unknown as {
-            shape: number[];
-            values: number[];
-          };
-          const shape = r.shape;
-          decodeOnJS(
-            r.values,
-            shape[0],
-            shape[1],
-            shape[2],
-            frame.width,
-            frame.height,
-            cropX,
-            cropY,
-            cropSize,
-            frame.timestamp,
-            inferElapsedMs,
-          );
-        } catch (err) {
-          console.warn("[live-detections tflite-native] frame processing failed", err);
-        }
+        });
       });
     },
     [enabled, plugin, decodeOnJS, targetFps, roiCropNorm],

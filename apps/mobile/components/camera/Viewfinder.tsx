@@ -60,7 +60,7 @@ export function Viewfinder({
   const micPerm = useMicrophonePermission();
   const device = useCameraDevice(position);
   const lowPressureAndroid = Platform.OS === "android" && performanceProfile === "low";
-  const preferredCameraFps = lowPressureAndroid ? 15 : Platform.OS === "android" ? 60 : 30;
+  const preferredCameraFps = lowPressureAndroid ? 30 : Platform.OS === "android" ? 60 : 30;
   const cameraResolution = lowPressureAndroid
     ? { width: 1280, height: 720 }
     : { width: 1920, height: 1080 };
@@ -72,7 +72,8 @@ export function Viewfinder({
   // to the selected format's supported range before mounting Camera.
   // When Android live YOLO is attached, callers can switch to the low-pressure
   // profile to keep CameraX responsive on devices whose CPU path cannot sustain
-  // FHD analysis.
+  // FHD analysis. Low profile still requests 30 fps preview; Android live
+  // inference is throttled separately and dispatched asynchronously.
   const format = useCameraFormat(device, [
     { videoResolution: cameraResolution },
     { photoResolution: cameraResolution },

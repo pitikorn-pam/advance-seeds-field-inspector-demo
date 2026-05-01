@@ -23,4 +23,6 @@ dependencies {
   implementation "androidx.camera:camera-core:1.5.0-alpha03"
   implementation project(":react-native-vision-camera")
   implementation "com.google.ai.edge.litert:litert:1.4.0"
+  implementation "com.google.ai.edge.litert:litert-gpu:1.4.0"
+  implementation "com.google.ai.edge.litert:litert-gpu-api:1.4.0"
 }

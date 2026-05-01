@@ -202,13 +202,25 @@ inference ... elapsed=979ms/1022ms delegate=cpu`). That is roughly 1 fps,
   instead of hard-coded 1920x1080, which could make boxes project incorrectly
   or off-stage when CameraX selected a different stream size.
 - Android live YOLO now uses a low-pressure camera profile while the frame
-  processor is attached: `Viewfinder` requests 1280x720 / 15 fps and the
+  processor is attached: `Viewfinder` requests 1280x720 / 30 fps and the
   Android native YOLO hook caps inference requests to 5 fps. This is a
-  stability fallback for the measured ~1s CPU inference path; it does not make
-  the model capable of 30 fps, but it prevents the app from over-requesting
-  frames while preview responsiveness is the priority.
+  stability fallback for the measured CPU inference path; it does not make the
+  model capable of 30 fps inference, but it prevents the app from
+  over-requesting inference while preview responsiveness is the priority.
+- The native Android TFLite plugin now has an experimental GPU promotion path.
+  On the first prepared frame it benchmarks CPU/XNNPACK and GPU when the
+  device reports GPU delegate compatibility, selects GPU only if it completes
+  faster, and falls back to CPU on setup/runtime failures. Logs now report
+  `delegate=cpu` or `delegate=gpu`; JS inference stats record GPU samples under
+  `tflite-android-gpu`.
+- Z Flip 7 FE verification on 2026-05-02 reported `gpu delegate not supported
+on this device`, so the native live path remained CPU/XNNPACK. The 1280x720
+  crop inference improved to ~166-196 ms, but synchronous frame processing
+  still pulled CameraView average FPS toward ~5 fps. Follow-up patch dispatches
+  the heavy native TFLite call through Vision Camera `runAsync(frame, ...)` so
+  preview frames are not blocked while CPU inference self-drops when busy.
 - Android `Viewfinder` now requests a lower-pressure Camera2 stream:
-  1280×720 / 15 fps via `useCameraFormat` + `fps`. iOS remains at
+  1280×720 / 30 fps via `useCameraFormat` + `fps`. iOS remains at
   1920×1080 / 30 fps for the Core ML path.
 - Device verification showed 1280×720 / 15 fps did take effect, but the
   `maxImages (6)` overflow still recurred as soon as object detection

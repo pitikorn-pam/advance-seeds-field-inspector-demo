@@ -170,7 +170,7 @@ The Camera component SHALL constrain its native delivery rate via Vision Camera'
 #### Scenario: Android switches to low-pressure delivery when live YOLO is attached
 - **GIVEN** Android live YOLO owns the frame processor stream
 - **WHEN** the `<Camera>` component is rendered for Live or Precise capture
-- **THEN** `useCameraFormat` selects a 1280x720-or-smaller format while preferring 15 fps
+- **THEN** `useCameraFormat` selects a 1280x720-or-smaller format while preferring 30 fps
 - **AND** the Android native YOLO frame processor caps the requested inference rate to 5 fps until a faster delegate/model profile is proven
 - **AND** leaving live YOLO restores the quality camera profile for capture setup and still-photo handoff
 
@@ -245,10 +245,22 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 #### Scenario: Android native live detector uses stable CPU fallback first
 - **GIVEN** the native Android live detector loads the bundled TFLite model
 - **WHEN** inference starts on the Z Flip 7 FE class of hardware
-- **THEN** the native interpreter uses the CPU/XNNPACK path by default
-- **AND** logs include the native plugin timing and `delegate=cpu`
-- **AND** hardware delegate promotion remains an explicit future tuning step
-  after the native pipeline proves stable at FHD/30 preview delivery
+- **THEN** the native plugin benchmarks CPU/XNNPACK against the Android GPU
+  delegate when the device reports GPU compatibility
+- **AND** it selects GPU only if the benchmark completes and is faster than CPU
+- **AND** it falls back to CPU if GPU is unsupported, benchmark setup fails, or
+  a later GPU inference throws
+- **AND** logs include native plugin timing with the selected delegate name
+
+#### Scenario: Android native live detector does not block preview frames
+- **GIVEN** Android live YOLO owns the frame processor stream
+- **WHEN** an eligible frame reaches the live detector
+- **THEN** the heavy native TFLite plugin call runs inside Vision Camera's
+  asynchronous frame-processor context
+- **AND** new camera frames are dropped for inference while the async context
+  is busy instead of blocking preview delivery
+- **AND** preview FPS remains governed by the camera profile rather than the
+  current CPU inference elapsed time
 
 #### Scenario: Android native live detector avoids per-frame pixel allocation
 - **GIVEN** Android live detections are enabled

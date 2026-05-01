@@ -6,6 +6,8 @@ import com.mrousavy.camera.frameprocessors.Frame
 import com.mrousavy.camera.frameprocessors.FrameProcessorPlugin
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.gpu.CompatibilityList
+import org.tensorflow.lite.gpu.GpuDelegate
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.max
@@ -54,13 +56,13 @@ private object AndroidTfliteRunner {
       lastTimingLogAtMs = now
       Log.d(
         TAG,
-        "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} elapsed=${elapsedMs}ms delegate=cpu output=${activeRunner.outputShape.joinToString("x")}"
+        "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} output=${activeRunner.outputShape.joinToString("x")}"
       )
     }
     return mapOf(
       "shape" to activeRunner.outputShape.toList(),
       "values" to activeRunner.outputValues(),
-      "delegate" to "cpu",
+      "delegate" to activeRunner.delegateName,
     )
   }
 
@@ -85,15 +87,23 @@ private object AndroidTfliteRunner {
   }
 
   private class Runner(modelBuffer: ByteBuffer, val assetName: String) {
-    private val interpreter = Interpreter(
-      modelBuffer,
-      Interpreter.Options().apply {
-        setNumThreads(2)
-        setUseXNNPACK(true)
-      },
-    )
-    private val inputTensor = interpreter.getInputTensor(0)
-    private val outputTensor = interpreter.getOutputTensor(0)
+    private val cpuInterpreter = Interpreter(modelBuffer.duplicate().rewinded(), cpuOptions())
+    private val gpuDelegate: GpuDelegate? = createGpuDelegate()
+    private val gpuInterpreter: Interpreter? = gpuDelegate?.let { delegate ->
+      try {
+        Interpreter(modelBuffer.duplicate().rewinded(), Interpreter.Options().addDelegate(delegate))
+      } catch (err: Throwable) {
+        Log.w(TAG, "gpu interpreter unavailable; using cpu", err)
+        delegate.close()
+        null
+      }
+    }
+    private var selectedInterpreter: Interpreter = cpuInterpreter
+    @Volatile var delegateName: String = "cpu"
+      private set
+    private var benchmarked = false
+    private val inputTensor = cpuInterpreter.getInputTensor(0)
+    private val outputTensor = cpuInterpreter.getOutputTensor(0)
     val outputShape: IntArray = outputTensor.shape()
     private val inputType = inputTensor.dataType()
     private val outputType = outputTensor.dataType()
@@ -122,7 +132,7 @@ private object AndroidTfliteRunner {
       }
       inputBuffer = ByteBuffer.allocateDirect(inputBytes).order(ByteOrder.nativeOrder())
       outputBuffer = ByteBuffer.allocateDirect(outputFloatCount * FLOAT_BYTES).order(ByteOrder.nativeOrder())
-      Log.i(TAG, "loaded $assetName input=${inputShape.joinToString("x")} type=$inputType output=${outputShape.joinToString("x")} delegate=cpu")
+      Log.i(TAG, "loaded $assetName input=${inputShape.joinToString("x")} type=$inputType output=${outputShape.joinToString("x")} delegate=cpu gpuCandidate=${gpuInterpreter != null}")
     }
 
     fun fillInputFromYuv(
@@ -181,9 +191,53 @@ private object AndroidTfliteRunner {
     }
 
     fun run() {
+      if (!benchmarked) benchmarkDelegate()
       outputBuffer.rewind()
-      interpreter.run(inputBuffer, outputBuffer)
+      try {
+        selectedInterpreter.run(inputBuffer, outputBuffer)
+      } catch (err: Throwable) {
+        if (delegateName != "cpu") {
+          Log.w(TAG, "delegate=$delegateName failed during live inference; falling back to cpu", err)
+          selectedInterpreter = cpuInterpreter
+          delegateName = "cpu"
+          outputBuffer.rewind()
+          cpuInterpreter.run(inputBuffer, outputBuffer)
+        } else {
+          throw err
+        }
+      }
       outputBuffer.rewind()
+    }
+
+    private fun benchmarkDelegate() {
+      benchmarked = true
+      val gpu = gpuInterpreter ?: return
+      val cpuMs = benchmark("cpu", cpuInterpreter) ?: return
+      val gpuMs = benchmark("gpu", gpu)
+      if (gpuMs != null && gpuMs < cpuMs) {
+        selectedInterpreter = gpu
+        delegateName = "gpu"
+      } else {
+        selectedInterpreter = cpuInterpreter
+        delegateName = "cpu"
+      }
+      Log.i(TAG, "delegate benchmark cpu=${cpuMs}ms gpu=${gpuMs?.toString() ?: "failed"}ms selected=$delegateName")
+    }
+
+    private fun benchmark(name: String, candidate: Interpreter): Long? {
+      return try {
+        outputBuffer.rewind()
+        val startedAtMs = System.currentTimeMillis()
+        candidate.run(inputBuffer, outputBuffer)
+        outputBuffer.rewind()
+        inputBuffer.rewind()
+        System.currentTimeMillis() - startedAtMs
+      } catch (err: Throwable) {
+        outputBuffer.rewind()
+        inputBuffer.rewind()
+        Log.w(TAG, "delegate benchmark failed for $name", err)
+        null
+      }
     }
 
     fun outputValues(): List<Double> {
@@ -214,5 +268,30 @@ private object AndroidTfliteRunner {
     }
 
     private fun clamp(value: Int): Int = min(255, max(0, value))
+  }
+
+  private fun cpuOptions(): Interpreter.Options =
+    Interpreter.Options().apply {
+      setNumThreads(2)
+      setUseXNNPACK(true)
+    }
+
+  private fun createGpuDelegate(): GpuDelegate? {
+    return try {
+      val compat = CompatibilityList()
+      if (!compat.isDelegateSupportedOnThisDevice) {
+        Log.i(TAG, "gpu delegate not supported on this device")
+        return null
+      }
+      GpuDelegate(compat.bestOptionsForThisDevice)
+    } catch (err: Throwable) {
+      Log.w(TAG, "gpu delegate unavailable", err)
+      null
+    }
+  }
+
+  private fun ByteBuffer.rewinded(): ByteBuffer {
+    rewind()
+    return this
   }
 }
