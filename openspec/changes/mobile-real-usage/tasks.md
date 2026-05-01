@@ -201,3 +201,8 @@
 - [x] 16.1 Device evidence — confirm the Z Flip 7 FE camera session is now constrained to 30 Hz at the Camera2 layer (`aeTargetFpsRange [30 30]`, `frameDuration 33333000`) with no camera error traces in `dumpsys media.camera`
 - [x] 16.2 Android worklet payload — switch live TFLite resize output from `Float32Array` to `Uint8Array`, cutting the 640x640 RGB worklet-to-JS copy from ~4.9 MB to ~1.2 MB while keeping JS-side normalization into the reusable Float32 tensor
 - [x] 16.3 Hyperparams migration — move stored hyperparams from v1 to v2 and lower legacy/default `targetFps` from 30 to 15 so existing devices do not keep the old high-pressure live inference rate after upgrade
+
+## 17. Android Inspect-tab launch stability
+
+- [x] 17.1 Capture current device error — Inspect tab opened Expo DevLauncher with `java.lang.IllegalStateException: addViewAt: failed to insert view`, caused by the tab-screen redirect transition
+- [x] 17.2 Intercept Inspect tab press in `(tabs)/_layout.tsx`, prevent the `/inspect` tab screen from mounting, and push directly to `/capture/setup`

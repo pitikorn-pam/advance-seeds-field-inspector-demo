@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Camera, Home, MoreHorizontal, Sprout } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
@@ -8,6 +8,7 @@ type TabGlyphKind = "home" | "inspect" | "varieties" | "more";
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { resolved } = useTheme();
+  const router = useRouter();
 
   // Android gesture navigation reports its inset via insets.bottom. Hardcoding
   // paddingBottom would overlap the system nav on Z Flip and other gesture
@@ -43,6 +44,12 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="inspect"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.push("/capture/setup");
+          },
+        }}
         options={{
           title: "Inspect",
           tabBarIcon: ({ color, size }) => <TabGlyph kind="inspect" color={color} size={size} />,
