@@ -17,7 +17,8 @@
     "history": "History",
     "reports": "Reports",
     "settings": "Settings",
-    "hyperparams": "Model hyperparameters"
+    "hyperparams": "Model hyperparameters",
+    "models": "Model registry"
   },
   "masterData": {
     "varieties": "Varieties",
@@ -56,5 +57,23 @@
     "resetBody": "All values revert to the shipped defaults.",
     "inferenceStats": "Inference timings",
     "inferenceStatsHint": "Rolling p50 / p95 / p99 over the last ~100 inferences per delegate. Shape your fps target against the p95, not the p50."
+  },
+  "models": {
+    "title": "Model registry",
+    "intro": "Browse local HTTP model exports, install validated Android TFLite artifacts, activate a model, or roll back to the previous active model. Bundled weights remain the fallback.",
+    "indexUrl": "Model index URL",
+    "refresh": "Refresh candidates",
+    "available": "Available",
+    "installed": "Installed",
+    "rollback": "Rollback",
+    "noCandidates": "Enter a local HTTP index URL and refresh.",
+    "noInstalled": "No downloaded models yet.",
+    "noRollback": "No previous active model is available.",
+    "download": "Download",
+    "activate": "Activate",
+    "installedTitle": "Model installed",
+    "installedPill": "Installed",
+    "activePill": "Active",
+    "rollbackTo": "Restore {{name}}"
   }
 }

@@ -15,6 +15,7 @@ import {
   YOLO_INPUT_SIZE,
   decodeYolo,
   decodeYoloNms,
+  decodeYoloSegmentationNms,
   mapDetectionsToSeeds,
   nonMaxSuppression,
   summarizeSeeds,
@@ -26,6 +27,9 @@ import {
 } from "./TfliteSeedAnalyzer";
 import { useHyperParams } from "./hyperparams";
 import { recordInference, type InferenceSource } from "./inferenceStats";
+import type { InstalledModelRecord } from "@/lib/models/types";
+import { mapClassFilterForModel } from "@/lib/models/compatibility";
+import { readActiveModel, verifyInstalledArtifact } from "@/lib/models/modelStore";
 
 const COREML_ASSET = "yolo26n";
 
@@ -178,7 +182,7 @@ function useLiveDetectionsCoreML(options: Options): State {
             outputKind === "nms"
               ? decodeYoloNms(out, shape, decodeOpts)
               : decodeYolo(out, shape, decodeOpts);
-          const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, iouThreshold);
+          const kept = outputKind === "raw" ? nonMaxSuppression(raw, iouThreshold) : raw;
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,
             frameHeight,
@@ -262,6 +266,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const { enabled, pxPerMm, classFilter, roi } = options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
+  const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const lastSetAtRef = useRef(0);
   const lastDecodeLogAtRef = useRef(0);
   const RENDER_THROTTLE_MS = 33;
@@ -287,6 +292,25 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const targetFps = Math.min(hp.targetFps, 5);
   const roiCropNorm = useMemo(() => roiBboxSquareNorm(roi ?? null), [roi]);
 
+  useEffect(() => {
+    let cancelled = false;
+    readActiveModel()
+      .then(async (record) => {
+        if (cancelled) return;
+        if (record?.platform === "android" && (await verifyInstalledArtifact(record))) {
+          if (!cancelled) setActiveModel(record);
+        } else if (!cancelled) {
+          setActiveModel(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setActiveModel(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const decodeOnJS = useMemo(
     () =>
       Worklets.createRunOnJS(
@@ -307,7 +331,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           const source: InferenceSource = delegate === "gpu" ? "tflite-android-gpu" : "tflite-cpu";
           recordInference(source, inferElapsedMs);
           const out = Float32Array.from(values);
-          const outputKind: "raw" | "nms" = shape2 === 6 ? "nms" : "raw";
+          const outputKind: "raw" | "nms" | "segmentation" =
+            shape2 === 6 ? "nms" : shape2 > 6 ? "segmentation" : "raw";
           const fpScale = YOLO_INPUT_SIZE / cropSize;
           const decodeOpts = {
             letterbox: {
@@ -317,14 +342,16 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               target: YOLO_INPUT_SIZE,
             },
             scoreThreshold: liveScoreThreshold,
-            classFilter: classFilter ? [...classFilter] : null,
+            classFilter: mapClassFilterForModel(classFilter, activeModel?.metadata),
           };
           const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
           const raw =
             outputKind === "nms"
               ? decodeYoloNms(out, shape, decodeOpts)
-              : decodeYolo(out, shape, decodeOpts);
-          const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, iouThreshold);
+              : outputKind === "segmentation"
+                ? decodeYoloSegmentationNms(out, shape, decodeOpts)
+                : decodeYolo(out, shape, decodeOpts);
+          const kept = outputKind === "raw" ? nonMaxSuppression(raw, iouThreshold) : raw;
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,
             frameHeight,
@@ -340,10 +367,15 @@ function useLiveDetectionsAndroidNative(options: Options): State {
                     ...decodeOpts,
                     classFilter: null,
                   })
-                : decodeYolo(out, shape, {
-                    ...decodeOpts,
-                    classFilter: null,
-                  });
+                : outputKind === "segmentation"
+                  ? decodeYoloSegmentationNms(out, shape, {
+                      ...decodeOpts,
+                      classFilter: null,
+                    })
+                  : decodeYolo(out, shape, {
+                      ...decodeOpts,
+                      classFilter: null,
+                    });
             const top = allRaw
               .slice()
               .sort((a, b) => b.score - a.score)
@@ -375,7 +407,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           });
         },
       ),
-    [classFilter, pxPerMm, roi, liveScoreThreshold, scoreThreshold, iouThreshold],
+    [classFilter, pxPerMm, roi, liveScoreThreshold, scoreThreshold, iouThreshold, activeModel],
   );
 
   const frameProcessor = useFrameProcessor(
@@ -403,6 +435,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             const startedAt = Date.now();
             const result = plugin.call(frame, {
               assetName: "yolo11n-seeds.tflite",
+              modelPath: activeModel?.artifactUri ?? "",
               cropX,
               cropY,
               cropSize,
@@ -435,7 +468,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
         });
       });
     },
-    [enabled, plugin, decodeOnJS, targetFps, roiCropNorm],
+    [enabled, plugin, decodeOnJS, targetFps, roiCropNorm, activeModel],
   );
 
   useEffect(() => {

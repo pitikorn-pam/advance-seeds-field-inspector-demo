@@ -59,6 +59,17 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
 - **THEN** `selectAnalyzer()` instantiates `TfliteSeedAnalyzer` and registers it with `AnalyzerProvider`
 - **AND** a single info log records the analyzer ID (e.g. "tflite-yolo11n")
 
+#### Scenario: Android can activate a validated downloaded TFLite model
+- **GIVEN** a local file URL or local HTTP model index exposes an Android `.tflite` candidate
+- **WHEN** the user installs it from More → Model registry
+- **THEN** the app downloads the manifest, metadata, and platform artifact into
+  app document storage
+- **AND** activation is blocked unless SHA-256 and metadata compatibility
+  checks pass and the model loads for a smoke inference
+- **AND** Android single-shot and live TFLite paths load the active installed
+  model file, falling back to the bundled model if no active model is valid
+- **AND** the user can roll back to the previous active model
+
 #### Scenario: CoreML analyzer is preferred on iPhone with Neural Engine
 - **GIVEN** the device is iPhone 12 Pro+ AND `yolo11n-seeds.mlpackage` is bundled
 - **WHEN** the app starts

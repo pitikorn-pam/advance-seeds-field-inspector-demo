@@ -11,6 +11,7 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   Sliders,
+  PackageOpen,
   Sprout,
   ChevronRight,
   LogOut,
@@ -118,6 +119,12 @@ export default function MoreScreen() {
             renderIcon={() => <Sliders color="#1A1A1A" size={16} />}
             label={t("more:menu.hyperparams")}
             onPress={() => router.push("/more/hyperparams" as never)}
+          />
+          <Divider />
+          <MenuRow
+            renderIcon={() => <PackageOpen color="#1A1A1A" size={16} />}
+            label={t("more:menu.models")}
+            onPress={() => router.push("/more/models" as never)}
           />
         </Section>
 

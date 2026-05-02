@@ -16,6 +16,7 @@ import {
   YOLO_INPUT_SIZE,
   decodeYolo,
   decodeYoloNms,
+  decodeYoloSegmentationNms,
   letterbox,
   mapDetectionsToSeeds,
   nonMaxSuppression,
@@ -24,6 +25,9 @@ import {
 import type { RawDetection } from "./yolo";
 import { ensureHyperParamsLoaded, getHyperParamsSync } from "./hyperparams";
 import { recordInference } from "./inferenceStats";
+import type { InstalledModelRecord } from "@/lib/models/types";
+import { mapClassFilterForModel } from "@/lib/models/compatibility";
+import { readActiveModel, verifyInstalledArtifact } from "@/lib/models/modelStore";
 
 // Generic COCO yolo11n.tflite acts as a structural placeholder until a
 // seed-trained model is dropped at the same path. See assets/models/README.md.
@@ -32,7 +36,7 @@ const MODEL_SOURCE = require("../../assets/models/yolo11n-seeds.tflite");
 
 // "raw" head emits [1, 4+numClasses, anchors] (YOLO 8/11), "nms" head emits
 // [1, maxDet, 6] with NMS already baked in (YOLO 26 default export).
-export type TfliteOutputKind = "raw" | "nms";
+export type TfliteOutputKind = "raw" | "nms" | "segmentation";
 
 /** Which delegate the loaded TFLite graph is actually running under. We
  *  surface this so the inference-time histogram in the hyperparams playground
@@ -48,6 +52,8 @@ export interface LoadedTfliteModel {
    *  is unsafe. Capture once at load time and reuse. */
   outputShape: readonly [number, number, number];
   delegate: TfliteDelegate;
+  sourceKey: string;
+  modelRecord: InstalledModelRecord | null;
 }
 
 // Persist across fast-refresh: Metro HMR re-evaluates this module on every
@@ -57,15 +63,18 @@ export interface LoadedTfliteModel {
 // worklet runtime walks them. Stashing on globalThis lets the next module
 // evaluation re-use the live hybrid object.
 const GLOBAL_KEY = "__advanceSeedsTfliteModelPromise";
-type GlobalSlot = { [GLOBAL_KEY]?: Promise<LoadedTfliteModel> | null };
+type GlobalModelSlot = { key: string; promise: Promise<LoadedTfliteModel> };
+type GlobalSlot = { [GLOBAL_KEY]?: GlobalModelSlot | null };
 const globalSlot = globalThis as unknown as GlobalSlot;
 
 // Singleton loader — TfliteSeedAnalyzer (single-shot) and useLiveDetections
 // (worklet) share one TfliteModel instance instead of paying ~5 MB twice.
 export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
-  let modelPromise = globalSlot[GLOBAL_KEY] ?? null;
-  if (!modelPromise) {
-    modelPromise = (async () => {
+  const activePromise = getActiveTfliteSource();
+  return activePromise.then((source) => {
+    const current = globalSlot[GLOBAL_KEY] ?? null;
+    if (current?.key === source.key) return current.promise;
+    const modelPromise = (async () => {
       // Android live camera stability beats peak benchmark speed here. On the
       // Z Flip 7 FE, NNAPI inference coincides with Camera2
       // FrameProcessorBase timeouts while the camera HAL is also running its
@@ -74,12 +83,12 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
       let model: TfliteModel | null = null;
       let activeDelegate: TfliteDelegate = "cpu";
       if (Platform.OS === "android") {
-        model = await loadTensorflowModel(MODEL_SOURCE, []);
+        model = await loadTensorflowModel(source.source, []);
         activeDelegate = "cpu";
         console.info("[analyzer] tflite delegate=cpu");
       }
       if (!model) {
-        model = await loadTensorflowModel(MODEL_SOURCE, []);
+        model = await loadTensorflowModel(source.source, []);
         activeDelegate = "cpu";
         if (Platform.OS === "android") console.info("[analyzer] tflite delegate=cpu");
       }
@@ -100,7 +109,8 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
       if (outShape.length !== 3) {
         throw new Error(`Unsupported output rank ${outShape.length}; expected rank-3 tensor`);
       }
-      const outputKind: TfliteOutputKind = outShape[2] === 6 ? "nms" : "raw";
+      const outputKind: TfliteOutputKind =
+        outShape[2] === 6 ? "nms" : outShape[2] > 6 ? "segmentation" : "raw";
       console.info(`[analyzer] tflite output kind=${outputKind} shape=${outShape.join("x")}`);
       // Snapshot the shape into a plain tuple so we never read it back off
       // the hybrid object — accessing `model.outputs[].shape` after a
@@ -110,15 +120,42 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
         outShape[1],
         outShape[2],
       ];
-      return { model, outputKind, outputShape, delegate: activeDelegate };
+      return {
+        model,
+        outputKind,
+        outputShape,
+        delegate: activeDelegate,
+        sourceKey: source.key,
+        modelRecord: source.record,
+      };
     })().catch((err) => {
       // Reset both the local closure and the global slot so next call retries.
       globalSlot[GLOBAL_KEY] = null;
       throw err;
     });
-    globalSlot[GLOBAL_KEY] = modelPromise;
+    globalSlot[GLOBAL_KEY] = { key: source.key, promise: modelPromise };
+    return modelPromise;
+  });
+}
+
+export function resetSharedTfliteModel(): void {
+  globalSlot[GLOBAL_KEY] = null;
+}
+
+async function getActiveTfliteSource(): Promise<{
+  key: string;
+  source: number | { url: string };
+  record: InstalledModelRecord | null;
+}> {
+  const active = await readActiveModel();
+  if (active?.platform === "android" && (await verifyInstalledArtifact(active))) {
+    return {
+      key: `installed:${active.id}:${active.artifactSha256}`,
+      source: { url: active.artifactUri },
+      record: active,
+    };
   }
-  return modelPromise;
+  return { key: "bundled:yolo11n-seeds.tflite", source: MODEL_SOURCE, record: null };
 }
 
 export class TfliteSeedAnalyzer implements SeedAnalyzer {
@@ -129,11 +166,12 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     private readonly outputKind: TfliteOutputKind,
     private readonly outputShape: readonly [number, number, number],
     readonly delegate: TfliteDelegate,
+    private readonly modelRecord: InstalledModelRecord | null,
   ) {}
 
   static async load(): Promise<TfliteSeedAnalyzer> {
-    const { model, outputKind, outputShape, delegate } = await loadSharedTfliteModel();
-    return new TfliteSeedAnalyzer(model, outputKind, outputShape, delegate);
+    const { model, outputKind, outputShape, delegate, modelRecord } = await loadSharedTfliteModel();
+    return new TfliteSeedAnalyzer(model, outputKind, outputShape, delegate, modelRecord);
   }
 
   async analyze(image: ImageRef, options: AnalyzeOptions): Promise<AnalysisResult> {
@@ -156,15 +194,17 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     const decodeOpts = {
       letterbox: lb,
       scoreThreshold: hp.scoreThreshold,
-      classFilter: options.classFilter ?? null,
+      classFilter: mapClassFilterForModel(options.classFilter, this.modelRecord?.metadata),
     };
     const raw: RawDetection[] =
       this.outputKind === "nms"
         ? decodeYoloNms(out, this.outputShape, decodeOpts)
-        : decodeYolo(out, this.outputShape, decodeOpts);
+        : this.outputKind === "segmentation"
+          ? decodeYoloSegmentationNms(out, this.outputShape, decodeOpts)
+          : decodeYolo(out, this.outputShape, decodeOpts);
     // YOLO26 already runs NMS in the graph, so re-running it would be a no-op
     // on overlap and a needless O(n²) on JS. Skip when the graph handled it.
-    const kept = this.outputKind === "nms" ? raw : nonMaxSuppression(raw, hp.iouThreshold);
+    const kept = this.outputKind === "raw" ? nonMaxSuppression(raw, hp.iouThreshold) : raw;
     const seeds = mapDetectionsToSeeds(kept, {
       frameWidth: pixels.width,
       frameHeight: pixels.height,

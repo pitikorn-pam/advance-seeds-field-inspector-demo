@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   decodeYolo,
   decodeYoloNms,
+  decodeYoloSegmentationNms,
   letterbox,
   mapDetectionsToSeeds,
   nonMaxSuppression,
@@ -125,6 +126,24 @@ test("decodeYoloNms supports normalized post-NMS boxes", () => {
 
   assert.equal(det.length, 1);
   assert.equal(det[0].classId, 46);
+  assert.equal(Math.round(det[0].x), 160);
+  assert.equal(Math.round(det[0].width), 160);
+});
+
+test("decodeYoloSegmentationNms decodes first six fields and ignores mask coefficients", () => {
+  const shape = [1, 1, 38];
+  const out = new Float32Array(38);
+  out.set([0.25, 0.1, 0.5, 0.35, 0.7, 2], 0);
+  out.fill(0.5, 6);
+
+  const det = decodeYoloSegmentationNms(out, shape, {
+    letterbox: { scale: 1, padX: 0, padY: 0, target: 640 },
+    scoreThreshold: 0.5,
+    classFilter: [2],
+  });
+
+  assert.equal(det.length, 1);
+  assert.equal(det[0].classId, 2);
   assert.equal(Math.round(det[0].x), 160);
   assert.equal(Math.round(det[0].width), 160);
 });

@@ -141,6 +141,7 @@ export default function RootLayout() {
                   />
                   <Stack.Screen name="more/history" options={{ headerShown: false }} />
                   <Stack.Screen name="more/recordings" options={{ headerShown: false }} />
+                  <Stack.Screen name="more/models" options={{ headerShown: false }} />
                   <Stack.Screen name="varieties/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="batches" options={{ headerShown: false }} />
                   <Stack.Screen name="reports" options={{ headerShown: false }} />

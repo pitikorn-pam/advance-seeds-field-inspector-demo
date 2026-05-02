@@ -237,3 +237,4 @@
 - [ ] 21.1 Home dark-mode contrast — notification bell and sync banner labels/icons remain readable in dark mode.
 - [ ] 21.2 List virtualization — History, Varieties, and Batches use virtualized lists with controls in list headers; Recordings keeps its existing virtualized recording list.
 - [ ] 21.3 Capture prerequisites navigation — use a back chevron/action instead of a close affordance because the screen is pushed from the capture mode picker.
+- [x] 22.1 Dynamic model registry — add local HTTP index browsing, Android TFLite download/install with SHA-256 + metadata validation, activation, rollback, and bundled fallback.

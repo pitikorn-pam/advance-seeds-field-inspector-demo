@@ -8,6 +8,7 @@ import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.CompatibilityList
 import org.tensorflow.lite.gpu.GpuDelegate
+import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.max
@@ -34,6 +35,7 @@ private object AndroidTfliteRunner {
     val image = frame.imageProxy
     val assetName = (params?.get("assetName") as? String)?.takeIf { it.isNotBlank() }
       ?: DEFAULT_MODEL_ASSET
+    val modelPath = (params?.get("modelPath") as? String)?.takeIf { it.isNotBlank() }
     val cropSize = numberParam(params, "cropSize", min(image.width, image.height).toDouble())
       .toInt()
       .coerceAtLeast(1)
@@ -44,7 +46,7 @@ private object AndroidTfliteRunner {
       .toInt()
       .coerceIn(0, max(0, image.height - cropSize))
 
-    val activeRunner = getRunner(frame, assetName)
+    val activeRunner = getRunner(assetName, modelPath)
     val startedAtMs = System.currentTimeMillis()
     synchronized(lock) {
       activeRunner.fillInputFromYuv(image.planes, image.width, image.height, cropX, cropY, cropSize)
@@ -66,19 +68,23 @@ private object AndroidTfliteRunner {
     )
   }
 
-  private fun getRunner(frame: Frame, assetName: String): Runner {
-    runner?.takeIf { it.assetName == assetName }?.let { return it }
+  private fun getRunner(assetName: String, modelPath: String?): Runner {
+    val sourceKey = modelPath ?: "asset:$assetName"
+    runner?.takeIf { it.sourceKey == sourceKey }?.let { return it }
     synchronized(lock) {
-      runner?.takeIf { it.assetName == assetName }?.let { return it }
+      runner?.takeIf { it.sourceKey == sourceKey }?.let { return it }
       val context = AdvanceSeedsAppContextHolder.context
         ?: throw IllegalStateException("Android app context unavailable for TFLite asset loading")
-      return Runner(context.assets.open(assetName).use { stream ->
-        val bytes = stream.readBytes()
-        ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).also { buffer ->
-          buffer.put(bytes)
-          buffer.rewind()
-        }
-      }, assetName).also { runner = it }
+      val bytes = if (modelPath != null) {
+        val path = modelPath.removePrefix("file://")
+        File(path).readBytes()
+      } else {
+        context.assets.open(assetName).use { stream -> stream.readBytes() }
+      }
+      return Runner(ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).also { buffer ->
+        buffer.put(bytes)
+        buffer.rewind()
+      }, sourceKey).also { runner = it }
     }
   }
 
@@ -86,7 +92,7 @@ private object AndroidTfliteRunner {
     return (params?.get(name) as? Number)?.toDouble() ?: fallback
   }
 
-  private class Runner(modelBuffer: ByteBuffer, val assetName: String) {
+  private class Runner(modelBuffer: ByteBuffer, val sourceKey: String) {
     private val cpuInterpreter = Interpreter(modelBuffer.duplicate().rewinded(), cpuOptions())
     private val gpuDelegate: GpuDelegate? = createGpuDelegate()
     private val gpuInterpreter: Interpreter? = gpuDelegate?.let { delegate ->
@@ -132,7 +138,7 @@ private object AndroidTfliteRunner {
       }
       inputBuffer = ByteBuffer.allocateDirect(inputBytes).order(ByteOrder.nativeOrder())
       outputBuffer = ByteBuffer.allocateDirect(outputFloatCount * FLOAT_BYTES).order(ByteOrder.nativeOrder())
-      Log.i(TAG, "loaded $assetName input=${inputShape.joinToString("x")} type=$inputType output=${outputShape.joinToString("x")} delegate=cpu gpuCandidate=${gpuInterpreter != null}")
+      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType output=${outputShape.joinToString("x")} delegate=cpu gpuCandidate=${gpuInterpreter != null}")
     }
 
     fun fillInputFromYuv(
