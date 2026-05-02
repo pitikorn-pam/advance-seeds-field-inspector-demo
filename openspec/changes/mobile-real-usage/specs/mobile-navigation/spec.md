@@ -20,3 +20,15 @@ the More tab uses an overflow / horizontal-dots icon.
 - **AND** she lands on `/capture/setup`
 - **AND** the app does not show a native view reparenting error during the
   transition
+
+### Requirement: Long mobile lists remain virtualized
+The mobile app SHALL render long-running library and activity lists with
+virtualized list primitives so offscreen rows are mounted lazily instead of
+eagerly mounted inside a `ScrollView`.
+
+#### Scenario: Reference and activity lists lazy-mount rows
+- **WHEN** Jane opens Recordings, History, Varieties, or Batches
+- **THEN** the primary row collection uses a virtualized list
+- **AND** filter/search controls render as list header content on the same
+  scroll surface
+- **AND** row rendering is batched with bounded initial and offscreen windows

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, Text, Pressable, RefreshControl } from "react-native";
+import { FlatList, View, Text, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Link, useRouter } from "expo-router";
@@ -8,7 +8,6 @@ import { useInspections } from "@/lib/queries";
 import type { InspectionRow } from "@/lib/queries";
 import { useSyncQueueEntries } from "@/lib/sync/store";
 import type { SyncQueueEntry } from "@/lib/sync/types";
-import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Segmented } from "@/components/ui/Segmented";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -25,6 +24,9 @@ type GroupKey = "today" | "yesterday" | "earlierThisWeek" | "earlier";
 type HistoryItem =
   | { kind: "remote"; row: InspectionRow; syncState: "synced" }
   | { kind: "local"; entry: SyncQueueEntry; syncState: "pending" | "failed" };
+type HistoryListEntry =
+  | { kind: "section"; key: string; groupKey: GroupKey; count: number }
+  | { kind: "item"; key: string; item: HistoryItem; isFirst: boolean; isLast: boolean };
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FAEEDA", fg: "#854F0B" },
@@ -81,6 +83,20 @@ export default function HistoryScreen() {
   }, [data, queueEntries, filter, dateRange]);
 
   const totalShown = grouped.reduce((s, g) => s + g.items.length, 0);
+  const listData = useMemo<HistoryListEntry[]>(
+    () =>
+      grouped.flatMap(({ groupKey, items }) => [
+        { kind: "section", key: `section-${groupKey}`, groupKey, count: items.length },
+        ...items.map((item, idx) => ({
+          kind: "item" as const,
+          key: itemKey(item),
+          item,
+          isFirst: idx === 0,
+          isLast: idx === items.length - 1,
+        })),
+      ]),
+    [grouped],
+  );
   const dateLabel = rangeLabel(dateRange, i18n.language, t);
   const hasDateRange = !!dateRange.start || !!dateRange.end;
 
@@ -94,70 +110,77 @@ export default function HistoryScreen() {
           onPress: () => router.back(),
         }}
       />
-      <ScrollView
-        contentContainerClassName="px-xl py-md gap-md"
+      <FlatList
+        data={listData}
+        keyExtractor={(item) => item.key}
+        contentContainerClassName="px-xl py-md"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
         }
-      >
-        <Segmented<Filter>
-          value={filter}
-          onChange={setFilter}
-          options={segmentOptions}
-          variant="tag"
-          scrollable
-        />
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={9}
+        removeClippedSubviews
+        ListHeaderComponent={
+          <View className="gap-md mb-md">
+            <Segmented<Filter>
+              value={filter}
+              onChange={setFilter}
+              options={segmentOptions}
+              variant="tag"
+              scrollable
+            />
 
-        <View className="flex-row items-center gap-xs">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("history:filters.selectDate")}
-            className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
-            onPress={() => setDatePickerOpen(true)}
-          >
-            <Calendar color="#0F6E56" size={16} />
-            <View className="flex-1">
-              <Text className="text-caption text-fg-secondary">
-                {t("history:filters.dateRange")}
-              </Text>
-              <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
-                {dateLabel}
-              </Text>
+            <View className="flex-row items-center gap-xs">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("history:filters.selectDate")}
+                className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
+                onPress={() => setDatePickerOpen(true)}
+              >
+                <Calendar color="#0F6E56" size={16} />
+                <View className="flex-1">
+                  <Text className="text-caption text-fg-secondary">
+                    {t("history:filters.dateRange")}
+                  </Text>
+                  <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
+                    {dateLabel}
+                  </Text>
+                </View>
+              </Pressable>
+              {hasDateRange ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("common:actions.clear")}
+                  className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary"
+                  onPress={() => setDateRange({ start: null, end: null })}
+                >
+                  <X color="#1A1A1A" size={16} />
+                </Pressable>
+              ) : null}
             </View>
-          </Pressable>
-          {hasDateRange ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("common:actions.clear")}
-              className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary"
-              onPress={() => setDateRange({ start: null, end: null })}
-            >
-              <X color="#1A1A1A" size={16} />
-            </Pressable>
-          ) : null}
-        </View>
-
-        {isLoading ? (
-          <LoadingState />
-        ) : isError ? (
-          <ErrorState onRetry={() => void refetch()} />
-        ) : totalShown === 0 ? (
-          <EmptyState hint={t("inspections:list.empty")} />
-        ) : (
-          grouped.map(({ groupKey, items }) => (
-            <View key={groupKey} className="gap-xs">
-              <Text className="text-caption text-fg-secondary px-xs">
-                {t(`history:groups.${groupKey}`, { count: items.length })}
-              </Text>
-              <Card className="p-0">
-                {items.map((row, idx) => (
-                  <HistoryRow key={itemKey(row)} item={row} isLast={idx === items.length - 1} />
-                ))}
-              </Card>
-            </View>
-          ))
-        )}
-      </ScrollView>
+          </View>
+        }
+        renderItem={({ item }) =>
+          item.kind === "section" ? (
+            <Text className="text-caption text-fg-secondary px-xs mt-md mb-xs">
+              {t(`history:groups.${item.groupKey}`, { count: item.count })}
+            </Text>
+          ) : (
+            <HistoryRow item={item.item} isFirst={item.isFirst} isLast={item.isLast} />
+          )
+        }
+        ListEmptyComponent={
+          isLoading ? (
+            <LoadingState />
+          ) : isError ? (
+            <ErrorState onRetry={() => void refetch()} />
+          ) : totalShown === 0 ? (
+            <EmptyState hint={t("inspections:list.empty")} />
+          ) : null
+        }
+      />
       <DateRangePicker
         visible={datePickerOpen}
         value={dateRange}
@@ -170,7 +193,15 @@ export default function HistoryScreen() {
   );
 }
 
-function HistoryRow({ item, isLast }: { item: HistoryItem; isLast: boolean }) {
+function HistoryRow({
+  item,
+  isFirst,
+  isLast,
+}: {
+  item: HistoryItem;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
   const { t } = useTranslation("history");
   const row = item.kind === "remote" ? item.row : null;
   const entry = item.kind === "local" ? item.entry : null;
@@ -183,9 +214,9 @@ function HistoryRow({ item, isLast }: { item: HistoryItem; isLast: boolean }) {
   const body = `${formatRelative(capturedAt)}${row?.batch?.code ? ` · ${row.batch.code}` : ""}`;
   const content = (
     <View
-      className={`flex-row items-center gap-md px-lg py-md ${
-        isLast ? "" : "border-b border-line-tertiary"
-      }`}
+      className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${
+        isFirst ? "rounded-t-2xl" : ""
+      } ${isLast ? "rounded-b-2xl" : "border-b border-line-tertiary"}`}
     >
       <View
         className="items-center justify-center"

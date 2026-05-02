@@ -234,3 +234,5 @@
 - [x] 20.6 Device evidence — Z Flip 7 FE reports LiteRT GPU delegate unsupported, so native YOLO remains CPU/XNNPACK; 1280x720 CPU inference measured ~166-196 ms and synchronous frame processing still pulled preview FPS toward ~5 fps.
 - [x] 20.7 Async frame-processor verification — Z Flip 7 FE logs showed 1280x720 / 30 fps low-pressure profile, async native CPU inference, and sustained `CameraView` average FPS near 30 without the previous `maxImages` / `FrameProcessorBase` timeout loop.
 - [ ] 20.8 Android annotation verification — TFLite NMS output was normalized `0..1`, so decode it as normalized boxes, cap native-live effective score threshold at 0.25, and keep overlay keys unique when duplicate class/bucket detections arrive; verify Banana detections draw on the Z Flip 7 FE when the model returns class 46.
+- [ ] 21.1 Home dark-mode contrast — notification bell and sync banner labels/icons remain readable in dark mode.
+- [ ] 21.2 List virtualization — History, Varieties, and Batches use virtualized lists with controls in list headers; Recordings keeps its existing virtualized recording list.

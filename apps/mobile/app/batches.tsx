@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, Text, Pressable, TextInput } from "react-native";
+import { FlatList, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { ChevronLeft, ChevronRight, Layers, Plus, Search, X } from "lucide-react-native";
+import type { Batch } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useBatches } from "@/lib/queries";
-import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
@@ -59,86 +59,117 @@ export default function BatchesRoute() {
             : undefined
         }
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-md">
-        <Text className="text-caption text-fg-secondary">{t("batches:intro")}</Text>
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        contentContainerClassName="px-xl py-md"
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={14}
+        maxToRenderPerBatch={14}
+        windowSize={9}
+        removeClippedSubviews
+        ListHeaderComponent={
+          <View className="gap-md mb-md">
+            <Text className="text-caption text-fg-secondary">{t("batches:intro")}</Text>
 
-        <View className="flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
-          <Search color="#9D9D9A" size={16} />
-          <TextInput
-            placeholder={t("batches:searchPlaceholder")}
-            placeholderTextColor="#9D9D9A"
-            value={query}
-            onChangeText={setQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-            className="flex-1 text-body text-fg-primary"
-            returnKeyType="search"
-          />
-          {query ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("common:actions.cancel")}
-              onPress={() => setQuery("")}
-            >
-              <X color="#9D9D9A" size={16} />
-            </Pressable>
-          ) : null}
-        </View>
-
-        {isLoading ? (
-          <LoadingState />
-        ) : isError ? (
-          <ErrorState onRetry={() => void refetch()} />
-        ) : filtered.length === 0 ? (
-          <EmptyState hint={query ? t("batches:emptyFiltered") : t("batches:empty")} />
-        ) : (
-          <Card className="p-0">
-            {filtered.map((b, idx) => {
-              const isLast = idx === filtered.length - 1;
-              return (
+            <View className="flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
+              <Search color="#9D9D9A" size={16} />
+              <TextInput
+                placeholder={t("batches:searchPlaceholder")}
+                placeholderTextColor="#9D9D9A"
+                value={query}
+                onChangeText={setQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="flex-1 text-body text-fg-primary"
+                returnKeyType="search"
+              />
+              {query ? (
                 <Pressable
-                  key={b.id}
                   accessibilityRole="button"
-                  accessibilityLabel={b.code}
-                  onPress={() => router.push(`/batches/${b.id}` as never)}
-                  disabled={!editable}
-                  className={`flex-row items-center gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
+                  accessibilityLabel={t("common:actions.cancel")}
+                  onPress={() => setQuery("")}
                 >
-                  <View
-                    className="items-center justify-center"
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      backgroundColor: "#FAEEDA",
-                    }}
-                  >
-                    <Layers color="#854F0B" size={16} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-title text-fg-primary" numberOfLines={1}>
-                      {b.code}
-                    </Text>
-                    <Text className="text-caption text-fg-secondary" numberOfLines={1}>
-                      {b.location && b.location.trim() ? b.location : t("batches:noLocation")}
-                    </Text>
-                  </View>
-                  <View className="items-end gap-[2px]">
-                    {b.sown_at ? (
-                      <Pill tone="neutral" label={t("batches:sownPill", { date: b.sown_at })} />
-                    ) : (
-                      <Text className="text-caption text-fg-tertiary">
-                        {t("batches:sownPending")}
-                      </Text>
-                    )}
-                  </View>
-                  {editable ? <ChevronRight color="#9D9D9A" size={16} /> : null}
+                  <X color="#9D9D9A" size={16} />
                 </Pressable>
-              );
-            })}
-          </Card>
+              ) : null}
+            </View>
+          </View>
+        }
+        renderItem={({ item, index }) => (
+          <BatchRow
+            batch={item}
+            editable={editable}
+            isFirst={index === 0}
+            isLast={index === filtered.length - 1}
+            onPress={() => router.push(`/batches/${item.id}` as never)}
+          />
         )}
-      </ScrollView>
+        ListEmptyComponent={
+          isLoading ? (
+            <LoadingState />
+          ) : isError ? (
+            <ErrorState onRetry={() => void refetch()} />
+          ) : filtered.length === 0 ? (
+            <EmptyState hint={query ? t("batches:emptyFiltered") : t("batches:empty")} />
+          ) : null
+        }
+      />
     </SafeAreaView>
+  );
+}
+
+function BatchRow({
+  batch,
+  editable,
+  isFirst,
+  isLast,
+  onPress,
+}: {
+  batch: Batch;
+  editable: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  onPress: () => void;
+}) {
+  const { t } = useTranslation("batches");
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={batch.code}
+      onPress={onPress}
+      disabled={!editable}
+      className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${
+        isFirst ? "rounded-t-2xl" : ""
+      } ${isLast ? "rounded-b-2xl" : "border-b border-line-tertiary"}`}
+    >
+      <View
+        className="items-center justify-center"
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: "#FAEEDA",
+        }}
+      >
+        <Layers color="#854F0B" size={16} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-title text-fg-primary" numberOfLines={1}>
+          {batch.code}
+        </Text>
+        <Text className="text-caption text-fg-secondary" numberOfLines={1}>
+          {batch.location && batch.location.trim() ? batch.location : t("noLocation")}
+        </Text>
+      </View>
+      <View className="items-end gap-[2px]">
+        {batch.sown_at ? (
+          <Pill tone="neutral" label={t("sownPill", { date: batch.sown_at })} />
+        ) : (
+          <Text className="text-caption text-fg-tertiary">{t("sownPending")}</Text>
+        )}
+      </View>
+      {editable ? <ChevronRight color="#9D9D9A" size={16} /> : null}
+    </Pressable>
   );
 }

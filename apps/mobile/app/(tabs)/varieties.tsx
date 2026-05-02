@@ -1,17 +1,19 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, Text, Pressable, TextInput } from "react-native";
+import { FlatList, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { ChevronRight, Search, X } from "lucide-react-native";
 import type { Variety } from "@advance-seeds/types";
 import { useVarieties, useInspections } from "@/lib/queries";
-import { Card } from "@/components/ui/Card";
 import { Segmented } from "@/components/ui/Segmented";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 
 type FamilyKey = "all" | "corn" | "rice" | "legume" | "mungbean";
+type VarietyListEntry =
+  | { kind: "section"; key: string; familyKey: string }
+  | { kind: "item"; key: string; variety: Variety; isFirst: boolean; isLast: boolean };
 
 const FAMILY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FAEEDA", fg: "#854F0B" },
@@ -71,6 +73,20 @@ export default function LibraryTab() {
     });
     return groupByFamily(filtered);
   }, [data, family, query]);
+  const listData = useMemo<VarietyListEntry[]>(
+    () =>
+      grouped.flatMap(({ familyKey, items }) => [
+        { kind: "section", key: `section-${familyKey}`, familyKey },
+        ...items.map((variety, idx) => ({
+          kind: "item" as const,
+          key: variety.id,
+          variety,
+          isFirst: idx === 0,
+          isLast: idx === items.length - 1,
+        })),
+      ]),
+    [grouped],
+  );
 
   const segmentOptions: Array<{ value: FamilyKey; label: string }> = [
     { value: "all", label: t("library:segments.all") },
@@ -82,77 +98,87 @@ export default function LibraryTab() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
-      <ScrollView contentContainerClassName="px-xl py-md gap-md">
-        <Text className="text-h1 font-medium text-fg-primary">{t("varieties:title")}</Text>
+      <FlatList
+        data={listData}
+        keyExtractor={(item) => item.key}
+        contentContainerClassName="px-xl py-md"
+        keyboardShouldPersistTaps="handled"
+        initialNumToRender={14}
+        maxToRenderPerBatch={14}
+        windowSize={9}
+        removeClippedSubviews
+        ListHeaderComponent={
+          <View className="gap-md mb-md">
+            <Text className="text-h1 font-medium text-fg-primary">{t("varieties:title")}</Text>
 
-        <View className="flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
-          <Search color="#9D9D9A" size={16} />
-          <TextInput
-            placeholder={t("library:searchPlaceholder")}
-            placeholderTextColor="#9D9D9A"
-            value={query}
-            onChangeText={setQuery}
-            className="flex-1 text-body text-fg-primary"
-            returnKeyType="search"
-          />
-          {query ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("common:actions.cancel")}
-              onPress={() => setQuery("")}
-            >
-              <X color="#9D9D9A" size={16} />
-            </Pressable>
-          ) : null}
-        </View>
-
-        <Segmented<FamilyKey>
-          value={family}
-          onChange={setFamily}
-          options={segmentOptions}
-          scrollable
-          variant="tag"
-        />
-
-        {isLoading ? (
-          <SkeletonList rows={5} rowHeight={64} />
-        ) : isError ? (
-          <ErrorState onRetry={() => void refetch()} />
-        ) : grouped.length === 0 ? (
-          <EmptyState hint={t("varieties:empty")} />
-        ) : (
-          grouped.map(({ familyKey, items }) => (
-            <View key={familyKey} className="gap-xs">
-              <Text className="text-caption text-fg-secondary px-xs">
-                {t(`library:sections.${familyKey}`)}
-              </Text>
-              <Card className="p-0">
-                {items.map((variety, idx) => (
-                  <VarietyRow
-                    key={variety.id}
-                    variety={variety}
-                    isLast={idx === items.length - 1}
-                    observed={observed.get(variety.id)}
-                    onPress={() => router.push(`/varieties/${variety.id}`)}
-                  />
-                ))}
-              </Card>
+            <View className="flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
+              <Search color="#9D9D9A" size={16} />
+              <TextInput
+                placeholder={t("library:searchPlaceholder")}
+                placeholderTextColor="#9D9D9A"
+                value={query}
+                onChangeText={setQuery}
+                className="flex-1 text-body text-fg-primary"
+                returnKeyType="search"
+              />
+              {query ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("common:actions.cancel")}
+                  onPress={() => setQuery("")}
+                >
+                  <X color="#9D9D9A" size={16} />
+                </Pressable>
+              ) : null}
             </View>
-          ))
-        )}
-      </ScrollView>
+
+            <Segmented<FamilyKey>
+              value={family}
+              onChange={setFamily}
+              options={segmentOptions}
+              scrollable
+              variant="tag"
+            />
+          </View>
+        }
+        renderItem={({ item }) =>
+          item.kind === "section" ? (
+            <Text className="text-caption text-fg-secondary px-xs mt-md mb-xs">
+              {t(`library:sections.${item.familyKey}`)}
+            </Text>
+          ) : (
+            <VarietyRow
+              variety={item.variety}
+              isFirst={item.isFirst}
+              isLast={item.isLast}
+              observed={observed.get(item.variety.id)}
+              onPress={() => router.push(`/varieties/${item.variety.id}`)}
+            />
+          )
+        }
+        ListEmptyComponent={
+          isLoading ? (
+            <SkeletonList rows={5} rowHeight={64} />
+          ) : isError ? (
+            <ErrorState onRetry={() => void refetch()} />
+          ) : grouped.length === 0 ? (
+            <EmptyState hint={t("varieties:empty")} />
+          ) : null
+        }
+      />
     </SafeAreaView>
   );
 }
 
 interface RowProps {
   variety: Variety;
+  isFirst: boolean;
   isLast: boolean;
   observed: { l: number; w: number; n: number } | undefined;
   onPress: () => void;
 }
 
-function VarietyRow({ variety, isLast, observed, onPress }: RowProps) {
+function VarietyRow({ variety, isFirst, isLast, observed, onPress }: RowProps) {
   const { t } = useTranslation(["library"]);
   const tint = FAMILY_TINTS[variety.color_key ?? ""] ?? FAMILY_TINTS.rice;
   const dims = observed
@@ -167,7 +193,9 @@ function VarietyRow({ variety, isLast, observed, onPress }: RowProps) {
       accessibilityRole="button"
       accessibilityLabel={variety.name}
       onPress={onPress}
-      className={`flex-row items-center gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
+      className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${
+        isFirst ? "rounded-t-2xl" : ""
+      } ${isLast ? "rounded-b-2xl" : "border-b border-line-tertiary"}`}
     >
       <View
         className="items-center justify-center"

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Check, RefreshCw } from "lucide-react-native";
 import { queueCounts, useSyncQueueEntries } from "@/lib/sync/store";
 import { useLastSyncedAt } from "@/lib/sync/lastSync";
+import { useTheme } from "@/lib/theme";
 
 /**
  * Bottom-of-Home banner indicating sync status. Queue counts are local-first
@@ -15,30 +16,42 @@ import { useLastSyncedAt } from "@/lib/sync/lastSync";
  */
 export function SyncBanner() {
   const { t } = useTranslation("home");
+  const { resolved } = useTheme();
   const counts = queueCounts(useSyncQueueEntries());
   const lastSyncIso = useLastSyncedAt();
   const lastSyncLabel = formatLastSync(lastSyncIso, t);
   const state = counts.failed > 0 ? "failed" : counts.pending > 0 ? "pending" : "synced";
   const Icon = state === "failed" ? AlertTriangle : state === "pending" ? RefreshCw : Check;
+  const colors =
+    resolved === "dark"
+      ? {
+          bg: state === "failed" ? "#501313" : state === "pending" ? "#412402" : "#173404",
+          icon: state === "failed" ? "#F7C1C1" : state === "pending" ? "#FAC775" : "#C0DD97",
+          title: "#F5F5F4",
+          caption: "#A1A1A0",
+        }
+      : {
+          bg: state === "failed" ? "#FBEAE8" : "#F4F4F1",
+          icon: state === "failed" ? "#B42318" : state === "pending" ? "#854F0B" : "#27500A",
+          title: "#1A1A1A",
+          caption: "#6B6B68",
+        };
 
   return (
     <View
       className="flex-row items-center gap-md rounded-2xl px-lg py-md"
-      style={{ backgroundColor: state === "failed" ? "#FBEAE8" : "#F4F4F1" }}
+      style={{ backgroundColor: colors.bg }}
     >
-      <Icon
-        color={state === "failed" ? "#B42318" : state === "pending" ? "#854F0B" : "#27500A"}
-        size={18}
-      />
+      <Icon color={colors.icon} size={18} />
       <View className="flex-1">
-        <Text className="text-title font-medium text-fg-primary" style={{ fontSize: 13 }}>
+        <Text className="text-title font-medium" style={{ color: colors.title, fontSize: 13 }}>
           {state === "failed"
             ? t("syncFailed", { count: counts.failed })
             : state === "pending"
               ? t("syncPending", { count: counts.pending })
               : t("allSynced")}
         </Text>
-        <Text className="text-caption text-fg-secondary">
+        <Text className="text-caption" style={{ color: colors.caption }}>
           {lastSyncIso === null ? t("neverSynced") : t("lastSync", { when: lastSyncLabel })}
         </Text>
       </View>

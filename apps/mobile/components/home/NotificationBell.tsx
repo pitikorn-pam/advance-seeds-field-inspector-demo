@@ -2,6 +2,7 @@ import { View, Pressable, Text } from "react-native";
 import { Bell } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useNotifications } from "@/lib/queries";
+import { useTheme } from "@/lib/theme";
 
 /**
  * Bell icon button on Home — sits after the role pill in the greeting row.
@@ -14,9 +15,11 @@ import { useNotifications } from "@/lib/queries";
  */
 export function NotificationBell() {
   const router = useRouter();
+  const { resolved } = useTheme();
   const { data } = useNotifications();
   const unread = (data ?? []).filter((n) => n.read_at === null).length;
   const display = unread > 9 ? "9+" : unread > 0 ? String(unread) : null;
+  const iconColor = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
 
   return (
     <Pressable
@@ -25,7 +28,7 @@ export function NotificationBell() {
       onPress={() => router.push("/notifications" as never)}
       className="h-9 w-9 items-center justify-center rounded-full bg-bg-tertiary"
     >
-      <Bell color="#1A1A1A" size={18} />
+      <Bell color={iconColor} size={18} />
       {display ? (
         <View
           className="absolute items-center justify-center"
