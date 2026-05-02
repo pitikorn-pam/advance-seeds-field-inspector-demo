@@ -138,6 +138,14 @@ for (const [name, val] of Object.entries(tokens.color.variety)) {
   lightVars.push(`  --as-${name}-text: ${val.text};`);
 }
 
+// glass — viewfinder chrome over live camera preview. No dark variant on
+// purpose: the substrate is the camera image, not a theme surface, so a
+// dark-mode shift would just darken an already-darkening overlay.
+for (const [name, val] of Object.entries(tokens.color.glass)) {
+  if (typeof val === "string") continue;
+  lightVars.push(`  --as-glass-${name}: ${val.value};`);
+}
+
 // fonts — handoff CSS quotes family names with double quotes; JSON uses
 // single quotes. Normalize so the parity test matches.
 const normalizeFontFamily = (s: string) => s.replace(/'/g, '"');
@@ -196,6 +204,16 @@ writeFileSync(resolve(distDir, "css-vars.css"), cssOutput);
 
 // ----- 3. tokens.ts (runtime TS) ----------------------------------------
 
+// Flatten glass into a top-level constant so callers can write
+// `glass.surface` instead of digging through `tokens.color.glass.surface.value`.
+// Glass values are literal rgba/hex strings — no theme variant — which is the
+// reason a flat shape is fine here (and matches how RN inline styles consume them).
+const glassRuntime: Record<string, string> = {};
+for (const [k, v] of Object.entries(tokens.color.glass)) {
+  if (typeof v === "string") continue;
+  glassRuntime[k] = v.value;
+}
+
 const tsOutput = `// AUTO-GENERATED from docs/handoff/design-tokens.json — do not edit by hand.
 // Run \`pnpm -F @advance-seeds/tokens build\` to regenerate.
 
@@ -205,6 +223,7 @@ export type Tokens = typeof tokens;
 export const colors = ${toJsLiteral(tailwindColors)} as const;
 export const spacing = ${toJsLiteral(tailwindSpacing)} as const;
 export const radius = ${toJsLiteral(tailwindRadius)} as const;
+export const glass = ${toJsLiteral(glassRuntime)} as const;
 `;
 
 writeFileSync(resolve(distDir, "tokens.ts"), tsOutput);
@@ -217,6 +236,7 @@ export type Tokens = typeof tokens;
 export declare const colors: Record<string, unknown>;
 export declare const spacing: Record<string, string>;
 export declare const radius: Record<string, string>;
+export declare const glass: Record<string, string>;
 `,
 );
 

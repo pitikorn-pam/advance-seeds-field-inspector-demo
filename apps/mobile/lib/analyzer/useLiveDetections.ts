@@ -487,9 +487,15 @@ function useLiveDetectionsAndroidNative(options: Options): State {
 
 // ---------------------------------------------------------------------
 // Android — TFLite + JS-thread inference (worklet does resize only)
+//
+// Kept as a dormant fallback per task 19.2: the active Android path now
+// runs entirely native (`useLiveDetectionsTfliteNative`); this hook stays
+// here as a reference implementation in case the native plugin needs to
+// be A/B'd against the old JS-bound path. Underscore prefix tells ESLint
+// the unused export is intentional.
 // ---------------------------------------------------------------------
 
-function useLiveDetectionsTflite(options: Options): State {
+function _useLiveDetectionsTflite(options: Options): State {
   const { enabled, pxPerMm, classFilter, roi } = options;
   const modelRef = useRef<TfliteModel | null>(null);
   const outputKindRef = useRef<TfliteOutputKind>("raw");

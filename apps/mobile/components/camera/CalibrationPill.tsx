@@ -21,7 +21,7 @@ export function CalibrationPill({ reading }: Props) {
   const dotColor = locked ? "#5DCAA5" : "#A1A1A0";
 
   return (
-    <View className="flex-row items-center gap-xs rounded-full bg-black/55 px-md py-xs">
+    <View className="flex-row items-center gap-xs rounded-full bg-glass-soft px-md py-xs">
       <View className="h-[6px] w-[6px] rounded-full" style={{ backgroundColor: dotColor }} />
       <Text className="text-white text-caption font-medium">{label}</Text>
     </View>

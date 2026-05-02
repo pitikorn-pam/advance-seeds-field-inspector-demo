@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Platform, View, Text } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { AnalysisFrameResult } from "@advance-seeds/types";
+import { glass } from "@advance-seeds/tokens";
 import { DEFAULT_CAPTURE_CLASSES } from "@/lib/analyzer/captureClasses";
 
 interface Props {
@@ -117,11 +118,11 @@ export function DetectionOverlay({
               top: -18,
               paddingHorizontal: 6,
               paddingVertical: 2,
-              backgroundColor: "rgba(0,0,0,0.62)",
+              backgroundColor: glass.surface,
               borderRadius: 4,
             }}
           >
-            <Text style={{ color: "#fff", fontSize: 10, letterSpacing: 0.2 }}>
+            <Text style={{ color: glass.text, fontSize: 10, letterSpacing: 0.2 }}>
               {p.className} · {Math.round(p.length_mm)} mm
             </Text>
           </View>

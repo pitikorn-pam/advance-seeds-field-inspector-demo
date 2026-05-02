@@ -1,7 +1,8 @@
 import { useRef } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, View } from "react-native";
 import type { GestureResponderEvent } from "react-native";
-import { Grid3x3, RotateCw, Camera as CameraIcon, Aperture, Video } from "lucide-react-native";
+import { Grid3x3, RotateCw, Camera as CameraIcon, Aperture } from "lucide-react-native";
+import { RecordButton } from "./RecordButton";
 
 interface Props {
   /** Tap fires the shutter. */
@@ -81,7 +82,7 @@ export function ShutterBar({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Toggle grid"
-        className="h-12 w-12 items-center justify-center rounded-full bg-black/40"
+        className="h-12 w-12 items-center justify-center rounded-full bg-glass-chip"
         onPress={onGrid}
       >
         <Grid3x3 color="white" size={20} />
@@ -112,26 +113,13 @@ export function ShutterBar({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Snapshot"
-              className="flex-row items-center gap-xs rounded-full bg-black/40 px-md py-xs"
+              className="flex-row items-center gap-xs rounded-full bg-glass-chip px-md py-xs"
               onPress={onSnapshot}
             >
               <Aperture color="white" size={14} />
             </Pressable>
             {onRecordPress ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Record video"
-                className="flex-row items-center gap-xs rounded-full bg-black/40 px-md py-xs"
-                onPress={onRecordPress}
-              >
-                <Video color={isRecording ? LIVE_RED : "white"} size={14} />
-                <Text
-                  className="font-medium"
-                  style={{ color: isRecording ? LIVE_RED : "white", fontSize: 11 }}
-                >
-                  {isRecording ? "Stop" : "Rec"}
-                </Text>
-              </Pressable>
+              <RecordButton onPress={onRecordPress} isRecording={isRecording} />
             ) : null}
           </View>
         ) : null}
@@ -140,7 +128,7 @@ export function ShutterBar({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Flip camera"
-        className="h-12 w-12 items-center justify-center rounded-full bg-black/40"
+        className="h-12 w-12 items-center justify-center rounded-full bg-glass-chip"
         onPress={onFlip}
       >
         <RotateCw color="white" size={20} />

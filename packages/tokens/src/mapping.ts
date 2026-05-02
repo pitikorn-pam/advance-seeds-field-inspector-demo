@@ -51,5 +51,14 @@ export function mapColorsForTailwind(
         .filter(([, v]) => typeof v !== "string")
         .map(([name]) => [name, { bg: `var(--as-${name}-bg)`, text: `var(--as-${name}-text)` }]),
     ),
+
+    // Glass — viewfinder chrome over the live camera preview. Single flat
+    // group (no light/dark) so `bg-glass-surface` resolves to the same alpha
+    // black on both themes.
+    glass: Object.fromEntries(
+      Object.entries(color.glass)
+        .filter(([, v]) => typeof v !== "string")
+        .map(([name]) => [name, `var(--as-glass-${name})`]),
+    ) as Record<string, string>,
   };
 }

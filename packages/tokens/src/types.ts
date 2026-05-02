@@ -4,6 +4,7 @@
 export type ColorPair = { value: string; darkValue?: string; description?: string };
 export type SemanticPair = { bg: { value: string }; text: { value: string } };
 export type VarietyPair = { bg: string; text: string };
+export type GlassPair = { value: string; description?: string };
 
 export interface DesignTokensJson {
   metadata: { name: string; version: string; description: string };
@@ -19,6 +20,7 @@ export interface DesignTokensJson {
       info: SemanticPair;
     };
     variety: Record<string, VarietyPair | string>;
+    glass: Record<string, GlassPair | string>;
   };
   typography: {
     fontFamily: { sans: { value: string }; mono: { value: string } };

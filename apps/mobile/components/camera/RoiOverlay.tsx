@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import type { GestureResponderEvent, LayoutChangeEvent } from "react-native";
 import { Plus, Trash2 } from "lucide-react-native";
 import Svg, { Rect, Polygon, Circle as SvgCircle, Polyline } from "react-native-svg";
+import { glass } from "@advance-seeds/tokens";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
 
 interface Props {
@@ -450,7 +451,7 @@ function EdgeAddHandle({ x, y, onPress }: { x: number; y: number; onPress: () =>
           borderRadius: DOT / 2,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "rgba(0,0,0,0.65)",
+          backgroundColor: glass.surface,
           borderWidth: 1,
           borderColor: STROKE,
         }}
@@ -477,7 +478,7 @@ function VertexAction({ x, y, onDelete }: { x: number; y: number; onDelete: () =
         borderRadius: SIZE / 2,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.72)",
+        backgroundColor: glass.strong,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.38)",
       }}

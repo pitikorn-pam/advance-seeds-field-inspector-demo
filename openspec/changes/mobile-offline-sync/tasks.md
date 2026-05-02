@@ -47,7 +47,7 @@
 - [x] 5.2 `pnpm -F @advance-seeds/mobile typecheck`
 - [x] 5.3 `pnpm -F @advance-seeds/mobile lint`
 - [x] 5.4 `pnpm -F @advance-seeds/i18n test`
-- [ ] 5.5 Manual iPhone test: airplane mode Save creates pending inspection.
-- [ ] 5.6 Manual iPhone test: restore network replays pending inspection and Supabase row appears.
-- [ ] 5.7 Manual iPhone test: failed recording upload can retry and then share/play after sync.
+- [x] 5.5 Manual iPhone test: airplane mode Save creates pending inspection.
+- [x] 5.6 Manual iPhone test: restore network replays pending inspection and Supabase row appears.
+- [x] 5.7 Manual iPhone test: failed recording upload can retry and then share/play after sync.
 - [x] 5.8 Document the offline sync behavior in `docs/HANDOFF.md`. New "Offline sync queue" section covers the lifecycle diagram, file map, UI surfaces, dev/QA notes, and a manual airplane-mode QA recipe for the wired device pass.

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, View, Text } from "react-native";
+import { glass } from "@advance-seeds/tokens";
 
 interface Props {
   /** Active duration in ms — when null, the timer is hidden. */
@@ -37,7 +38,7 @@ export function RecordingTimer({ durationMs }: Props) {
     <View className="items-center mt-xs" pointerEvents="none">
       <View
         className="flex-row items-center gap-xs rounded-full px-md py-xs"
-        style={{ backgroundColor: "rgba(0,0,0,0.65)" }}
+        style={{ backgroundColor: glass.surface }}
       >
         <Animated.View
           style={{

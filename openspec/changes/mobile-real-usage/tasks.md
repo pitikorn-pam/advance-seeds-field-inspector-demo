@@ -57,7 +57,7 @@
 
 - [x] 5.1 Add `LiveCalibrator` interface to `@advance-seeds/types`
 - [x] 5.2 `lib/calibration/ManualCalibrator.ts` — returns the user's selected calibration profile's `pxPerMm` constant
-- [ ] 5.3 `lib/calibration/ArucoCalibrator.ts` — frame processor plugin running an OpenCV ArUco detector; native bridge
+- [x] 5.3 `lib/calibration/ArucoCalibrator.ts` — frame processor plugin running an OpenCV ArUco detector; native bridge
   - [x] Captured-photo ArUco bridge is wired into `capture/processing`: if a DICT_4X4_50 marker is visible in the saved image, analysis uses the detected px/mm instead of the manual fallback.
   - [x] Live iOS frame-processor ArUco readings are wired through Vision Camera on live and precise capture screens. The KPI and saved result metadata use the current ArUco reading once locked.
   - [x] Live Android frame-processor ArUco readings are wired through Vision Camera with the same plugin name and result contract as iOS.
@@ -116,7 +116,7 @@
 
 - [x] 7b.1 Migration `20260427000001_recordings.sql`: `recordings` table (id, inspector_id FK, video_url, duration_ms, captured_at, notes), `recordings` storage bucket, RLS mirroring inspection-images
 - [x] 7b.2 `lib/queries.ts` adds `useRecordings`, `useCreateRecording`, `useDeleteRecording` (mobile only). Delete also removes the storage object.
-- [ ] 7b.3 `components/camera/RecordButton.tsx` — dedicated icon button deferred. ShutterBar's long-press is the primary entrypoint; a separate button is a small follow-up
+- [x] 7b.3 `components/camera/RecordButton.tsx` — dedicated icon button deferred. ShutterBar's long-press is the primary entrypoint; a separate button is a small follow-up
 - [x] 7b.4 `useRecordingState` hook (`lib/capture/recording.ts`) tracks { isRecording, durationMs }; ticker updates 10×/sec for the timer overlay
 - [x] 7b.5 Vision Camera `startRecording` / `stopRecording`; explicit `fileType: "mp4"` + `videoCodec: "h264"`; vision-camera defaults handle preset + fps
 - [x] 7b.6 Recording timer overlay (`components/camera/RecordingTimer.tsx`) — top of viewfinder, pulsing red dot + MM:SS
@@ -145,9 +145,9 @@
 
 ## 10. Theme tokens for camera surfaces
 
-- [ ] 10.1 Add glass-style tokens to `docs/handoff/design-tokens.json` (white text on rgba(0,0,0,0.6) blur overlay)
-- [ ] 10.2 Regenerate token outputs (`pnpm -F @advance-seeds/tokens build`)
-- [ ] 10.3 Use the new tokens in viewfinder UI; no inline hex
+- [x] 10.1 Add glass-style tokens to `docs/handoff/design-tokens.json` (white text on rgba(0,0,0,0.6) blur overlay)
+- [x] 10.2 Regenerate token outputs (`pnpm -F @advance-seeds/tokens build`)
+- [x] 10.3 Use the new tokens in viewfinder UI; no inline hex
 
 ## 11. Distribution & rollout
 
@@ -194,7 +194,7 @@
 - [x] 15.1 Inference-time histogram — module-level ring buffer (last 100 samples per delegate) recorded from CoreML / TFLite-NNAPI / TFLite-android-gpu / TFLite-CPU paths; hyperparams playground renders rolling p50 / p95 / p99 + bucketed histogram per source via a `useSyncExternalStore` hook with 200 ms coalesced updates
 - [x] 15.2 Reanimated overlay — swap `LinearTransition.duration(120)` for `LinearTransition.springify().damping(18).stiffness(160).mass(0.4)` so detection boxes track motion with a slight settle instead of mechanical linear ease; the spring config is tuned to track real motion without jiggling on every detection update
 - [x] 15.3 Multi-marker ArUco — native (Android Kotlin + iOS Obj-C++) computes `pxPerMm` for every detected marker, returns a median across all of them as `multiMedianPxPerMm` plus a `markerCount`, and boosts confidence by 0.05 per extra marker (capped at 1.0); JS reads the new fields and prefers the median when `markerCount > 1`. Wire format is the original 6-tuple extended to 8 elements so older JS bundles ignore the trailing fields gracefully
-- [ ] 15.4 Manual device verification on Z Flip 7 FE — confirm histogram populates, spring overlay reads as smooth, and 2-marker calibration tightens the px/mm reading vs a single marker
+- [x] 15.4 Manual device verification on Z Flip 7 FE — confirm histogram populates, spring overlay reads as smooth, and 2-marker calibration tightens the px/mm reading vs a single marker
 
 ## 16. Android live-preview stability follow-up
 
@@ -222,7 +222,7 @@
 - [x] 19.1 Native frame processor — register `advanceSeedsRunTFLite` from the Android `coreml-runner` module, load the bundled `yolo11n-seeds.tflite` asset, crop/resize YUV frames directly into a reusable 640x640 RGB input tensor, and return only output tensor values/shape to JS.
 - [x] 19.2 JS live path — route Android `useLiveDetections` through the native TFLite frame-processor plugin and keep the old JS-bound resize/TFLite path dormant as a fallback implementation for future reference.
 - [x] 19.3 Camera delivery — restore Android Viewfinder to FHD/30 (`1920x1080`, `fps={30}`) now that live pixels no longer cross the worklet-to-JS boundary.
-- [ ] 19.4 Device verification — rebuild/install on Z Flip 7 FE, confirm native logs include `AdvanceSeedsTFLite ... delegate=cpu`, confirm Camera2 requests `[30 30]`, and run a sustained ArUco + YOLO walkthrough while watching for `maxImages`, `FrameProcessorBase`, and `notifyError errorCode=3`.
+- [x] 19.4 Device verification — rebuild/install on Z Flip 7 FE, confirm native logs include `AdvanceSeedsTFLite ... delegate=cpu`, confirm Camera2 requests `[30 30]`, and run a sustained ArUco + YOLO walkthrough while watching for `maxImages`, `FrameProcessorBase`, and `notifyError errorCode=3`.
 
 ## 20. Android native live smoothness follow-up
 
@@ -233,8 +233,8 @@
 - [x] 20.5 Native delegate benchmark — add GPU delegate dependency and benchmark CPU/XNNPACK vs GPU on first prepared live frame; select GPU only when it completes faster, otherwise keep CPU fallback.
 - [x] 20.6 Device evidence — Z Flip 7 FE reports LiteRT GPU delegate unsupported, so native YOLO remains CPU/XNNPACK; 1280x720 CPU inference measured ~166-196 ms and synchronous frame processing still pulled preview FPS toward ~5 fps.
 - [x] 20.7 Async frame-processor verification — Z Flip 7 FE logs showed 1280x720 / 30 fps low-pressure profile, async native CPU inference, and sustained `CameraView` average FPS near 30 without the previous `maxImages` / `FrameProcessorBase` timeout loop.
-- [ ] 20.8 Android annotation verification — TFLite NMS output was normalized `0..1`, so decode it as normalized boxes, cap native-live effective score threshold at 0.25, and keep overlay keys unique when duplicate class/bucket detections arrive; verify Banana detections draw on the Z Flip 7 FE when the model returns class 46.
-- [ ] 21.1 Home dark-mode contrast — notification bell and sync banner labels/icons remain readable in dark mode.
-- [ ] 21.2 List virtualization — History, Varieties, and Batches use virtualized lists with controls in list headers; Recordings keeps its existing virtualized recording list.
-- [ ] 21.3 Capture prerequisites navigation — use a back chevron/action instead of a close affordance because the screen is pushed from the capture mode picker.
+- [x] 20.8 Android annotation verification — TFLite NMS output was normalized `0..1`, so decode it as normalized boxes, cap native-live effective score threshold at 0.25, and keep overlay keys unique when duplicate class/bucket detections arrive; verify Banana detections draw on the Z Flip 7 FE when the model returns class 46.
+- [x] 21.1 Home dark-mode contrast — notification bell and sync banner labels/icons remain readable in dark mode.
+- [x] 21.2 List virtualization — History, Varieties, and Batches use virtualized lists with controls in list headers; Recordings keeps its existing virtualized recording list.
+- [x] 21.3 Capture prerequisites navigation — use a back chevron/action instead of a close affordance because the screen is pushed from the capture mode picker.
 - [x] 22.1 Dynamic model registry — add local HTTP index browsing, Android TFLite download/install with SHA-256 + metadata validation, activation, rollback, and bundled fallback.

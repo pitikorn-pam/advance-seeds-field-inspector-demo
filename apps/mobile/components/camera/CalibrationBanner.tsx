@@ -58,7 +58,7 @@ export function CalibrationBanner({ reading, profileName, distanceLabel }: Props
     : t("capture.calibration.unavailableHint");
 
   return (
-    <View className="flex-row items-center gap-sm rounded-xl bg-black/[0.62] px-lg py-md">
+    <View className="flex-row items-center gap-sm rounded-xl bg-glass-surface px-lg py-md">
       <AlertCircle color="white" size={18} />
       <View className="flex-1">
         <Text className="text-white font-medium" style={{ fontSize: 13 }}>

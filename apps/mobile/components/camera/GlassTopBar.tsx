@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Zap, ZapOff } from "lucide-react-native";
+import { glass } from "@advance-seeds/tokens";
 
 export type FlashMode = "off" | "on" | "auto";
 
@@ -50,7 +51,7 @@ export function GlassTopBar({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Back"
-      className="h-9 w-9 items-center justify-center rounded-full bg-black/50"
+      className="h-9 w-9 items-center justify-center rounded-full bg-glass-soft"
       onPress={onBackPress ?? (() => router.back())}
     >
       <ArrowLeft color="white" size={18} />
@@ -67,7 +68,7 @@ export function GlassTopBar({
       accessibilityRole="button"
       accessibilityLabel="Toggle flash"
       style={{
-        backgroundColor: flashActive ? "rgba(255, 214, 107, 0.85)" : "rgba(0, 0, 0, 0.5)",
+        backgroundColor: flashActive ? glass.accent : glass.soft,
       }}
       className={`h-9 items-center justify-center rounded-full flex-row gap-[3px] ${
         flashLabel ? "px-md" : "w-9"
@@ -103,7 +104,7 @@ export function GlassTopBar({
 
 function defaultPill(label: string, dotColor?: string) {
   return (
-    <View className="flex-row items-center gap-xs rounded-full bg-black/55 px-md py-xs">
+    <View className="flex-row items-center gap-xs rounded-full bg-glass-soft px-md py-xs">
       {dotColor ? (
         <View className="h-[6px] w-[6px] rounded-full" style={{ backgroundColor: dotColor }} />
       ) : null}

@@ -34,7 +34,7 @@ export function RoiToolbar({ activeTool, onSelectTool, roi, onClear, onClosePoly
   const polygonInProgress = roi?.kind === "polygon" && !roi.closed && roi.points.length >= 3;
 
   return (
-    <View className="mx-md mb-sm flex-row items-center gap-xs rounded-full bg-black/55 px-sm py-xs self-center">
+    <View className="mx-md mb-sm flex-row items-center gap-xs rounded-full bg-glass-soft px-sm py-xs self-center">
       <ToolButton
         renderIcon={() => <Square color={activeTool === "rect" ? "#5DCAA5" : "white"} size={16} />}
         label={t("capture.roi.rect")}

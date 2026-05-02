@@ -51,6 +51,15 @@
       "rice":    { "bg": "#EAF3DE", "text": "#3B6D11" },
       "legume":  { "bg": "#E1F5EE", "text": "#0F6E56" },
       "mungbean":{ "bg": "#FAECE7", "text": "#993C1D" }
+    },
+    "glass": {
+      "comment": "Translucent surfaces for camera viewfinder chrome. These sit on top of the live preview so they have no light/dark theme variant — the substrate is the camera image, not a UI surface.",
+      "chip":    { "value": "rgba(0, 0, 0, 0.4)",       "description": "Subtle chip — small icon buttons (grid, flip, snapshot) on the camera HUD." },
+      "soft":    { "value": "rgba(0, 0, 0, 0.5)",       "description": "Light dim — top bar default surface and other persistent chrome." },
+      "surface": { "value": "rgba(0, 0, 0, 0.6)",       "description": "Standard glass — primary HUD elements like detection labels and the recording timer." },
+      "strong":  { "value": "rgba(0, 0, 0, 0.72)",      "description": "Strongest dim — ROI overlay backdrops where readability over busy footage matters." },
+      "text":    { "value": "#FFFFFF",                  "description": "On-glass text and icon color." },
+      "accent":  { "value": "rgba(255, 214, 107, 0.85)","description": "Flash-armed highlight (top bar flash button when active)." }
     }
   },
 

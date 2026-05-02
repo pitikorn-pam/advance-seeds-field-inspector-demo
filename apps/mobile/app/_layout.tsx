@@ -126,10 +126,7 @@ export default function RootLayout() {
                     options={{ presentation: "modal", headerShown: false }}
                   />
                   <Stack.Screen name="inspections/[id]" options={{ headerShown: false }} />
-                  <Stack.Screen
-                    name="seed/[inspection]/[index]"
-                    options={{ headerShown: true, title: "" }}
-                  />
+                  <Stack.Screen name="seed/[inspection]/[index]" options={{ headerShown: false }} />
                   {/* `(tabs)/inspect` is the tab landing that redirects into
                       the fullscreen `/capture/*` group below. The capture
                       stack itself sets headerShown false; the inner mode

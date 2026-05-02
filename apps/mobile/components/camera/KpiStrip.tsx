@@ -54,7 +54,7 @@ export function KpiStrip({
       : null;
 
   return (
-    <View className="mx-md mb-md flex-row gap-md rounded-xl bg-black/[0.62] px-lg py-md">
+    <View className="mx-md mb-md flex-row gap-md rounded-xl bg-glass-surface px-lg py-md">
       <Stat value={count !== null ? String(count) : "—"} label={t("capture.kpi.count")} />
       <Stat value={avgMm !== null ? avgMm.toFixed(1) : "—"} label={t("capture.kpi.avgMm")} />
       <Stat value={gradeAPct !== null ? `${gradeAPct}%` : "—"} label={t("capture.kpi.gradeA")} />
