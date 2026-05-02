@@ -270,6 +270,8 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 - **AND** the Android native live path caps its effective live score threshold
   at `0.25` to account for the lower confidence calibration observed from the
   TFLite export while preserving the selected class filter
+- **AND** the overlay assigns unique React keys when multiple same-class
+  detections fall in the same coarse tracking bucket
 
 #### Scenario: Android native live detector avoids per-frame pixel allocation
 - **GIVEN** Android live detections are enabled

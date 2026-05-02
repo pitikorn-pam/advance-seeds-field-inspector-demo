@@ -69,6 +69,7 @@ export function DetectionOverlay({
     const scale = Math.max(stageWidth / frameWidth, stageHeight / frameHeight);
     const dx = (frameWidth * scale - stageWidth) / 2;
     const dy = (frameHeight * scale - stageHeight) / 2;
+    const bucketCounts = new Map<string, number>();
     return frameResult.seeds.map((s) => {
       const x = s.bbox.x * scale - dx;
       const y = s.bbox.y * scale - dy;
@@ -77,6 +78,9 @@ export function DetectionOverlay({
       const className = COCO_NAMES[s.class_id ?? -1] ?? "Item";
       const cx = frameWidth > 0 ? (s.bbox.x + s.bbox.width / 2) / frameWidth : 0;
       const cy = frameHeight > 0 ? (s.bbox.y + s.bbox.height / 2) / frameHeight : 0;
+      const bucketKey = identityKey(s.class_id, cx, cy);
+      const bucketIndex = bucketCounts.get(bucketKey) ?? 0;
+      bucketCounts.set(bucketKey, bucketIndex + 1);
       return {
         ...s,
         projX: x,
@@ -84,7 +88,7 @@ export function DetectionOverlay({
         projW: w,
         projH: h,
         className,
-        key: identityKey(s.class_id, cx, cy),
+        key: `${bucketKey}-${bucketIndex}`,
       };
     });
   }, [frameResult, frameWidth, frameHeight, stageWidth, stageHeight]);
