@@ -94,6 +94,13 @@ export default function CaptureProcessing() {
       if (!cancelledRef.current) markStep("calibration");
     }, 600);
 
+    // Cached thumbnail extracted from the video. Reused across:
+    //   • inspection.image_url upload (must be a JPG so seed-detail can crop)
+    //   • ArUco calibration on the still frame
+    //   • analyzer single-shot
+    // Declared at the outer scope so both stages can read it.
+    let videoThumbnailLocalUri: string | null = null;
+
     void (async () => {
       try {
         if (session.capturedMediaKind === "video") {
@@ -191,9 +198,54 @@ export default function CaptureProcessing() {
               duration: `${min}:${sec.toString().padStart(2, "0")}`,
             }),
           });
+
+          // Extract a representative still and upload it as the
+          // inspection's `image_url`. Done AFTER the video upload so the
+          // mp4 is fully flushed by the camera writer — extracting too
+          // early can hit AVAssetImageGenerator while the file is still
+          // being finalized. Midpoint dodges motion blur at recording
+          // start.
+          const midpointMs = Math.max(0, Math.floor(durationMs / 2));
+          try {
+            const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(uploadUri, {
+              time: midpointMs,
+              quality: 0.9,
+            });
+            videoThumbnailLocalUri = thumbUri;
+          } catch (err) {
+            console.warn("[processing] video thumbnail extraction failed", err);
+          }
+
+          let thumbnailRemoteUrl: string | null = null;
+          if (videoThumbnailLocalUri) {
+            const thumbPath = `${profile.id}/${Date.now()}-thumb.jpg`;
+            const thumbFd = new FormData();
+            thumbFd.append("file", {
+              uri: videoThumbnailLocalUri,
+              type: "image/jpeg",
+              name: "thumb.jpg",
+            } as unknown as Blob);
+            const { error: thumbErr } = await supabase.storage
+              .from("inspection-images")
+              .upload(thumbPath, thumbFd, { contentType: "image/jpeg", upsert: false });
+            if (!thumbErr) {
+              const { data: thumbUrlData } = supabase.storage
+                .from("inspection-images")
+                .getPublicUrl(thumbPath);
+              thumbnailRemoteUrl = thumbUrlData.publicUrl;
+            } else {
+              console.warn("[processing] thumbnail upload failed", thumbErr);
+            }
+          }
+
           session.set({
             capturedVideoUri: uploadUri,
-            uploadedImageUrl: videoUrl,
+            // Inspection's image_url must be a JPG so seed-detail can crop
+            // bboxes from it. Fall back to the local thumbnail if upload
+            // failed; last resort is the video URL — preserves "save still
+            // works" but seed-detail crops will miss until a thumbnail lands.
+            uploadedImageUrl: thumbnailRemoteUrl ?? videoThumbnailLocalUri ?? videoUrl,
+            uploadedVideoUrl: videoUrl,
             recordingId,
           });
         } else {
@@ -241,38 +293,26 @@ export default function CaptureProcessing() {
           activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
             ? [activeVariety.coco_class_id]
             : [...DEFAULT_CAPTURE_CLASS_IDS];
-        // For video captures we extract a representative still (middle frame)
-        // and run the same single-shot analyzer on it — identical accuracy to
-        // photo capture. We pick midpoint rather than first frame because it
-        // dodges any motion blur from the user pressing record. ArUco
-        // calibration also runs on the thumbnail so video flows benefit from
-        // marker-based px/mm.
+        // For video captures we run the analyzer on the same representative
+        // still that became the inspection's image_url (extracted above when
+        // the video branch ran). Keeps the displayed crops consistent with
+        // the analyzed frame and avoids extracting twice. ArUco calibration
+        // also runs on the thumbnail so video flows benefit from marker-based
+        // px/mm.
         let analyzerImageUri = sourceUri;
-        if (session.capturedMediaKind === "video") {
-          const midpointMs = Math.max(0, Math.floor((session.recordingDurationMs ?? 0) / 2));
+        if (session.capturedMediaKind === "video" && videoThumbnailLocalUri) {
+          analyzerImageUri = videoThumbnailLocalUri;
           try {
-            const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(sourceUri, {
-              time: midpointMs,
-              quality: 0.9,
-            });
-            analyzerImageUri = thumbUri;
-            // Try ArUco on the freshly-extracted frame. Without this video
-            // flows used the manual fallback px/mm even when the calibration
-            // card was visible during the recording.
-            try {
-              const aruco = await detectArucoCalibration(thumbUri);
-              if (aruco) {
-                calibrationReading = aruco.reading;
-                session.set({
-                  capturedCalibrationReading: aruco.reading,
-                  capturedCalibrationProfileName: null,
-                });
-              }
-            } catch (err) {
-              console.warn("[processing] aruco on video thumbnail failed", err);
+            const aruco = await detectArucoCalibration(videoThumbnailLocalUri);
+            if (aruco) {
+              calibrationReading = aruco.reading;
+              session.set({
+                capturedCalibrationReading: aruco.reading,
+                capturedCalibrationProfileName: null,
+              });
             }
           } catch (err) {
-            console.warn("[processing] video thumbnail extraction failed", err);
+            console.warn("[processing] aruco on video thumbnail failed", err);
           }
         }
         const effectivePxPerMm = calibrationReading?.pxPerMm ?? 38.4;

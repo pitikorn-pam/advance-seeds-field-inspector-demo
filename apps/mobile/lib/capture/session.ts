@@ -54,8 +54,22 @@ interface CaptureSessionState {
   recordingDurationMs: number | null;
   /** Linked recordings row once video upload completes. */
   recordingId: string | null;
-  /** Public URL once the captured artifact uploads to Supabase Storage. */
+  /**
+   * Public URL of the inspection's still image once uploaded. For photo
+   * captures this is the photo itself; for video captures this is a JPG
+   * thumbnail extracted from the recording. The inspection's `image_url`
+   * column is always a JPG so the seed-detail page can decode it as an
+   * image and crop per-seed bounding boxes from it.
+   */
   uploadedImageUrl: string | null;
+  /**
+   * Public URL of the recording's video, only set for video captures.
+   * Tracked separately from `uploadedImageUrl` because the inspection's
+   * `image_url` must be a JPG (see above) — but the metadata's
+   * `capture_media.url` still needs to reference the actual mp4 so the
+   * inspection detail page can play the recording.
+   */
+  uploadedVideoUrl: string | null;
   /** Analyzer output consumed by review after the processing route unmounts. */
   analysisResult: AnalysisResult | null;
   /**
@@ -92,6 +106,7 @@ const initial: CaptureSessionState = {
   recordingDurationMs: null,
   recordingId: null,
   uploadedImageUrl: null,
+  uploadedVideoUrl: null,
   analysisResult: null,
   roi: null,
   capturedLocation: null,

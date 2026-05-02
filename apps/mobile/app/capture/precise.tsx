@@ -195,6 +195,7 @@ export default function CapturePrecise() {
         capturedImageUri: uri,
         capturedVideoUri: null,
         uploadedImageUrl: null,
+        uploadedVideoUrl: null,
         analysisResult: null,
         recordingDurationMs: null,
         recordingId: null,

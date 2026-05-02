@@ -131,7 +131,10 @@ export default function CaptureReview() {
   const mediaKind = session.capturedMediaKind;
   const previewMediaUri =
     mediaKind === "video"
-      ? (session.capturedVideoUri ?? session.uploadedImageUrl)
+      ? // Local mp4 (during this session) → remote mp4 (resumed session) →
+        // thumbnail JPG (last-resort: video upload failed). The JPG won't
+        // play but at least mounts CaptureMediaPreview's image branch.
+        (session.capturedVideoUri ?? session.uploadedVideoUrl ?? session.uploadedImageUrl)
       : (session.capturedImageUri ?? session.uploadedImageUrl);
   const previewRoi = session.mode === "live" ? session.roi : null;
   const note = displayInspectionNote(session.notes);
@@ -163,7 +166,7 @@ export default function CaptureReview() {
   const onShare = async () => {
     const uri =
       mediaKind === "video"
-        ? (session.uploadedImageUrl ?? session.capturedVideoUri)
+        ? (session.uploadedVideoUrl ?? session.capturedVideoUri)
         : (session.capturedImageUri ?? session.uploadedImageUrl);
     if (!uri) return;
     try {
@@ -196,7 +199,14 @@ export default function CaptureReview() {
       const metadata = buildInspectionMetadata({
         roi: session.roi,
         mediaKind,
-        mediaUrl: session.uploadedImageUrl,
+        // For video captures, the inspection's image_url is a JPG
+        // thumbnail (see processing.tsx); the actual recording mp4 lives
+        // on `uploadedVideoUrl` and is what the detail page should render
+        // as the playable preview.
+        mediaUrl:
+          mediaKind === "video"
+            ? (session.uploadedVideoUrl ?? session.uploadedImageUrl)
+            : session.uploadedImageUrl,
         recordingId: session.recordingId,
         recordingDurationMs: session.recordingDurationMs,
         locationTagEnabled: session.locationTagEnabled,
@@ -269,7 +279,10 @@ export default function CaptureReview() {
           metadata: buildInspectionMetadata({
             roi: session.roi,
             mediaKind,
-            mediaUrl: session.uploadedImageUrl,
+            mediaUrl:
+              mediaKind === "video"
+                ? (session.uploadedVideoUrl ?? session.uploadedImageUrl)
+                : session.uploadedImageUrl,
             recordingId: session.recordingId,
             recordingDurationMs: session.recordingDurationMs,
             locationTagEnabled: session.locationTagEnabled,
@@ -341,23 +354,32 @@ export default function CaptureReview() {
         text: t("common:actions.delete"),
         style: "destructive",
         onPress: async () => {
-          // Best-effort delete the orphaned upload before bailing.
-          if (session.uploadedImageUrl) {
-            if (session.capturedMediaKind === "video") {
-              const path = session.uploadedImageUrl.split("/recordings/")[1];
-              if (path) void supabase.storage.from("recordings").remove([path]);
-              if (session.recordingId) {
-                void supabase
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  .from("recordings" as any)
-                  .delete()
-                  .eq("id", session.recordingId);
+          // Best-effort delete the orphaned uploads before bailing. Video
+          // captures generate two artifacts (recording mp4 + thumbnail
+          // JPG); photos generate one. Each lives in its own bucket so we
+          // need two cleanup paths.
+          if (session.capturedMediaKind === "video") {
+            if (session.uploadedVideoUrl) {
+              const videoPath = session.uploadedVideoUrl.split("/recordings/")[1];
+              if (videoPath) void supabase.storage.from("recordings").remove([videoPath]);
+            }
+            if (session.recordingId) {
+              void supabase
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .from("recordings" as any)
+                .delete()
+                .eq("id", session.recordingId);
+            }
+            if (session.uploadedImageUrl) {
+              const thumbPath = session.uploadedImageUrl.split("/inspection-images/")[1];
+              if (thumbPath) {
+                void supabase.storage.from("inspection-images").remove([thumbPath]);
               }
-            } else {
-              const path = session.uploadedImageUrl.split("/inspection-images/")[1];
-              if (path) {
-                void supabase.storage.from("inspection-images").remove([path]);
-              }
+            }
+          } else if (session.uploadedImageUrl) {
+            const path = session.uploadedImageUrl.split("/inspection-images/")[1];
+            if (path) {
+              void supabase.storage.from("inspection-images").remove([path]);
             }
           }
           session.reset();
