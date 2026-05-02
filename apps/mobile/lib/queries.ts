@@ -1,6 +1,3 @@
-// Identical hooks to apps/dashboard/src/lib/queries.ts. Sibling copy by
-// design (see access.ts comment). Keep both in sync when adding queries.
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   Inspection,

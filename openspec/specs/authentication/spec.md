@@ -4,12 +4,7 @@
 TBD - created by archiving change seed-inspector-demo-foundation. Update Purpose after archive.
 ## Requirements
 ### Requirement: Email and password sign-in
-Both the dashboard and the mobile app SHALL allow a user to sign in with email and password using Supabase Auth.
-
-#### Scenario: Valid credentials sign in to dashboard
-- **GIVEN** the dashboard login screen is open
-- **WHEN** the user enters `jane@advanceseeds.com` and the correct password and submits
-- **THEN** they are redirected to the home screen and a session is persisted in localStorage
+The mobile app SHALL allow a user to sign in with email and password using Supabase Auth.
 
 #### Scenario: Valid credentials sign in to mobile
 - **GIVEN** the mobile login screen is open
@@ -25,7 +20,7 @@ The applications SHALL persist the Supabase session and auto sign-in on next lau
 
 #### Scenario: Reload does not require re-auth
 - **GIVEN** the user is signed in
-- **WHEN** they reload the dashboard or relaunch the mobile app
+- **WHEN** they relaunch the mobile app
 - **THEN** they land on the home screen without re-entering credentials
 
 ### Requirement: Sign-out clears session

@@ -1,6 +1,6 @@
 # Project Hand-off — Advance Seeds Field Inspector Demo
 
-**Status: production-shaped mobile demo (v0.3.x).** Mobile is a custom dev-client running on real camera hardware with prototype-faithful navigation, the three-step capture journey, ROI tools, video recording, snapshots to Photos, ArUco + LiDAR calibration, **in-app notifications**, **dropdown-search variety/batch pickers**, **auto-tag GPS location** on captures and recordings, and a polished Library tab. Web dashboard unchanged. ML Phase 1 now uses an on-device classical analyzer behind the `SeedAnalyzer` interface; Phase 2 TFLite/Core ML remains the next analyzer uplift.
+**Status: production-shaped mobile demo (v0.3.x).** Mobile is a custom dev-client running on real camera hardware with prototype-faithful navigation, the three-step capture journey, ROI tools, video recording, snapshots to Photos, ArUco + LiDAR calibration, **in-app notifications**, **dropdown-search variety/batch pickers**, **auto-tag GPS location** on captures and recordings, and a polished Library tab. ML Phase 1 now uses an on-device classical analyzer behind the `SeedAnalyzer` interface; Phase 2 TFLite/Core ML remains the next analyzer uplift.
 
 > **Working directory:** `/Users/ppungpong/Github/advance-seeds-field-inspector-demo`. Do **not** build from the iCloud path (`~/Library/Mobile Documents/...`) — Ruby's `require` breaks on the ZWJ emoji in the path, which kills `pod install`. See [Critical environment rules](#critical-environment-rules-read-before-any-rebuild).
 
@@ -12,7 +12,6 @@
 
 | Surface              | URL / How to run                                                             | Notes                                                                                |
 | -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Web dashboard**    | <https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/> | Auto-deploys on every merge to `main` via GitHub Actions                             |
 | **Mobile app**       | `npx expo run:ios --device` (one-time) → JS reload over Metro for daily work | iOS + Android via custom dev-client APK / IPA. SDK 54, mocked YOLOv11n, manual calib |
 | **Supabase backend** | `gqsxiohxokgwwugeoxmy.supabase.co` (cloud) + local Docker                    | 7 tables, RLS, 7 seeded inspections, 2 users, recordings + inspection metadata       |
 
@@ -28,14 +27,14 @@
 ## Architecture in one diagram
 
 ```
-┌──────────────────────┐                ┌──────────────────────┐
-│  Web Dashboard       │                │  Mobile (Expo Go)    │
-│  Vite + React + TS   │◀── tokens ─▶ │  RN + NativeWind     │
-│  GitHub Pages        │                │  Expo Router         │
-└──────────┬───────────┘                └──────────┬───────────┘
-           │                                       │
-           │  Supabase JS SDK (anon key + RLS)     │
-           ▼                                       ▼
+                          ┌──────────────────────┐
+              tokens ───▶ │  Mobile (Custom DC)  │
+                          │  RN + NativeWind     │
+                          │  Expo Router         │
+                          └──────────┬───────────┘
+                                     │
+                                     │  Supabase JS SDK (anon key + RLS)
+                                     ▼
        ┌────────────────────────────────────────────┐
        │  Supabase: Postgres + Auth + Storage       │
        │  6 tables · 5 enums · RLS per role         │
@@ -58,7 +57,6 @@
 ```
 03 - Demo/
 ├── apps/
-│   ├── dashboard/          ← Vite SPA → GitHub Pages
 │   └── mobile/             ← Expo + RN + NativeWind
 ├── packages/
 │   ├── tokens/             ← design tokens generated from JSON → Tailwind preset + CSS vars + TS
@@ -75,7 +73,7 @@
 ├── openspec/
 │   ├── specs/              ← 10 durable capability specs (now incl. mobile-navigation)
 │   └── changes/            ← active: mobile-real-usage, prototype-fidelity-pass
-├── .github/workflows/      ← ci.yml + deploy-dashboard.yml
+├── .github/workflows/      ← ci.yml
 └── .npmrc, pnpm-workspace.yaml, …
 ```
 
@@ -256,8 +254,7 @@ The mobile app moved from "CRUD over a sample image in Expo Go" to **production-
 6. **`reporting-and-export`** — filters, KPIs, CSV export with locked column order (3 reqs)
 7. **`internationalization`** — EN + TH parity, device-locale default, no raw English in JSX (3 reqs)
 8. **`theming`** — light + dark mode, tokens-only (no inline hex), system-following toggle (3 reqs)
-9. **`web-dashboard-deployment`** — auto-deploy to GH Pages, 404 SPA fallback, base-path safe (3 reqs)
-10. **`mobile-navigation`** — bottom tab bar shape, More menu groupings, three-step capture journey, Home dashboard composition (5 reqs, added by `prototype-fidelity-pass`)
+9. **`mobile-navigation`** — bottom tab bar shape, More menu groupings, three-step capture journey, Home dashboard composition (5 reqs, added by `prototype-fidelity-pass`)
 
 ### Quality gates that ship
 
@@ -309,9 +306,6 @@ pnpm supabase:start
 # Apply schema (one-time per fresh project)
 pnpm supabase:types
 pnpm supabase:seed-all
-
-# Run dashboard at :5173
-pnpm -F @advance-seeds/dashboard dev
 
 # Run mobile via custom dev client
 # First-time per device: builds + installs the dev-client APK / IPA.

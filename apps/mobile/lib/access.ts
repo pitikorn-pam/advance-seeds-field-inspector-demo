@@ -1,9 +1,3 @@
-// Mirror of apps/dashboard/src/lib/access.ts. Same RLS contract, same behavior.
-// Kept as a sibling copy (not a workspace package) because the dashboard ships
-// to GH Pages and the mobile app ships through Metro — sharing one TS module
-// across two bundlers complicates Hermes/web compat. Both files must stay in
-// sync; review them together when changing the role model.
-
 import type { Inspection, Profile, Role } from "@advance-seeds/types";
 
 export interface AccessPolicy {

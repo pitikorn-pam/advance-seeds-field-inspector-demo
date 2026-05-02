@@ -8,27 +8,16 @@ context: |
   Purpose: prove product concept and design vision; win the build phase.
   Real ML (YOLOv11n via Ultralytics) is mocked for the demo and integrated post-win.
 
-  TWO SURFACES, ONE BACKEND
-  - Web dashboard (R&D analytics) — Vite + React + TS, deployed to GitHub Pages
-  - Native mobile (field inspector) — Expo (React Native) + TS, distributed via Expo Go for demo
+  ONE SURFACE, ONE BACKEND
+  - Native mobile (field inspector) — Expo (React Native) + TS, distributed via Firebase App Distribution
   - Backend: Supabase (Postgres + Auth + Storage + RLS)
 
   DESIGN SYSTEM
   Source of truth: docs/handoff/design-tokens.json. Tokens flow into:
-    - apps/dashboard via Tailwind config + CSS vars (--as-*)
     - apps/mobile via NativeWind (Tailwind for RN)
-    - packages/tokens generates both from the JSON
+    - packages/tokens generates the TS export from the JSON
   Reference platform stubs (docs/handoff/DesignTokens.swift, Theme.kt) preserved for
   the eventual native iOS/Android build phase. Do not drift from token names.
-
-  WEB DASHBOARD STACK
-  - Vite + React 18 + TypeScript (strict)
-  - Tailwind CSS + shadcn/ui
-  - TanStack Query (server state), React Router, Zustand (light client state)
-  - react-i18next (en, th)
-  - Light + dark mode via CSS vars (already tokenized)
-  - GitHub Pages base path: /advance-seeds-field-inspector-demo/
-  - Deploy: GitHub Actions to gh-pages branch
 
   MOBILE APP STACK
   - Expo SDK 52+ (RN 0.76+ New Architecture)
@@ -56,7 +45,7 @@ context: |
   - Schema + RLS + seed live in supabase/ as migrations and seed.sql.
 
   CRUD SCOPE (DEMO V1)
-  Full CRUD: Inspections, Varieties, Batches.
+  Full CRUD: Inspections, Varieties, Batches (mobile).
   Read-only: Profiles (users), Calibration profiles.
   Bonus screens: Settings, Calibration view, Reports/CSV exports.
 
@@ -71,19 +60,18 @@ context: |
   No raw English strings in components — all UI strings via t().
 
   REPO LAYOUT (pnpm monorepo)
-    apps/dashboard          → Vite SPA (GH Pages)
     apps/mobile             → Expo app
     packages/tokens         → TS tokens generated from design-tokens.json
     packages/types          → Supabase generated types
     supabase/               → migrations, seed.sql, RLS policies, types codegen
     docs/handoff/           → original design system handoff (preserved)
     openspec/               → spec-driven dev artifacts
-    .github/workflows/      → CI + GH Pages deploy
+    .github/workflows/      → CI
 
   TIMELINE — ~2.5 WEEKS
-  Week 1: monorepo scaffold, Supabase schema/RLS/seed, auth, dashboard CRUD.
-  Week 2: Expo shell + nav, mobile auth, mobile CRUD, capture flow with mocked ML.
-  Week 2.5: EN/TH i18n, light/dark polish, reports/CSV, GH Pages deploy, dry-run.
+  Week 1: monorepo scaffold, Supabase schema/RLS/seed, mobile auth.
+  Week 2: Expo shell + nav, mobile CRUD, capture flow with mocked ML.
+  Week 2.5: EN/TH i18n, light/dark polish, reports/CSV, dry-run.
 
   CONVENTIONS
   - TypeScript strict everywhere; no `any` without justification comment.
@@ -105,7 +93,7 @@ rules:
     - Call out the abstraction seam if a future swap is anticipated (e.g. ML adapter).
     - Show file/folder layout for any new package or app.
   tasks:
-    - Group by phase (Scaffold / Schema / Backend / Dashboard / Mobile / Polish / Deploy).
+    - Group by phase (Scaffold / Schema / Backend / Mobile / Polish / Deploy).
     - Each task max ~2 hours; if larger, split.
     - Mark blocking dependencies explicitly.
   specs:

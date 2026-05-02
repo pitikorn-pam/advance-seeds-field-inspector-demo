@@ -1,7 +1,7 @@
 # Advance Seeds Field Inspector — Demo
 
 Presale demo for the Advance Seeds Field Inspector platform.
-A web dashboard for the R&D team and a native mobile app (Expo) for field inspectors, sharing one Supabase backend.
+A native mobile app (Expo) for field inspectors, backed by Supabase.
 
 > **Status:** scaffolding phase. ML core is **mocked** for the demo. Real YOLOv11n integration is post-presale.
 
@@ -10,8 +10,7 @@ A web dashboard for the R&D team and a native mobile app (Expo) for field inspec
 ## What's in here
 
 ```
-apps/dashboard          → Vite + React + TS, deployed to GitHub Pages
-apps/mobile             → Expo + RN + TS, distributed via Expo Go
+apps/mobile             → Expo + RN + TS, distributed via Firebase App Distribution
 packages/tokens         → design tokens generated from docs/handoff/design-tokens.json
 packages/types          → shared TS types incl. SeedAnalyzer interface
 packages/i18n           → en + th translation resources
@@ -39,15 +38,14 @@ openspec/               → spec-driven dev artifacts
 pnpm install
 
 # 2. Set up env (fill in Supabase URL + anon key from your project owner)
-cp apps/dashboard/.env.example apps/dashboard/.env.local
 cp apps/mobile/.env.example apps/mobile/.env.local
 
 # 3. Apply Supabase schema and seed (one-time per project)
 pnpm supabase:types
 pnpm supabase:seed-users
 
-# 4. Run dev servers (dashboard at :5173, Expo dev tools open separately)
-pnpm dev
+# 4. Start the Expo dev server
+pnpm -F @advance-seeds/mobile start
 ```
 
 ## Demo accounts
@@ -58,20 +56,6 @@ pnpm dev
 | `alex@advanceseeds.com` | (set in seed script) | admin     |
 
 ## Demo distribution
-
-### Dashboard (web)
-
-Live URL: <https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/>
-
-Auto-deploys on every merge to `main` via [`.github/workflows/deploy-dashboard.yml`](.github/workflows/deploy-dashboard.yml). The workflow builds with `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` from repo settings, then publishes `apps/dashboard/dist/` to the `gh-pages` branch.
-
-**One-time setup on the GitHub repo:**
-
-1. **Settings → Pages** → Source: `Deploy from a branch` → Branch: `gh-pages` / `(root)`.
-2. **Settings → Variables → Actions** → add `VITE_SUPABASE_URL` (= `https://gqsxiohxokgwwugeoxmy.supabase.co`).
-3. **Settings → Secrets → Actions** → add `VITE_SUPABASE_ANON_KEY` (the anon key — yes, it's safe in client bundles, but keeping it as a secret keeps it out of action logs).
-
-The `404.html` shim (in `apps/dashboard/public/`) handles deep-link bouncing so URLs like `/inspections/abc` survive a hard reload on GitHub Pages.
 
 ### Mobile (custom dev client + Firebase App Distribution)
 

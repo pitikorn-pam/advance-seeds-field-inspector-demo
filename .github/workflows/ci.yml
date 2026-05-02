@@ -45,12 +45,6 @@ jobs:
       - name: Test (workspace recursive)
         run: pnpm -r --if-present test
 
-      - name: Build dashboard
-        env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: pnpm -F @advance-seeds/dashboard build
-
   openspec:
     name: OpenSpec validate
     runs-on: ubuntu-latest

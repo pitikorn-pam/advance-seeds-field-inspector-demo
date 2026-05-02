@@ -2,7 +2,7 @@
   "name": "advance-seeds-field-inspector-demo",
   "version": "0.1.0",
   "private": true,
-  "description": "Advance Seeds Field Inspector — presale demo (web dashboard + Expo mobile + Supabase).",
+  "description": "Advance Seeds Field Inspector — presale demo (Expo mobile + Supabase).",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=20.19.0",

@@ -4,7 +4,7 @@
 TBD - created by archiving change seed-inspector-demo-foundation. Update Purpose after archive.
 ## Requirements
 ### Requirement: Monorepo workspace
-The repository SHALL be a pnpm workspace with `apps/dashboard`, `apps/mobile`, `packages/tokens`, `packages/types`, `packages/i18n`, and `supabase/` as discoverable workspace members.
+The repository SHALL be a pnpm workspace with `apps/mobile`, `packages/tokens`, `packages/types`, `packages/i18n`, and `supabase/` as discoverable workspace members.
 
 #### Scenario: Workspace install resolves all packages
 - **WHEN** a developer runs `pnpm install` from the repo root

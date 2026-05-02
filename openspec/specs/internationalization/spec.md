@@ -4,13 +4,7 @@
 TBD - created by archiving change seed-inspector-demo-foundation. Update Purpose after archive.
 ## Requirements
 ### Requirement: English and Thai locales
-Both apps SHALL ship complete UI translations for English (`en`) and Thai (`th`) covering every visible string in the demo flows.
-
-#### Scenario: Toggle to Thai changes all visible text
-- **GIVEN** the dashboard is open in English
-- **WHEN** the user selects "ภาษาไทย" from the locale switcher
-- **THEN** every visible label, button, error, and empty state on the current screen renders in Thai
-- **AND** the choice persists across reloads
+The mobile app SHALL ship complete UI translations for English (`en`) and Thai (`th`) covering every visible string in the demo flows.
 
 #### Scenario: Mobile toggle changes all visible text
 - **GIVEN** the mobile Settings screen
@@ -18,7 +12,7 @@ Both apps SHALL ship complete UI translations for English (`en`) and Thai (`th`)
 - **THEN** every screen on subsequent navigation renders in Thai
 
 ### Requirement: Default locale follows device
-On first launch with no persisted preference, both apps SHALL default to the device locale if Thai or English; otherwise SHALL default to English.
+On first launch with no persisted preference, the mobile app SHALL default to the device locale if Thai or English; otherwise SHALL default to English.
 
 #### Scenario: Thai phone gets Thai default
 - **GIVEN** a fresh install on a phone whose locale is `th-TH`
