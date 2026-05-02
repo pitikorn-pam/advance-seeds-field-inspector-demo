@@ -21,6 +21,12 @@ the More tab uses an overflow / horizontal-dots icon.
 - **AND** the app does not show a native view reparenting error during the
   transition
 
+#### Scenario: Capture prerequisites uses back navigation
+- **GIVEN** Jane opens Capture prerequisites from the capture mode picker
+- **WHEN** the screen renders
+- **THEN** the top-left navigation action uses a back chevron
+- **AND** tapping it returns to the previous capture screen
+
 ### Requirement: Long mobile lists remain virtualized
 The mobile app SHALL render long-running library and activity lists with
 virtualized list primitives so offscreen rows are mounted lazily instead of

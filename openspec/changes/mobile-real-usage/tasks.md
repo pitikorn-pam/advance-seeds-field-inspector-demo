@@ -236,3 +236,4 @@
 - [ ] 20.8 Android annotation verification — TFLite NMS output was normalized `0..1`, so decode it as normalized boxes, cap native-live effective score threshold at 0.25, and keep overlay keys unique when duplicate class/bucket detections arrive; verify Banana detections draw on the Z Flip 7 FE when the model returns class 46.
 - [ ] 21.1 Home dark-mode contrast — notification bell and sync banner labels/icons remain readable in dark mode.
 - [ ] 21.2 List virtualization — History, Varieties, and Batches use virtualized lists with controls in list headers; Recordings keeps its existing virtualized recording list.
+- [ ] 21.3 Capture prerequisites navigation — use a back chevron/action instead of a close affordance because the screen is pushed from the capture mode picker.

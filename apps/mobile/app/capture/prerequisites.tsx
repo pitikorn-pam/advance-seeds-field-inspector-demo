@@ -2,7 +2,7 @@ import { ScrollView, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { X } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 
 export default function CapturePrerequisites() {
@@ -14,8 +14,8 @@ export default function CapturePrerequisites() {
       <AppTopBar
         title={t("inspections:capture.modePicker.infoTitle")}
         left={{
-          accessibilityLabel: t("common:actions.close"),
-          renderIcon: () => <X color="#1A1A1A" size={18} />,
+          accessibilityLabel: t("common:actions.back"),
+          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
           onPress: () => router.back(),
         }}
       />
