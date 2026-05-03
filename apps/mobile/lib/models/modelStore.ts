@@ -112,7 +112,8 @@ export async function verifyInstalledArtifact(record: InstalledModelRecord): Pro
     const base64 = await FileSystem.readAsStringAsync(record.artifactUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    return sha256Base64(base64) === record.artifactSha256.toLowerCase();
+    const computed = await sha256Base64(base64);
+    return computed === record.artifactSha256.toLowerCase();
   } catch {
     return false;
   }

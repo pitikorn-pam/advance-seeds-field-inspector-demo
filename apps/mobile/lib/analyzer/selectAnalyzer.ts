@@ -1,5 +1,5 @@
-import { Platform } from "react-native";
 import type { SeedAnalyzer } from "@advance-seeds/types";
+import { Platform } from "react-native";
 import { ClassicalSeedAnalyzer } from "./ClassicalSeedAnalyzer";
 import { CoreMLSeedAnalyzer } from "./CoreMLSeedAnalyzer";
 import { MockSeedAnalyzer } from "./MockSeedAnalyzer";
@@ -16,6 +16,15 @@ export async function selectAnalyzer(): Promise<SeedAnalyzer> {
     try {
       const coreml = await CoreMLSeedAnalyzer.load();
       console.info("[analyzer] selected coreml-yolo");
+      // Log active model hint for diagnostics
+      try {
+        const { readActiveModel } = await import("@/lib/models/modelStore");
+        const active = await readActiveModel();
+        if (active)
+          console.info(`[analyzer] coreml active model=${active.id} status=${active.status}`);
+      } catch (e) {
+        // ignore logging errors
+      }
       return coreml;
     } catch (err) {
       console.warn("[analyzer] coreml unavailable; falling back to tflite", err);
@@ -24,6 +33,14 @@ export async function selectAnalyzer(): Promise<SeedAnalyzer> {
   try {
     const tflite = await TfliteSeedAnalyzer.load();
     console.info("[analyzer] selected tflite-yolo");
+    try {
+      const { readActiveModel } = await import("@/lib/models/modelStore");
+      const active = await readActiveModel();
+      if (active)
+        console.info(`[analyzer] tflite active model=${active.id} status=${active.status}`);
+    } catch (e) {
+      // ignore logging errors
+    }
     return tflite;
   } catch (err) {
     console.warn("[analyzer] tflite unavailable; falling back to classical", err);

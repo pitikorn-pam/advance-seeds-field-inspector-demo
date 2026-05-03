@@ -4,7 +4,12 @@
     "appearance": "รูปลักษณ์",
     "language": "ภาษา",
     "sync": "การซิงค์",
+    "models": "โมเดล",
     "app": "แอป"
+  },
+  "models": {
+    "autoInstallOnWifi": "ติดตั้งอัตโนมัติเมื่อใช้ Wi-Fi",
+    "autoInstallOnWifiHint": "ดาวน์โหลดและเปิดใช้งานโมเดล production ใหม่เงียบๆ เมื่อเชื่อมต่อ Wi-Fi โดยจะไม่ใช้เซลลูลาร์"
   },
   "appearanceHint": "เลือกโหมดสว่าง มืด หรือใช้ตามอุปกรณ์",
   "version": "เวอร์ชัน",

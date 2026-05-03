@@ -1,45 +1,77 @@
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
-import { useRouter } from "expo-router";
-import { ChevronLeft, Download, RefreshCw, RotateCcw, Trash2, Zap } from "lucide-react-native";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
+import { Segmented } from "@/components/ui/Segmented";
+import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
+import {
+  cancelArtifactDownload,
+  installCandidate,
+  type InstallProgress,
+} from "@/lib/models/modelRegistry";
 import {
   activateInstalledModel,
   deleteInstalledModel,
   readActiveModel,
   readInstalledModels,
   readPreviousActiveModel,
-  rollbackActiveModel,
 } from "@/lib/models/modelStore";
-import { installCandidate, loadCandidatesFromIndex } from "@/lib/models/modelRegistry";
 import {
-  defaultDeploymentListUrl,
   listDeployedModelCandidates,
+  resolveDefaultModel,
   type DeploymentChannel,
 } from "@/lib/models/registryService";
+import { publishResolveResult } from "@/lib/models/updateStore";
 import type { InstalledModelRecord, ModelCandidate } from "@/lib/models/types";
-import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
+  Download,
+  RefreshCw,
+  RotateCcw,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+type RowStatus = "active" | "installed" | "available" | "unsupported";
+
+interface RegistryRow {
+  candidate: ModelCandidate;
+  installedRecord: InstalledModelRecord | null;
+  isActive: boolean;
+  isPreviousActive: boolean;
+  status: RowStatus;
+}
 
 export default function ModelRegistryScreen() {
   const { t } = useTranslation(["common", "more"]);
   const router = useRouter();
-  const [channel, setChannel] = useState<DeploymentChannel>("staging");
-  const [indexUrl, setIndexUrl] = useState(defaultDeploymentListUrl("staging"));
+  const params = useLocalSearchParams<{ install?: string }>();
+  const requestedInstallVersionId = typeof params.install === "string" ? params.install : null;
+
+  const [channel, setChannel] = useState<DeploymentChannel>("production");
   const [candidates, setCandidates] = useState<ModelCandidate[]>([]);
   const [installed, setInstalled] = useState<InstalledModelRecord[]>([]);
   const [active, setActive] = useState<InstalledModelRecord | null>(null);
   const [previous, setPrevious] = useState<InstalledModelRecord | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [progressById, setProgressById] = useState<Record<string, InstallProgress>>({});
+  const autoInstallTriggeredRef = useRef(false);
 
   const installedById = useMemo(() => new Map(installed.map((m) => [m.id, m])), [installed]);
 
-  const reloadInstalled = async () => {
+  const reloadInstalled = useCallback(async () => {
     const [rows, activeRow, previousRow] = await Promise.all([
       readInstalledModels(),
       readActiveModel(),
@@ -48,98 +80,226 @@ export default function ModelRegistryScreen() {
     setInstalled(rows);
     setActive(activeRow);
     setPrevious(previousRow);
+  }, []);
+
+  // One refresh = list candidates AND probe resolve-channel in parallel.
+  // Publishing the resolve result keeps the Home banner in sync; listing
+  // candidates is what populates this screen. Same intent, one button.
+  const refresh = useCallback(
+    async (nextChannel: DeploymentChannel) => {
+      setBusy("refresh");
+      setError(null);
+      setStatusMessage(null);
+      try {
+        const activeRecord = await readActiveModel();
+        const [list, resolveRes] = await Promise.all([
+          listDeployedModelCandidates({ channel: nextChannel }),
+          resolveDefaultModel({
+            channel: nextChannel,
+            currentVersion: activeRecord?.manifest?.display_name ?? "",
+            currentCompat: activeRecord?.metadata?.model_version ?? "",
+          }).catch(() => null),
+        ]);
+        setCandidates(list);
+        if (resolveRes) publishResolveResult(resolveRes);
+        if (resolveRes && resolveRes.action !== "update") {
+          setStatusMessage(t("more:models.upToDate"));
+        }
+        return list;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        return [];
+      } finally {
+        setBusy(null);
+      }
+    },
+    [t],
+  );
+
+  const install = useCallback(
+    async (candidate: ModelCandidate) => {
+      setBusy(`install:${candidate.id}`);
+      setError(null);
+      setProgressById((p) => ({ ...p, [candidate.id]: { phase: "preparing" } }));
+      try {
+        await installCandidate(candidate, (progress) => {
+          setProgressById((p) => ({ ...p, [candidate.id]: progress }));
+        });
+        await reloadInstalled();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(null);
+        setProgressById((p) => {
+          const next = { ...p };
+          delete next[candidate.id];
+          return next;
+        });
+      }
+    },
+    [reloadInstalled],
+  );
+
+  const activate = useCallback(
+    async (record: InstalledModelRecord) => {
+      setBusy(`activate:${record.id}`);
+      setError(null);
+      try {
+        await activateInstalledModel(record);
+        resetSharedTfliteModel();
+        await reloadInstalled();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [reloadInstalled],
+  );
+
+  const remove = useCallback(
+    (record: InstalledModelRecord) => {
+      Alert.alert(
+        t("more:models.deleteConfirmTitle", { name: record.displayName }),
+        t("more:models.deleteConfirmBody"),
+        [
+          { text: t("common:actions.cancel"), style: "cancel" },
+          {
+            text: t("common:actions.delete"),
+            style: "destructive",
+            onPress: async () => {
+              setBusy(`delete:${record.id}`);
+              try {
+                await deleteInstalledModel(record.id);
+                await reloadInstalled();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+              } finally {
+                setBusy(null);
+              }
+            },
+          },
+        ],
+        { cancelable: true },
+      );
+    },
+    [reloadInstalled, t],
+  );
+
+  const cancelInstall = (id: string) => {
+    setError(null);
+    setBusy(null);
+    cancelArtifactDownload(id);
+    setProgressById((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
   };
 
   useEffect(() => {
     void reloadInstalled();
-  }, []);
+  }, [reloadInstalled]);
 
-  const refreshIndex = async () => {
-    setBusy("index");
-    setError(null);
-    try {
-      const selectedChannelUrl = defaultDeploymentListUrl(channel);
-      const sourceUrl = indexUrl.trim();
-      if (!sourceUrl || sourceUrl === selectedChannelUrl) {
-        setCandidates(await listDeployedModelCandidates({ channel }));
-        setIndexUrl(selectedChannelUrl);
-      } else {
-        setCandidates(await loadCandidatesFromIndex(sourceUrl));
+  // Auto-fetch on mount and on channel change.
+  useEffect(() => {
+    void refresh(channel);
+  }, [channel, refresh]);
+
+  // Deep link from the home banner: ?install=<version_id>. Switch to
+  // production, refresh, then install the matching candidate. Guarded
+  // by a ref so it fires once per mount.
+  useEffect(() => {
+    if (!requestedInstallVersionId || autoInstallTriggeredRef.current) return;
+    autoInstallTriggeredRef.current = true;
+    void (async () => {
+      setChannel("production");
+      const list = await refresh("production");
+      const candidate = list.find((c) => {
+        const reg = c.metadata?.registry as { version_id?: string } | undefined;
+        return reg?.version_id === requestedInstallVersionId;
+      });
+      if (!candidate) {
+        setError(t("more:models.candidateMissing"));
+        return;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(null);
-    }
-  };
+      const installedRecord = (await readInstalledModels()).find((r) => r.id === candidate.id);
+      if (installedRecord) {
+        setStatusMessage(t("more:models.alreadyInstalled"));
+        return;
+      }
+      await install(candidate);
+    })();
+  }, [requestedInstallVersionId, refresh, install, t]);
 
-  const selectChannel = (next: DeploymentChannel) => {
-    setChannel(next);
-    setIndexUrl(defaultDeploymentListUrl(next));
-  };
+  // Build the unified list. Server-listed candidates come first (in the
+  // order the registry returned them); any locally-installed records the
+  // server no longer lists are appended so the user can still uninstall
+  // them. Each row carries its own status — no parallel sections.
+  const rows = useMemo<RegistryRow[]>(() => {
+    const seen = new Set<string>();
+    const fromCandidates: RegistryRow[] = candidates.map((candidate) => {
+      seen.add(candidate.id);
+      const installedRecord = installedById.get(candidate.id) ?? null;
+      const isActive = active?.id === candidate.id;
+      const isPreviousActive = !isActive && previous?.id === candidate.id;
+      const status: RowStatus = !candidate.supported
+        ? "unsupported"
+        : isActive
+          ? "active"
+          : installedRecord
+            ? "installed"
+            : "available";
+      return { candidate, installedRecord, isActive, isPreviousActive, status };
+    });
 
-  const install = async (candidate: ModelCandidate) => {
-    setBusy(`install:${candidate.id}`);
-    setError(null);
-    try {
-      const record = await installCandidate(candidate);
-      await reloadInstalled();
-      Alert.alert(t("more:models.installedTitle"), record.displayName);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(null);
-    }
-  };
+    // Locally-installed rows that the current channel doesn't list (e.g.
+    // installed from the other channel, or pulled from the registry
+    // since). Surface them so the user can still activate / delete.
+    const orphanRows: RegistryRow[] = installed
+      .filter((r) => !seen.has(r.id))
+      .map((record) => {
+        const isActive = active?.id === record.id;
+        const isPreviousActive = !isActive && previous?.id === record.id;
+        const synthetic: ModelCandidate = {
+          id: record.id,
+          displayName: record.displayName,
+          quantization: record.quantization,
+          manifest: record.manifest,
+          manifestUrl: "",
+          metadataUrl: "",
+          metadata: record.metadata,
+          artifactUrl: null,
+          platform: record.platform,
+          supported: true,
+        };
+        return {
+          candidate: synthetic,
+          installedRecord: record,
+          isActive,
+          isPreviousActive,
+          status: isActive ? "active" : "installed",
+        };
+      });
 
-  const activate = async (record: InstalledModelRecord) => {
-    setBusy(`activate:${record.id}`);
-    setError(null);
-    try {
-      await activateInstalledModel(record);
-      resetSharedTfliteModel();
-      await reloadInstalled();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(null);
-    }
-  };
+    return [...fromCandidates, ...orphanRows];
+  }, [candidates, installedById, installed, active?.id, previous?.id]);
 
-  const rollback = async () => {
-    setBusy("rollback");
-    setError(null);
-    try {
-      await rollbackActiveModel();
-      resetSharedTfliteModel();
-      await reloadInstalled();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const remove = async (record: InstalledModelRecord) => {
-    Alert.alert(t("common:actions.delete"), record.displayName, [
-      { text: t("common:actions.cancel"), style: "cancel" },
-      {
-        text: t("common:actions.delete"),
-        style: "destructive",
-        onPress: async () => {
-          setBusy(`delete:${record.id}`);
-          try {
-            await deleteInstalledModel(record.id);
-            await reloadInstalled();
-          } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
-          } finally {
-            setBusy(null);
-          }
-        },
-      },
-    ]);
-  };
+  // Active first, then other installed; Available holds anything not yet
+  // installed (plus unsupported candidates so the user sees why they
+  // can't install them). The split lets the user distinguish "what I
+  // have on device" from "what's on the registry I could fetch."
+  const installedRows = useMemo(
+    () =>
+      rows
+        .filter((r) => r.status === "active" || r.status === "installed")
+        .sort((a, b) => Number(b.isActive) - Number(a.isActive)),
+    [rows],
+  );
+  const availableRows = useMemo(
+    () => rows.filter((r) => r.status === "available" || r.status === "unsupported"),
+    [rows],
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -153,213 +313,533 @@ export default function ModelRegistryScreen() {
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
         <Text className="text-caption text-fg-secondary">{t("more:models.intro")}</Text>
-        <View className="flex-row gap-sm">
-          <Pressable
-            accessibilityRole="button"
-            className={`h-9 flex-1 items-center justify-center rounded-md border ${
-              channel === "staging"
-                ? "border-brand bg-brand"
-                : "border-line-secondary bg-bg-primary"
-            }`}
-            onPress={() => selectChannel("staging")}
-          >
-            <Text
-              className={`text-title font-medium ${channel === "staging" ? "text-brand-on" : "text-fg-primary"}`}
-            >
-              {t("more:models.staging")}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            className={`h-9 flex-1 items-center justify-center rounded-md border ${
-              channel === "production"
-                ? "border-brand bg-brand"
-                : "border-line-secondary bg-bg-primary"
-            }`}
-            onPress={() => selectChannel("production")}
-          >
-            <Text
-              className={`text-title font-medium ${channel === "production" ? "text-brand-on" : "text-fg-primary"}`}
-            >
-              {t("more:models.production")}
-            </Text>
-          </Pressable>
-        </View>
-        <View className="rounded-xl border border-line-tertiary bg-bg-primary px-md py-sm">
-          <Text className="text-caption text-fg-secondary">{t("more:models.indexUrl")}</Text>
-          <TextInput
-            value={indexUrl}
-            onChangeText={setIndexUrl}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            className="mt-xs text-body text-fg-primary"
+
+        {statusMessage ? (
+          <StatusBanner
+            tone="success"
+            title={t("more:models.upToDateTitle")}
+            message={statusMessage}
+            onDismiss={() => setStatusMessage(null)}
           />
-        </View>
-        <Button
-          label={busy === "index" ? t("common:states.loading") : t("more:models.refresh")}
-          renderLeadingIcon={() => <RefreshCw color="#FFFFFF" size={18} />}
-          onPress={refreshIndex}
-          disabled={busy !== null}
+        ) : null}
+        {error ? (
+          <StatusBanner
+            tone="danger"
+            title={t("more:models.installFailedTitle")}
+            message={error}
+            onDismiss={() => setError(null)}
+          />
+        ) : null}
+
+        <RowSection
+          title={t("more:models.installed")}
+          rows={installedRows}
+          loading={busy === "refresh" && rows.length === 0}
+          emptyLabel={t("more:models.noInstalled")}
+          busy={busy}
+          progressById={progressById}
+          onInstall={(c) => install(c)}
+          onActivate={(r) => activate(r)}
+          onDelete={(r) => remove(r)}
+          onCancel={(id) => cancelInstall(id)}
         />
-        <Text className="text-caption text-fg-secondary">{t("more:models.endpointHint")}</Text>
-        {error ? <Text className="text-caption text-danger-text">{error}</Text> : null}
 
-        <Section title={t("more:models.available")}>
-          {candidates.length === 0 ? (
-            <Text className="text-body text-fg-secondary">{t("more:models.noCandidates")}</Text>
-          ) : (
-            candidates.map((candidate) => (
-              <CandidateRow
-                key={candidate.id}
-                candidate={candidate}
-                installed={installedById.get(candidate.id)}
-                busy={busy === `install:${candidate.id}`}
-                onInstall={() => install(candidate)}
+        <RowSection
+          title={t("more:models.available")}
+          rows={availableRows}
+          loading={busy === "refresh" && rows.length === 0}
+          emptyLabel={t("more:models.noCandidatesForChannel")}
+          busy={busy}
+          progressById={progressById}
+          onInstall={(c) => install(c)}
+          onActivate={(r) => activate(r)}
+          onDelete={(r) => remove(r)}
+          onCancel={(id) => cancelInstall(id)}
+          headerRight={
+            <View className="flex-row items-center gap-xs">
+              <Segmented<DeploymentChannel>
+                value={channel}
+                onChange={(v) => setChannel(v)}
+                variant="tag"
+                options={[
+                  { value: "staging", label: t("more:models.staging") },
+                  { value: "production", label: t("more:models.production") },
+                ]}
               />
-            ))
-          )}
-        </Section>
-
-        <Section title={t("more:models.installed")}>
-          {installed.length === 0 ? (
-            <Text className="text-body text-fg-secondary">{t("more:models.noInstalled")}</Text>
-          ) : (
-            installed.map((record) => (
-              <InstalledRow
-                key={record.id}
-                record={record}
-                active={active?.id === record.id}
-                busy={busy}
-                onActivate={() => activate(record)}
-                onDelete={() => remove(record)}
-              />
-            ))
-          )}
-        </Section>
-
-        <Section title={t("more:models.rollback")}>
-          {previous ? (
-            <Button
-              variant="outline"
-              label={t("more:models.rollbackTo", { name: previous.displayName })}
-              renderLeadingIcon={() => <RotateCcw color="#0F6E56" size={18} />}
-              onPress={rollback}
-              disabled={busy !== null}
-            />
-          ) : (
-            <Text className="text-body text-fg-secondary">{t("more:models.noRollback")}</Text>
-          )}
-        </Section>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("more:models.refresh")}
+                disabled={busy !== null}
+                onPress={() => void refresh(channel)}
+                hitSlop={6}
+                className={`h-7 w-7 items-center justify-center rounded-full border border-line-secondary ${
+                  busy === "refresh" ? "opacity-50" : ""
+                }`}
+              >
+                <RefreshCw color="#0F6E56" size={14} />
+              </Pressable>
+            </View>
+          }
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function RowSection({
+  title,
+  rows,
+  loading,
+  emptyLabel,
+  busy,
+  progressById,
+  onInstall,
+  onActivate,
+  onDelete,
+  onCancel,
+  headerRight,
+}: {
+  title: string;
+  rows: RegistryRow[];
+  loading: boolean;
+  emptyLabel: string;
+  busy: string | null;
+  progressById: Record<string, InstallProgress>;
+  onInstall: (candidate: ModelCandidate) => void;
+  onActivate: (record: InstalledModelRecord) => void;
+  onDelete: (record: InstalledModelRecord) => void;
+  onCancel: (id: string) => void;
+  headerRight?: React.ReactNode;
+}) {
+  const { t } = useTranslation("common");
   return (
     <View className="gap-sm">
-      <Text className="text-caption uppercase text-fg-secondary px-xs">{title}</Text>
-      <Card className="gap-md">{children}</Card>
+      <View className="flex-row items-center gap-sm px-xs">
+        <Text className="flex-1 text-caption uppercase text-fg-secondary">{title}</Text>
+        {headerRight}
+      </View>
+      <Card className="gap-md">
+        {loading && rows.length === 0 ? (
+          <Text className="text-body text-fg-secondary">{t("states.loading")}</Text>
+        ) : rows.length === 0 ? (
+          <Text className="text-body text-fg-secondary">{emptyLabel}</Text>
+        ) : (
+          rows.map((row, idx) => (
+            <ModelRow
+              key={row.candidate.id}
+              row={row}
+              isLast={idx === rows.length - 1}
+              busy={busy}
+              progress={progressById[row.candidate.id]}
+              onInstall={() => onInstall(row.candidate)}
+              onActivate={() => row.installedRecord && onActivate(row.installedRecord)}
+              onDelete={() => row.installedRecord && onDelete(row.installedRecord)}
+              onCancel={() => onCancel(row.candidate.id)}
+            />
+          ))
+        )}
+      </Card>
     </View>
   );
 }
 
-function CandidateRow({
-  candidate,
-  installed,
-  busy,
-  onInstall,
+type StatusTone = "success" | "danger" | "info";
+
+function StatusBanner({
+  tone,
+  title,
+  message,
+  onDismiss,
 }: {
-  candidate: ModelCandidate;
-  installed: InstalledModelRecord | undefined;
-  busy: boolean;
+  tone: StatusTone;
+  title: string;
+  message: string;
+  onDismiss?: () => void;
+}) {
+  const { t } = useTranslation("common");
+  const palette = STATUS_PALETTE[tone];
+  const Icon = tone === "danger" ? AlertTriangle : tone === "success" ? CheckCircle2 : RefreshCw;
+  return (
+    <View
+      accessibilityRole="alert"
+      className="flex-row gap-md rounded-2xl border px-md py-md"
+      style={{ borderColor: palette.fg, backgroundColor: palette.bg }}
+    >
+      <Icon color={palette.fg} size={20} />
+      <View className="flex-1 gap-xs">
+        <Text className="text-title font-medium" style={{ color: palette.fg }}>
+          {title}
+        </Text>
+        <Text className="text-caption" style={{ color: palette.fg }}>
+          {message}
+        </Text>
+      </View>
+      {onDismiss ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("actions.dismiss")}
+          onPress={onDismiss}
+          hitSlop={8}
+        >
+          <X color={palette.fg} size={18} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+const STATUS_PALETTE: Record<StatusTone, { bg: string; fg: string }> = {
+  success: { bg: "#E6F4EA", fg: "#1F6E3A" },
+  danger: { bg: "#FBEAE8", fg: "#791F1F" },
+  info: { bg: "#E5EEF7", fg: "#1F4F8B" },
+};
+
+function PhaseLabel({ progress }: { progress: InstallProgress }) {
+  const { t } = useTranslation("more");
+  if (progress.phase === "downloading") {
+    const dl = progress.downloadedBytes ?? 0;
+    const total = progress.totalBytes ?? 0;
+    if (total > 0) {
+      const percent = Math.min(100, Math.max(0, Math.round((dl / total) * 100)));
+      return <Text className="text-caption">{t("models.phase.downloading", { percent })}</Text>;
+    }
+    return (
+      <Text className="text-caption">
+        {t("models.phase.downloadingBytes", { kb: Math.round(dl / 1024) })}
+      </Text>
+    );
+  }
+  return <Text className="text-caption">{t(`models.phase.${progress.phase}`)}</Text>;
+}
+
+function ModelRow({
+  row,
+  isLast,
+  busy,
+  progress,
+  onInstall,
+  onActivate,
+  onDelete,
+  onCancel,
+}: {
+  row: RegistryRow;
+  isLast: boolean;
+  busy: string | null;
+  progress?: InstallProgress | undefined;
   onInstall: () => void;
+  onActivate: () => void;
+  onDelete: () => void;
+  onCancel: () => void;
 }) {
   const { t } = useTranslation(["common", "more"]);
+  const { candidate, installedRecord, isActive, isPreviousActive, status } = row;
+  const sizeMb = candidateSizeMb(candidate, installedRecord);
+  const platformLabel = candidate.platform === "android" ? "TFLite" : "Core ML";
+  const installing = busy === `install:${candidate.id}`;
+  const [expanded, setExpanded] = useState(false);
+  const metadata = installedRecord?.metadata ?? candidate.metadata ?? null;
+  const headlineMap = metadata ? pickHeadlineMap(metadata.metrics) : null;
+
   return (
-    <View className="gap-sm border-b border-line-tertiary pb-md">
+    <View className={`gap-sm ${isLast ? "" : "border-b border-line-tertiary pb-md"}`}>
       <View className="flex-row items-center gap-sm">
         <Text className="flex-1 text-title font-medium text-fg-primary">
           {candidate.displayName}
         </Text>
-        <Pill
-          tone={candidate.quantization === "fp16" ? "info" : "neutral"}
-          label={candidate.quantization}
-        />
+        {status === "active" ? (
+          <Pill tone="success" dot label={t("more:models.activePill")} />
+        ) : null}
       </View>
-      <Text className="text-caption text-fg-secondary">
-        {candidate.id} · {candidate.platform === "android" ? "TFLite" : "Core ML"}
-        {candidate.channel ? ` · ${candidate.channel}` : ""}
-      </Text>
-      {candidate.isDefault ? <Pill tone="info" label={t("more:models.defaultPill")} /> : null}
-      {!candidate.supported ? (
+
+      <View className="flex-row flex-wrap items-center gap-xs">
+        <Text className="text-caption text-fg-secondary">
+          {platformLabel}
+          {sizeMb ? ` · ${sizeMb} MB` : ""}
+          {` · ${candidate.quantization}`}
+        </Text>
+        {headlineMap !== null ? (
+          <Pill tone="info" label={`mAP@50 ${headlineMap.toFixed(2)}`} />
+        ) : null}
+        {candidate.isDefault ? <Pill tone="brand" label={t("more:models.defaultPill")} /> : null}
+        {isPreviousActive ? <Pill tone="neutral" label={t("more:models.previousPill")} /> : null}
+      </View>
+
+      {status === "unsupported" ? (
         <Text className="text-caption text-warning-text">{candidate.unsupportedReason}</Text>
-      ) : installed ? (
-        <Pill tone="success" label={t("more:models.installedPill")} />
+      ) : progress ? (
+        <View className="flex-row items-center gap-sm">
+          <View className="flex-1">
+            <PhaseLabel progress={progress} />
+          </View>
+          {progress.phase === "downloading" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              label={t("common:actions.cancel")}
+              onPress={onCancel}
+            />
+          ) : null}
+        </View>
+      ) : status === "active" ? null : status === "installed" ? (
+        <View className="flex-row justify-end gap-sm">
+          <Pressable
+            accessibilityRole="button"
+            className="h-9 flex-row items-center gap-xs rounded-md bg-brand px-md"
+            disabled={busy !== null}
+            onPress={onActivate}
+          >
+            {isPreviousActive ? (
+              <RotateCcw color="#FFFFFF" size={14} />
+            ) : (
+              <Zap color="#FFFFFF" size={14} />
+            )}
+            <Text className="text-title font-medium text-brand-on">
+              {busy === `activate:${candidate.id}`
+                ? t("common:states.loading")
+                : isPreviousActive
+                  ? t("more:models.restore")
+                  : t("more:models.activate")}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            className="h-9 flex-row items-center gap-xs rounded-md bg-danger-bg px-md"
+            disabled={busy !== null}
+            onPress={onDelete}
+          >
+            <Trash2 color="#791F1F" size={14} />
+            <Text className="text-title font-medium text-danger-text">
+              {t("common:actions.delete")}
+            </Text>
+          </Pressable>
+        </View>
       ) : (
         <Button
           size="sm"
-          label={busy ? t("common:states.loading") : t("more:models.download")}
+          label={installing ? t("common:states.loading") : t("more:models.download")}
           renderLeadingIcon={() => <Download color="#FFFFFF" size={16} />}
           onPress={onInstall}
-          disabled={busy}
+          disabled={busy !== null}
         />
       )}
+
+      {metadata ? (
+        <View className="gap-sm">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded }}
+            className="flex-row items-center gap-xs"
+            onPress={() => setExpanded((v) => !v)}
+            hitSlop={6}
+          >
+            <Text className="text-caption text-fg-secondary">
+              {expanded ? t("more:models.hideDetails") : t("more:models.showDetails")}
+            </Text>
+            {expanded ? (
+              <ChevronUp color="#6B6B68" size={14} />
+            ) : (
+              <ChevronDown color="#6B6B68" size={14} />
+            )}
+          </Pressable>
+          {expanded ? (
+            <ModelDetails metadata={metadata} record={installedRecord} candidate={candidate} />
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
-function InstalledRow({
-  record,
-  active,
-  busy,
-  onActivate,
-  onDelete,
-}: {
-  record: InstalledModelRecord;
-  active: boolean;
-  busy: string | null;
-  onActivate: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useTranslation(["common", "more"]);
-  const sizeMb = (record.artifactSizeBytes / 1_000_000).toFixed(1);
+// Headline metric — surfaced as a Pill on the collapsed row. Tries the
+// segmentation mAP first (since this is a -seg model), then bbox mAP,
+// then a generic key. Returns null if none are present so the badge
+// can be skipped cleanly.
+function pickHeadlineMap(metrics: unknown): number | null {
   return (
-    <View className="gap-sm border-b border-line-tertiary pb-md">
-      <View className="flex-row items-center gap-sm">
-        <Text className="flex-1 text-title font-medium text-fg-primary">{record.displayName}</Text>
-        {active ? <Pill tone="success" dot label={t("more:models.activePill")} /> : null}
-      </View>
-      <Text className="text-caption text-fg-secondary">
-        {record.id} · {record.quantization} · {sizeMb} MB · {record.metadata.model_name}
-      </Text>
-      <View className="flex-row gap-sm">
-        <Pressable
-          accessibilityRole="button"
-          className="h-9 flex-row items-center gap-xs rounded-md bg-brand px-md"
-          disabled={active || busy !== null}
-          onPress={onActivate}
-        >
-          <Zap color="#FFFFFF" size={14} />
-          <Text className="text-title font-medium text-brand-on">
-            {busy === `activate:${record.id}`
-              ? t("common:states.loading")
-              : t("more:models.activate")}
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          className="h-9 flex-row items-center gap-xs rounded-md bg-danger-bg px-md"
-          disabled={active || busy !== null}
-          onPress={onDelete}
-        >
-          <Trash2 color="#791F1F" size={14} />
-          <Text className="text-title font-medium text-danger-text">
-            {t("common:actions.delete")}
-          </Text>
-        </Pressable>
-      </View>
+    pickNumber(metrics, [
+      "metrics/mAP50(M)",
+      "metrics/mAP50(B)",
+      "mAP50",
+      "map50",
+      "metrics/mAP_0.5",
+    ]) ?? null
+  );
+}
+
+function pickNumber(source: unknown, keys: string[]): number | null {
+  if (!source || typeof source !== "object") return null;
+  const record = source as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+interface MetricDef {
+  label: string;
+  keys: string[];
+  format?: (n: number) => string;
+}
+
+const PERFORMANCE_METRICS: MetricDef[] = [
+  { label: "mAP@50 (mask)", keys: ["metrics/mAP50(M)"] },
+  { label: "mAP@50-95 (mask)", keys: ["metrics/mAP50-95(M)"] },
+  { label: "mAP@50 (box)", keys: ["metrics/mAP50(B)", "mAP50"] },
+  { label: "mAP@50-95 (box)", keys: ["metrics/mAP50-95(B)", "mAP50-95"] },
+  { label: "Precision", keys: ["metrics/precision(M)", "metrics/precision(B)", "precision"] },
+  { label: "Recall", keys: ["metrics/recall(M)", "metrics/recall(B)", "recall"] },
+  { label: "Fitness", keys: ["fitness"] },
+];
+
+function ModelDetails({
+  metadata,
+  record,
+  candidate,
+}: {
+  metadata: ModelCandidate["metadata"] & {};
+  record: InstalledModelRecord | null;
+  candidate: ModelCandidate;
+}) {
+  const { t } = useTranslation("more");
+  const performanceRows = PERFORMANCE_METRICS.map((m) => ({
+    label: m.label,
+    value: pickNumber(metadata.metrics, m.keys),
+  })).filter((r): r is { label: string; value: number } => r.value !== null);
+
+  const hyperparams = metadata.hyperparameters as Record<string, unknown> | undefined;
+  const trainingRows: { label: string; value: string }[] = hyperparams
+    ? Object.entries(hyperparams)
+        .filter(([, v]) => v !== null && v !== undefined && v !== "")
+        .slice(0, 12)
+        .map(([k, v]) => ({ label: humanizeKey(k), value: formatPrimitive(v) }))
+    : [];
+
+  const classCount = Array.isArray(metadata.class_names) ? metadata.class_names.length : 0;
+  const sha = record?.artifactSha256 ?? null;
+  const versionId = (metadata.registry as { version_id?: string } | undefined)?.version_id ?? null;
+
+  return (
+    <View className="gap-md rounded-xl bg-bg-secondary px-md py-md">
+      {performanceRows.length > 0 ? (
+        <DetailGroup title={t("models.details.performance")}>
+          {performanceRows.map((r) => (
+            <DetailRow key={r.label} label={r.label} value={r.value.toFixed(3)} />
+          ))}
+        </DetailGroup>
+      ) : null}
+
+      <DetailGroup title={t("models.details.model")}>
+        <DetailRow label={t("models.details.task")} value={metadata.task} />
+        <DetailRow
+          label={t("models.details.inputSize")}
+          value={`${metadata.input_size}×${metadata.input_size}`}
+        />
+        <DetailRow
+          label={t("models.details.classes")}
+          value={
+            classCount > 0
+              ? `${classCount} (${metadata.class_names.slice(0, 4).join(", ")}${
+                  classCount > 4 ? "…" : ""
+                })`
+              : "—"
+          }
+        />
+        <DetailRow
+          label={t("models.details.outputShape")}
+          value={Array.isArray(metadata.output_shape) ? metadata.output_shape.join("×") : "—"}
+        />
+        {metadata.calibration?.required ? (
+          <DetailRow
+            label={t("models.details.calibration")}
+            value={`${metadata.calibration.default_marker_mm ?? "?"} mm · ${
+              metadata.calibration.supported_sources?.join(", ") ?? ""
+            }`}
+          />
+        ) : null}
+      </DetailGroup>
+
+      {trainingRows.length > 0 ? (
+        <DetailGroup title={t("models.details.training")}>
+          {trainingRows.map((r) => (
+            <DetailRow key={r.label} label={r.label} value={r.value} />
+          ))}
+        </DetailGroup>
+      ) : null}
+
+      <DetailGroup title={t("models.details.artifact")}>
+        {versionId ? (
+          <DetailRow
+            label={t("models.details.versionId")}
+            value={
+              versionId.length > 14 ? `${versionId.slice(0, 8)}…${versionId.slice(-4)}` : versionId
+            }
+          />
+        ) : null}
+        {sha ? (
+          <DetailRow
+            label={t("models.details.sha256")}
+            value={`${sha.slice(0, 8)}…${sha.slice(-6)}`}
+          />
+        ) : null}
+        {candidate.channel ? (
+          <DetailRow label={t("models.details.channel")} value={candidate.channel} />
+        ) : null}
+      </DetailGroup>
     </View>
   );
+}
+
+function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View className="gap-xs">
+      <Text className="text-caption uppercase text-fg-secondary">{title}</Text>
+      <View className="gap-xs">{children}</View>
+    </View>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row items-start gap-md">
+      <Text className="w-32 text-caption text-fg-secondary">{label}</Text>
+      <Text className="flex-1 text-caption text-fg-primary" numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function humanizeKey(key: string): string {
+  return key
+    .replace(/[_/]/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^./, (c) => c.toUpperCase());
+}
+
+function formatPrimitive(value: unknown): string {
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : value.toFixed(4).replace(/\.?0+$/, "");
+  }
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.slice(0, 4).map(formatPrimitive).join(", ");
+  return JSON.stringify(value);
+}
+
+function candidateSizeMb(
+  candidate: ModelCandidate,
+  installedRecord: InstalledModelRecord | null,
+): string | null {
+  if (installedRecord?.artifactSizeBytes) {
+    return (installedRecord.artifactSizeBytes / 1_000_000).toFixed(1);
+  }
+  const artifact =
+    candidate.platform === "ios"
+      ? candidate.manifest.artifacts.coreml
+      : candidate.manifest.artifacts.tflite;
+  if (!artifact?.size_bytes) return null;
+  return (artifact.size_bytes / 1_000_000).toFixed(1);
 }

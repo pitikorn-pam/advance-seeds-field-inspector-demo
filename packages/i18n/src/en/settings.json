@@ -4,7 +4,12 @@
     "appearance": "Appearance",
     "language": "Language",
     "sync": "Sync",
+    "models": "Models",
     "app": "App"
+  },
+  "models": {
+    "autoInstallOnWifi": "Auto-install on Wi-Fi",
+    "autoInstallOnWifiHint": "Quietly download and activate new production models when connected to Wi-Fi. Cellular is never used."
   },
   "appearanceHint": "Choose Light, Dark, or follow your device.",
   "version": "Version",

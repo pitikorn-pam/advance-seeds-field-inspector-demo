@@ -1,9 +1,12 @@
-import { Platform } from "react-native";
-import * as FileSystem from "expo-file-system/legacy";
-import { fromByteArray, toByteArray } from "base64-js";
-import { unzipSync } from "fflate";
-import { loadTensorflowModel } from "react-native-fast-tflite";
 import CoreMLRunner from "@advance-seeds/coreml-runner";
+import { fromByteArray, toByteArray } from "base64-js";
+import * as FileSystem from "expo-file-system/legacy";
+import { unzipSync } from "fflate";
+import { Platform } from "react-native";
+import { loadTensorflowModel } from "react-native-fast-tflite";
+import { validateModelMetadata } from "./compatibility";
+import { currentModelPlatform, modelInstallDir, upsertInstalledModel } from "./modelStore";
+import { sha256Base64 } from "./sha256";
 import type {
   InstalledModelRecord,
   ModelCandidate,
@@ -13,9 +16,6 @@ import type {
   ModelPlatform,
   ModelQuantization,
 } from "./types";
-import { currentModelPlatform, modelInstallDir, upsertInstalledModel } from "./modelStore";
-import { sha256Base64 } from "./sha256";
-import { validateModelMetadata } from "./compatibility";
 
 const EXPORT_PREFIX = "runs/mobile-exports/";
 const REGISTRY_MODEL_LINE = "seeds-poc";
@@ -218,10 +218,29 @@ function resolveExportUrl(indexUrl: string, path: string): string {
   ).toString();
 }
 
-export async function installCandidate(candidate: ModelCandidate): Promise<InstalledModelRecord> {
+export type InstallPhase =
+  | "preparing"
+  | "downloading"
+  | "verifying"
+  | "extracting"
+  | "compiling"
+  | "smokeTesting"
+  | "finalizing";
+
+export interface InstallProgress {
+  phase: InstallPhase;
+  downloadedBytes?: number;
+  totalBytes?: number;
+}
+
+export async function installCandidate(
+  candidate: ModelCandidate,
+  onProgress?: (progress: InstallProgress) => void,
+): Promise<InstalledModelRecord> {
   if (!candidate.supported || !candidate.artifactUrl) {
     throw new Error(candidate.unsupportedReason ?? "Candidate is not supported on this platform.");
   }
+  onProgress?.({ phase: "preparing" });
   const manifest = candidate.manifestUrl
     ? await readJsonUrl<ModelCandidateManifest>(candidate.manifestUrl, "Manifest").catch(
         () => candidate.manifest,
@@ -256,7 +275,32 @@ export async function installCandidate(candidate: ModelCandidate): Promise<Insta
   await FileSystem.makeDirectoryAsync(tmpDir, { intermediates: true });
   const tmpModel = Platform.OS === "ios" ? `${tmpDir}model.mlpackage.zip` : `${tmpDir}model.tflite`;
   const artifactUrl = resolveExportUrl(candidate.manifestUrl, artifact.path);
-  await copyOrDownload(artifactUrl, tmpModel);
+  // Prefer resumable download with progress + cancellation on network URLs
+  onProgress?.({ phase: "downloading", downloadedBytes: 0, totalBytes: artifact.size_bytes });
+  if (artifactUrl.startsWith("file://")) {
+    await FileSystem.copyAsync({ from: artifactUrl, to: tmpModel });
+  } else {
+    const resumable = FileSystem.createDownloadResumable(artifactUrl, tmpModel, {}, (event) => {
+      try {
+        const total =
+          event.totalBytesExpectedToWrite > 0
+            ? event.totalBytesExpectedToWrite
+            : artifact.size_bytes;
+        onProgress?.({
+          phase: "downloading",
+          downloadedBytes: event.totalBytesWritten,
+          totalBytes: total,
+        });
+      } catch {}
+    });
+    downloadMap.set(candidate.id, resumable as any);
+    try {
+      await resumable.downloadAsync();
+    } finally {
+      downloadMap.delete(candidate.id);
+    }
+  }
+  onProgress?.({ phase: "verifying" });
   const actualHash = await sha256File(tmpModel);
   if (actualHash !== artifact.sha256.toLowerCase()) {
     throw new Error(`SHA-256 mismatch: expected ${artifact.sha256}, got ${actualHash}`);
@@ -265,13 +309,18 @@ export async function installCandidate(candidate: ModelCandidate): Promise<Insta
   if (Platform.OS === "ios") {
     const packageDir = `${tmpDir}model.mlpackage/`;
     const compiledDir = `${tmpDir}model.mlmodelc/`;
+    onProgress?.({ phase: "extracting" });
     await extractMlpackageZip(tmpModel, packageDir);
+    onProgress?.({ phase: "compiling" });
     await CoreMLRunner.compileModelPackage(packageDir, compiledDir);
+    onProgress?.({ phase: "smokeTesting" });
     await smokeTestCoreML(compiledDir, metadata);
     compiledArtifactUri = `${finalDir}model.mlmodelc/`;
   } else {
+    onProgress?.({ phase: "smokeTesting" });
     await smokeTestTflite(tmpModel, metadata);
   }
+  onProgress?.({ phase: "finalizing" });
   await FileSystem.writeAsStringAsync(`${tmpDir}manifest.json`, JSON.stringify(manifest, null, 2));
   await FileSystem.writeAsStringAsync(
     `${tmpDir}model-metadata.json`,
@@ -298,6 +347,22 @@ export async function installCandidate(candidate: ModelCandidate): Promise<Insta
   };
   await upsertInstalledModel(record);
   return record;
+}
+
+// Expose download control for UI: start/cancel handled inside installCandidate,
+// but provide a cancel helper the UI can call while an install is in progress.
+const downloadMap = new Map<string, any>();
+
+export function cancelArtifactDownload(id: string): void {
+  const r = downloadMap.get(id);
+  if (r && typeof r.cancel === "function") {
+    try {
+      r.cancel();
+    } catch (e) {
+      // swallow
+    }
+  }
+  downloadMap.delete(id);
 }
 
 async function readJsonUrl<T>(url: string, label: string): Promise<T> {
@@ -372,7 +437,7 @@ export async function sha256File(uri: string): Promise<string> {
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
-  return sha256Base64(base64);
+  return await sha256Base64(base64);
 }
 
 async function smokeTestTflite(uri: string, metadata: ModelMetadata): Promise<void> {
@@ -403,15 +468,22 @@ async function smokeTestCoreML(uri: string, metadata: ModelMetadata): Promise<vo
   if (!input || !inputShape.includes(metadata.input_size)) {
     throw new Error(`Core ML input shape mismatch: ${inputShape.join("x") || "none"}`);
   }
-  const output =
-    info.outputs
-      .filter((o) => o.shape && o.shape.length > 0)
-      .sort((a, b) => prod(b.shape ?? []) - prod(a.shape ?? []))[0] ?? info.outputs[0];
-  if (!output || !output.shape || output.shape.length !== 3 || output.shape[1] !== 300) {
-    throw new Error(`Core ML output shape mismatch: ${output?.shape?.join("x") ?? "none"}`);
+  // YOLO-seg exports two outputs: detections [1, 300, 38+] and mask
+  // prototypes [1, 32, 160, 160]. Picking "largest tensor" returns the
+  // mask prototype, which fails our 3D / dim[1]==300 check. Locate the
+  // detection tensor explicitly by its signature.
+  const detection = info.outputs.find(
+    (o) =>
+      Array.isArray(o.shape) &&
+      o.shape.length === 3 &&
+      o.shape[0] === 1 &&
+      o.shape[1] === 300 &&
+      (o.shape[2] === 6 || o.shape[2] >= 38),
+  );
+  if (!detection) {
+    const allShapes = info.outputs.map((o) => o.shape?.join("x") ?? "?").join(", ");
+    throw new Error(
+      `Core ML detection output not found. Expected [1, 300, 38+] but got: ${allShapes || "none"}.`,
+    );
   }
-}
-
-function prod(values: number[]): number {
-  return values.reduce((acc, value) => acc * value, 1);
 }

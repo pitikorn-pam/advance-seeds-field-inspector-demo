@@ -1,4 +1,4 @@
-import { ScrollView, View, Text } from "react-native";
+import { ScrollView, Switch, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -6,6 +6,7 @@ import Constants from "expo-constants";
 import { ChevronLeft } from "lucide-react-native";
 import { useTheme } from "@/lib/theme";
 import { useSyncQueue } from "@/lib/sync/useSyncQueue";
+import { useAutoInstallOnWifi } from "@/lib/models/autoInstall";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +24,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const syncQueue = useSyncQueue();
+  const [autoInstallOnWifi, setAutoInstallOnWifi] = useAutoInstallOnWifi();
 
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
@@ -146,6 +148,25 @@ export default function SettingsScreen() {
                   onPress={() => void syncQueue.clearFailed()}
                 />
               </View>
+            </View>
+          </Card>
+        </View>
+
+        <View className="gap-md">
+          <Text className="text-caption uppercase text-fg-secondary">
+            {t("settings:sections.models")}
+          </Text>
+          <Card>
+            <View className="flex-row items-center gap-md">
+              <View className="flex-1">
+                <Text className="text-body text-fg-primary">
+                  {t("settings:models.autoInstallOnWifi")}
+                </Text>
+                <Text className="text-caption text-fg-secondary mt-xs">
+                  {t("settings:models.autoInstallOnWifiHint")}
+                </Text>
+              </View>
+              <Switch value={autoInstallOnWifi} onValueChange={setAutoInstallOnWifi} />
             </View>
           </Card>
         </View>

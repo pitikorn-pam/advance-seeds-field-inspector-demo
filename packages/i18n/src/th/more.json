@@ -78,6 +78,54 @@
     "installedPill": "ติดตั้งแล้ว",
     "activePill": "ใช้งานอยู่",
     "defaultPill": "ค่าเริ่มต้น",
-    "rollbackTo": "กู้คืน {{name}}"
+    "rollbackTo": "กู้คืน {{name}}",
+    "update": {
+      "title": "มีโมเดลใหม่ {{semver}}",
+      "subtitle": "แตะติดตั้งเพื่อดาวน์โหลดและเปิดใช้งาน",
+      "subtitleWithSize": "{{size}} MB · แตะติดตั้งเพื่อดาวน์โหลดและเปิดใช้งาน",
+      "install": "ติดตั้ง",
+      "dismiss": "ปิด"
+    },
+    "checkForUpdates": "ตรวจหาอัปเดต",
+    "checkingForUpdates": "กำลังตรวจสอบ…",
+    "upToDate": "ใช้โมเดลล่าสุดอยู่แล้ว",
+    "active": "โมเดลที่ใช้งาน",
+    "noActive": "ยังไม่มีโมเดลที่ติดตั้ง — แตะ ตรวจหาอัปเดต",
+    "channel": "ช่องทาง",
+    "previousPill": "เคยใช้งาน",
+    "restore": "กู้คืน",
+    "installFailedTitle": "ติดตั้งไม่สำเร็จ",
+    "upToDateTitle": "เป็นเวอร์ชันล่าสุด",
+    "deleteConfirmTitle": "ลบ {{name}}?",
+    "deleteConfirmBody": "ไฟล์โมเดลจะถูกลบออกจากอุปกรณ์นี้ คุณสามารถดาวน์โหลดใหม่จาก registry ได้ทุกเมื่อ",
+    "showDetails": "แสดงรายละเอียด",
+    "hideDetails": "ซ่อนรายละเอียด",
+    "details": {
+      "performance": "ประสิทธิภาพ",
+      "model": "โมเดล",
+      "training": "การเทรน",
+      "artifact": "ไฟล์โมเดล",
+      "task": "งาน",
+      "inputSize": "ขนาด input",
+      "classes": "คลาส",
+      "outputShape": "Output shape",
+      "calibration": "การคาลิเบรต",
+      "versionId": "Version ID",
+      "sha256": "SHA-256",
+      "channel": "ช่องทาง"
+    },
+    "noCandidatesForChannel": "ยังไม่มีโมเดลในช่องทางนี้",
+    "candidateMissing": "อัปเดตนี้ไม่มีให้แล้ว — รีเฟรชและลองใหม่",
+    "alreadyInstalled": "ติดตั้งโมเดลนี้แล้ว เปิดใช้งานจากรายการด้านล่าง",
+    "phase": {
+      "preparing": "กำลังเตรียม…",
+      "downloading": "กำลังดาวน์โหลด {{percent}}%",
+      "downloadingBytes": "กำลังดาวน์โหลด {{kb}} KB",
+      "verifying": "กำลังตรวจสอบความถูกต้อง…",
+      "extracting": "กำลังแตกไฟล์…",
+      "compiling": "กำลังคอมไพล์สำหรับอุปกรณ์…",
+      "smokeTesting": "กำลังทดสอบ…",
+      "finalizing": "กำลังปิดงาน…"
+    }
   }
 }

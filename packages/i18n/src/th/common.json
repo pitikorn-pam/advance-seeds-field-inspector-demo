@@ -31,7 +31,8 @@
     "newInspection": "การตรวจสอบใหม่",
     "signIn": "เข้าสู่ระบบ",
     "signOut": "ออกจากระบบ",
-    "openSettings": "เปิดการตั้งค่า"
+    "openSettings": "เปิดการตั้งค่า",
+    "dismiss": "ปิด"
   },
   "states": {
     "loading": "กำลังโหลด…",

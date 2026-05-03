@@ -31,7 +31,8 @@
     "newInspection": "New inspection",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "openSettings": "Open Settings"
+    "openSettings": "Open Settings",
+    "dismiss": "Dismiss"
   },
   "states": {
     "loading": "Loading…",

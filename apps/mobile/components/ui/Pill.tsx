@@ -25,7 +25,7 @@ export function Pill({
   const t = tones[tone];
   return (
     <View
-      className={`flex-row items-center gap-[6px] h-6 rounded-md px-[11px] ${t.bg} ${className}`}
+      className={`flex-row items-center justify-center gap-[6px] h-6 rounded-md px-[11px] ${t.bg} ${className}`}
     >
       {dot ? <View className={`h-[5px] w-[5px] rounded-full ${t.text}`} /> : null}
       <Text className={`text-caption font-medium ${t.text}`}>{label}</Text>

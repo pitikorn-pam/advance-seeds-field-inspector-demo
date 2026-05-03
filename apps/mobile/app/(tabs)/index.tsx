@@ -21,6 +21,7 @@ import { Skeleton, SkeletonList } from "@/components/ui/Skeleton";
 import { HeroCard } from "@/components/home/HeroCard";
 import { RecentInspections } from "@/components/home/RecentInspections";
 import { SyncBanner } from "@/components/home/SyncBanner";
+import { ModelUpdateBanner } from "@/components/home/ModelUpdateBanner";
 import { NotificationBell } from "@/components/home/NotificationBell";
 
 /**
@@ -221,6 +222,7 @@ export default function HomeScreen() {
                 </Pressable>
               )}
 
+              <ModelUpdateBanner />
               <SyncBanner />
             </ScrollView>
           </SafeAreaView>

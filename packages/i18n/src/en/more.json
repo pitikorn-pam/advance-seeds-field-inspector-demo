@@ -78,6 +78,54 @@
     "installedPill": "Installed",
     "activePill": "Active",
     "defaultPill": "Default",
-    "rollbackTo": "Restore {{name}}"
+    "rollbackTo": "Restore {{name}}",
+    "update": {
+      "title": "New model {{semver}} available",
+      "subtitle": "Tap install to download and activate.",
+      "subtitleWithSize": "{{size}} MB · tap install to download and activate.",
+      "install": "Install",
+      "dismiss": "Dismiss"
+    },
+    "checkForUpdates": "Check for updates",
+    "checkingForUpdates": "Checking…",
+    "upToDate": "You're on the latest model.",
+    "active": "Active model",
+    "noActive": "No model installed yet — tap Check for updates.",
+    "channel": "Channel",
+    "previousPill": "Previously active",
+    "restore": "Restore",
+    "installFailedTitle": "Install failed",
+    "upToDateTitle": "Up to date",
+    "deleteConfirmTitle": "Delete {{name}}?",
+    "deleteConfirmBody": "Model files will be removed from this device. You can re-download from the registry at any time.",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "details": {
+      "performance": "Performance",
+      "model": "Model",
+      "training": "Training",
+      "artifact": "Artifact",
+      "task": "Task",
+      "inputSize": "Input size",
+      "classes": "Classes",
+      "outputShape": "Output shape",
+      "calibration": "Calibration",
+      "versionId": "Version ID",
+      "sha256": "SHA-256",
+      "channel": "Channel"
+    },
+    "noCandidatesForChannel": "No models available in this channel yet.",
+    "candidateMissing": "That update is no longer available — refresh and try again.",
+    "alreadyInstalled": "That model is already installed. Activate it from the list below.",
+    "phase": {
+      "preparing": "Preparing…",
+      "downloading": "Downloading {{percent}}%",
+      "downloadingBytes": "Downloading {{kb}} KB",
+      "verifying": "Verifying…",
+      "extracting": "Extracting…",
+      "compiling": "Compiling for device…",
+      "smokeTesting": "Validating…",
+      "finalizing": "Finalizing…"
+    }
   }
 }
