@@ -4,7 +4,7 @@
 
 > **Working directory:** `/Users/ppungpong/Github/advance-seeds-field-inspector-demo`. Do **not** build from the iCloud path (`~/Library/Mobile Documents/...`) — Ruby's `require` breaks on the ZWJ emoji in the path, which kills `pod install`. See [Critical environment rules](#critical-environment-rules-read-before-any-rebuild).
 
-> **Current remaining-work hand-off:** see [`docs/REMAINING_HANDOFF_2026-04-30.md`](./REMAINING_HANDOFF_2026-04-30.md) for the latest phase list and a ready-to-paste prompt for the next AI agent.
+> **Current remaining-work hand-off:** see [`docs/REMAINING_HANDOFF_2026-05-03.md`](./REMAINING_HANDOFF_2026-05-03.md) for the latest phase list and a ready-to-paste prompt for the next AI agent.
 
 ---
 
@@ -71,8 +71,8 @@
 │   ├── demo-script.md      ← demo day playbook
 │   └── HANDOFF.md          ← this file
 ├── openspec/
-│   ├── specs/              ← 10 durable capability specs (now incl. mobile-navigation)
-│   └── changes/            ← active: mobile-real-usage, prototype-fidelity-pass
+│   ├── specs/              ← 15 durable capability specs
+│   └── changes/            ← active: (none, 4 archived)
 ├── .github/workflows/      ← ci.yml
 └── .npmrc, pnpm-workspace.yaml, …
 ```
@@ -285,7 +285,6 @@ The mobile app moved from "CRUD over a sample image in Expo Go" to **production-
 | iOS distribution                                 | Apple Developer Program enrollment then EAS preview profile + Firebase App Dist     | 2 days           |
 | Skia detection-overlay rings on Live mode (6.1)  | needs Phase 4 frame source                                                          | 1 day            |
 | Polygon vertex drag + circle radius drag         | extend `RoiOverlay`'s rect handle pattern to other shapes                           | 4 hours          |
-| Offline-first sync queue                         | mobile — wire a queue against the sync pill placeholder                             | ~2 weeks         |
 | Reference dimensions on `varieties`              | migration adds `reference_length_mm` / `reference_width_mm`; Library row uses these | 2 hours          |
 | Real seed photos                                 | replace branded placeholders in `supabase/seed.sql`                                 | 1 hour           |
 | `expo-file-system` `/legacy` → new `Paths/File`  | `apps/mobile/app/reports.tsx` + capture upload paths                                | 2 hours          |
@@ -354,7 +353,7 @@ openspec validate <name>             # check
 openspec archive <name>              # promote deltas into specs/
 ```
 
-The first change `seed-inspector-demo-foundation` is archived. Future work follows the same pattern.
+The first 4 changes (`seed-inspector-demo-foundation`, `prototype-fidelity-pass`, `mobile-real-usage`, `mobile-offline-sync`) are archived. Future work follows the same pattern.
 
 ---
 
@@ -384,4 +383,4 @@ The first change `seed-inspector-demo-foundation` is archived. Future work follo
 
 ---
 
-_Hand-off updated at v0.2.0 (2026-04-29). Update this file at every major milestone._
+_Hand-off updated at v0.3.0 (2026-05-03). Update this file at every major milestone._
