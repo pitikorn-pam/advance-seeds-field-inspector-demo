@@ -1,21 +1,33 @@
 # mobile-navigation Specification
 
 ## Purpose
-TBD - created by archiving change prototype-fidelity-pass. Update Purpose after archive.
+Define the bottom tab bar layout, capture entry points, three-step capture journey, and list virtualization conventions for the mobile app.
+
 ## Requirements
 ### Requirement: Bottom tab bar with four destinations
-The mobile app SHALL render a bottom tab bar with exactly four destinations in this order: Home, Inspect, Varieties, More. The Inspect tab uses a camera icon; the More tab uses an overflow / horizontal-dots icon.
+The mobile app SHALL render a bottom tab bar with exactly four destinations in
+this order: Home, Inspect, Varieties, More. The Inspect tab uses a camera icon;
+the More tab uses an overflow / horizontal-dots icon.
 
-#### Scenario: Tab bar visible after sign-in
+#### Scenario: Four tabs render in order
 - **GIVEN** Jane is signed in and lands on /(tabs)
 - **WHEN** any tab screen renders
-- **THEN** the bottom bar shows four tabs in order: Home, Camera, Library, More
+- **THEN** the bottom bar shows four tabs in order: Home, Inspect, Varieties,
+  More
 - **AND** the active tab's icon and label are tinted with the brand color
 
-#### Scenario: Inspect tab opens capture setup
+#### Scenario: Inspect tab opens capture setup without mounting an intermediate tab screen
 - **WHEN** Jane taps the Inspect tab from any other tab
-- **THEN** she lands on /capture/setup
-- **AND** the capture session is reset to defaults if it was empty, or preserved if she had values mid-flow
+- **THEN** the tab press is intercepted before the `/inspect` tab screen mounts
+- **AND** she lands on `/capture/setup`
+- **AND** the app does not show a native view reparenting error during the
+  transition
+
+#### Scenario: Capture prerequisites uses back navigation
+- **GIVEN** Jane opens Capture prerequisites from the capture mode picker
+- **WHEN** the screen renders
+- **THEN** the top-left navigation action uses a back chevron
+- **AND** tapping it returns to the previous capture screen
 
 ### Requirement: More menu groups secondary destinations
 The /more screen SHALL render four sections — Manage, Reference, Insights, App — each with list rows that route to existing screens.
@@ -85,3 +97,15 @@ The Home screen SHALL show, in vertical order: a greeting line, a hero card with
 - **THEN** the hero card shows "Today: 0" with a yesterday recap underneath
 - **AND** the recent list still renders the most recent prior inspections (not necessarily today's)
 - **AND** the "+ New inspection" CTA is unchanged
+
+### Requirement: Long mobile lists remain virtualized
+The mobile app SHALL render long-running library and activity lists with
+virtualized list primitives so offscreen rows are mounted lazily instead of
+eagerly mounted inside a `ScrollView`.
+
+#### Scenario: Reference and activity lists lazy-mount rows
+- **WHEN** Jane opens Recordings, History, Varieties, or Batches
+- **THEN** the primary row collection uses a virtualized list
+- **AND** filter/search controls render as list header content on the same
+  scroll surface
+- **AND** row rendering is batched with bounded initial and offscreen windows
