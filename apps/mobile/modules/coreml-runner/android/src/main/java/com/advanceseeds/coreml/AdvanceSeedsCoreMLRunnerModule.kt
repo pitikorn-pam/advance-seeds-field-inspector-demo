@@ -38,7 +38,22 @@ class AdvanceSeedsCoreMLRunnerModule : Module() {
       Unit
     }
 
+    AsyncFunction("loadModelAtPath") { _: String ->
+      throw NotSupportedOnAndroidException()
+      Unit
+    }
+
+    AsyncFunction("compileModelPackage") { _: String, _: String ->
+      throw NotSupportedOnAndroidException()
+      Unit
+    }
+
     AsyncFunction("runOnImageURL") { _: String, _: String ->
+      throw NotSupportedOnAndroidException()
+      Unit
+    }
+
+    AsyncFunction("runOnImageURLAtPath") { _: String, _: String ->
       throw NotSupportedOnAndroidException()
       Unit
     }

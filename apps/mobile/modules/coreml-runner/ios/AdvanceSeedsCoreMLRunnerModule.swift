@@ -28,9 +28,56 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
       return self.describe(model: model)
     }
 
+    AsyncFunction("loadModelAtPath") { (modelUri: String) async throws -> [String: Any] in
+      let model = try self.loadFromPath(modelUri: modelUri)
+      self.loaded[modelUri] = model
+      return self.describe(model: model)
+    }
+
+    AsyncFunction("compileModelPackage") {
+      (packageUri: String, compiledModelUri: String) async throws in
+      let packageURL = try Self.fileURL(from: packageUri)
+      let destinationURL = try Self.fileURL(from: compiledModelUri)
+      let parentURL = destinationURL.deletingLastPathComponent()
+      try FileManager.default.createDirectory(
+        at: parentURL,
+        withIntermediateDirectories: true
+      )
+      if FileManager.default.fileExists(atPath: destinationURL.path) {
+        try FileManager.default.removeItem(at: destinationURL)
+      }
+      let compiledURL = try MLModel.compileModel(at: packageURL)
+      try FileManager.default.copyItem(at: compiledURL, to: destinationURL)
+    }
+
     AsyncFunction("runOnImageURL") {
       (assetName: String, fileUri: String) async throws -> [String: Any] in
       let model = try self.modelFor(assetName: assetName)
+      return try Self.run(model: model, fileUri: fileUri)
+    }
+
+    AsyncFunction("runOnImageURLAtPath") {
+      (modelUri: String, fileUri: String) async throws -> [String: Any] in
+      let model = try self.modelForPath(modelUri: modelUri)
+      return try Self.run(model: model, fileUri: fileUri)
+    }
+  }
+
+  private func modelFor(assetName: String) throws -> MLModel {
+    if let model = loaded[assetName] { return model }
+    let model = try loadFromBundle(assetName: assetName)
+    loaded[assetName] = model
+    return model
+  }
+
+  private func modelForPath(modelUri: String) throws -> MLModel {
+    if let model = loaded[modelUri] { return model }
+    let model = try loadFromPath(modelUri: modelUri)
+    loaded[modelUri] = model
+    return model
+  }
+
+  private static func run(model: MLModel, fileUri: String) throws -> [String: Any] {
       let url = try Self.fileURL(from: fileUri)
       guard let cgImage = Self.loadCGImage(at: url) else {
         throw NSError(
@@ -58,14 +105,6 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
       let result = try model.prediction(from: provider)
       return try Self.flattenLargestOutput(result)
     }
-  }
-
-  private func modelFor(assetName: String) throws -> MLModel {
-    if let model = loaded[assetName] { return model }
-    let model = try loadFromBundle(assetName: assetName)
-    loaded[assetName] = model
-    return model
-  }
 
   private func loadFromBundle(assetName: String) throws -> MLModel {
     guard let url = Bundle.main.url(forResource: assetName, withExtension: "mlmodelc") else {
@@ -75,6 +114,13 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
         userInfo: [NSLocalizedDescriptionKey: "Compiled model \(assetName).mlmodelc missing from app bundle"]
       )
     }
+    let config = MLModelConfiguration()
+    config.computeUnits = .all
+    return try MLModel(contentsOf: url, configuration: config)
+  }
+
+  private func loadFromPath(modelUri: String) throws -> MLModel {
+    let url = try Self.fileURL(from: modelUri)
     let config = MLModelConfiguration()
     config.computeUnits = .all
     return try MLModel(contentsOf: url, configuration: config)

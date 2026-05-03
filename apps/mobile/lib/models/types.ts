@@ -69,6 +69,7 @@ export interface InstalledModelRecord {
   installedAt: string;
   status: ModelInstallStatus;
   artifactUri: string;
+  compiledArtifactUri?: string;
   artifactSha256: string;
   artifactSizeBytes: number;
   metadata: ModelMetadata;

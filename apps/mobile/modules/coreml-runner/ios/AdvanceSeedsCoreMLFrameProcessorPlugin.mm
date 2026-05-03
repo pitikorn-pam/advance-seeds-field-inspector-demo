@@ -28,12 +28,27 @@ static NSMutableDictionary<NSString *, MLModel *> *modelCache(void) {
   return cache;
 }
 
-static MLModel *loadModel(NSString *assetName) {
-  MLModel *cached = modelCache()[assetName];
+static NSURL *fileURLFromURI(NSString *uri) {
+  if (uri == nil || uri.length == 0) return nil;
+  NSURL *url = [NSURL URLWithString:uri];
+  if (url != nil && url.isFileURL) return url;
+  if ([uri hasPrefix:@"/"]) return [NSURL fileURLWithPath:uri];
+  if ([uri hasPrefix:@"file://"]) {
+    return [NSURL fileURLWithPath:[uri substringFromIndex:[@"file://" length]]];
+  }
+  return nil;
+}
+
+static MLModel *loadModel(NSString *assetName, NSString *modelPath) {
+  NSString *cacheKey = (modelPath != nil && modelPath.length > 0) ? modelPath : assetName;
+  MLModel *cached = modelCache()[cacheKey];
   if (cached != nil) {
     return cached;
   }
-  NSURL *url = [[NSBundle mainBundle] URLForResource:assetName withExtension:@"mlmodelc"];
+  NSURL *url = fileURLFromURI(modelPath);
+  if (url == nil) {
+    url = [[NSBundle mainBundle] URLForResource:assetName withExtension:@"mlmodelc"];
+  }
   if (url == nil) {
     return nil;
   }
@@ -42,10 +57,10 @@ static MLModel *loadModel(NSString *assetName) {
   NSError *err = nil;
   MLModel *model = [MLModel modelWithContentsOfURL:url configuration:config error:&err];
   if (model == nil) {
-    NSLog(@"[CoreML FP] failed to load %@: %@", assetName, err);
+    NSLog(@"[CoreML FP] failed to load %@: %@", cacheKey, err);
     return nil;
   }
-  modelCache()[assetName] = model;
+  modelCache()[cacheKey] = model;
   return model;
 }
 
@@ -124,13 +139,15 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
   if (assetName == nil) {
     assetName = @"yolo26n";
   }
+  NSString *modelPath = arguments[@"modelPath"];
+  NSString *modelKey = (modelPath != nil && modelPath.length > 0) ? modelPath : assetName;
   CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   if (imageBuffer == nil) {
     return nil;
   }
 
-  if (_visionModel == nil || ![_visionModelAssetName isEqualToString:assetName]) {
-    MLModel *model = loadModel(assetName);
+  if (_visionModel == nil || ![_visionModelAssetName isEqualToString:modelKey]) {
+    MLModel *model = loadModel(assetName, modelPath);
     if (model == nil) {
       return nil;
     }
@@ -140,7 +157,7 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
       NSLog(@"[CoreML FP] VNCoreMLModel init failed: %@", err);
       return nil;
     }
-    _visionModelAssetName = assetName;
+    _visionModelAssetName = modelKey;
   }
 
   // Vision handles YUV→RGB conversion + the model's image-input

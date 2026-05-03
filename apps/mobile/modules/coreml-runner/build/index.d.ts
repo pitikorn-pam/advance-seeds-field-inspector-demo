@@ -17,7 +17,10 @@ export interface CoreMLOutput {
 
 declare const AdvanceSeedsCoreMLRunner: {
   loadModel(assetName: string): Promise<CoreMLModelInfo>;
+  loadModelAtPath(modelUri: string): Promise<CoreMLModelInfo>;
+  compileModelPackage(packageUri: string, compiledModelUri: string): Promise<void>;
   runOnImageURL(assetName: string, fileUri: string): Promise<CoreMLOutput>;
+  runOnImageURLAtPath(modelUri: string, fileUri: string): Promise<CoreMLOutput>;
 };
 
 export = AdvanceSeedsCoreMLRunner;

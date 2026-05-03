@@ -1,4 +1,5 @@
 import { Image } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
 import type {
   AnalysisFrameResult,
   AnalysisResult,
@@ -8,6 +9,7 @@ import type {
   SeedAnalyzer,
 } from "@advance-seeds/types";
 import CoreMLRunner, { type CoreMLModelInfo } from "@advance-seeds/coreml-runner";
+import { readActiveModel, verifyInstalledArtifact } from "@/lib/models/modelStore";
 import {
   YOLO_INPUT_SIZE,
   decodeYolo,
@@ -26,14 +28,26 @@ type OutputKind = "raw" | "nms";
 interface LoadedCoreMLModel {
   info: CoreMLModelInfo;
   outputKind: OutputKind;
+  source: CoreMLModelSource;
+}
+
+export interface CoreMLModelSource {
+  key: string;
+  assetName: string;
+  modelPath?: string;
 }
 
 let modelPromise: Promise<LoadedCoreMLModel> | null = null;
+let modelPromiseKey: string | null = null;
 
 export function loadSharedCoreMLModel(): Promise<LoadedCoreMLModel> {
-  if (!modelPromise) {
+  return resolveCoreMLModelSource().then((source) => {
+    if (modelPromise && modelPromiseKey === source.key) return modelPromise;
+    modelPromiseKey = source.key;
     modelPromise = (async () => {
-      const info = await CoreMLRunner.loadModel(MODEL_ASSET);
+      const info = source.modelPath
+        ? await CoreMLRunner.loadModelAtPath(source.modelPath)
+        : await CoreMLRunner.loadModel(source.assetName);
       const primary =
         info.outputs
           .filter((o) => o.shape && o.shape.length > 0)
@@ -41,15 +55,41 @@ export function loadSharedCoreMLModel(): Promise<LoadedCoreMLModel> {
       const lastDim = primary?.shape?.[primary.shape.length - 1] ?? 0;
       const outputKind: OutputKind = lastDim === 6 ? "nms" : "raw";
       console.info(
-        `[analyzer] coreml output kind=${outputKind} primary=${primary?.name} shape=${(primary?.shape ?? []).join("x")}`,
+        `[analyzer] coreml source=${source.key} output kind=${outputKind} primary=${primary?.name} shape=${(primary?.shape ?? []).join("x")}`,
       );
-      return { info, outputKind };
+      return { info, outputKind, source };
     })().catch((err) => {
       modelPromise = null;
+      modelPromiseKey = null;
       throw err;
     });
+    return modelPromise;
+  });
+}
+
+export async function resolveCoreMLModelSource(): Promise<CoreMLModelSource> {
+  const active = await readActiveModel();
+  if (
+    active?.platform === "ios" &&
+    active.compiledArtifactUri &&
+    (await verifyInstalledArtifact(active)) &&
+    (await fileExists(active.compiledArtifactUri))
+  ) {
+    return {
+      key: `installed:${active.id}`,
+      assetName: MODEL_ASSET,
+      modelPath: active.compiledArtifactUri,
+    };
   }
-  return modelPromise;
+  return { key: `asset:${MODEL_ASSET}`, assetName: MODEL_ASSET };
+}
+
+async function fileExists(uri: string): Promise<boolean> {
+  try {
+    return (await FileSystem.getInfoAsync(uri)).exists;
+  } catch {
+    return false;
+  }
 }
 
 function prod(s: number[]): number {
@@ -78,11 +118,14 @@ function prod(s: number[]): number {
 export class CoreMLSeedAnalyzer implements SeedAnalyzer {
   readonly id = "coreml-yolo";
 
-  private constructor(private readonly outputKind: OutputKind) {}
+  private constructor(
+    private readonly outputKind: OutputKind,
+    private readonly source: CoreMLModelSource,
+  ) {}
 
   static async load(): Promise<CoreMLSeedAnalyzer> {
-    const { outputKind } = await loadSharedCoreMLModel();
-    return new CoreMLSeedAnalyzer(outputKind);
+    const { outputKind, source } = await loadSharedCoreMLModel();
+    return new CoreMLSeedAnalyzer(outputKind, source);
   }
 
   async analyze(image: ImageRef, options: AnalyzeOptions): Promise<AnalysisResult> {
@@ -110,7 +153,9 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     const padY = -((srcH - cropSize) / 2) * fitScale;
 
     const inferStartedAt = Date.now();
-    const result = await CoreMLRunner.runOnImageURL(MODEL_ASSET, image.uri);
+    const result = this.source.modelPath
+      ? await CoreMLRunner.runOnImageURLAtPath(this.source.modelPath, image.uri)
+      : await CoreMLRunner.runOnImageURL(this.source.assetName, image.uri);
     const inferMs = Date.now() - inferStartedAt;
     const out = Float32Array.from(result.values);
     const shape = result.shape as unknown as readonly [number, number, number];

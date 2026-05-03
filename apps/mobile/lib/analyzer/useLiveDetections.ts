@@ -27,6 +27,7 @@ import {
 } from "./TfliteSeedAnalyzer";
 import { useHyperParams } from "./hyperparams";
 import { recordInference, type InferenceSource } from "./inferenceStats";
+import { resolveCoreMLModelSource } from "./CoreMLSeedAnalyzer";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
 import { readActiveModel, verifyInstalledArtifact } from "@/lib/models/modelStore";
@@ -128,6 +129,7 @@ function useLiveDetectionsCoreML(options: Options): State {
   const { enabled, pxPerMm, classFilter, roi } = options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
+  const [modelPath, setModelPath] = useState<string | null>(null);
   const lastSetAtRef = useRef(0);
   const RENDER_THROTTLE_MS = 33;
   const mountedRef = useRef(true);
@@ -144,6 +146,21 @@ function useLiveDetectionsCoreML(options: Options): State {
     () => VisionCameraProxy.initFrameProcessorPlugin("advanceSeedsRunCoreML", {}),
     [],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    resolveCoreMLModelSource()
+      .then((source) => {
+        if (!cancelled) setModelPath(source.modelPath ?? null);
+      })
+      .catch((err) => {
+        console.warn("[live-detections coreml] active model unavailable; using bundle", err);
+        if (!cancelled) setModelPath(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
@@ -217,7 +234,10 @@ function useLiveDetectionsCoreML(options: Options): State {
           // VNCoreMLRequest runs synchronously on the worklet thread; that
           // dominates everything else this worklet does.
           const startedAt = Date.now();
-          const result = plugin.call(frame, { assetName: COREML_ASSET });
+          const result = plugin.call(frame, {
+            assetName: COREML_ASSET,
+            modelPath: modelPath ?? "",
+          });
           const inferElapsedMs = Date.now() - startedAt;
           if (!result) return;
           // Plugin returns { outputName, shape: number[], values: number[] }.
@@ -241,7 +261,7 @@ function useLiveDetectionsCoreML(options: Options): State {
         }
       });
     },
-    [enabled, plugin, decodeOnJS, targetFps],
+    [enabled, plugin, decodeOnJS, targetFps, modelPath],
   );
 
   useEffect(() => {

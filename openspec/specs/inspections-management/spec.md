@@ -84,6 +84,16 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
   model file, falling back to the bundled model if no active model is valid
 - **AND** the user can roll back to the previous active model
 
+#### Scenario: iOS can activate a validated downloaded Core ML package
+- **GIVEN** the dashboard deployment API or a local model index exposes an iOS
+  `.mlpackage.zip` candidate
+- **WHEN** the user installs it from More → Model registry
+- **THEN** the app downloads the package, verifies its SHA-256, extracts the
+  `.mlpackage`, compiles it to `.mlmodelc`, and smoke-loads it with Core ML
+- **AND** iOS single-shot and live Core ML paths load the active installed
+  compiled model, falling back to the bundled model if no active model is valid
+- **AND** the user can roll back to the previous active model
+
 #### Scenario: CoreML analyzer is preferred on iPhone with Neural Engine
 - **GIVEN** the device is iPhone 12 Pro+ AND `yolo11n-seeds.mlpackage` is bundled
 - **WHEN** the app starts

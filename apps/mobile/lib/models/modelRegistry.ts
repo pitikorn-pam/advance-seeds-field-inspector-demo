@@ -1,6 +1,9 @@
 import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
+import { fromByteArray, toByteArray } from "base64-js";
+import { unzipSync } from "fflate";
 import { loadTensorflowModel } from "react-native-fast-tflite";
+import CoreMLRunner from "@advance-seeds/coreml-runner";
 import type {
   InstalledModelRecord,
   ModelCandidate,
@@ -118,12 +121,9 @@ function candidateFromDeployment(
         ? model.metadata.source_weights
         : undefined,
   };
-  const unsupportedReason =
-    platform === "ios"
-      ? "Core ML package import/compile is not enabled in this build yet."
-      : artifact
-        ? undefined
-        : `Missing ${artifactKind} artifact from ${channel}.`;
+  const unsupportedReason = artifact
+    ? undefined
+    : `Missing ${artifactKind} artifact from ${channel}.`;
   return {
     id: manifest.key,
     displayName: `${model.semver} · ${channel}`,
@@ -190,12 +190,11 @@ function candidateFromManifest(
   platform: ModelPlatform,
 ): ModelCandidate {
   const artifact = platform === "ios" ? manifest.artifacts.coreml : manifest.artifacts.tflite;
-  const unsupportedReason =
-    platform === "ios"
-      ? "Core ML package import/compile is not enabled in this build yet."
-      : artifact
-        ? undefined
-        : "Missing Android TFLite artifact.";
+  const unsupportedReason = artifact
+    ? undefined
+    : platform === "ios"
+      ? "Missing iOS Core ML artifact."
+      : "Missing Android TFLite artifact.";
   return {
     id: manifest.key,
     displayName: manifest.display_name,
@@ -223,9 +222,6 @@ export async function installCandidate(candidate: ModelCandidate): Promise<Insta
   if (!candidate.supported || !candidate.artifactUrl) {
     throw new Error(candidate.unsupportedReason ?? "Candidate is not supported on this platform.");
   }
-  if (Platform.OS !== "android") {
-    throw new Error("Only Android TFLite dynamic activation is enabled in this build.");
-  }
   const manifest = candidate.manifestUrl
     ? await readJsonUrl<ModelCandidateManifest>(candidate.manifestUrl, "Manifest").catch(
         () => candidate.manifest,
@@ -236,8 +232,14 @@ export async function installCandidate(candidate: ModelCandidate): Promise<Insta
   const metadataErrors = validateModelMetadata(metadata);
   if (metadataErrors.length > 0) throw new Error(metadataErrors.join("; "));
 
-  const artifact = manifest.artifacts.tflite;
-  if (!artifact) throw new Error("Manifest is missing artifacts.tflite.");
+  const artifact = Platform.OS === "ios" ? manifest.artifacts.coreml : manifest.artifacts.tflite;
+  if (!artifact) {
+    throw new Error(
+      Platform.OS === "ios"
+        ? "Manifest is missing artifacts.coreml."
+        : "Manifest is missing artifacts.tflite.",
+    );
+  }
   if (
     manifest.quantization !== "none" &&
     manifest.quantization !== "fp16" &&
@@ -252,14 +254,24 @@ export async function installCandidate(candidate: ModelCandidate): Promise<Insta
   const finalDir = modelInstallDir(manifest.key);
   await FileSystem.deleteAsync(tmpDir, { idempotent: true });
   await FileSystem.makeDirectoryAsync(tmpDir, { intermediates: true });
-  const tmpModel = `${tmpDir}model.tflite`;
+  const tmpModel = Platform.OS === "ios" ? `${tmpDir}model.mlpackage.zip` : `${tmpDir}model.tflite`;
   const artifactUrl = resolveExportUrl(candidate.manifestUrl, artifact.path);
   await copyOrDownload(artifactUrl, tmpModel);
   const actualHash = await sha256File(tmpModel);
   if (actualHash !== artifact.sha256.toLowerCase()) {
     throw new Error(`SHA-256 mismatch: expected ${artifact.sha256}, got ${actualHash}`);
   }
-  await smokeTestTflite(tmpModel, metadata);
+  let compiledArtifactUri: string | undefined;
+  if (Platform.OS === "ios") {
+    const packageDir = `${tmpDir}model.mlpackage/`;
+    const compiledDir = `${tmpDir}model.mlmodelc/`;
+    await extractMlpackageZip(tmpModel, packageDir);
+    await CoreMLRunner.compileModelPackage(packageDir, compiledDir);
+    await smokeTestCoreML(compiledDir, metadata);
+    compiledArtifactUri = `${finalDir}model.mlmodelc/`;
+  } else {
+    await smokeTestTflite(tmpModel, metadata);
+  }
   await FileSystem.writeAsStringAsync(`${tmpDir}manifest.json`, JSON.stringify(manifest, null, 2));
   await FileSystem.writeAsStringAsync(
     `${tmpDir}model-metadata.json`,
@@ -271,11 +283,13 @@ export async function installCandidate(candidate: ModelCandidate): Promise<Insta
   const record: InstalledModelRecord = {
     id: manifest.key,
     displayName: manifest.display_name,
-    platform: "android",
+    platform: Platform.OS === "ios" ? "ios" : "android",
     quantization: manifest.quantization,
     installedAt: new Date().toISOString(),
     status: "installed",
-    artifactUri: `${finalDir}model.tflite`,
+    artifactUri:
+      Platform.OS === "ios" ? `${finalDir}model.mlpackage.zip` : `${finalDir}model.tflite`,
+    compiledArtifactUri,
     artifactSha256: artifact.sha256.toLowerCase(),
     artifactSizeBytes: artifact.size_bytes,
     metadata,
@@ -315,6 +329,45 @@ async function copyOrDownload(from: string, to: string): Promise<void> {
   await FileSystem.downloadAsync(from, to);
 }
 
+async function extractMlpackageZip(zipUri: string, destinationDir: string): Promise<void> {
+  await FileSystem.deleteAsync(destinationDir, { idempotent: true });
+  await FileSystem.makeDirectoryAsync(destinationDir, { intermediates: true });
+  const zipBase64 = await FileSystem.readAsStringAsync(zipUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const files = unzipSync(toByteArray(zipBase64));
+  const packagePrefix = findMlpackagePrefix(Object.keys(files));
+  for (const [entryName, bytes] of Object.entries(files)) {
+    if (entryName.endsWith("/")) continue;
+    if (packagePrefix && !entryName.startsWith(packagePrefix)) continue;
+    const relativeName = stripPackagePrefix(entryName, packagePrefix);
+    if (!relativeName || relativeName.startsWith("/") || relativeName.includes("..")) continue;
+    const target = `${destinationDir}${relativeName}`;
+    await ensureParentDirectory(target);
+    await FileSystem.writeAsStringAsync(target, fromByteArray(bytes), {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  }
+}
+
+function findMlpackagePrefix(entryNames: string[]): string {
+  const root = entryNames
+    .map((name) => name.match(/^([^/]+\.mlpackage)\//)?.[1])
+    .find((name): name is string => Boolean(name));
+  return root ? `${root}/` : "";
+}
+
+function stripPackagePrefix(entryName: string, packagePrefix: string): string {
+  return packagePrefix && entryName.startsWith(packagePrefix)
+    ? entryName.slice(packagePrefix.length)
+    : entryName;
+}
+
+async function ensureParentDirectory(uri: string): Promise<void> {
+  const parent = uri.replace(/[^/]+$/, "");
+  await FileSystem.makeDirectoryAsync(parent, { intermediates: true }).catch(() => {});
+}
+
 export async function sha256File(uri: string): Promise<string> {
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
@@ -329,11 +382,36 @@ async function smokeTestTflite(uri: string, metadata: ModelMetadata): Promise<vo
     throw new Error(`Smoke test input shape mismatch: ${input?.shape.join("x") ?? "none"}`);
   }
   const output = model.outputs[0];
-  if (!output || output.shape.length !== 3 || output.shape[1] !== 300 || output.shape[2] < 38) {
+  if (
+    !output ||
+    output.shape.length !== 3 ||
+    output.shape[1] !== 300 ||
+    (output.shape[2] !== 6 && output.shape[2] < 38)
+  ) {
     throw new Error(`Smoke test output shape mismatch: ${output?.shape.join("x") ?? "none"}`);
   }
   const inputCount = input.shape.reduce((acc, n) => acc * n, 1);
   const tensor =
     input.dataType === "uint8" ? new Uint8Array(inputCount) : new Float32Array(inputCount);
   await model.run([tensor.buffer as ArrayBuffer]);
+}
+
+async function smokeTestCoreML(uri: string, metadata: ModelMetadata): Promise<void> {
+  const info = await CoreMLRunner.loadModelAtPath(uri);
+  const input = info.inputs[0];
+  const inputShape = input?.shape ?? [];
+  if (!input || !inputShape.includes(metadata.input_size)) {
+    throw new Error(`Core ML input shape mismatch: ${inputShape.join("x") || "none"}`);
+  }
+  const output =
+    info.outputs
+      .filter((o) => o.shape && o.shape.length > 0)
+      .sort((a, b) => prod(b.shape ?? []) - prod(a.shape ?? []))[0] ?? info.outputs[0];
+  if (!output || !output.shape || output.shape.length !== 3 || output.shape[1] !== 300) {
+    throw new Error(`Core ML output shape mismatch: ${output?.shape?.join("x") ?? "none"}`);
+  }
+}
+
+function prod(values: number[]): number {
+  return values.reduce((acc, value) => acc * value, 1);
 }
