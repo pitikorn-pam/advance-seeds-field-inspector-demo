@@ -60,7 +60,7 @@
   },
   "models": {
     "title": "Model registry",
-    "intro": "Browse deployed registry models, install validated Android TFLite artifacts, activate a model, or roll back to the previous active model. Bundled weights remain the fallback.",
+    "intro": "Browse deployed registry models, install validated Android TFLite or iOS Core ML artifacts, activate a model, or roll back to the previous active model. Bundled weights remain the fallback.",
     "indexUrl": "Model index URL",
     "staging": "Staging",
     "production": "Production",

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -16,21 +16,20 @@ import {
   readPreviousActiveModel,
   rollbackActiveModel,
 } from "@/lib/models/modelStore";
+import { installCandidate, loadCandidatesFromIndex } from "@/lib/models/modelRegistry";
 import {
-  defaultDeploymentIndexUrl,
-  installCandidate,
-  loadCandidatesFromIndex,
-} from "@/lib/models/modelRegistry";
+  defaultDeploymentListUrl,
+  listDeployedModelCandidates,
+  type DeploymentChannel,
+} from "@/lib/models/registryService";
 import type { InstalledModelRecord, ModelCandidate } from "@/lib/models/types";
 import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
-
-type DeploymentChannel = "staging" | "production";
 
 export default function ModelRegistryScreen() {
   const { t } = useTranslation(["common", "more"]);
   const router = useRouter();
   const [channel, setChannel] = useState<DeploymentChannel>("staging");
-  const [indexUrl, setIndexUrl] = useState(defaultDeploymentIndexUrl("staging"));
+  const [indexUrl, setIndexUrl] = useState(defaultDeploymentListUrl("staging"));
   const [candidates, setCandidates] = useState<ModelCandidate[]>([]);
   const [installed, setInstalled] = useState<InstalledModelRecord[]>([]);
   const [active, setActive] = useState<InstalledModelRecord | null>(null);
@@ -59,7 +58,14 @@ export default function ModelRegistryScreen() {
     setBusy("index");
     setError(null);
     try {
-      setCandidates(await loadCandidatesFromIndex(indexUrl));
+      const selectedChannelUrl = defaultDeploymentListUrl(channel);
+      const sourceUrl = indexUrl.trim();
+      if (!sourceUrl || sourceUrl === selectedChannelUrl) {
+        setCandidates(await listDeployedModelCandidates({ channel }));
+        setIndexUrl(selectedChannelUrl);
+      } else {
+        setCandidates(await loadCandidatesFromIndex(sourceUrl));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -69,7 +75,7 @@ export default function ModelRegistryScreen() {
 
   const selectChannel = (next: DeploymentChannel) => {
     setChannel(next);
-    setIndexUrl(defaultDeploymentIndexUrl(next));
+    setIndexUrl(defaultDeploymentListUrl(next));
   };
 
   const install = async (candidate: ModelCandidate) => {
@@ -297,7 +303,7 @@ function CandidateRow({
           label={busy ? t("common:states.loading") : t("more:models.download")}
           renderLeadingIcon={() => <Download color="#FFFFFF" size={16} />}
           onPress={onInstall}
-          disabled={busy || Platform.OS !== "android"}
+          disabled={busy}
         />
       )}
     </View>

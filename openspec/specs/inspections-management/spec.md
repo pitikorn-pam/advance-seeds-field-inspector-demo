@@ -94,6 +94,17 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
   compiled model, falling back to the bundled model if no active model is valid
 - **AND** the user can roll back to the previous active model
 
+#### Scenario: Mobile consumes dashboard model deployment services
+- **GIVEN** Supabase public environment values are configured for the dashboard
+  model-registry project
+- **WHEN** the app refreshes More → Model registry for staging or production
+- **THEN** it SHALL call the dashboard `list-deployed-models` service through a
+  shared mobile model-registry service wrapper
+- **AND** that wrapper SHALL also expose `resolve-channel` for default-model
+  update checks
+- **AND** the screen SHALL keep a manual index URL input as an offline/local
+  testing fallback
+
 #### Scenario: CoreML analyzer is preferred on iPhone with Neural Engine
 - **GIVEN** the device is iPhone 12 Pro+ AND `yolo11n-seeds.mlpackage` is bundled
 - **WHEN** the app starts
