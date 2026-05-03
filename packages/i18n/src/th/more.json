@@ -60,8 +60,11 @@
   },
   "models": {
     "title": "ทะเบียนโมเดล",
-    "intro": "ดูรายการโมเดลจาก HTTP ภายใน ดาวน์โหลด TFLite สำหรับ Android หลังตรวจสอบแล้ว เปิดใช้งาน หรือย้อนกลับไปโมเดลก่อนหน้า โมเดลที่ฝังมากับแอปยังเป็น fallback เสมอ",
+    "intro": "ดูรายการโมเดลที่ deploy แล้ว ดาวน์โหลด TFLite สำหรับ Android หลังตรวจสอบแล้ว เปิดใช้งาน หรือย้อนกลับไปโมเดลก่อนหน้า โมเดลที่ฝังมากับแอปยังเป็น fallback เสมอ",
     "indexUrl": "URL รายการโมเดล",
+    "staging": "Staging",
+    "production": "Production",
+    "endpointHint": "ค่าเริ่มต้นใช้ API deployment จาก dashboard; วาง URL HTTP ภายในเฉพาะตอนทดสอบ offline",
     "refresh": "รีเฟรชรายการ",
     "available": "พร้อมดาวน์โหลด",
     "installed": "ติดตั้งแล้ว",
@@ -74,6 +77,7 @@
     "installedTitle": "ติดตั้งโมเดลแล้ว",
     "installedPill": "ติดตั้งแล้ว",
     "activePill": "ใช้งานอยู่",
+    "defaultPill": "ค่าเริ่มต้น",
     "rollbackTo": "กู้คืน {{name}}"
   }
 }

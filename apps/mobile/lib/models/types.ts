@@ -1,5 +1,5 @@
 export type ModelPlatform = "android" | "ios";
-export type ModelQuantization = "none" | "fp16";
+export type ModelQuantization = "none" | "fp16" | "int8";
 export type ModelInstallStatus = "installed" | "active" | "failed";
 
 export interface ModelMetadata {
@@ -52,10 +52,13 @@ export interface ModelCandidate {
   manifest: ModelCandidateManifest;
   manifestUrl: string;
   metadataUrl: string;
+  metadata?: ModelMetadata;
   artifactUrl: string | null;
   platform: ModelPlatform;
   supported: boolean;
   unsupportedReason?: string;
+  channel?: "staging" | "production";
+  isDefault?: boolean;
 }
 
 export interface InstalledModelRecord {

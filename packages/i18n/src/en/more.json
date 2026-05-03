@@ -60,8 +60,11 @@
   },
   "models": {
     "title": "Model registry",
-    "intro": "Browse local HTTP model exports, install validated Android TFLite artifacts, activate a model, or roll back to the previous active model. Bundled weights remain the fallback.",
+    "intro": "Browse deployed registry models, install validated Android TFLite artifacts, activate a model, or roll back to the previous active model. Bundled weights remain the fallback.",
     "indexUrl": "Model index URL",
+    "staging": "Staging",
+    "production": "Production",
+    "endpointHint": "Uses the dashboard deployment API by default; paste a local HTTP model index only for offline testing.",
     "refresh": "Refresh candidates",
     "available": "Available",
     "installed": "Installed",
@@ -74,6 +77,7 @@
     "installedTitle": "Model installed",
     "installedPill": "Installed",
     "activePill": "Active",
+    "defaultPill": "Default",
     "rollbackTo": "Restore {{name}}"
   }
 }

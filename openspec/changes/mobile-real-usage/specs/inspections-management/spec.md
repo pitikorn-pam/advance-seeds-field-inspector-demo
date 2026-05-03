@@ -70,6 +70,17 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
   model file, falling back to the bundled model if no active model is valid
 - **AND** the user can roll back to the previous active model
 
+#### Scenario: Android can install a deployed dashboard model
+- **GIVEN** the dashboard has active staging or production deployments for the
+  shared model line
+- **WHEN** the user opens More → Model registry and refreshes a channel
+- **THEN** the app SHALL call the dashboard deployment API using the public
+  Supabase anon key
+- **AND** ready Android deployments SHALL appear as installable TFLite
+  candidates with SHA-256 and metadata validation before activation
+- **AND** iOS deployments SHALL be visible as Core ML candidates but SHALL
+  remain disabled until dynamic Core ML package import/compile is implemented
+
 #### Scenario: CoreML analyzer is preferred on iPhone with Neural Engine
 - **GIVEN** the device is iPhone 12 Pro+ AND `yolo11n-seeds.mlpackage` is bundled
 - **WHEN** the app starts

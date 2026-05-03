@@ -5,7 +5,9 @@ const REQUIRED_CLASSES = ["apple", "apple_spot", "banana", "banana_spot", "orang
 export function validateModelMetadata(metadata: ModelMetadata): string[] {
   const errors: string[] = [];
   if (metadata.task !== "instance-segmentation") errors.push("task must be instance-segmentation");
-  if (metadata.model_name !== "yolo26n-seg") errors.push("model_name must be yolo26n-seg");
+  if (!/^yolo26[ns]-seg$/.test(metadata.model_name)) {
+    errors.push("model_name must be yolo26n-seg or yolo26s-seg");
+  }
   if (metadata.input_size !== 640) errors.push("input_size must be 640");
   if (metadata.output_kind !== "segmentation") errors.push("output_kind must be segmentation");
   if (metadata.calibration?.required !== true) errors.push("calibration.required must be true");

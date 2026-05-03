@@ -16,16 +16,21 @@ import {
   readPreviousActiveModel,
   rollbackActiveModel,
 } from "@/lib/models/modelStore";
-import { installCandidate, loadCandidatesFromIndex } from "@/lib/models/modelRegistry";
+import {
+  defaultDeploymentIndexUrl,
+  installCandidate,
+  loadCandidatesFromIndex,
+} from "@/lib/models/modelRegistry";
 import type { InstalledModelRecord, ModelCandidate } from "@/lib/models/types";
 import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
 
-const DEFAULT_INDEX_URL = "http://192.168.1.42:8765/model-candidates.index.json";
+type DeploymentChannel = "staging" | "production";
 
 export default function ModelRegistryScreen() {
   const { t } = useTranslation(["common", "more"]);
   const router = useRouter();
-  const [indexUrl, setIndexUrl] = useState(DEFAULT_INDEX_URL);
+  const [channel, setChannel] = useState<DeploymentChannel>("staging");
+  const [indexUrl, setIndexUrl] = useState(defaultDeploymentIndexUrl("staging"));
   const [candidates, setCandidates] = useState<ModelCandidate[]>([]);
   const [installed, setInstalled] = useState<InstalledModelRecord[]>([]);
   const [active, setActive] = useState<InstalledModelRecord | null>(null);
@@ -60,6 +65,11 @@ export default function ModelRegistryScreen() {
     } finally {
       setBusy(null);
     }
+  };
+
+  const selectChannel = (next: DeploymentChannel) => {
+    setChannel(next);
+    setIndexUrl(defaultDeploymentIndexUrl(next));
   };
 
   const install = async (candidate: ModelCandidate) => {
@@ -137,6 +147,38 @@ export default function ModelRegistryScreen() {
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
         <Text className="text-caption text-fg-secondary">{t("more:models.intro")}</Text>
+        <View className="flex-row gap-sm">
+          <Pressable
+            accessibilityRole="button"
+            className={`h-9 flex-1 items-center justify-center rounded-md border ${
+              channel === "staging"
+                ? "border-brand bg-brand"
+                : "border-line-secondary bg-bg-primary"
+            }`}
+            onPress={() => selectChannel("staging")}
+          >
+            <Text
+              className={`text-title font-medium ${channel === "staging" ? "text-brand-on" : "text-fg-primary"}`}
+            >
+              {t("more:models.staging")}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            className={`h-9 flex-1 items-center justify-center rounded-md border ${
+              channel === "production"
+                ? "border-brand bg-brand"
+                : "border-line-secondary bg-bg-primary"
+            }`}
+            onPress={() => selectChannel("production")}
+          >
+            <Text
+              className={`text-title font-medium ${channel === "production" ? "text-brand-on" : "text-fg-primary"}`}
+            >
+              {t("more:models.production")}
+            </Text>
+          </Pressable>
+        </View>
         <View className="rounded-xl border border-line-tertiary bg-bg-primary px-md py-sm">
           <Text className="text-caption text-fg-secondary">{t("more:models.indexUrl")}</Text>
           <TextInput
@@ -154,6 +196,7 @@ export default function ModelRegistryScreen() {
           onPress={refreshIndex}
           disabled={busy !== null}
         />
+        <Text className="text-caption text-fg-secondary">{t("more:models.endpointHint")}</Text>
         {error ? <Text className="text-caption text-danger-text">{error}</Text> : null}
 
         <Section title={t("more:models.available")}>
@@ -241,7 +284,9 @@ function CandidateRow({
       </View>
       <Text className="text-caption text-fg-secondary">
         {candidate.id} · {candidate.platform === "android" ? "TFLite" : "Core ML"}
+        {candidate.channel ? ` · ${candidate.channel}` : ""}
       </Text>
+      {candidate.isDefault ? <Pill tone="info" label={t("more:models.defaultPill")} /> : null}
       {!candidate.supported ? (
         <Text className="text-caption text-warning-text">{candidate.unsupportedReason}</Text>
       ) : installed ? (
