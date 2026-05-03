@@ -78,8 +78,8 @@ export interface AnalysisResult {
  * Library-agnostic frame descriptor. vision-camera's `Frame` (with its richer
  * shape — pixelFormat, planesCount, toArrayBuffer, etc.) structurally extends
  * this when the caller projects only the fields below. Keeping this minimal
- * means @advance-seeds/types stays free of react-native-vision-camera, which
- * matters because the dashboard depends on this same package.
+ * means @advance-seeds/types stays free of react-native-vision-camera, so the
+ * package can be consumed from non-RN contexts (e.g. server-side scripts).
  *
  * `timestampMs` is monotonic (e.g. performance.now-style) so consumers can
  * throttle by interval without pulling in clock libraries.
