@@ -138,7 +138,7 @@ Inside Claude Code, the `/opsx:propose`, `/opsx:apply`, `/opsx:archive`, and `/o
 
 ## Why this stack
 
-See [`openspec/changes/seed-inspector-demo-foundation/design.md`](./openspec/changes/seed-inspector-demo-foundation/design.md) for the full architectural rationale (decisions D1–D9, risks, and the ML adapter pattern).
+See [`design.md`](./openspec/changes/archive/2026-04-26-seed-inspector-demo-foundation/design.md) for the full architectural rationale (decisions D1–D9, risks, and the ML adapter pattern).
 
 ## License
 

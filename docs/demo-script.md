@@ -1,8 +1,8 @@
 # Demo Day — Flow Script
 
 **Audience.** Client R&D leadership + ML / Engineering stakeholders.
-**Duration target.** 12 minutes (5 click-flows + 2 minutes of context + 5 minutes Q&A).
-**Devices on the table.** Your laptop (dashboard), the client's iPhone (Expo Go), one Android backup (Expo Go), printed QR card.
+**Duration target.** 10 minutes (3 stages + 2 minutes of context + 5 minutes Q&A).
+**Devices on the table.** Your laptop (Supabase Studio + VS Code), the client's Android phone (pre-installed via Firebase App Distribution), one backup phone, printed QR card (optional, for dev-client install link).
 
 ---
 
@@ -10,27 +10,26 @@
 
 - [ ] **Power & Wi-Fi**: laptop on power, joined to venue Wi-Fi or hotspot.
 - [ ] **Supabase**: confirm cloud project is reachable — open <https://gqsxiohxokgwwugeoxmy.supabase.co> in a private tab (you should get a 404 page that says "Welcome to Supabase").
-- [ ] **Dashboard**: open <https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/> on the laptop. Sign in once as `jane@advanceseeds.com` / `DemoSeeds2026!` so the session is warm. Sign out so Stage 1 is clean.
-- [ ] **Mobile**: `pnpm -F @advance-seeds/mobile start` on the laptop. QR appears. Confirm Expo Go on at least one phone can scan it. Have the QR also visible on the laptop screen (or print it on a card).
+- [ ] **Mobile app installed**: confirm the demo phone has the latest dev-client APK installed via Firebase App Distribution. The latest build is `0.3.0 (1)`. If a fresh install is needed, use the Firebase invite link or the direct APK URL.
+- [ ] **Metro running**: `pnpm -F @advance-seeds/mobile start` on the laptop. The dev-client on the phone should connect automatically over LAN.
 - [ ] **Backup video**: open the 60-second screen capture (`docs/demo-backup.mp4`) in QuickTime, paused at frame 1, ready to alt-tab to if Wi-Fi flakes.
 - [ ] **Browser tabs**: keep open in this order, left to right:
-  1. Dashboard (signed-out, login screen showing)
-  2. Supabase Studio (table view of `inspections` — for the optional architecture moment)
-  3. The OpenSpec change summary (for the optional spec-driven question)
-  4. The repo on GitHub (optional, for the architecture credibility moment)
+  1. Supabase Studio — table view of `inspections` (<https://supabase.com/dashboard/project/gqsxiohxokgwwugeoxmy/editor>)
+  2. The OpenSpec change summary (for the optional spec-driven question)
+  3. The repo on GitHub (optional, for the architecture credibility moment)
 - [ ] **Brand**: company logo / Advance Seeds branding visible on the laptop wallpaper if projected.
 
 ---
 
-## Stage 1 — "Here's the inspector experience" (4 min) — MOBILE FIRST
+## Stage 1 — "Here's the inspector experience" (5 min) — MOBILE
 
-> Why mobile first: it's the marquee differentiator. Hands on a real device beats any screenshot.
+> This is the marquee differentiator. Hands on a real device beats any screenshot.
 
-### 1.1 Hand the iPhone with Expo Go open
+### 1.1 Hand the phone
 
-- Have the client scan the QR with the iPhone Camera app (or Expo Go on Android).
-- App loads in 5–10 seconds.
-- **Talking point**: "This is the same code that ships to the App Store later. We're using Expo Go for the demo so you can try it without provisioning."
+- Open the Advance Seeds Field Inspector app (already installed via Firebase).
+- App loads in 2–3 seconds.
+- **Talking point**: "This is the same code that ships to the Play Store and App Store later. We're using Firebase App Distribution for the demo so you can try it without going through the store."
 
 ### 1.2 Sign in as Jane
 
@@ -44,12 +43,15 @@
 Walk the client through:
 
 1. Tap **"+ New inspection"** (the big primary button).
-2. Pick variety: **"Rice — Hom Mali"**.
+2. Pick variety: **"Rice — Hom Mali"** (dropdown search with typeahead).
 3. Pick batch: **"BATCH-2026-04"**.
 4. Pick calibration: **"Default — iPhone 15 Pro LiDAR"** — point out: _"This is honest about which calibration is in use. LiDAR vs ArUco card is a real distinction in production."_
-5. Tap shutter.
-6. Watch the 2-second analysis progress bar fill.
-7. Land on the new inspection's detail.
+5. Toggle **Auto-tag location** on — point out: _"GPS is attached to every inspection so field data has provenance."_
+6. Tap continue → select **Live** mode.
+7. Point the camera at the seed sample.
+8. Tap shutter.
+9. Watch the analysis progress animation.
+10. Land on the new inspection's detail.
 
 > **Honesty moment** — say it explicitly: "The analysis you just saw is mocked. The real model is YOLOv11n, exported via Ultralytics to TFLite for both platforms. The mock and the real implementation share the same `SeedAnalyzer` interface, so swapping in the model is additive — no screen changes."
 
@@ -60,46 +62,40 @@ Walk the client through:
 - Show the per-seed measurement panel (length, width, area, grade).
 - **Talking point**: "Per-seed traceability is what separates a measurement tool from a screening tool. Every grain has a row in the database, with its bounding box. This is the ground truth that supports breeding decisions."
 
-### 1.5 Hand the phone back, summary
+### 1.5 Notifications
+
+- Tap the bell icon next to the role pill on Home.
+- Show the notification that the capture was saved.
+- **Talking point**: "Inspectors get real-time feedback — save success, upload failures, recording completions. No guessing."
+
+### 1.6 Hand the phone back, summary
 
 - "What you just saw is one inspection: a real Postgres row, with a real image in object storage, with 18 child seeds with real geometry. The flow is what an inspector does in the field 50 times a day."
 
 ---
 
-## Stage 2 — "Here's what the R&D team sees" (3 min) — DESKTOP
+## Stage 2 — "Here's what the data looks like" (2 min) — LAPTOP (Supabase Studio)
 
-### 2.1 Open the dashboard URL
+> The dashboard was deliberately not built for the demo — the mobile app is the product. But the data is real and queryable.
 
-- <https://phongsakorn-ipassion.github.io/advance-seeds-field-inspector-demo/>
-- **Talking point**: "Same backend as the phone. The R&D dashboard ships to GitHub Pages on every merge — engineering and the field team are never out of sync."
+### 2.1 Show the inspections table
 
-### 2.2 Sign in as **Alex (admin)**
+- Switch to Supabase Studio on the laptop (already open).
+- Point at the row that was just created from the phone.
+- Show the columns: `id`, `variety_id`, `batch_id`, `image_url`, `seed_count`, `metadata` (expand the JSONB — location, ROI shape).
+- **Talking point**: "Same backend as the phone. Every inspection is a Postgres row with full relational integrity — foreign keys to varieties and batches, JSONB metadata for flexible fields like GPS and ROI."
 
-- `alex@advanceseeds.com` / `DemoSeeds2026!`.
-- **Pause**: "Watch what changes between Jane's view and Alex's view."
+### 2.2 Show RLS in action
 
-### 2.3 Inspections list — admin scope
+- Point at the `inspector_id` column.
+- **Talking point**: "Row-Level Security at the database enforces who sees what. Jane sees her own work; an admin role sees everyone's. Even if a malicious request slipped past the UI, Postgres rejects it."
 
-- Land on Home: 7 inspections, ~115 seeds.
-- Click **Inspections** in the nav.
-- Show the **Inspector** filter — only admins see it.
-- Filter by Inspector: Jane → 5 rows. Reset → 7 rows.
-- **Talking point**: "RLS at the database enforces this. The UI hides admin actions, and even if a malicious request slipped past the UI, Postgres rejects it."
+### 2.3 Show the seeds table
 
-### 2.4 Reports + CSV export
-
-- Click **Reports**.
-- Pick "Last 30 days", variety "Rice — Hom Mali".
-- Show the recomputed KPI tiles.
-- Click **Export CSV** → file downloads.
-- Open the CSV (Numbers / Excel) — **Thai header row stays Thai if the locale is Thai**. (Quick locale flip via the language switcher to demonstrate.)
-- **Talking point**: "The export column set is locked in the spec. Your existing R&D Excel templates can ingest this without column mapping."
-
-### 2.5 Variety + batch CRUD
-
-- Click **Varieties**. Show the "+ New variety" button (admin-only).
-- Click **Batches**. Show inline edit/delete.
-- **Talking point**: "Reference data is admin-managed. Inspectors can read but not write — keeps the catalog clean."
+- Switch to the `seeds` table.
+- Filter by the inspection ID just created.
+- Show `length_mm`, `width_mm`, `area_mm2`, `grade`, `bbox`.
+- **Talking point**: "18 seeds, each with real geometry and a bounding box. This is the dataset your R&D team queries for breeding decisions. The export column set is locked in the spec — your existing Excel templates can ingest it without column mapping."
 
 ---
 
@@ -116,8 +112,8 @@ Walk the client through:
 ### 3.2 The spec-driven workflow
 
 - Switch to GitHub.
-- Open `openspec/changes/seed-inspector-demo-foundation/`.
-- Point at `proposal.md`, `design.md`, `tasks.md`, `specs/`.
+- Open `openspec/specs/` — show the list of capability specs.
+- Point at any `spec.md`, show the requirements.
 - "Every requirement is a testable scenario. The CI validates the spec on every PR. You get an audit trail from intent → contract → code → test."
 
 ### 3.3 The token pipeline
@@ -133,10 +129,10 @@ Short, honest, and forward-looking:
 
 1. **Real ML integration**: drop YOLOv11n.tflite into `apps/mobile/assets/`, swap the analyzer provider. Estimated 3–5 days.
 2. **Native iOS / Android**: the existing `DesignTokens.swift` and `Theme.kt` reference stubs let us regenerate native screens against the same tokens. Estimated 4–6 weeks for a single-platform native release.
-3. **Offline-first sync**: the sync pill is wired but the queue isn't. Estimated 2 weeks for an inspector who can capture without signal.
+3. **Offline-first sync**: the sync pill is wired and the queue is functional. Estimated 1 week for full production hardening.
 4. **Calibration capture**: ArUco / LiDAR pipeline production. Estimated 2 weeks.
 
-> Total: **8–12 weeks to a production beta**, depending on platform scope.
+> Total: **6–10 weeks to a production beta**, depending on platform scope.
 
 ---
 
@@ -144,24 +140,25 @@ Short, honest, and forward-looking:
 
 | Q                                | A                                                                                                                                                                                       |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "Can we run this fully offline?" | "Capture works offline; sync pill flips to amber. Queue + retry is a Phase-2 add — about two weeks."                                                                                    |
+| "Can we run this fully offline?" | "Capture works offline; sync pill flips to amber. Queue + retry is functional — about one week to production-harden."                                                                   |
 | "Where does the data go?"        | "Supabase Postgres in the region you choose. Self-host is a single Docker Compose if compliance demands it."                                                                            |
 | "What's the model accuracy?"     | "Honest answer: we don't have YOLOv11n trained on your data yet. The mock returns realistic geometry; once we have your annotated dataset, the same interface picks up the real model." |
+| "Why no web dashboard?"          | "Deliberate choice — the inspector's phone is the product. The data is in Postgres with full SQL access; a dashboard is a straightforward add when R&D needs one."                      |
 | "Why two roles?"                 | "Inspector (field) and admin (R&D). Future roles like 'farm manager' or 'auditor' slot in via Postgres enums; RLS adapts."                                                              |
 | "Pricing?"                       | (Sales answers — but the architecture is licensed per inspector seat plus a flat backend.)                                                                                              |
-| "How long to a production beta?" | "8–12 weeks scoped to features above; we've already shipped the design system, the data model, the auth + RLS, and the demo."                                                           |
+| "How long to a production beta?" | "6–10 weeks scoped to features above; we've already shipped the design system, the data model, the auth + RLS, and the demo."                                                           |
 
 ---
 
 ## If something breaks
 
-| Failure                            | Recovery                                                                                                           |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Wi-Fi flakes during mobile flow    | Switch to the laptop's hotspot; Expo `--tunnel` was tested in pre-flight. Worst case, alt-tab to the backup video. |
-| Dashboard URL down                 | Run `pnpm -F dashboard dev` against local Docker Supabase; same flow, slightly different URL.                      |
-| Capture flow stalls                | Quit and re-launch Expo Go; the inspection is mocked, no data lost.                                                |
-| Client wants to sign in themselves | Use `alex@advanceseeds.com` / `DemoSeeds2026!` for full admin view.                                                |
+| Failure                            | Recovery                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Wi-Fi flakes during mobile flow    | Switch to the laptop's hotspot; Metro reconnects automatically. Worst case, alt-tab to the backup video. |
+| App crashes or stalls              | Force-quit and re-launch; the inspection is mocked, no data lost.                                        |
+| Supabase Studio won't load         | Show the architecture stage instead — the code is the proof, not the console.                            |
+| Client wants to sign in themselves | Use `alex@advanceseeds.com` / `DemoSeeds2026!` for full admin view.                                      |
 
 ---
 
-_Last reviewed: pre-demo dry-run. Update after dry-run feedback._
+_Last reviewed: 2026-05-03, post-dashboard removal. Mobile-only demo._
