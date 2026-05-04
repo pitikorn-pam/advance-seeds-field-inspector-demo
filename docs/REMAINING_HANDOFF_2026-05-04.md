@@ -53,26 +53,35 @@ Two real bugs + one workaround uncovered:
 
 - New script: [`apps/mobile/scripts/build-ios.sh`](../apps/mobile/scripts/build-ios.sh) — interactive iOS device picker (lists paired iPhones/iPads from `xcrun devicectl`), builds + installs in one step. Accepts a name/model substring or UDID for non-interactive use; `DEVELOPMENT_TEAM` env override.
 
+## Release checkpoint
+
+### ✅ v0.4.0 readiness
+
+- Physical ArUco scene QA passed: Android Live reaches calibration lock and draws annotations with the printed marker + seed target in frame.
+- iPad LiDAR field test passed: continuous LiDAR + EMA-smoothed `pxPerMm` tracks at normal iPad working distance.
+- Mobile app version bumped to `0.4.0`, runtime version `0.4.0`, Android `versionCode` 3.
+- Release tag target: `v0.4.0`.
+
 ## Open issues & pending QA
 
-### 🟡 ArUco lock failing during single-shot processing
+### ✅ ArUco lock during single-shot processing
 
 - **Status**: App-side no-marker handling fixed after this handoff was written. The iOS native image detector used to return `nil` for a normal no-marker frame; Swift imported that Objective-C `NSError**` method as throwing and surfaced `Foundation._GenericObjCError error 0`. It now returns a zero-confidence detection sentinel, so JS treats it as "no calibration" without warning.
-- **Verification needed**: capture with the ArUco card clearly in frame, see if the warning still fires.
+- **Verification**: Passed with the ArUco card clearly in frame.
 
-### 🟡 Model class-id mismatch (COCO preservation)
+### ✅ Model class-id mismatch (COCO preservation)
 
-- **Symptom**: the user's YOLO26-seg custom model emits class IDs 46/52 (COCO bananas/hot-dog) instead of 0–5. We work around it by accepting both index spaces in the filter.
-- **Right fix**: re-train / re-export with proper 0-based class indices. Ultralytics: ensure `data.yaml` `nc: 6` and `names: [...]` and re-train so the head re-initialises rather than fine-tuning over COCO outputs. Once verified, drop tier-4 of `mapClassFilterForModel`.
+- **Status**: Re-export verified with proper 0-based class indices.
+- **Repo cleanup**: Tier-4 COCO id pass-through removed from `mapClassFilterForModel`; custom segmentation models now rely on explicit aliases, variety-name matches, or COCO synonym mapping into the model's 0-based class space.
 
 ### 🟡 Save & sync perceived slowness
 
 - **Status**: Mitigated. `optimizeImageForUpload` now skips files <1.5 MB and times out at 3 s. If still slow, investigate `create.mutateAsync` (Supabase RPC) latency or the offline-detection path.
 
-### 🟡 Android live preview QA on Z Flip 7 FE
+### ✅ Android live preview QA on Z Flip 7 FE
 
 - **Status**: Shape-signature tensor selection is fixed in the Android TFLite frame-processor and the JS TFLite analyzer. Live startup was retested on Z Flip 7 FE after moving live ArUco frame processing to Vision Camera `runAsync`; the repeat run held ~30 fps with no `maxImages` or `ERROR_CAMERA_DEVICE` logs.
-- **Still needs physical scene QA**: point the camera at the printed ArUco card + banana seed target and confirm the UI visibly reaches calibration lock and draws annotations. The last log-only run had no marker in frame (`ids=0`), so it proved stability but not lock/annotation.
+- **Physical scene QA**: Passed with the printed ArUco card + banana seed target; UI reaches calibration lock and draws annotations.
 
 ## Verification commands
 
@@ -97,9 +106,7 @@ pnpm -F mobile start
 idevicesyslog -u $(idevice_id -l | head -1)
 ```
 
-## What's next (suggested phases)
+## What's next
 
-1. **Re-export the registry model** with correct class indices, drop the tier-4 COCO-passthrough workaround (5 LOC).
-2. **iPad LiDAR field test** — continuous LiDAR + smoothed pxPerMm hasn't been validated on iPad Pro yet.
-3. **ArUco physical-card diagnostic** — confirm single-shot calibration and Android live lock/annotation with the printed marker in frame.
-4. **Tag v0.4.0** once iOS + Android live preview both confirmed in the field.
+1. Create and publish the `v0.4.0` release artifact if needed.
+2. Keep monitoring save/sync latency during pilot usage.

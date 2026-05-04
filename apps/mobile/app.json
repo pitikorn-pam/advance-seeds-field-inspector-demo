@@ -2,7 +2,7 @@
   "expo": {
     "name": "Advance Seeds Field Inspector",
     "slug": "advance-seeds-field-inspector",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "advanceseeds",
@@ -21,7 +21,7 @@
     },
     "android": {
       "package": "com.advanceseeds.fieldinspector",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F6E56"
@@ -83,7 +83,7 @@
       }
     },
     "owner": "phongsakorn.p",
-    "runtimeVersion": "0.3.0",
+    "runtimeVersion": "0.4.0",
     "updates": {
       "url": "https://u.expo.dev/1783aa09-3848-4373-9a3b-7c1e23205388"
     }
