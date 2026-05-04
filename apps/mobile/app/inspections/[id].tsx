@@ -12,6 +12,7 @@ import { policyFor } from "@/lib/access";
 import { useInspection, useDeleteInspection } from "@/lib/queries";
 import { displayInspectionNote } from "@/lib/inspections/notes";
 import {
+  readAnalyzerModelMetadata,
   readCaptureMetadata,
   readCalibrationMetadata,
   readDeviceUsageMetadata,
@@ -143,6 +144,7 @@ export default function InspectionDetail() {
   const deviceUsage = readDeviceUsageMetadata(metadata);
   const captureDetail = readCaptureMetadata(metadata);
   const calibration = readCalibrationMetadata(metadata);
+  const analyzerModel = readAnalyzerModelMetadata(metadata);
 
   const saveImage = async () => {
     if (!mediaUrl) return;
@@ -397,6 +399,43 @@ export default function InspectionDetail() {
                                 ? dateFmt.format(new Date(captureDetail.captured_at))
                                 : "—"
                             }
+                          />
+                        </>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {analyzerModel ? (
+                    <>
+                      <MetadataRow
+                        label={t("inspections:detail.metadata.detectorModel")}
+                        value={
+                          analyzerModel.version
+                            ? `${analyzerModel.display_name} · ${t(
+                                `inspections:detail.metadata.detectorSource.${analyzerModel.source}`,
+                              )}`
+                            : t(
+                                `inspections:detail.metadata.detectorSource.${analyzerModel.source}`,
+                              )
+                        }
+                      />
+                      {metadataExpanded ? (
+                        <>
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.detectorRuntime")}
+                            value={analyzerModel.analyzer_runtime}
+                          />
+                          {analyzerModel.model_name ? (
+                            <MetadataRow
+                              label={t("inspections:detail.metadata.detectorTrainedAs")}
+                              value={analyzerModel.model_name}
+                            />
+                          ) : null}
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.detectorThresholds")}
+                            value={t("inspections:detail.metadata.detectorThresholdsValue", {
+                              score: analyzerModel.score_threshold.toFixed(2),
+                              iou: analyzerModel.iou_threshold.toFixed(2),
+                            })}
                           />
                         </>
                       ) : null}

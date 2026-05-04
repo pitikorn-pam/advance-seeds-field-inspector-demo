@@ -99,10 +99,20 @@ export default function CaptureScan() {
         : DEFAULT_CAPTURE_CLASS_IDS,
     [activeVariety?.coco_class_id],
   );
+  // Stable references so useLiveDetections' useEffect dep array doesn't
+  // re-fire every render (creating a fresh array literal in the props
+  // object would otherwise trigger the diagnostic log on every paint).
+  const liveVarietyNames = useMemo<readonly string[] | null>(
+    () => (activeVariety?.name ? [activeVariety.name] : null),
+    [activeVariety?.name],
+  );
+  const liveModelClassAliases = activeVariety?.model_class_aliases ?? null;
   const liveDetections = useLiveDetections({
     enabled: cameraActive && calibrationLocked && !busy,
     pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
     classFilter: liveClassFilter,
+    varietyNames: liveVarietyNames,
+    modelClassAliases: liveModelClassAliases,
     roi: session.mode === "live" ? session.roi : null,
   });
   const activeFrameProcessor = busy

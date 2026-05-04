@@ -27,7 +27,7 @@ import { ensureHyperParamsLoaded, getHyperParamsSync } from "./hyperparams";
 import { recordInference } from "./inferenceStats";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
-import { readActiveModel, verifyInstalledArtifact } from "@/lib/models/modelStore";
+import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
 
 // Generic COCO yolo11n.tflite acts as a structural placeholder until a
 // seed-trained model is dropped at the same path. See assets/models/README.md.
@@ -148,7 +148,7 @@ async function getActiveTfliteSource(): Promise<{
   record: InstalledModelRecord | null;
 }> {
   const active = await readActiveModel();
-  if (active?.platform === "android" && (await verifyInstalledArtifact(active))) {
+  if (active?.platform === "android" && (await quickVerifyArtifact(active))) {
     return {
       key: `installed:${active.id}:${active.artifactSha256}`,
       source: { url: active.artifactUri },

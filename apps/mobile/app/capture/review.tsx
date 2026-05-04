@@ -13,7 +13,14 @@ import { getCurrentLocation } from "@/lib/capture/location";
 import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
 import { shareImageWithRoi, shareVideo } from "@/lib/capture/imageActions";
 import { displayInspectionNote } from "@/lib/inspections/notes";
-import { buildInspectionMetadata, locationDisplayName } from "@/lib/inspections/metadata";
+import {
+  buildInspectionMetadata,
+  locationDisplayName,
+  type AnalyzerModelMetadata,
+} from "@/lib/inspections/metadata";
+import { getHyperParamsSync } from "@/lib/analyzer/hyperparams";
+import { readActiveModel } from "@/lib/models/modelStore";
+import type { InstalledModelRecord } from "@/lib/models/types";
 import { addQueueEntry } from "@/lib/sync/store";
 import { replaySyncQueue } from "@/lib/sync/replay";
 import { isQueueableSyncError, syncErrorMessage } from "@/lib/sync/errors";
@@ -31,6 +38,52 @@ import { GradeRing } from "@/components/inspections/GradeRing";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 
 type SortMode = "index" | "grade" | "length";
+
+/**
+ * Snapshot the model + thresholds at capture time so historical
+ * inspections stay traceable to a specific analyzer config even after
+ * the operator changes models or tunes hyperparameters.
+ */
+function buildAnalyzerModelMetadata(
+  active: InstalledModelRecord | null,
+  analyzerRuntime: string,
+): AnalyzerModelMetadata {
+  const hp = getHyperParamsSync();
+  if (active) {
+    const channel = active.id.startsWith("staging-")
+      ? "staging"
+      : active.id.startsWith("production-")
+        ? "production"
+        : "bundled";
+    return {
+      id: active.id,
+      display_name: active.displayName.replace(/\s+default\s*$/i, "").trim(),
+      source: channel,
+      model_name: active.metadata?.model_name ?? null,
+      version: active.metadata?.model_version ?? null,
+      analyzer_runtime: analyzerRuntime,
+      score_threshold: hp.scoreThreshold,
+      iou_threshold: hp.iouThreshold,
+    };
+  }
+  // Fallback: bundled / classical / mock — no registry record. Map the
+  // analyzer's own id to a sensible source label.
+  const source: AnalyzerModelMetadata["source"] = analyzerRuntime.startsWith("classical")
+    ? "classical"
+    : analyzerRuntime === "mock"
+      ? "mock"
+      : "bundled";
+  return {
+    id: source === "bundled" ? `bundled:${analyzerRuntime}` : source,
+    display_name: analyzerRuntime,
+    source,
+    model_name: null,
+    version: null,
+    analyzer_runtime: analyzerRuntime,
+    score_threshold: hp.scoreThreshold,
+    iou_threshold: hp.iouThreshold,
+  };
+}
 
 function buildDeviceUsageMetadata() {
   const runtimeVersion =
@@ -188,6 +241,11 @@ export default function CaptureReview() {
   const onSave = async () => {
     if (!profile || !session.uploadedImageUrl || !session.varietyId) return;
     setSaving(true);
+    // Snapshot the analyzer + model once for both the optimistic save
+    // path and the queue-fallback path. Hoisted out of the try so catch
+    // sees it.
+    const activeModelRecord = await readActiveModel().catch(() => null);
+    const analyzerModel = buildAnalyzerModelMetadata(activeModelRecord, result.analyzerId);
     try {
       let capturedLocation = session.capturedLocation;
       if (session.locationTagEnabled && !capturedLocation) {
@@ -231,6 +289,7 @@ export default function CaptureReview() {
           flash_mode: session.flashMode,
           captured_at: capturedAt,
         },
+        analyzerModel,
       });
       const payload = buildInspectionSavePayload({
         inspectorId: profile.id,
@@ -301,6 +360,7 @@ export default function CaptureReview() {
                       : null,
                 }
               : null,
+            analyzerModel,
             capture: {
               mode: session.mode,
               camera_position: session.cameraPosition,
@@ -383,7 +443,11 @@ export default function CaptureReview() {
             }
           }
           session.reset();
-          router.replace("/");
+          // Pop back to the capture mode screen (scan/precise) so the
+          // inspector can re-shoot without bouncing to Home and re-
+          // entering the variety + mode pickers.
+          if (router.canGoBack()) router.back();
+          else router.replace("/capture/setup");
         },
       },
     ]);

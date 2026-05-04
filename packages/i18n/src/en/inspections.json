@@ -41,6 +41,18 @@
       "flash": "Flash",
       "roi": "ROI",
       "captureTimestamp": "Capture time",
+      "detectorModel": "Detector model",
+      "detectorRuntime": "Inference runtime",
+      "detectorTrainedAs": "Trained as",
+      "detectorThresholds": "Thresholds",
+      "detectorThresholdsValue": "score ≥ {{score}} · IoU ≤ {{iou}}",
+      "detectorSource": {
+        "production": "Production",
+        "staging": "Staging",
+        "bundled": "Bundled",
+        "classical": "Classical CV",
+        "mock": "Mock"
+      },
       "media": {
         "photo": "Photo",
         "video": "Video"

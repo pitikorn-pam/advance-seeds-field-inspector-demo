@@ -33,6 +33,14 @@ export interface Variety {
    * apps/mobile/lib/analyzer/captureClasses.ts).
    */
   coco_class_id: number | null;
+  /**
+   * Class names from the active registry model (e.g. ["banana","banana_spot"])
+   * that this variety should match against. Takes precedence over
+   * `coco_class_id` when an active model is loaded — see
+   * `mapClassFilterForModel` in apps/mobile/lib/models/compatibility.ts.
+   * Null = inherit from name/COCO mapping.
+   */
+  model_class_aliases: string[] | null;
   /** Reference long-axis dimension in mm, used for grading. */
   ref_length_mm: number | null;
   /** Reference short-axis dimension in mm, used for grading. */

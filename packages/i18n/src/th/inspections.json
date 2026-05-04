@@ -41,6 +41,18 @@
       "flash": "แฟลช",
       "roi": "ROI",
       "captureTimestamp": "เวลาถ่าย",
+      "detectorModel": "โมเดลตรวจจับ",
+      "detectorRuntime": "Runtime การประมวลผล",
+      "detectorTrainedAs": "ชื่อตอนเทรน",
+      "detectorThresholds": "ค่า threshold",
+      "detectorThresholdsValue": "score ≥ {{score}} · IoU ≤ {{iou}}",
+      "detectorSource": {
+        "production": "Production",
+        "staging": "Staging",
+        "bundled": "ฝังในแอป",
+        "classical": "Classical CV",
+        "mock": "Mock"
+      },
       "media": {
         "photo": "ภาพถ่าย",
         "video": "วิดีโอ"

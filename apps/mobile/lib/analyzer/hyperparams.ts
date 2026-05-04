@@ -23,7 +23,11 @@ export interface HyperParams {
 }
 
 export const DEFAULT_HYPERPARAMS: HyperParams = {
-  scoreThreshold: 0.4,
+  // Aggressive (0.4) was filtering most detections out of fresh custom
+  // models with limited training data. 0.25 matches Ultralytics' export
+  // default and gives enough recall to debug; users can tune up via
+  // More → Hyperparameters once a model is proven.
+  scoreThreshold: 0.25,
   iouThreshold: 0.65,
   targetFps: 30,
 };

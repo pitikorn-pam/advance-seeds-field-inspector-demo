@@ -29,24 +29,60 @@ export function validateModelMetadata(metadata: ModelMetadata): string[] {
 export function mapClassFilterForModel(
   classFilter: readonly number[] | null | undefined,
   metadata: ModelMetadata | null | undefined,
+  varietyNames?: readonly string[] | null,
+  modelClassAliases?: readonly string[] | null,
 ): number[] | null {
-  if (!classFilter || classFilter.length === 0) return null;
-  if (!metadata || metadata.output_kind !== "segmentation") return [...classFilter];
+  // Bundled COCO model: pass the COCO ids straight through.
+  if (!metadata || metadata.output_kind !== "segmentation") {
+    if (!classFilter || classFilter.length === 0) return null;
+    return [...classFilter];
+  }
   const names = metadata.class_names;
+  if (!Array.isArray(names) || names.length === 0) return null;
+
   const mapped = new Set<number>();
-  for (const id of classFilter) {
-    const namesForCoco =
-      id === 46
-        ? ["banana", "banana_spot"]
-        : id === 47
-          ? ["apple", "apple_spot"]
-          : id === 49
-            ? ["orange", "orange_spot"]
-            : [];
-    for (const name of namesForCoco) {
-      const idx = names.indexOf(name);
+
+  // Tier 1 — explicit aliases. The variety editor saved class names
+  // chosen from the active model's class_names. Exact match wins over
+  // anything else because it's operator-curated.
+  if (modelClassAliases && modelClassAliases.length > 0) {
+    for (const alias of modelClassAliases) {
+      const idx = names.indexOf(alias);
       if (idx >= 0) mapped.add(idx);
     }
   }
+
+  // Tier 2 — name substring. For varieties without explicit aliases,
+  // best-effort match the variety display name against the model
+  // class_names (e.g. "Banana" → ["banana", "banana_spot"]).
+  if (mapped.size === 0 && varietyNames && varietyNames.length > 0) {
+    for (const variety of varietyNames) {
+      const needle = variety.trim().toLowerCase();
+      if (!needle) continue;
+      names.forEach((cls, idx) => {
+        if (cls.toLowerCase().includes(needle)) mapped.add(idx);
+      });
+    }
+  }
+
+  // Tier 3 — COCO synonym fallback. Legacy varieties tagged only with
+  // a COCO id, mapped to canonical seg-model class names.
+  if (mapped.size === 0 && classFilter) {
+    for (const id of classFilter) {
+      const synonyms = COCO_TO_MODEL_NAMES[id];
+      if (!synonyms) continue;
+      for (const name of synonyms) {
+        const idx = names.indexOf(name);
+        if (idx >= 0) mapped.add(idx);
+      }
+    }
+  }
+
   return mapped.size > 0 ? [...mapped] : null;
 }
+
+const COCO_TO_MODEL_NAMES: Record<number, string[]> = {
+  46: ["banana", "banana_spot"],
+  47: ["apple", "apple_spot"],
+  49: ["orange", "orange_spot"],
+};

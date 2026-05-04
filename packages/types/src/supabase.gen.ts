@@ -234,6 +234,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          model_class_aliases: string[] | null
           name: string
           ref_length_mm: number | null
           ref_width_mm: number | null
@@ -247,6 +248,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          model_class_aliases?: string[] | null
           name: string
           ref_length_mm?: number | null
           ref_width_mm?: number | null
@@ -260,6 +262,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          model_class_aliases?: string[] | null
           name?: string
           ref_length_mm?: number | null
           ref_width_mm?: number | null

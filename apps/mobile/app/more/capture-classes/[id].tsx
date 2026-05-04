@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/Input";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 import { DEFAULT_CAPTURE_CLASSES } from "@/lib/analyzer/captureClasses";
+import { readActiveModel } from "@/lib/models/modelStore";
+import type { InstalledModelRecord } from "@/lib/models/types";
 
 interface FormState {
   name: string;
@@ -22,6 +24,7 @@ interface FormState {
   imageUrl: string;
   colorKey: string;
   cocoClassId: string;
+  modelClassAliases: string[];
   refLength: string;
   refWidth: string;
 }
@@ -33,6 +36,7 @@ const EMPTY_FORM: FormState = {
   imageUrl: "",
   colorKey: "rice",
   cocoClassId: "",
+  modelClassAliases: [],
   refLength: "",
   refWidth: "",
 };
@@ -74,6 +78,21 @@ export default function VarietyEditor() {
     setHydrated(true);
   }
 
+  const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void readActiveModel().then((rec) => {
+      if (!cancelled) setActiveModel(rec);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const modelClassNames = useMemo<readonly string[]>(() => {
+    const names = activeModel?.metadata?.class_names;
+    return Array.isArray(names) ? names : [];
+  }, [activeModel]);
+
   const onSave = async () => {
     const name = form.name.trim();
     if (!name) {
@@ -103,6 +122,9 @@ export default function VarietyEditor() {
       image_url: form.imageUrl.trim() || null,
       color_key: form.colorKey || "rice",
       coco_class_id: parsedClass,
+      // null means "no opinion → fall back to name match / COCO";
+      // [] means "operator explicitly cleared all model classes".
+      model_class_aliases: form.modelClassAliases.length > 0 ? form.modelClassAliases : null,
       ref_length_mm: parsedLen,
       ref_width_mm: parsedWid,
     });
@@ -219,6 +241,45 @@ export default function VarietyEditor() {
                   />
                 ))}
               </View>
+            </Field>
+
+            <Field
+              label={t("more:masterData.modelClasses")}
+              hint={
+                modelClassNames.length === 0
+                  ? t("more:masterData.modelClassesNoActive")
+                  : t("more:masterData.modelClassesHint", { name: activeModel?.displayName ?? "" })
+              }
+            >
+              {modelClassNames.length > 0 ? (
+                <View className="flex-row flex-wrap gap-sm">
+                  {modelClassNames.map((cls) => {
+                    const active = form.modelClassAliases.includes(cls);
+                    return (
+                      <ClassChip
+                        key={cls}
+                        label={cls}
+                        active={active}
+                        onPress={() =>
+                          setForm((s) => {
+                            // Read membership from the *latest* state inside
+                            // the setter, not the render-time closure —
+                            // back-to-back taps would otherwise resolve
+                            // against stale `active` values.
+                            const has = s.modelClassAliases.includes(cls);
+                            return {
+                              ...s,
+                              modelClassAliases: has
+                                ? s.modelClassAliases.filter((c) => c !== cls)
+                                : [...s.modelClassAliases, cls],
+                            };
+                          })
+                        }
+                      />
+                    );
+                  })}
+                </View>
+              ) : null}
             </Field>
 
             <Field label={t("more:masterData.refLengthMm")}>
@@ -353,6 +414,7 @@ function hydrateForm(v: Variety): FormState {
     colorKey: v.color_key ?? "rice",
     cocoClassId:
       v.coco_class_id !== null && v.coco_class_id !== undefined ? String(v.coco_class_id) : "",
+    modelClassAliases: Array.isArray(v.model_class_aliases) ? [...v.model_class_aliases] : [],
     refLength:
       v.ref_length_mm !== null && v.ref_length_mm !== undefined ? String(v.ref_length_mm) : "",
     refWidth: v.ref_width_mm !== null && v.ref_width_mm !== undefined ? String(v.ref_width_mm) : "",

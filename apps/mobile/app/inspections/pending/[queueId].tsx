@@ -98,7 +98,8 @@ export default function PendingInspectionDetail() {
           // local file. The captured media is unrecoverable after this.
           await deleteLocalMediaForPayload(entry.payload);
           await removeQueueEntry(entry.id);
-          router.replace("/");
+          if (router.canGoBack()) router.back();
+          else router.replace("/");
         },
       },
     ]);
@@ -111,7 +112,10 @@ export default function PendingInspectionDetail() {
         left={{
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
-          onPress: () => router.replace("/"),
+          onPress: () => {
+            if (router.canGoBack()) router.back();
+            else router.replace("/");
+          },
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">

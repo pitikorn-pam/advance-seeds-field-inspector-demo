@@ -30,7 +30,7 @@ import { recordInference, type InferenceSource } from "./inferenceStats";
 import { resolveCoreMLModelSource } from "./CoreMLSeedAnalyzer";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
-import { readActiveModel, verifyInstalledArtifact } from "@/lib/models/modelStore";
+import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
 
 const COREML_ASSET = "yolo26n";
 
@@ -89,6 +89,18 @@ interface Options {
   enabled: boolean;
   pxPerMm: number;
   classFilter?: readonly number[] | null;
+  /**
+   * Variety display names from the active session. Used to match against
+   * the active model's `class_names` when the model isn't COCO — e.g. a
+   * custom-trained model with classes ["banana", "banana_spot", …]. The
+   * variety name "Banana" matches both via case-insensitive substring.
+   */
+  varietyNames?: readonly string[] | null;
+  /**
+   * Operator-chosen class names from the active model. Highest-priority
+   * input to `mapClassFilterForModel`; bypasses name/COCO heuristics.
+   */
+  modelClassAliases?: readonly string[] | null;
   roi?: AnalysisRoi | null;
 }
 
@@ -126,11 +138,13 @@ export function useLiveDetections(options: Options): State {
 // ---------------------------------------------------------------------
 
 function useLiveDetectionsCoreML(options: Options): State {
-  const { enabled, pxPerMm, classFilter, roi } = options;
+  const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases } = options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const [modelPath, setModelPath] = useState<string | null>(null);
+  const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const lastSetAtRef = useRef(0);
+  const lastDecodeLogAtRefIos = useRef(0);
   const RENDER_THROTTLE_MS = 33;
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -157,10 +171,39 @@ function useLiveDetectionsCoreML(options: Options): State {
         console.warn("[live-detections coreml] active model unavailable; using bundle", err);
         if (!cancelled) setModelPath(null);
       });
+    void readActiveModel().then((rec) => {
+      if (!cancelled) setActiveModel(rec);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Translate COCO/variety class filter into the active model's class
+  // index space *before* the worklet runs — worklets can't read JS
+  // metadata. Re-runs when the active model or selection changes.
+  const mappedClassFilter = useMemo(
+    () =>
+      mapClassFilterForModel(classFilter, activeModel?.metadata, varietyNames, modelClassAliases),
+    [classFilter, activeModel, varietyNames, modelClassAliases],
+  );
+  // One-line diagnostic per change so the user can see in Metro
+  // exactly which model is running and which class indices the
+  // detector is filtering for. Shows up once whenever variety,
+  // model, or filter changes — easy to spot in scrollback.
+  useEffect(() => {
+    const names = activeModel?.metadata?.class_names ?? [];
+    console.info(
+      "[live-detections coreml] model=%s classes=%s aliases=%o mappedFilter=%o cocoFilter=%o enabled=%s modelPath=%s",
+      activeModel?.id ?? "bundled",
+      Array.isArray(names) && names.length > 0 ? names.join(",") : "(empty)",
+      modelClassAliases ?? null,
+      mappedClassFilter,
+      classFilter,
+      enabled,
+      modelPath ? "active" : "(bundled fallback)",
+    );
+  }, [activeModel, classFilter, modelClassAliases, mappedClassFilter, enabled, modelPath]);
 
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
@@ -181,7 +224,13 @@ function useLiveDetectionsCoreML(options: Options): State {
         ) => {
           recordInference("coreml", inferElapsedMs);
           const out = Float32Array.from(values);
-          const outputKind: "raw" | "nms" = shape2 === 6 ? "nms" : "raw";
+          // Match the Android branch's 3-way split so segmentation
+          // models (shape[2] >= 38: bbox + score + cls + mask coeffs)
+          // are decoded by `decodeYoloSegmentationNms`. Without this,
+          // shape[2]==38 falls through to "raw" and treats mask
+          // coefficients as class scores — every detection scores 0.
+          const outputKind: "raw" | "nms" | "segmentation" =
+            shape2 === 6 ? "nms" : shape2 > 6 ? "segmentation" : "raw";
           // Vision uses `scaleFit` (aspect-fit + center crop) when handing
           // the frame to the model; mirror its inverse so detection boxes
           // land in original-frame pixel space.
@@ -192,13 +241,15 @@ function useLiveDetectionsCoreML(options: Options): State {
           const decodeOpts = {
             letterbox: { scale, padX, padY, target: YOLO_INPUT_SIZE },
             scoreThreshold,
-            classFilter: classFilter ? [...classFilter] : null,
+            classFilter: mappedClassFilter,
           };
           const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
           const raw =
             outputKind === "nms"
               ? decodeYoloNms(out, shape, decodeOpts)
-              : decodeYolo(out, shape, decodeOpts);
+              : outputKind === "segmentation"
+                ? decodeYoloSegmentationNms(out, shape, decodeOpts)
+                : decodeYolo(out, shape, decodeOpts);
           const kept = outputKind === "raw" ? nonMaxSuppression(raw, iouThreshold) : raw;
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,
@@ -207,7 +258,24 @@ function useLiveDetectionsCoreML(options: Options): State {
             roi: roi ?? null,
           });
           if (!mountedRef.current) return;
+          // Per-second decode summary so we can see exactly what reaches
+          // the overlay vs. what the model produced. If kept/seeds
+          // collapse from raw, the issue is post-decode (NMS, mapping).
           const now = Date.now();
+          const since = now - lastDecodeLogAtRefIos.current;
+          if (since > 1000) {
+            lastDecodeLogAtRefIos.current = now;
+            console.info(
+              "[live-detections coreml] kind=%s shape=%dx%dx%d raw=%d kept=%d seeds=%d",
+              outputKind,
+              shape0,
+              shape1,
+              shape2,
+              raw.length,
+              kept.length,
+              seeds.length,
+            );
+          }
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
           lastSetAtRef.current = now;
           setDetections({
@@ -220,7 +288,7 @@ function useLiveDetectionsCoreML(options: Options): State {
           });
         },
       ),
-    [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold],
+    [mappedClassFilter, pxPerMm, roi, scoreThreshold, iouThreshold],
   );
 
   const frameProcessor = useFrameProcessor(
@@ -283,7 +351,7 @@ function useLiveDetectionsCoreML(options: Options): State {
 // ---------------------------------------------------------------------
 
 function useLiveDetectionsAndroidNative(options: Options): State {
-  const { enabled, pxPerMm, classFilter, roi } = options;
+  const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases } = options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
@@ -317,7 +385,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     readActiveModel()
       .then(async (record) => {
         if (cancelled) return;
-        if (record?.platform === "android" && (await verifyInstalledArtifact(record))) {
+        if (record?.platform === "android" && (await quickVerifyArtifact(record))) {
           if (!cancelled) setActiveModel(record);
         } else if (!cancelled) {
           setActiveModel(null);
@@ -330,6 +398,25 @@ function useLiveDetectionsAndroidNative(options: Options): State {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const names = activeModel?.metadata?.class_names ?? [];
+    const aliases = modelClassAliases ?? null;
+    const mapped = mapClassFilterForModel(
+      classFilter,
+      activeModel?.metadata,
+      varietyNames,
+      aliases,
+    );
+    console.info(
+      "[live-detections tflite] model=%s classes=%s aliases=%o mappedFilter=%o cocoFilter=%o",
+      activeModel?.id ?? "bundled",
+      Array.isArray(names) && names.length > 0 ? names.join(",") : "(empty)",
+      aliases,
+      mapped,
+      classFilter,
+    );
+  }, [activeModel, classFilter, varietyNames, modelClassAliases]);
 
   const decodeOnJS = useMemo(
     () =>
@@ -362,7 +449,12 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               target: YOLO_INPUT_SIZE,
             },
             scoreThreshold: liveScoreThreshold,
-            classFilter: mapClassFilterForModel(classFilter, activeModel?.metadata),
+            classFilter: mapClassFilterForModel(
+              classFilter,
+              activeModel?.metadata,
+              varietyNames,
+              modelClassAliases,
+            ),
           };
           const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
           const raw =
@@ -427,7 +519,17 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           });
         },
       ),
-    [classFilter, pxPerMm, roi, liveScoreThreshold, scoreThreshold, iouThreshold, activeModel],
+    [
+      classFilter,
+      varietyNames,
+      modelClassAliases,
+      pxPerMm,
+      roi,
+      liveScoreThreshold,
+      scoreThreshold,
+      iouThreshold,
+      activeModel,
+    ],
   );
 
   const frameProcessor = useFrameProcessor(

@@ -1,4 +1,4 @@
-import { ScrollView, Switch, View, Text } from "react-native";
+import { ScrollView, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -8,6 +8,7 @@ import { useTheme } from "@/lib/theme";
 import { useSyncQueue } from "@/lib/sync/useSyncQueue";
 import { useAutoInstallOnWifi } from "@/lib/models/autoInstall";
 import { Card } from "@/components/ui/Card";
+import { Toggle } from "@/components/ui/Toggle";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -166,7 +167,11 @@ export default function SettingsScreen() {
                   {t("settings:models.autoInstallOnWifiHint")}
                 </Text>
               </View>
-              <Switch value={autoInstallOnWifi} onValueChange={setAutoInstallOnWifi} />
+              <Toggle
+                value={autoInstallOnWifi}
+                onValueChange={setAutoInstallOnWifi}
+                accessibilityLabel={t("settings:models.autoInstallOnWifi")}
+              />
             </View>
           </Card>
         </View>

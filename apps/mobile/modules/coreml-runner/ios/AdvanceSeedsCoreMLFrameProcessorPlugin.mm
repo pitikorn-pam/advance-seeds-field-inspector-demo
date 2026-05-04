@@ -64,13 +64,18 @@ static MLModel *loadModel(NSString *assetName, NSString *modelPath) {
   return model;
 }
 
-// Picks the largest MultiArray-typed output. YOLO26 NMS-baked exports
-// produce a single output `[1, 300, 6]`; raw heads have a single big
-// output `[1, channels, anchors]`. Either way, "largest" is the one we
-// want for JS-side decoding.
+// Picks the detection MultiArray output. YOLO26 NMS-baked exports
+// produce `[1, 300, 6]` (bbox + score + cls) for a detector and
+// `[1, 300, 38+]` (bbox + score + cls + mask coeffs) for a seg model
+// — both are 3D with shape[1] == 300. A seg model also exposes a mask
+// prototype output `[1, 32, 160, 160]` whose element count (~820k)
+// dwarfs detections (~11k); picking by element count returns the mask
+// tensor and the JS decoder reads garbage. Match by shape signature
+// instead so segmentation models work.
 static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLFeatureValueObservation *> *byName) {
   NSString *bestName = nil;
   MLMultiArray *bestArr = nil;
+  NSInteger bestRank = -1; // 0 = none, 1 = fallback largest, 2 = 3D non-detection, 3 = detection signature
   NSInteger bestCount = -1;
   for (NSString *name in byName) {
     VNCoreMLFeatureValueObservation *obs = byName[name];
@@ -78,7 +83,23 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
     if (fv.type != MLFeatureTypeMultiArray) continue;
     MLMultiArray *arr = fv.multiArrayValue;
     if (arr == nil) continue;
-    if ((NSInteger)arr.count > bestCount) {
+    NSArray<NSNumber *> *shape = arr.shape;
+    NSInteger rank = 1;
+    if (shape.count == 3) {
+      NSInteger d0 = shape[0].integerValue;
+      NSInteger d1 = shape[1].integerValue;
+      NSInteger d2 = shape[2].integerValue;
+      // YOLO post-NMS: [1, 300, 6] (det) or [1, 300, 38+] (seg w/ masks).
+      if (d0 == 1 && d1 == 300 && (d2 == 6 || d2 >= 38)) {
+        rank = 3;
+      } else {
+        // Other 3D outputs (raw heads etc.) — preferred over 4D mask
+        // prototypes but lose to a clear detection signature.
+        rank = 2;
+      }
+    }
+    if (rank > bestRank || (rank == bestRank && (NSInteger)arr.count > bestCount)) {
+      bestRank = rank;
       bestCount = arr.count;
       bestArr = arr;
       bestName = name;
@@ -182,8 +203,27 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
                            }];
   request.imageCropAndScaleOption = VNImageCropAndScaleOptionScaleFit;
 
+  // Camera buffers come from the sensor in its native (landscape-right)
+  // orientation, but the user is holding the phone in portrait. Without
+  // an orientation hint, Vision feeds the model a sideways image and
+  // recall collapses (a banana lying flat reads like nothing the model
+  // was trained on). Forward the Frame's UIImageOrientation as a CG
+  // orientation so VNCoreMLRequest applies the correct rotation before
+  // the model sees the pixels.
+  CGImagePropertyOrientation cgOrientation = kCGImagePropertyOrientationUp;
+  switch (frame.orientation) {
+    case UIImageOrientationUp:            cgOrientation = kCGImagePropertyOrientationUp; break;
+    case UIImageOrientationDown:          cgOrientation = kCGImagePropertyOrientationDown; break;
+    case UIImageOrientationLeft:          cgOrientation = kCGImagePropertyOrientationLeft; break;
+    case UIImageOrientationRight:         cgOrientation = kCGImagePropertyOrientationRight; break;
+    case UIImageOrientationUpMirrored:    cgOrientation = kCGImagePropertyOrientationUpMirrored; break;
+    case UIImageOrientationDownMirrored:  cgOrientation = kCGImagePropertyOrientationDownMirrored; break;
+    case UIImageOrientationLeftMirrored:  cgOrientation = kCGImagePropertyOrientationLeftMirrored; break;
+    case UIImageOrientationRightMirrored: cgOrientation = kCGImagePropertyOrientationRightMirrored; break;
+  }
   VNImageRequestHandler *handler =
       [[VNImageRequestHandler alloc] initWithCVPixelBuffer:(CVPixelBufferRef)imageBuffer
+                                               orientation:cgOrientation
                                                    options:@{}];
   NSError *runErr = nil;
   [handler performRequests:@[ request ] error:&runErr];

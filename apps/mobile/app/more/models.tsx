@@ -30,16 +30,21 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronUp,
+  Cpu,
   Download,
+  Gauge,
+  Inbox,
+  Package,
   RefreshCw,
   RotateCcw,
+  Sliders,
   Trash2,
   X,
   Zap,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type RowStatus = "active" | "installed" | "available" | "unsupported";
@@ -102,9 +107,6 @@ export default function ModelRegistryScreen() {
         ]);
         setCandidates(list);
         if (resolveRes) publishResolveResult(resolveRes);
-        if (resolveRes && resolveRes.action !== "update") {
-          setStatusMessage(t("more:models.upToDate"));
-        }
         return list;
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -261,9 +263,18 @@ export default function ModelRegistryScreen() {
       .map((record) => {
         const isActive = active?.id === record.id;
         const isPreviousActive = !isActive && previous?.id === record.id;
+        // Old installed records baked the channel/default label into
+        // the display name (e.g. "0.3.2 default"). Strip those so the
+        // version shows alone and the channel/default render as pills.
+        const cleanName = cleanDisplayName(record.displayName);
+        // Recover `isDefault` and `channel` from the stored metadata so
+        // pills render correctly even when the registry no longer lists
+        // this version on the active channel.
+        const reg = record.metadata?.registry as { is_default?: boolean } | undefined;
+        const orphanChannel = recoverChannel(record.id);
         const synthetic: ModelCandidate = {
           id: record.id,
-          displayName: record.displayName,
+          displayName: cleanName,
           quantization: record.quantization,
           manifest: record.manifest,
           manifestUrl: "",
@@ -272,6 +283,8 @@ export default function ModelRegistryScreen() {
           artifactUrl: null,
           platform: record.platform,
           supported: true,
+          channel: orphanChannel,
+          isDefault: reg?.is_default ?? false,
         };
         return {
           candidate: synthetic,
@@ -308,20 +321,15 @@ export default function ModelRegistryScreen() {
         left={{
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
-          onPress: () => router.back(),
+          onPress: () => {
+            if (router.canGoBack()) router.back();
+            else router.replace("/(tabs)/more");
+          },
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-md">
+      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
         <Text className="text-caption text-fg-secondary">{t("more:models.intro")}</Text>
 
-        {statusMessage ? (
-          <StatusBanner
-            tone="success"
-            title={t("more:models.upToDateTitle")}
-            message={statusMessage}
-            onDismiss={() => setStatusMessage(null)}
-          />
-        ) : null}
         {error ? (
           <StatusBanner
             tone="danger"
@@ -380,6 +388,16 @@ export default function ModelRegistryScreen() {
               </Pressable>
             </View>
           }
+          prepend={
+            statusMessage ? (
+              <StatusBanner
+                tone="success"
+                title={t("more:models.upToDateTitle")}
+                message={statusMessage}
+                onDismiss={() => setStatusMessage(null)}
+              />
+            ) : null
+          }
         />
       </ScrollView>
     </SafeAreaView>
@@ -398,6 +416,7 @@ function RowSection({
   onDelete,
   onCancel,
   headerRight,
+  prepend,
 }: {
   title: string;
   rows: RegistryRow[];
@@ -410,19 +429,30 @@ function RowSection({
   onDelete: (record: InstalledModelRecord) => void;
   onCancel: (id: string) => void;
   headerRight?: React.ReactNode;
+  prepend?: React.ReactNode;
 }) {
   const { t } = useTranslation("common");
   return (
     <View className="gap-sm">
       <View className="flex-row items-center gap-sm px-xs">
-        <Text className="flex-1 text-caption uppercase text-fg-secondary">{title}</Text>
+        <View className="flex-row items-baseline gap-xs flex-1">
+          <Text className="text-caption uppercase text-fg-secondary">{title}</Text>
+          {rows.length > 0 ? (
+            <Text className="text-caption text-fg-tertiary">· {rows.length}</Text>
+          ) : null}
+        </View>
         {headerRight}
       </View>
+      {loading ? <RefreshingPill /> : null}
       <Card className="gap-md">
-        {loading && rows.length === 0 ? (
-          <Text className="text-body text-fg-secondary">{t("states.loading")}</Text>
-        ) : rows.length === 0 ? (
-          <Text className="text-body text-fg-secondary">{emptyLabel}</Text>
+        {prepend}
+        {rows.length === 0 ? (
+          <View className="items-center gap-sm py-md">
+            <Inbox color="rgba(0,0,0,0.35)" size={24} />
+            <Text className="text-body text-fg-secondary text-center">
+              {loading ? t("states.loading") : emptyLabel}
+            </Text>
+          </View>
         ) : (
           rows.map((row, idx) => (
             <ModelRow
@@ -444,6 +474,16 @@ function RowSection({
 }
 
 type StatusTone = "success" | "danger" | "info";
+
+function RefreshingPill() {
+  const { t } = useTranslation("more");
+  return (
+    <View className="flex-row items-center gap-xs self-start rounded-full bg-bg-secondary px-md py-xs">
+      <ActivityIndicator size="small" color="#0F6E56" />
+      <Text className="text-caption text-fg-secondary">{t("models.refreshing")}</Text>
+    </View>
+  );
+}
 
 function StatusBanner({
   tone,
@@ -541,13 +581,36 @@ function ModelRow({
   const headlineMap = metadata ? pickHeadlineMap(metadata.metrics) : null;
 
   return (
-    <View className={`gap-sm ${isLast ? "" : "border-b border-line-tertiary pb-md"}`}>
+    <View
+      className={`gap-sm rounded-lg ${
+        status === "active" ? "bg-brand-soft/40 -mx-xs px-xs py-md" : ""
+      } ${isLast ? "" : "border-b border-line-tertiary pb-md"}`}
+    >
       <View className="flex-row items-center gap-sm">
-        <Text className="flex-1 text-title font-medium text-fg-primary">
-          {candidate.displayName}
+        <Text className="shrink text-title font-medium text-fg-primary" numberOfLines={1}>
+          {cleanDisplayName(candidate.displayName)}
         </Text>
         {status === "active" ? (
           <Pill tone="success" dot label={t("more:models.activePill")} />
+        ) : null}
+        <View className="flex-1" />
+        {metadata ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded }}
+            accessibilityLabel={
+              expanded ? t("more:models.hideDetails") : t("more:models.showDetails")
+            }
+            className="h-7 w-7 items-center justify-center"
+            onPress={() => setExpanded((v) => !v)}
+            hitSlop={6}
+          >
+            {expanded ? (
+              <ChevronUp color="#6B6B68" size={16} />
+            ) : (
+              <ChevronDown color="#6B6B68" size={16} />
+            )}
+          </Pressable>
         ) : null}
       </View>
 
@@ -559,6 +622,12 @@ function ModelRow({
         </Text>
         {headlineMap !== null ? (
           <Pill tone="info" label={`mAP@50 ${headlineMap.toFixed(2)}`} />
+        ) : null}
+        {candidate.channel ? (
+          <Pill
+            tone={candidate.channel === "production" ? "success" : "warning"}
+            label={t(`more:models.${candidate.channel}`)}
+          />
         ) : null}
         {candidate.isDefault ? <Pill tone="brand" label={t("more:models.defaultPill")} /> : null}
         {isPreviousActive ? <Pill tone="neutral" label={t("more:models.previousPill")} /> : null}
@@ -584,15 +653,10 @@ function ModelRow({
         <View className="flex-row justify-end gap-sm">
           <Pressable
             accessibilityRole="button"
-            className="h-9 flex-row items-center gap-xs rounded-md bg-brand px-md"
+            className="h-9 items-center justify-center rounded-md bg-brand px-md"
             disabled={busy !== null}
             onPress={onActivate}
           >
-            {isPreviousActive ? (
-              <RotateCcw color="#FFFFFF" size={14} />
-            ) : (
-              <Zap color="#FFFFFF" size={14} />
-            )}
             <Text className="text-title font-medium text-brand-on">
               {busy === `activate:${candidate.id}`
                 ? t("common:states.loading")
@@ -603,11 +667,10 @@ function ModelRow({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            className="h-9 flex-row items-center gap-xs rounded-md bg-danger-bg px-md"
+            className="h-9 items-center justify-center rounded-md bg-danger-bg px-md"
             disabled={busy !== null}
             onPress={onDelete}
           >
-            <Trash2 color="#791F1F" size={14} />
             <Text className="text-title font-medium text-danger-text">
               {t("common:actions.delete")}
             </Text>
@@ -623,28 +686,8 @@ function ModelRow({
         />
       )}
 
-      {metadata ? (
-        <View className="gap-sm">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded }}
-            className="flex-row items-center gap-xs"
-            onPress={() => setExpanded((v) => !v)}
-            hitSlop={6}
-          >
-            <Text className="text-caption text-fg-secondary">
-              {expanded ? t("more:models.hideDetails") : t("more:models.showDetails")}
-            </Text>
-            {expanded ? (
-              <ChevronUp color="#6B6B68" size={14} />
-            ) : (
-              <ChevronDown color="#6B6B68" size={14} />
-            )}
-          </Pressable>
-          {expanded ? (
-            <ModelDetails metadata={metadata} record={installedRecord} candidate={candidate} />
-          ) : null}
-        </View>
+      {expanded && metadata ? (
+        <ModelDetails metadata={metadata} record={installedRecord} candidate={candidate} />
       ) : null}
     </View>
   );
@@ -722,14 +765,19 @@ function ModelDetails({
   return (
     <View className="gap-md rounded-xl bg-bg-secondary px-md py-md">
       {performanceRows.length > 0 ? (
-        <DetailGroup title={t("models.details.performance")}>
-          {performanceRows.map((r) => (
-            <DetailRow key={r.label} label={r.label} value={r.value.toFixed(3)} />
-          ))}
+        <DetailGroup title={t("models.details.performance")} icon="performance">
+          <View className="flex-row flex-wrap gap-x-md gap-y-xs">
+            {performanceRows.map((r) => (
+              <View key={r.label} className="w-[48%]">
+                <Text className="text-caption text-fg-secondary">{r.label}</Text>
+                <Text className="text-title font-medium text-fg-primary">{r.value.toFixed(3)}</Text>
+              </View>
+            ))}
+          </View>
         </DetailGroup>
       ) : null}
 
-      <DetailGroup title={t("models.details.model")}>
+      <DetailGroup title={t("models.details.model")} icon="model">
         <DetailRow label={t("models.details.task")} value={metadata.task} />
         <DetailRow
           label={t("models.details.inputSize")}
@@ -760,14 +808,14 @@ function ModelDetails({
       </DetailGroup>
 
       {trainingRows.length > 0 ? (
-        <DetailGroup title={t("models.details.training")}>
+        <DetailGroup title={t("models.details.training")} icon="training">
           {trainingRows.map((r) => (
             <DetailRow key={r.label} label={r.label} value={r.value} />
           ))}
         </DetailGroup>
       ) : null}
 
-      <DetailGroup title={t("models.details.artifact")}>
+      <DetailGroup title={t("models.details.artifact")} icon="artifact">
         {versionId ? (
           <DetailRow
             label={t("models.details.versionId")}
@@ -790,10 +838,33 @@ function ModelDetails({
   );
 }
 
-function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
+type DetailIcon = "performance" | "model" | "training" | "artifact";
+
+function DetailGroup({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: DetailIcon;
+  children: React.ReactNode;
+}) {
+  const Icon =
+    icon === "performance"
+      ? Gauge
+      : icon === "model"
+        ? Cpu
+        : icon === "training"
+          ? Sliders
+          : icon === "artifact"
+            ? Package
+            : null;
   return (
     <View className="gap-xs">
-      <Text className="text-caption uppercase text-fg-secondary">{title}</Text>
+      <View className="flex-row items-center gap-xs">
+        {Icon ? <Icon color="#6B6B68" size={12} /> : null}
+        <Text className="text-caption uppercase text-fg-secondary">{title}</Text>
+      </View>
       <View className="gap-xs">{children}</View>
     </View>
   );
@@ -827,6 +898,25 @@ function formatPrimitive(value: unknown): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.slice(0, 4).map(formatPrimitive).join(", ");
   return JSON.stringify(value);
+}
+
+// Old installed records baked the channel/default suffix into the
+// stored display name. Strip those patterns so the row title is just
+// the version and the rest renders as pills.
+function cleanDisplayName(name: string): string {
+  return name
+    .replace(/\s*·\s*(staging|production)\s*$/i, "")
+    .replace(/\s+default\s*$/i, "")
+    .trim();
+}
+
+// Installed record IDs follow `${channel}-${version_id}-${platform}`,
+// so we can recover the original channel for pills even when the
+// current registry list doesn't include this version anymore.
+function recoverChannel(recordId: string): "staging" | "production" | undefined {
+  if (recordId.startsWith("staging-")) return "staging";
+  if (recordId.startsWith("production-")) return "production";
+  return undefined;
 }
 
 function candidateSizeMb(

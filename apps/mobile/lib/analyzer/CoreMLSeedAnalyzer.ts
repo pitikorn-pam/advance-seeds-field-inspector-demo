@@ -9,7 +9,7 @@ import type {
   SeedAnalyzer,
 } from "@advance-seeds/types";
 import CoreMLRunner, { type CoreMLModelInfo } from "@advance-seeds/coreml-runner";
-import { readActiveModel, verifyInstalledArtifact } from "@/lib/models/modelStore";
+import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
 import {
   YOLO_INPUT_SIZE,
   decodeYolo,
@@ -69,18 +69,29 @@ export function loadSharedCoreMLModel(): Promise<LoadedCoreMLModel> {
 
 export async function resolveCoreMLModelSource(): Promise<CoreMLModelSource> {
   const active = await readActiveModel();
-  if (
-    active?.platform === "ios" &&
-    active.compiledArtifactUri &&
-    (await verifyInstalledArtifact(active)) &&
-    (await fileExists(active.compiledArtifactUri))
-  ) {
+  const platformOk = active?.platform === "ios";
+  const hasCompiledUri = Boolean(active?.compiledArtifactUri);
+  const verified = active ? await quickVerifyArtifact(active) : false;
+  const compiledExists = active?.compiledArtifactUri
+    ? await fileExists(active.compiledArtifactUri)
+    : false;
+  if (platformOk && hasCompiledUri && verified && compiledExists && active) {
     return {
       key: `installed:${active.id}`,
       assetName: MODEL_ASSET,
       modelPath: active.compiledArtifactUri,
     };
   }
+  console.warn(
+    "[coreml resolve] falling back to bundled asset — platformOk=%s hasCompiledUri=%s verified=%s compiledExists=%s active.platform=%s active.compiledUri=%s active.artifactSize=%s",
+    platformOk,
+    hasCompiledUri,
+    verified,
+    compiledExists,
+    active?.platform ?? "(none)",
+    active?.compiledArtifactUri ?? "(none)",
+    active?.artifactSizeBytes ?? "(none)",
+  );
   return { key: `asset:${MODEL_ASSET}`, assetName: MODEL_ASSET };
 }
 

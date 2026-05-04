@@ -26,6 +26,31 @@ export interface CaptureMetadata {
   captured_at: string;
 }
 
+/**
+ * Snapshot of which detector produced this inspection's results.
+ * Frozen at capture time so historical inspections stay traceable to a
+ * specific model + thresholds even after the operator activates a new
+ * registry model or tunes hyperparameters.
+ */
+export interface AnalyzerModelMetadata {
+  /** Internal id (registry: "{channel}-{version_id}-{platform}", bundled: "bundled:{asset}", classical/mock for non-ML). */
+  id: string;
+  /** Human-readable label (semver for registry, asset name for bundled). */
+  display_name: string;
+  /** Source: registry channel ("production"/"staging"), or "bundled" for ship-with weights, "classical" / "mock" for fallbacks. */
+  source: "production" | "staging" | "bundled" | "classical" | "mock";
+  /** Trained model identifier (e.g. "yolo26n-seg"). Null when not applicable (classical / mock). */
+  model_name: string | null;
+  /** Semver from the registry. Null for bundled / non-ML analyzers. */
+  version: string | null;
+  /** Runtime that ran the inference: "coreml-yolo" / "tflite-yolo" / "classical-cv-v1" / "mock". */
+  analyzer_runtime: string;
+  /** Detection confidence cutoff applied for this capture. */
+  score_threshold: number;
+  /** NMS IoU threshold (raw YOLO11/8 head only — ignored by NMS-baked exports). */
+  iou_threshold: number;
+}
+
 export interface CalibrationMetadata {
   px_per_mm: number;
   source: CalibrationReading["source"];
@@ -51,6 +76,7 @@ interface BuildInspectionMetadataArgs {
       })
     | null;
   capture: Omit<CaptureMetadata, "media_kind" | "roi_kind">;
+  analyzerModel: AnalyzerModelMetadata | null;
 }
 
 export function buildInspectionMetadata(
@@ -80,6 +106,7 @@ export function buildInspectionMetadata(
     media_kind: args.mediaKind,
     roi_kind: args.roi?.kind ?? null,
   };
+  if (args.analyzerModel) metadata.analyzer_model = args.analyzerModel;
   if (args.locationTagEnabled) {
     metadata.location_capture_enabled = true;
     if (args.capturedLocation) metadata.location = args.capturedLocation;
@@ -157,6 +184,32 @@ export function readDeviceUsageMetadata(metadata: unknown): DeviceUsageMetadata 
     app_version: typeof row.app_version === "string" ? row.app_version : null,
     build_version: typeof row.build_version === "string" ? row.build_version : null,
     runtime_version: typeof row.runtime_version === "string" ? row.runtime_version : null,
+  };
+}
+
+export function readAnalyzerModelMetadata(metadata: unknown): AnalyzerModelMetadata | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const row = (metadata as { analyzer_model?: unknown }).analyzer_model;
+  if (!row || typeof row !== "object") return null;
+  const m = row as Partial<AnalyzerModelMetadata>;
+  if (typeof m.id !== "string" || typeof m.display_name !== "string") return null;
+  const source =
+    m.source === "production" ||
+    m.source === "staging" ||
+    m.source === "bundled" ||
+    m.source === "classical" ||
+    m.source === "mock"
+      ? m.source
+      : "bundled";
+  return {
+    id: m.id,
+    display_name: m.display_name,
+    source,
+    model_name: typeof m.model_name === "string" ? m.model_name : null,
+    version: typeof m.version === "string" ? m.version : null,
+    analyzer_runtime: typeof m.analyzer_runtime === "string" ? m.analyzer_runtime : "unknown",
+    score_threshold: typeof m.score_threshold === "number" ? m.score_threshold : 0,
+    iou_threshold: typeof m.iou_threshold === "number" ? m.iou_threshold : 0,
   };
 }
 

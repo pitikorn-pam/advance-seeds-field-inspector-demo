@@ -105,6 +105,13 @@ export async function rollbackActiveModel(): Promise<InstalledModelRecord | null
   return previous;
 }
 
+/**
+ * Full SHA-256 verification — slow (2–8 s on a 6–25 MB model). Only
+ * call from explicit user-triggered checks (install, activate, admin
+ * "Verify integrity"). Do NOT use on every analyzer load — that
+ * blocked Home's first paint in the field. Use `quickVerifyArtifact`
+ * for the load path.
+ */
 export async function verifyInstalledArtifact(record: InstalledModelRecord): Promise<boolean> {
   const info = await FileSystem.getInfoAsync(record.artifactUri);
   if (!info.exists) return false;
@@ -117,4 +124,19 @@ export async function verifyInstalledArtifact(record: InstalledModelRecord): Pro
   } catch {
     return false;
   }
+}
+
+/**
+ * Cheap integrity check used on every analyzer load: file exists and
+ * its byte size matches what we recorded at install time. SHA-256 was
+ * verified once at install in the user's private app sandbox; an
+ * unchanged file is overwhelmingly likely to still be intact. If iOS
+ * trims the documents directory between launches the `info.exists`
+ * branch catches it and the analyzer falls back to bundled weights.
+ */
+export async function quickVerifyArtifact(record: InstalledModelRecord): Promise<boolean> {
+  const info = await FileSystem.getInfoAsync(record.artifactUri);
+  if (!info.exists) return false;
+  if (typeof info.size === "number" && info.size !== record.artifactSizeBytes) return false;
+  return true;
 }

@@ -73,10 +73,16 @@ export default function CapturePrecise() {
         : DEFAULT_CAPTURE_CLASS_IDS,
     [activeVariety?.coco_class_id],
   );
+  const preciseVarietyNames = useMemo<readonly string[] | null>(
+    () => (activeVariety?.name ? [activeVariety.name] : null),
+    [activeVariety?.name],
+  );
   const liveDetections = useLiveDetections({
     enabled: cameraActive && calibrationLocked && !busy,
     pxPerMm: automaticCalibration?.reading.pxPerMm ?? 38.4,
     classFilter: liveClassFilter,
+    varietyNames: preciseVarietyNames,
+    modelClassAliases: activeVariety?.model_class_aliases ?? null,
     roi: null,
   });
   const activeFrameProcessor = busy

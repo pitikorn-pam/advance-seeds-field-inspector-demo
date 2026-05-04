@@ -106,7 +106,7 @@ function candidateFromDeployment(
       : undefined;
   const manifest: ModelCandidateManifest = {
     key: `${channel}-${model.version_id}-${platform}`,
-    display_name: `${model.semver}${model.is_default ? " default" : ""}`,
+    display_name: model.semver,
     quantized: platform === "android",
     quantization: deploymentQuantization(platform, model.metadata),
     metadata: "__embedded__",
@@ -126,7 +126,7 @@ function candidateFromDeployment(
     : `Missing ${artifactKind} artifact from ${channel}.`;
   return {
     id: manifest.key,
-    displayName: `${model.semver} · ${channel}`,
+    displayName: model.semver,
     quantization: manifest.quantization,
     manifest,
     manifestUrl: "",
