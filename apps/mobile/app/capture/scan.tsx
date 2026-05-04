@@ -117,8 +117,8 @@ export default function CaptureScan() {
   const activeFrameProcessor = busy
     ? undefined
     : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
-  const androidLiveDetectorActive =
-    Platform.OS === "android" && !busy && liveDetections.frameProcessor !== undefined;
+  const androidFrameProcessorActive =
+    Platform.OS === "android" && !busy && activeFrameProcessor !== undefined;
   const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
 
   const cycleFlash = () =>
@@ -210,12 +210,12 @@ export default function CaptureScan() {
     () => ({
       video: recordingActive,
       audio: recordingActive,
-      photo: !androidLiveDetectorActive,
+      photo: !androidFrameProcessorActive,
       torch: cameraTorch,
       frameProcessor: activeFrameProcessor,
       pixelFormat: "yuv" as const,
     }),
-    [androidLiveDetectorActive, cameraTorch, activeFrameProcessor, recordingActive],
+    [androidFrameProcessorActive, cameraTorch, activeFrameProcessor, recordingActive],
   );
 
   const setRoi = (roi: Roi | null) => session.set({ roi });
@@ -409,7 +409,7 @@ export default function CaptureScan() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        performanceProfile={androidLiveDetectorActive ? "low" : "quality"}
+        performanceProfile={androidFrameProcessorActive ? "low" : "quality"}
         cameraProps={viewfinderCameraProps}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">

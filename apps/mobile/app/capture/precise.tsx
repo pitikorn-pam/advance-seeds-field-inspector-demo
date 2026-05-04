@@ -83,16 +83,16 @@ export default function CapturePrecise() {
   const activeFrameProcessor = busy
     ? undefined
     : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
-  const androidLiveDetectorActive =
-    Platform.OS === "android" && !busy && liveDetections.frameProcessor !== undefined;
+  const androidFrameProcessorActive =
+    Platform.OS === "android" && !busy && activeFrameProcessor !== undefined;
   const viewfinderCameraProps = useMemo(
     () => ({
-      photo: !androidLiveDetectorActive,
+      photo: !androidFrameProcessorActive,
       torch: cameraTorch,
       frameProcessor: activeFrameProcessor,
       pixelFormat: "yuv" as const,
     }),
-    [androidLiveDetectorActive, cameraTorch, activeFrameProcessor],
+    [androidFrameProcessorActive, cameraTorch, activeFrameProcessor],
   );
   const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
 
@@ -227,7 +227,7 @@ export default function CapturePrecise() {
         cameraRef={cameraRef}
         position={position}
         showGrid={showGrid}
-        performanceProfile={androidLiveDetectorActive ? "low" : "quality"}
+        performanceProfile={androidFrameProcessorActive ? "low" : "quality"}
         cameraProps={viewfinderCameraProps}
       >
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">

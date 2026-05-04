@@ -24,6 +24,7 @@ const LOCK_CONFIDENCE = 0.6;
 const HOLD_CONFIDENCE = 0.45;
 const SMOOTHING_WINDOW = 5;
 const GRACE_MS = 1500;
+const DETECTION_TARGET_FPS = 3;
 
 interface SmoothedReading {
   pxPerMm: number;
@@ -120,7 +121,7 @@ export function useLiveArucoCalibration(enabled: boolean): LiveArucoState {
     (frame) => {
       "worklet";
       if (!enabled) return;
-      runAtTargetFps(1, () => {
+      runAtTargetFps(DETECTION_TARGET_FPS, () => {
         "worklet";
         const next = detectNativeArucoCalibrationInFrame(frame);
         if (!next) {
