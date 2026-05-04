@@ -11,6 +11,7 @@ import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.concurrent.thread
 import kotlin.math.max
 import kotlin.math.min
 
@@ -28,6 +29,7 @@ private object AndroidTfliteRunner {
   private const val FLOAT_BYTES = 4
   private const val LIVE_OUTPUT_FIELDS = 6
   private const val CPU_NUM_THREADS = 4
+  private const val GPU_WIN_MARGIN = 0.85
 
   private val lock = Any()
   @Volatile private var runner: Runner? = null
@@ -96,21 +98,13 @@ private object AndroidTfliteRunner {
   }
 
   private class Runner(modelBuffer: ByteBuffer, val sourceKey: String) {
+    private val modelBuffer = modelBuffer.duplicate().rewinded()
     private val cpuInterpreter = Interpreter(modelBuffer.duplicate().rewinded(), cpuOptions())
-    private val gpuDelegate: GpuDelegate? = createGpuDelegate()
-    private val gpuInterpreter: Interpreter? = gpuDelegate?.let { delegate ->
-      try {
-        Interpreter(modelBuffer.duplicate().rewinded(), Interpreter.Options().addDelegate(delegate))
-      } catch (err: Throwable) {
-        Log.w(TAG, "gpu interpreter unavailable; using cpu", err)
-        delegate.close()
-        null
-      }
-    }
-    private var selectedInterpreter: Interpreter = cpuInterpreter
+    @Volatile private var selectedInterpreter: Interpreter = cpuInterpreter
     @Volatile var delegateName: String = "cpu"
       private set
-    private var benchmarked = false
+    @Volatile private var gpuBenchmarkStarted = false
+    @Volatile private var lastCpuInferenceMs: Long? = null
     private val inputTensor = cpuInterpreter.getInputTensor(0)
     val selectedOutputIndex = selectDetectionOutputTensorIndex(cpuInterpreter)
     private val outputTensor = cpuInterpreter.getOutputTensor(selectedOutputIndex)
@@ -147,7 +141,7 @@ private object AndroidTfliteRunner {
       }
       inputBuffer = ByteBuffer.allocateDirect(inputBytes).order(ByteOrder.nativeOrder())
       outputBuffer = ByteBuffer.allocateDirect(outputFloatCount * FLOAT_BYTES).order(ByteOrder.nativeOrder())
-      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType outputIndex=$selectedOutputIndex output=${outputShape.joinToString("x")} bridgeOutput=${bridgeOutputShape.joinToString("x")} delegate=cpu threads=$CPU_NUM_THREADS gpuCandidate=${gpuInterpreter != null}")
+      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType outputIndex=$selectedOutputIndex output=${outputShape.joinToString("x")} bridgeOutput=${bridgeOutputShape.joinToString("x")} delegate=cpu threads=$CPU_NUM_THREADS gpuLazy=true")
     }
 
     fun fillInputFromYuv(
@@ -206,10 +200,11 @@ private object AndroidTfliteRunner {
     }
 
     fun run() {
-      if (!benchmarked) benchmarkDelegate()
       outputBuffer.rewind()
+      val interpreter = selectedInterpreter
+      val inferenceStartedAtMs = System.currentTimeMillis()
       try {
-        selectedInterpreter.runForMultipleInputsOutputs(
+        interpreter.runForMultipleInputsOutputs(
           arrayOf(inputBuffer),
           mapOf(selectedOutputIndex to outputBuffer as Any),
         )
@@ -227,38 +222,71 @@ private object AndroidTfliteRunner {
           throw err
         }
       }
+      val inferenceMs = System.currentTimeMillis() - inferenceStartedAtMs
+      if (delegateName == "cpu") {
+        lastCpuInferenceMs = inferenceMs
+        startGpuBenchmarkAsync()
+      }
       outputBuffer.rewind()
     }
 
-    private fun benchmarkDelegate() {
-      benchmarked = true
-      val gpu = gpuInterpreter ?: return
-      val cpuMs = benchmark("cpu", cpuInterpreter) ?: return
-      val gpuMs = benchmark("gpu", gpu)
-      if (gpuMs != null && gpuMs < cpuMs) {
-        selectedInterpreter = gpu
-        delegateName = "gpu"
-      } else {
-        selectedInterpreter = cpuInterpreter
-        delegateName = "cpu"
+    private fun startGpuBenchmarkAsync() {
+      if (gpuBenchmarkStarted) return
+      gpuBenchmarkStarted = true
+      thread(name = "AdvanceSeedsTfliteGpuBenchmark", isDaemon = true) {
+        benchmarkGpuDelegate()
       }
-      Log.i(TAG, "delegate benchmark cpu=${cpuMs}ms gpu=${gpuMs?.toString() ?: "failed"}ms selected=$delegateName")
     }
 
-    private fun benchmark(name: String, candidate: Interpreter): Long? {
+    private fun benchmarkGpuDelegate() {
+      val delegate = createGpuDelegate() ?: return
+      val gpu = try {
+        Interpreter(modelBuffer.duplicate().rewinded(), Interpreter.Options().addDelegate(delegate))
+      } catch (err: Throwable) {
+        Log.w(TAG, "gpu interpreter unavailable; staying on cpu", err)
+        delegate.close()
+        return
+      }
+      val gpuInput = ByteBuffer.allocateDirect(inputBuffer.capacity()).order(ByteOrder.nativeOrder())
+      val gpuOutput = ByteBuffer.allocateDirect(outputBuffer.capacity()).order(ByteOrder.nativeOrder())
+      val gpuMs = benchmark("gpu", gpu, gpuInput, gpuOutput)
+      val cpuMs = lastCpuInferenceMs
+      if (gpuMs != null && cpuMs != null && gpuMs < (cpuMs * GPU_WIN_MARGIN).toLong()) {
+        synchronized(lock) {
+          selectedInterpreter = gpu
+          delegateName = "gpu"
+        }
+        Log.i(TAG, "delegate benchmark cpu=${cpuMs}ms gpu=${gpuMs}ms selected=gpu")
+      } else {
+        gpu.close()
+        delegate.close()
+        Log.i(
+          TAG,
+          "delegate benchmark cpu=${cpuMs?.toString() ?: "unknown"}ms gpu=${gpuMs?.toString() ?: "failed"}ms selected=cpu"
+        )
+      }
+    }
+
+    private fun benchmark(
+      name: String,
+      candidate: Interpreter,
+      benchmarkInput: ByteBuffer,
+      benchmarkOutput: ByteBuffer,
+    ): Long? {
       return try {
-        outputBuffer.rewind()
+        benchmarkInput.rewind()
+        benchmarkOutput.rewind()
         val startedAtMs = System.currentTimeMillis()
         candidate.runForMultipleInputsOutputs(
-          arrayOf(inputBuffer),
-          mapOf(selectedOutputIndex to outputBuffer as Any),
+          arrayOf(benchmarkInput),
+          mapOf(selectedOutputIndex to benchmarkOutput as Any),
         )
-        outputBuffer.rewind()
-        inputBuffer.rewind()
+        benchmarkInput.rewind()
+        benchmarkOutput.rewind()
         System.currentTimeMillis() - startedAtMs
       } catch (err: Throwable) {
-        outputBuffer.rewind()
-        inputBuffer.rewind()
+        benchmarkInput.rewind()
+        benchmarkOutput.rewind()
         Log.w(TAG, "delegate benchmark failed for $name", err)
         null
       }

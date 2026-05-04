@@ -36,3 +36,14 @@ test("Android TFLite CPU runner uses four XNNPACK threads for live inference", (
   assert.match(source, /setNumThreads\(CPU_NUM_THREADS\)/);
   assert.match(source, /setUseXNNPACK\(true\)/);
 });
+
+test("Android TFLite runner defers GPU delegate benchmark off the first frame", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.doesNotMatch(source, /private val gpuDelegate/);
+  assert.doesNotMatch(source, /private val gpuInterpreter/);
+  assert.doesNotMatch(source, /if \(!benchmarked\) benchmarkDelegate\(\)/);
+  assert.match(source, /startGpuBenchmarkAsync\(\)/);
+  assert.match(source, /thread\(name = "AdvanceSeedsTfliteGpuBenchmark", isDaemon = true\)/);
+  assert.match(source, /gpuMs < \(cpuMs \* GPU_WIN_MARGIN\)\.toLong\(\)/);
+});
