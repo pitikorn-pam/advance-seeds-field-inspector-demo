@@ -13,6 +13,7 @@ import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
 import { useCaptureSession } from "@/lib/capture/session";
 import { getCurrentLocation } from "@/lib/capture/location";
 import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
+import { optimizeImageForUpload } from "@/lib/capture/imageOptimization";
 import { detectArucoCalibration } from "@/lib/calibration/ArucoCalibrator";
 import { useCreateRecording, useVarieties } from "@/lib/queries";
 import { addQueueEntry } from "@/lib/sync/store";
@@ -218,10 +219,20 @@ export default function CaptureProcessing() {
 
           let thumbnailRemoteUrl: string | null = null;
           if (videoThumbnailLocalUri) {
+            const optimizedThumb = await optimizeImageForUpload(videoThumbnailLocalUri, {
+              maxLongEdge: 1280,
+              quality: 0.8,
+            });
+            console.info(
+              "[processing] thumb optimized %d→%d bytes",
+              optimizedThumb.originalBytes,
+              optimizedThumb.optimizedBytes,
+            );
+            videoThumbnailLocalUri = optimizedThumb.uri;
             const thumbPath = `${profile.id}/${Date.now()}-thumb.jpg`;
             const thumbFd = new FormData();
             thumbFd.append("file", {
-              uri: videoThumbnailLocalUri,
+              uri: optimizedThumb.uri,
               type: "image/jpeg",
               name: "thumb.jpg",
             } as unknown as Blob);
@@ -249,12 +260,20 @@ export default function CaptureProcessing() {
             recordingId,
           });
         } else {
-          // Stage 1: upload via FormData. Canonical RN pattern for Supabase
-          // Storage — supabase-js detects FormData and forwards multipart.
+          // Stage 1: optimize → upload via FormData. iPhone JPEGs are
+          // typically 4032×3024 + minimal compression — resizing to a
+          // 2048 long edge with quality 0.85 cuts upload bytes ~5×
+          // without a visible quality drop on grading crops.
+          const optimized = await optimizeImageForUpload(sourceUri);
+          console.info(
+            "[processing] photo optimized %d→%d bytes",
+            optimized.originalBytes,
+            optimized.optimizedBytes,
+          );
           const path = `${profile.id}/${Date.now()}.jpg`;
           const fd = new FormData();
           fd.append("file", {
-            uri: sourceUri,
+            uri: optimized.uri,
             type: "image/jpeg",
             name: "capture.jpg",
           } as unknown as Blob);

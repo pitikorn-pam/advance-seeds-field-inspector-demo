@@ -291,6 +291,7 @@ export default function InspectionDetail() {
                   ) : null}
                   {deviceUsage ? (
                     <>
+                      {location ? <MetadataDivider /> : null}
                       <MetadataRow
                         label={t("inspections:detail.metadata.device")}
                         value={deviceUsage.device_name ?? "—"}
@@ -350,6 +351,7 @@ export default function InspectionDetail() {
                   ) : null}
                   {captureDetail ? (
                     <>
+                      {location || deviceUsage ? <MetadataDivider /> : null}
                       <MetadataRow
                         label={t("inspections:detail.metadata.captureMode")}
                         value={t(
@@ -406,6 +408,7 @@ export default function InspectionDetail() {
                   ) : null}
                   {analyzerModel ? (
                     <>
+                      {location || deviceUsage || captureDetail ? <MetadataDivider /> : null}
                       <MetadataRow
                         label={t("inspections:detail.metadata.detectorModel")}
                         value={
@@ -537,6 +540,10 @@ function MetadataRow({ label, value }: { label: string; value: string }) {
       <Text className="text-caption text-fg-primary text-right flex-1">{value}</Text>
     </View>
   );
+}
+
+function MetadataDivider() {
+  return <View className="h-[0.5px] bg-line-tertiary my-xs" />;
 }
 
 function SeedCard({

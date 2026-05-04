@@ -25,11 +25,9 @@ import { useCaptureSession } from "@/lib/capture/session";
 import { useRecordingState } from "@/lib/capture/recording";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
-import { stopLidarCalibration } from "@/lib/calibration/LidarCalibrator";
 import { useNotify } from "@/lib/notifications";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
 import type { CalibrationReading } from "@advance-seeds/types";
-import type { LidarCalibrationResult } from "@/lib/calibration/LidarCalibrator";
 
 /**
  * Live capture screen.
@@ -62,31 +60,32 @@ export default function CaptureScan() {
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
-  const [lockedLidar, setLockedLidar] = useState<LidarCalibrationResult | null>(null);
-  const [lidarReleased, setLidarReleased] = useState(false);
+  // Continuous LiDAR — keeps streaming pxPerMm as the operator moves;
+  // no one-shot lock, no freeze. The "first reading seen" flag lets us
+  // dismiss the initial calibration overlay once we have any signal,
+  // then UI surfaces the live distance directly.
+  const [firstLidarReadingSeen, setFirstLidarReadingSeen] = useState(false);
   // Torch is the LED-as-flashlight control. Vision Camera's `flash: 'on'`
   // option is unreliable on iOS 26 + iPhone 17 series, so we briefly toggle
   // the torch around `takePhoto` instead. See onShutter for the bracket.
   const [torch, setTorch] = useState<"off" | "on">("off");
   // Snapshot toast — surfaces "Snapshot saved" for ~2 s without an Alert.
   const [toast, setToast] = useState<string | null>(null);
-  const liveLidar = useLiveLidarCalibration(cameraActive && position === "back" && !lockedLidar);
+  const liveLidar = useLiveLidarCalibration(cameraActive && position === "back");
   const liveAruco = useLiveArucoCalibration(
     cameraActive && position === "back" && liveLidar.supported === false,
   );
-  const automaticCalibration = lockedLidar?.reading ?? liveAruco.result?.reading ?? null;
+  const automaticCalibration = liveLidar.result?.reading ?? liveAruco.result?.reading ?? null;
+  // Show the calibration onboarding overlay only until the FIRST
+  // confident LiDAR reading lands. After that, live values flow into
+  // the bottom banner — no need to occlude the camera again.
   const lidarGateActive =
-    cameraActive &&
-    position === "back" &&
-    liveLidar.supported !== false &&
-    (!lockedLidar || !lidarReleased);
+    cameraActive && position === "back" && liveLidar.supported !== false && !firstLidarReadingSeen;
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
 
-  // Once calibration is locked we hand the camera frame stream over to the
-  // ML detector. Vision Camera takes one frameProcessor at a time, so this
-  // is a swap rather than a compose — composing the two worklets is a
-  // future refactor.
-  const calibrationLocked = Boolean(lockedLidar) || liveAruco.locked;
+  // YOLO detector runs whenever we have any calibration source —
+  // continuous LiDAR keeps it running through device movement.
+  const calibrationLocked = liveLidar.locked || liveAruco.locked;
   const varieties = useVarieties();
   const activeVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId),
@@ -126,12 +125,15 @@ export default function CaptureScan() {
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
   const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
   const toggleGrid = () => setShowGrid((g) => !g);
+  // Recalibrate is a no-op in continuous mode — pxPerMm tracks the
+  // operator's pose in real time. Kept as a stub so the existing UI
+  // button still wires up; toggling the camera off/on briefly forces
+  // a fresh LiDAR session if the operator wants to "reset."
   const recalibrateLidar = () => {
-    if (!lockedLidar || recording.isRecording) return;
+    if (recording.isRecording) return;
     setCameraActive(false);
     setTorch("off");
-    setLockedLidar(null);
-    setLidarReleased(false);
+    setFirstLidarReadingSeen(false);
     recordingCalibrationRef.current = null;
     setTimeout(() => setCameraActive(true), 80);
   };
@@ -142,40 +144,23 @@ export default function CaptureScan() {
       setCameraActive(true);
       setTorch("off");
       recordingCalibrationRef.current = null;
-      setLockedLidar(null);
-      setLidarReleased(false);
+      setFirstLidarReadingSeen(false);
       return () => {
         setCameraActive(false);
         setTorch("off");
-        setLockedLidar(null);
-        setLidarReleased(false);
+        setFirstLidarReadingSeen(false);
       };
     }, []),
   );
 
+  // Flip the gate-overlay-dismiss flag on the first confident reading.
+  // We never re-enter the gate after this within the same session —
+  // continuous mode trusts ongoing LiDAR poll above any one-shot lock.
   useEffect(() => {
-    if (liveLidar.locked && liveLidar.result && !lockedLidar) {
-      setLockedLidar(liveLidar.result);
+    if (liveLidar.result && !firstLidarReadingSeen) {
+      setFirstLidarReadingSeen(true);
     }
-  }, [liveLidar.locked, liveLidar.result, lockedLidar]);
-
-  useEffect(() => {
-    if (!lockedLidar) {
-      setLidarReleased(false);
-      return;
-    }
-
-    let cancelled = false;
-    void stopLidarCalibration().finally(() => {
-      setTimeout(() => {
-        if (!cancelled) setLidarReleased(true);
-      }, 250);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [lockedLidar]);
+  }, [liveLidar.result, firstLidarReadingSeen]);
 
   const leaveCamera = () => {
     setCameraActive(false);
@@ -248,7 +233,7 @@ export default function CaptureScan() {
   };
 
   const ensureCalibrationLock = () => {
-    if (lockedLidar || (liveAruco.locked && liveAruco.result)) {
+    if (liveLidar.result || (liveAruco.locked && liveAruco.result)) {
       return true;
     }
     Alert.alert(
@@ -401,12 +386,10 @@ export default function CaptureScan() {
           <View className="flex-1 items-center justify-center px-xl">
             <ActivityIndicator color="#FFFFFF" />
             <Text className="mt-lg text-center text-white font-medium" style={{ fontSize: 18 }}>
-              {lockedLidar ? "Preparing live camera" : "Hold steady"}
+              {"Calibrating depth"}
             </Text>
             <Text className="mt-xs text-center text-white/65" style={{ fontSize: 13 }}>
-              {lockedLidar
-                ? "LiDAR locked. Releasing depth sensor before live count."
-                : "Hold the iPad still for 1 second until depth scale locks."}
+              {"Point the camera at the work surface — depth scale tracks live as you move."}
             </Text>
             {liveLidar.result ? (
               <Text className="mt-md text-center text-white/85" style={{ fontSize: 28 }}>
@@ -444,27 +427,16 @@ export default function CaptureScan() {
             <View className="items-center mt-xs" pointerEvents="box-none">
               <CalibrationPill reading={automaticCalibration} />
               <Text className="mt-xs rounded-full bg-black/45 px-sm py-[2px] text-white/75 text-caption">
-                {lockedLidar
-                  ? t("inspections:capture.calibration.lockedHintBare", {
-                      pxPerMm: lockedLidar.reading.pxPerMm.toFixed(1),
-                    })
+                {liveLidar.result
+                  ? `${t("inspections:capture.calibration.lockedHintBare", {
+                      pxPerMm: liveLidar.result.reading.pxPerMm.toFixed(1),
+                    })}${liveLidar.distanceLabel ? ` · ${liveLidar.distanceLabel}` : ""}`
                   : liveAruco.locked
                     ? t("inspections:capture.calibration.lockedHintBare", {
                         pxPerMm: liveAruco.result?.reading.pxPerMm.toFixed(1),
                       })
                     : t("inspections:capture.calibration.alignMarker")}
               </Text>
-              {lockedLidar ? (
-                <Pressable
-                  accessibilityRole="button"
-                  className="mt-xs rounded-full bg-black/45 px-sm py-[2px]"
-                  onPress={recalibrateLidar}
-                >
-                  <Text className="text-caption font-medium text-white">
-                    {t("inspections:capture.calibration.recalibrate")}
-                  </Text>
-                </Pressable>
-              ) : null}
             </View>
           ) : (
             <RecordingTimer durationMs={recording.durationMs} />

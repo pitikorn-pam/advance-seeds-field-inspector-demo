@@ -91,7 +91,15 @@ private enum RoiVideoExporter {
       try FileManager.default.removeItem(at: outputURL)
     }
 
-    guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+    // 1280x720 preset cuts uploaded mp4 bytes by ~3–4× vs HighestQuality
+    // for typical 1080p captures, with negligible visual loss for seed
+    // grading. Falls back to HighestQuality on devices that don't support
+    // the 720 preset, so we never fail to export.
+    let preferredPreset = AVAssetExportPreset1280x720
+    let resolvedPreset = AVAssetExportSession.exportPresets(compatibleWith: asset).contains(preferredPreset)
+      ? preferredPreset
+      : AVAssetExportPresetHighestQuality
+    guard let exportSession = AVAssetExportSession(asset: asset, presetName: resolvedPreset) else {
       throw NSError(
         domain: "AdvanceSeedsRoiVideoExporter",
         code: 4,

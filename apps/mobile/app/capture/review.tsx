@@ -575,6 +575,7 @@ export default function CaptureReview() {
                     ) : null}
                   </>
                 ) : null}
+                {session.capturedLocation ? <MetadataDivider /> : null}
                 <MetadataRow
                   label={t("inspections:detail.metadata.device")}
                   value={deviceUsage.device_name ?? "—"}
@@ -630,6 +631,7 @@ export default function CaptureReview() {
                     />
                   </>
                 ) : null}
+                <MetadataDivider />
                 <MetadataRow
                   label={t("inspections:detail.metadata.captureMode")}
                   value={t(
@@ -676,6 +678,7 @@ export default function CaptureReview() {
                 ) : null}
                 {reviewAnalyzerModel ? (
                   <>
+                    <MetadataDivider />
                     <MetadataRow
                       label={t("inspections:detail.metadata.detectorModel")}
                       value={
@@ -784,6 +787,10 @@ export default function CaptureReview() {
       </View>
     </SafeAreaView>
   );
+}
+
+function MetadataDivider() {
+  return <View className="h-[0.5px] bg-line-tertiary my-xs" />;
 }
 
 function MetadataRow({ label, value }: { label: string; value: string }) {

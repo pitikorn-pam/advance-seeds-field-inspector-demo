@@ -17,8 +17,6 @@ import { DetectionOverlay } from "@/components/camera/DetectionOverlay";
 import { useVarieties } from "@/lib/queries";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
-import { stopLidarCalibration } from "@/lib/calibration/LidarCalibrator";
-import type { LidarCalibrationResult } from "@/lib/calibration/LidarCalibrator";
 
 /**
  * Precise capture mode.
@@ -44,23 +42,20 @@ export default function CapturePrecise() {
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
-  const [lockedLidar, setLockedLidar] = useState<LidarCalibrationResult | null>(null);
-  const [lidarReleased, setLidarReleased] = useState(false);
-  const liveLidar = useLiveLidarCalibration(cameraActive && position === "back" && !lockedLidar);
+  // Continuous LiDAR — see scan.tsx for the design notes.
+  const [firstLidarReadingSeen, setFirstLidarReadingSeen] = useState(false);
+  const liveLidar = useLiveLidarCalibration(cameraActive && position === "back");
   const liveAruco = useLiveArucoCalibration(
     cameraActive && position === "back" && liveLidar.supported === false,
   );
-  const automaticCalibration = lockedLidar ?? liveAruco.result;
+  const automaticCalibration = liveLidar.result ?? liveAruco.result;
   const lidarGateActive =
-    cameraActive &&
-    position === "back" &&
-    liveLidar.supported !== false &&
-    (!lockedLidar || !lidarReleased);
+    cameraActive && position === "back" && liveLidar.supported !== false && !firstLidarReadingSeen;
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
-  const calibrationLocked = Boolean(lockedLidar) || liveAruco.locked;
+  const calibrationLocked = liveLidar.locked || liveAruco.locked;
   const varieties = useVarieties();
   const activeVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId),
@@ -105,54 +100,25 @@ export default function CapturePrecise() {
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
   const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
   const toggleGrid = () => setShowGrid((g) => !g);
-  const recalibrateLidar = () => {
-    if (!lockedLidar) return;
-    setCameraActive(false);
-    setTorch("off");
-    setLockedLidar(null);
-    setLidarReleased(false);
-    setTimeout(() => setCameraActive(true), 80);
-  };
-
   useFocusEffect(
     useCallback(() => {
       setBusy(false);
       setCameraActive(true);
       setTorch("off");
-      setLockedLidar(null);
-      setLidarReleased(false);
+      setFirstLidarReadingSeen(false);
       return () => {
         setCameraActive(false);
         setTorch("off");
-        setLockedLidar(null);
-        setLidarReleased(false);
+        setFirstLidarReadingSeen(false);
       };
     }, []),
   );
 
   useEffect(() => {
-    if (liveLidar.locked && liveLidar.result && !lockedLidar) {
-      setLockedLidar(liveLidar.result);
+    if (liveLidar.result && !firstLidarReadingSeen) {
+      setFirstLidarReadingSeen(true);
     }
-  }, [liveLidar.locked, liveLidar.result, lockedLidar]);
-
-  useEffect(() => {
-    if (!lockedLidar) {
-      setLidarReleased(false);
-      return;
-    }
-
-    let cancelled = false;
-    void stopLidarCalibration().finally(() => {
-      setTimeout(() => {
-        if (!cancelled) setLidarReleased(true);
-      }, 250);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [lockedLidar]);
+  }, [liveLidar.result, firstLidarReadingSeen]);
 
   const leaveCamera = () => {
     setCameraActive(false);
@@ -161,7 +127,7 @@ export default function CapturePrecise() {
   };
 
   const ensureCalibrationLock = () => {
-    if (lockedLidar || (liveAruco.locked && liveAruco.result)) {
+    if (liveLidar.result || (liveAruco.locked && liveAruco.result)) {
       return true;
     }
     Alert.alert(
@@ -238,12 +204,10 @@ export default function CapturePrecise() {
           <View className="flex-1 items-center justify-center px-xl">
             <ActivityIndicator color="#FFFFFF" />
             <Text className="mt-lg text-center text-white font-medium" style={{ fontSize: 18 }}>
-              {lockedLidar ? "Preparing camera" : "Hold steady"}
+              {"Calibrating depth"}
             </Text>
             <Text className="mt-xs text-center text-white/65" style={{ fontSize: 13 }}>
-              {lockedLidar
-                ? "LiDAR locked. Releasing depth sensor before capture."
-                : "Hold the iPad still for 1 second until depth scale locks."}
+              {"Point the camera at the work surface — depth scale tracks live as you move."}
             </Text>
             {liveLidar.result ? (
               <Text className="mt-md text-center text-white/85" style={{ fontSize: 28 }}>
@@ -321,21 +285,8 @@ export default function CapturePrecise() {
             <CalibrationBanner
               reading={automaticCalibration?.reading ?? null}
               profileName={null}
-              distanceLabel={
-                lockedLidar ? `${Math.round(lockedLidar.distanceMeters * 100)} cm` : null
-              }
+              distanceLabel={liveLidar.distanceLabel}
             />
-            {lockedLidar ? (
-              <Pressable
-                accessibilityRole="button"
-                className="mt-sm self-center rounded-full bg-black/[0.62] px-md py-xs"
-                onPress={recalibrateLidar}
-              >
-                <Text className="text-caption font-medium text-white">
-                  {t("inspections:capture.calibration.recalibrate")}
-                </Text>
-              </Pressable>
-            ) : null}
           </View>
 
           <ShutterBar
