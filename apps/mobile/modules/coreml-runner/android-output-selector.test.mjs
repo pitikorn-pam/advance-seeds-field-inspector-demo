@@ -18,3 +18,21 @@ test("Android TFLite frame processor selects YOLO detection output by shape", ()
   assert.doesNotMatch(source, /private val outputTensor = cpuInterpreter\.getOutputTensor\(0\)/);
   assert.match(source, /selectedOutputIndex/);
 });
+
+test("Android TFLite frame processor compacts segmentation output before JS bridge", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.match(source, /private const val LIVE_OUTPUT_FIELDS = 6/);
+  assert.match(source, /val bridgeOutputShape: IntArray/);
+  assert.match(source, /bridgeCompactsSegmentationOutput/);
+  assert.match(source, /"shape" to activeRunner\.bridgeOutputShape\.toList\(\)/);
+  assert.match(source, /for \(field in 0 until LIVE_OUTPUT_FIELDS\)/);
+});
+
+test("Android TFLite CPU runner uses four XNNPACK threads for live inference", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.match(source, /private const val CPU_NUM_THREADS = 4/);
+  assert.match(source, /setNumThreads\(CPU_NUM_THREADS\)/);
+  assert.match(source, /setUseXNNPACK\(true\)/);
+});

@@ -7,8 +7,8 @@ import test from "node:test";
 const root = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(root, "useLiveArucoCalibration.ts"), "utf8");
 
-test("live ArUco calibration samples fast enough for handheld lock", () => {
-  assert.match(source, /const DETECTION_TARGET_FPS = 3;/);
+test("live ArUco calibration keeps Android ImageAnalysis below maxImages pressure", () => {
+  assert.match(source, /const DETECTION_TARGET_FPS = 1;/);
   assert.match(source, /runAtTargetFps\(DETECTION_TARGET_FPS,/);
-  assert.doesNotMatch(source, /runAtTargetFps\(1,/);
+  assert.doesNotMatch(source, /runAtTargetFps\(3,/);
 });

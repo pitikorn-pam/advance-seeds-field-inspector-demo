@@ -26,6 +26,8 @@ private object AndroidTfliteRunner {
   private const val INPUT_SIZE = 640
   private const val CHANNELS = 3
   private const val FLOAT_BYTES = 4
+  private const val LIVE_OUTPUT_FIELDS = 6
+  private const val CPU_NUM_THREADS = 4
 
   private val lock = Any()
   @Volatile private var runner: Runner? = null
@@ -58,11 +60,11 @@ private object AndroidTfliteRunner {
       lastTimingLogAtMs = now
       Log.d(
         TAG,
-        "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")}"
+        "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")} bridgeOutput=${activeRunner.bridgeOutputShape.joinToString("x")}"
       )
     }
     return mapOf(
-      "shape" to activeRunner.outputShape.toList(),
+      "shape" to activeRunner.bridgeOutputShape.toList(),
       "values" to activeRunner.outputValues(),
       "delegate" to activeRunner.delegateName,
       "outputIndex" to activeRunner.selectedOutputIndex,
@@ -118,6 +120,11 @@ private object AndroidTfliteRunner {
     private val inputBuffer: ByteBuffer
     private val outputBuffer: ByteBuffer
     private val outputFloatCount = outputShape.fold(1) { acc, v -> acc * v }
+    private val bridgeCompactsSegmentationOutput =
+      outputShape.size == 3 && outputShape[2] > LIVE_OUTPUT_FIELDS
+    val bridgeOutputShape: IntArray =
+      if (bridgeCompactsSegmentationOutput) intArrayOf(outputShape[0], outputShape[1], LIVE_OUTPUT_FIELDS) else outputShape
+    private val bridgeOutputFloatCount = bridgeOutputShape.fold(1) { acc, v -> acc * v }
     private var mapKey = ""
     private val srcXMap = IntArray(INPUT_SIZE)
     private val srcYMap = IntArray(INPUT_SIZE)
@@ -140,7 +147,7 @@ private object AndroidTfliteRunner {
       }
       inputBuffer = ByteBuffer.allocateDirect(inputBytes).order(ByteOrder.nativeOrder())
       outputBuffer = ByteBuffer.allocateDirect(outputFloatCount * FLOAT_BYTES).order(ByteOrder.nativeOrder())
-      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType outputIndex=$selectedOutputIndex output=${outputShape.joinToString("x")} delegate=cpu gpuCandidate=${gpuInterpreter != null}")
+      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType outputIndex=$selectedOutputIndex output=${outputShape.joinToString("x")} bridgeOutput=${bridgeOutputShape.joinToString("x")} delegate=cpu threads=$CPU_NUM_THREADS gpuCandidate=${gpuInterpreter != null}")
     }
 
     fun fillInputFromYuv(
@@ -259,9 +266,20 @@ private object AndroidTfliteRunner {
 
     fun outputValues(): List<Double> {
       outputBuffer.rewind()
-      val values = ArrayList<Double>(outputFloatCount)
-      repeat(outputFloatCount) {
-        values.add(outputBuffer.float.toDouble())
+      val values = ArrayList<Double>(bridgeOutputFloatCount)
+      if (bridgeCompactsSegmentationOutput) {
+        val rows = outputShape[1]
+        val fields = outputShape[2]
+        for (row in 0 until rows) {
+          val base = row * fields * FLOAT_BYTES
+          for (field in 0 until LIVE_OUTPUT_FIELDS) {
+            values.add(outputBuffer.getFloat(base + field * FLOAT_BYTES).toDouble())
+          }
+        }
+      } else {
+        repeat(outputFloatCount) {
+          values.add(outputBuffer.float.toDouble())
+        }
       }
       outputBuffer.rewind()
       return values
@@ -289,7 +307,7 @@ private object AndroidTfliteRunner {
 
   private fun cpuOptions(): Interpreter.Options =
     Interpreter.Options().apply {
-      setNumThreads(2)
+      setNumThreads(CPU_NUM_THREADS)
       setUseXNNPACK(true)
     }
 

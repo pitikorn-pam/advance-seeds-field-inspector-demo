@@ -24,7 +24,7 @@ const LOCK_CONFIDENCE = 0.6;
 const HOLD_CONFIDENCE = 0.45;
 const SMOOTHING_WINDOW = 5;
 const GRACE_MS = 1500;
-const DETECTION_TARGET_FPS = 3;
+const DETECTION_TARGET_FPS = 1;
 
 interface SmoothedReading {
   pxPerMm: number;
