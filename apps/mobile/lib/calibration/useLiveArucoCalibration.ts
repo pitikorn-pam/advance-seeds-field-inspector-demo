@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { runAtTargetFps, useFrameProcessor } from "react-native-vision-camera";
+import { runAsync, runAtTargetFps, useFrameProcessor } from "react-native-vision-camera";
 import type { ReadonlyFrameProcessor } from "react-native-vision-camera";
 import { useRunOnJS } from "react-native-worklets-core";
 import { detectNativeArucoCalibrationInFrame } from "./ArucoCalibrator";
@@ -123,21 +123,24 @@ export function useLiveArucoCalibration(enabled: boolean): LiveArucoState {
       if (!enabled) return;
       runAtTargetFps(DETECTION_TARGET_FPS, () => {
         "worklet";
-        const next = detectNativeArucoCalibrationInFrame(frame);
-        if (!next) {
-          onDetection(null, 0, 0, 0, 0, 0, 0, 0);
-          return;
-        }
-        onDetection(
-          next.pxPerMm,
-          next.markerId,
-          next.confidence,
-          next.observedAtMs,
-          next.markerSizeMm,
-          next.pixelWidth,
-          next.markerCount ?? 1,
-          next.multiMedianPxPerMm ?? next.pxPerMm,
-        );
+        runAsync(frame, () => {
+          "worklet";
+          const next = detectNativeArucoCalibrationInFrame(frame);
+          if (!next) {
+            onDetection(null, 0, 0, 0, 0, 0, 0, 0);
+            return;
+          }
+          onDetection(
+            next.pxPerMm,
+            next.markerId,
+            next.confidence,
+            next.observedAtMs,
+            next.markerSizeMm,
+            next.pixelWidth,
+            next.markerCount ?? 1,
+            next.multiMedianPxPerMm ?? next.pxPerMm,
+          );
+        });
       });
     },
     [enabled, onDetection],

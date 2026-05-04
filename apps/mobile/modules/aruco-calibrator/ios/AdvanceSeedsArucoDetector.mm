@@ -56,6 +56,19 @@ double polygonArea(const std::vector<cv::Point2f> &corners) {
   return std::abs(area) / 2.0;
 }
 
+NSDictionary<NSString *, id> *zeroConfidenceDetection(double markerSizeMm) {
+  return @{
+    @"pxPerMm": @0,
+    @"markerId": @(-1),
+    @"confidence": @0,
+    @"observedAtMs": @([[NSDate date] timeIntervalSince1970] * 1000.0),
+    @"markerSizeMm": @(markerSizeMm),
+    @"pixelWidth": @0,
+    @"markerCount": @0,
+    @"multiMedianPxPerMm": @0
+  };
+}
+
 } // namespace
 
 @implementation AdvanceSeedsArucoDetector
@@ -86,7 +99,7 @@ double polygonArea(const std::vector<cv::Point2f> &corners) {
   detector.detectMarkers(gray, markerCorners, markerIds);
 
   if (markerIds.empty()) {
-    return nil;
+    return zeroConfidenceDetection(markerSizeMm);
   }
 
   // Phase-2 multi-marker: compute pxPerMm for every detected marker so we
@@ -111,7 +124,7 @@ double polygonArea(const std::vector<cv::Point2f> &corners) {
 
   const double pixelWidth = edgeLength(markerCorners[bestIndex]);
   if (pixelWidth <= 0 || markerSizeMm <= 0) {
-    return nil;
+    return zeroConfidenceDetection(markerSizeMm);
   }
 
   const double imageArea = (double)bgr.cols * (double)bgr.rows;

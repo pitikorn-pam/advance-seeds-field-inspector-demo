@@ -57,8 +57,7 @@ Two real bugs + one workaround uncovered:
 
 ### 🟡 ArUco lock failing during single-shot processing
 
-- **Symptom**: `WARN [processing] aruco calibration unavailable [Foundation._GenericObjCError error 0]` on every single-shot capture. The detection still runs (single-shot uses analyzer's bundled fallback) but ArUco-derived calibration doesn't.
-- **Status**: Unconfirmed whether this is a real bug or just "no marker in frame." Live ArUco worked in earlier diagnostics; only the post-process call is reported as failing.
+- **Status**: App-side no-marker handling fixed after this handoff was written. The iOS native image detector used to return `nil` for a normal no-marker frame; Swift imported that Objective-C `NSError**` method as throwing and surfaced `Foundation._GenericObjCError error 0`. It now returns a zero-confidence detection sentinel, so JS treats it as "no calibration" without warning.
 - **Verification needed**: capture with the ArUco card clearly in frame, see if the warning still fires.
 
 ### 🟡 Model class-id mismatch (COCO preservation)
@@ -72,7 +71,8 @@ Two real bugs + one workaround uncovered:
 
 ### 🟡 Android live preview QA on Z Flip 7 FE
 
-- Carries over from previous handoff. The Android frame-processor plugin still uses `getOutputTensor(0)` — same shape-signature fix as iOS may be needed for seg models. Untouched in this session.
+- **Status**: Shape-signature tensor selection is fixed in the Android TFLite frame-processor and the JS TFLite analyzer. Live startup was retested on Z Flip 7 FE after moving live ArUco frame processing to Vision Camera `runAsync`; the repeat run held ~30 fps with no `maxImages` or `ERROR_CAMERA_DEVICE` logs.
+- **Still needs physical scene QA**: point the camera at the printed ArUco card + banana seed target and confirm the UI visibly reaches calibration lock and draws annotations. The last log-only run had no marker in frame (`ids=0`), so it proved stability but not lock/annotation.
 
 ## Verification commands
 
@@ -100,7 +100,6 @@ idevicesyslog -u $(idevice_id -l | head -1)
 ## What's next (suggested phases)
 
 1. **Re-export the registry model** with correct class indices, drop the tier-4 COCO-passthrough workaround (5 LOC).
-2. **Android frame-processor plugin** — apply the same shape-signature output selection. iOS sets the precedent at `AdvanceSeedsCoreMLFrameProcessorPlugin.mm:71` (`flattenLargestMultiArray` with rank-based selection).
-3. **iPad LiDAR field test** — continuous LiDAR + smoothed pxPerMm hasn't been validated on iPad Pro yet.
-4. **ArUco diagnostic** — confirm whether the post-process warn is real and whether the live path was ever flaky on iPhone Air.
-5. **Tag v0.4.0** once iOS + Android live preview both confirmed in the field.
+2. **iPad LiDAR field test** — continuous LiDAR + smoothed pxPerMm hasn't been validated on iPad Pro yet.
+3. **ArUco physical-card diagnostic** — confirm single-shot calibration and Android live lock/annotation with the printed marker in frame.
+4. **Tag v0.4.0** once iOS + Android live preview both confirmed in the field.
