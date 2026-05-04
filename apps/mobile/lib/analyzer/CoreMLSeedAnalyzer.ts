@@ -82,16 +82,17 @@ export async function resolveCoreMLModelSource(): Promise<CoreMLModelSource> {
       modelPath: active.compiledArtifactUri,
     };
   }
-  console.warn(
-    "[coreml resolve] falling back to bundled asset — platformOk=%s hasCompiledUri=%s verified=%s compiledExists=%s active.platform=%s active.compiledUri=%s active.artifactSize=%s",
-    platformOk,
-    hasCompiledUri,
-    verified,
-    compiledExists,
-    active?.platform ?? "(none)",
-    active?.compiledArtifactUri ?? "(none)",
-    active?.artifactSizeBytes ?? "(none)",
-  );
+  if (active) {
+    // Only worth logging when there's *some* expectation of an active
+    // model — silent fallback when nothing's installed is normal.
+    console.info(
+      "[coreml resolve] using bundled — platformOk=%s hasCompiledUri=%s verified=%s compiledExists=%s",
+      platformOk,
+      hasCompiledUri,
+      verified,
+      compiledExists,
+    );
+  }
   return { key: `asset:${MODEL_ASSET}`, assetName: MODEL_ASSET };
 }
 

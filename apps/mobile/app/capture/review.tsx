@@ -143,6 +143,24 @@ export default function CaptureReview() {
   }, [result, sortMode]);
   const deviceUsage = useMemo(() => buildDeviceUsageMetadata(), []);
 
+  // Snapshot the active model so the Metadata block on this screen can
+  // render the same "Detector" rows that the saved inspection's detail
+  // page shows — keeps Result + Detail visually consistent.
+  const [reviewActiveModel, setReviewActiveModel] = useState<InstalledModelRecord | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void readActiveModel().then((rec) => {
+      if (!cancelled) setReviewActiveModel(rec);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const reviewAnalyzerModel = useMemo(
+    () => (result ? buildAnalyzerModelMetadata(reviewActiveModel, result.analyzerId) : null),
+    [reviewActiveModel, result],
+  );
+
   // Fetch GPS once on mount when the user opted into auto-tag location.
   // Done here rather than at save time so the reading is captured close
   // to the actual photo moment (the user is still standing where they
@@ -654,6 +672,43 @@ export default function CaptureReview() {
                       label={t("inspections:detail.metadata.captureTimestamp")}
                       value={dateFmt.format(new Date(capturedAt))}
                     />
+                  </>
+                ) : null}
+                {reviewAnalyzerModel ? (
+                  <>
+                    <MetadataRow
+                      label={t("inspections:detail.metadata.detectorModel")}
+                      value={
+                        reviewAnalyzerModel.version
+                          ? `${reviewAnalyzerModel.display_name} · ${t(
+                              `inspections:detail.metadata.detectorSource.${reviewAnalyzerModel.source}`,
+                            )}`
+                          : t(
+                              `inspections:detail.metadata.detectorSource.${reviewAnalyzerModel.source}`,
+                            )
+                      }
+                    />
+                    {metadataExpanded ? (
+                      <>
+                        <MetadataRow
+                          label={t("inspections:detail.metadata.detectorRuntime")}
+                          value={reviewAnalyzerModel.analyzer_runtime}
+                        />
+                        {reviewAnalyzerModel.model_name ? (
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.detectorTrainedAs")}
+                            value={reviewAnalyzerModel.model_name}
+                          />
+                        ) : null}
+                        <MetadataRow
+                          label={t("inspections:detail.metadata.detectorThresholds")}
+                          value={t("inspections:detail.metadata.detectorThresholdsValue", {
+                            score: reviewAnalyzerModel.score_threshold.toFixed(2),
+                            iou: reviewAnalyzerModel.iou_threshold.toFixed(2),
+                          })}
+                        />
+                      </>
+                    ) : null}
                   </>
                 ) : null}
               </View>

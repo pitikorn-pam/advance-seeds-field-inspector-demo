@@ -78,6 +78,19 @@ export function mapClassFilterForModel(
     }
   }
 
+  // Tier 4 — pass-through of the original COCO ids. Some custom-trained
+  // models (especially fine-tunes from COCO weights via Ultralytics)
+  // preserve the original COCO class IDs in their post-NMS output even
+  // when the metadata declares a custom 6-class set. e.g. our model
+  // emits cls=46 for banana, cls=52 for banana_spot, despite class_names
+  // saying ["apple", "apple_spot", "banana", "banana_spot", ...]. Adding
+  // the COCO ids as additional accepted classes lets these detections
+  // through; they'll be displayed against the variety's expected name
+  // even if the model's internal label doesn't match the metadata index.
+  if (classFilter) {
+    for (const id of classFilter) mapped.add(id);
+  }
+
   return mapped.size > 0 ? [...mapped] : null;
 }
 

@@ -170,8 +170,10 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
   if (_visionModel == nil || ![_visionModelAssetName isEqualToString:modelKey]) {
     MLModel *model = loadModel(assetName, modelPath);
     if (model == nil) {
+      NSLog(@"[CoreML FP] FAILED to load model — modelPath=%@ asset=%@", modelPath, assetName);
       return nil;
     }
+    NSLog(@"[CoreML FP] LOADED model — key=%@ outputs=%@", modelKey, model.modelDescription.outputDescriptionsByName.allKeys);
     NSError *err = nil;
     _visionModel = [VNCoreMLModel modelForMLModel:model error:&err];
     if (_visionModel == nil) {

@@ -23,11 +23,13 @@ export interface HyperParams {
 }
 
 export const DEFAULT_HYPERPARAMS: HyperParams = {
-  // Aggressive (0.4) was filtering most detections out of fresh custom
-  // models with limited training data. 0.25 matches Ultralytics' export
-  // default and gives enough recall to debug; users can tune up via
-  // More → Hyperparameters once a model is proven.
-  scoreThreshold: 0.25,
+  // Field telemetry on the YOLO26-seg custom model showed 11-17
+  // detections per frame in the 0.05-0.20 confidence band but zero
+  // crossing 0.25 — too aggressive for a fresh training. 0.10 lets
+  // honest-but-uncertain detections through to the live overlay so
+  // operators can see what the model is doing. Users can tune up via
+  // More → Hyperparameters once a model has proven recall.
+  scoreThreshold: 0.1,
   iouThreshold: 0.65,
   targetFps: 30,
 };

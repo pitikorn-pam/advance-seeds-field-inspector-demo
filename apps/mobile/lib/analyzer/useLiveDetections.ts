@@ -144,7 +144,6 @@ function useLiveDetectionsCoreML(options: Options): State {
   const [modelPath, setModelPath] = useState<string | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const lastSetAtRef = useRef(0);
-  const lastDecodeLogAtRefIos = useRef(0);
   const RENDER_THROTTLE_MS = 33;
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -187,23 +186,15 @@ function useLiveDetectionsCoreML(options: Options): State {
       mapClassFilterForModel(classFilter, activeModel?.metadata, varietyNames, modelClassAliases),
     [classFilter, activeModel, varietyNames, modelClassAliases],
   );
-  // One-line diagnostic per change so the user can see in Metro
-  // exactly which model is running and which class indices the
-  // detector is filtering for. Shows up once whenever variety,
-  // model, or filter changes — easy to spot in scrollback.
+  // One-line diagnostic per change — useful for confirming which model
+  // is loaded and which class indices the live filter resolves to.
   useEffect(() => {
-    const names = activeModel?.metadata?.class_names ?? [];
     console.info(
-      "[live-detections coreml] model=%s classes=%s aliases=%o mappedFilter=%o cocoFilter=%o enabled=%s modelPath=%s",
+      "[live-detections coreml] model=%s mappedFilter=%o",
       activeModel?.id ?? "bundled",
-      Array.isArray(names) && names.length > 0 ? names.join(",") : "(empty)",
-      modelClassAliases ?? null,
       mappedClassFilter,
-      classFilter,
-      enabled,
-      modelPath ? "active" : "(bundled fallback)",
     );
-  }, [activeModel, classFilter, modelClassAliases, mappedClassFilter, enabled, modelPath]);
+  }, [activeModel, mappedClassFilter]);
 
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
@@ -258,24 +249,7 @@ function useLiveDetectionsCoreML(options: Options): State {
             roi: roi ?? null,
           });
           if (!mountedRef.current) return;
-          // Per-second decode summary so we can see exactly what reaches
-          // the overlay vs. what the model produced. If kept/seeds
-          // collapse from raw, the issue is post-decode (NMS, mapping).
           const now = Date.now();
-          const since = now - lastDecodeLogAtRefIos.current;
-          if (since > 1000) {
-            lastDecodeLogAtRefIos.current = now;
-            console.info(
-              "[live-detections coreml] kind=%s shape=%dx%dx%d raw=%d kept=%d seeds=%d",
-              outputKind,
-              shape0,
-              shape1,
-              shape2,
-              raw.length,
-              kept.length,
-              seeds.length,
-            );
-          }
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
           lastSetAtRef.current = now;
           setDetections({
@@ -400,21 +374,16 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   }, []);
 
   useEffect(() => {
-    const names = activeModel?.metadata?.class_names ?? [];
-    const aliases = modelClassAliases ?? null;
     const mapped = mapClassFilterForModel(
       classFilter,
       activeModel?.metadata,
       varietyNames,
-      aliases,
+      modelClassAliases ?? null,
     );
     console.info(
-      "[live-detections tflite] model=%s classes=%s aliases=%o mappedFilter=%o cocoFilter=%o",
+      "[live-detections tflite] model=%s mappedFilter=%o",
       activeModel?.id ?? "bundled",
-      Array.isArray(names) && names.length > 0 ? names.join(",") : "(empty)",
-      aliases,
       mapped,
-      classFilter,
     );
   }, [activeModel, classFilter, varietyNames, modelClassAliases]);
 
