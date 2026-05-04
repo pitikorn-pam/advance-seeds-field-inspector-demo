@@ -51,6 +51,31 @@ time you publish a build to their group.
 
 ## Ongoing flow
 
+### Local Android release build (preferred for this repo)
+
+Use this path when an Android-only tester build is needed and you do not want
+to spend an EAS cloud build.
+
+```bash
+# 1. Sync native metadata if app.json changed, then build locally.
+cd apps/mobile
+pnpm exec expo prebuild --platform android --no-install
+pnpm run build:preview:android:local
+
+# 2. Distribute the generated APK to the internal group.
+FIREBASE_APK_PATH=android/app/build/outputs/apk/release/app-release.apk \
+  pnpm run dist:android
+
+# 3. Promote the same APK to the pilot group when ready.
+FIREBASE_APK_PATH=android/app/build/outputs/apk/release/app-release.apk \
+  FIREBASE_GROUPS=pilot \
+  pnpm run dist:android
+```
+
+### EAS Android release build
+
+Use this only when a cloud-built artifact is explicitly desired.
+
 ```bash
 # 1. Build a fresh preview APK on EAS (~10-15 min, runs in cloud).
 pnpm -F @advance-seeds/mobile build:preview:android

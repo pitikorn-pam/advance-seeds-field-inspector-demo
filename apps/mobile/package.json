@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "lint": "eslint app components lib",
     "typecheck": "tsc --noEmit",
+    "build:preview:android:local": "cd android && ./gradlew :app:assembleRelease --console=plain",
     "build:preview:android": "eas build --profile preview --platform android",
     "build:preview:ios": "eas build --profile preview --platform ios",
     "dist:android": "node scripts/distribute-android.mjs"

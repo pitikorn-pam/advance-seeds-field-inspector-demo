@@ -25,6 +25,21 @@ import { ProcessingOrb } from "@/components/camera/ProcessingOrb";
 import { Button } from "@/components/ui/Button";
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+const PILOT_SLOW_STAGE_MS = 2500;
+
+async function monitorPilotStage<T>(stage: string, work: () => Promise<T>): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    return await work();
+  } finally {
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs >= PILOT_SLOW_STAGE_MS) {
+      console.warn("[pilot-monitor] %s slow: %dms", stage, elapsedMs);
+    } else {
+      console.info("[pilot-monitor] %s: %dms", stage, elapsedMs);
+    }
+  }
+}
 
 /**
  * Post-shutter processing screen.
@@ -105,9 +120,8 @@ export default function CaptureProcessing() {
     void (async () => {
       try {
         if (session.capturedMediaKind === "video") {
-          const uploadUri = await exportAnnotatedVideo(
-            sourceUri,
-            session.mode === "live" ? session.roi : null,
+          const uploadUri = await monitorPilotStage("video.export", () =>
+            exportAnnotatedVideo(sourceUri, session.mode === "live" ? session.roi : null),
           );
           const info = await FileSystem.getInfoAsync(uploadUri);
           const bytes = info.exists && "size" in info ? (info.size as number) : 0;
@@ -128,9 +142,11 @@ export default function CaptureProcessing() {
             type: "video/mp4",
             name: "recording.mp4",
           } as unknown as Blob);
-          const { error: uploadErr } = await supabase.storage
-            .from("recordings")
-            .upload(path, fd, { contentType: "video/mp4", upsert: false });
+          const { error: uploadErr } = await monitorPilotStage("video.upload", () =>
+            supabase.storage
+              .from("recordings")
+              .upload(path, fd, { contentType: "video/mp4", upsert: false }),
+          );
           const { data: urlData } = supabase.storage.from("recordings").getPublicUrl(path);
           if (cancelledRef.current) return;
 
@@ -147,12 +163,14 @@ export default function CaptureProcessing() {
           if (!uploadErr) {
             videoUrl = urlData.publicUrl;
             try {
-              recordingId = await createRecording.mutateAsync({
-                inspector_id: profile.id,
-                video_url: videoUrl,
-                duration_ms: durationMs,
-                metadata: recordingMetadata,
-              });
+              recordingId = await monitorPilotStage("recording.insert", () =>
+                createRecording.mutateAsync({
+                  inspector_id: profile.id,
+                  video_url: videoUrl,
+                  duration_ms: durationMs,
+                  metadata: recordingMetadata,
+                }),
+              );
             } catch (err) {
               if (isQueueableSyncError(err)) {
                 // Storage upload succeeded but the row insert failed —
@@ -208,10 +226,12 @@ export default function CaptureProcessing() {
           // start.
           const midpointMs = Math.max(0, Math.floor(durationMs / 2));
           try {
-            const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(uploadUri, {
-              time: midpointMs,
-              quality: 0.9,
-            });
+            const { uri: thumbUri } = await monitorPilotStage("video.thumbnail.extract", () =>
+              VideoThumbnails.getThumbnailAsync(uploadUri, {
+                time: midpointMs,
+                quality: 0.9,
+              }),
+            );
             videoThumbnailLocalUri = thumbUri;
           } catch (err) {
             console.warn("[processing] video thumbnail extraction failed", err);
@@ -219,10 +239,13 @@ export default function CaptureProcessing() {
 
           let thumbnailRemoteUrl: string | null = null;
           if (videoThumbnailLocalUri) {
-            const optimizedThumb = await optimizeImageForUpload(videoThumbnailLocalUri, {
-              maxLongEdge: 1280,
-              quality: 0.8,
-            });
+            const thumbnailUri = videoThumbnailLocalUri;
+            const optimizedThumb = await monitorPilotStage("video.thumbnail.optimize", () =>
+              optimizeImageForUpload(thumbnailUri, {
+                maxLongEdge: 1280,
+                quality: 0.8,
+              }),
+            );
             console.info(
               "[processing] thumb optimized %d→%d bytes",
               optimizedThumb.originalBytes,
@@ -236,9 +259,11 @@ export default function CaptureProcessing() {
               type: "image/jpeg",
               name: "thumb.jpg",
             } as unknown as Blob);
-            const { error: thumbErr } = await supabase.storage
-              .from("inspection-images")
-              .upload(thumbPath, thumbFd, { contentType: "image/jpeg", upsert: false });
+            const { error: thumbErr } = await monitorPilotStage("video.thumbnail.upload", () =>
+              supabase.storage
+                .from("inspection-images")
+                .upload(thumbPath, thumbFd, { contentType: "image/jpeg", upsert: false }),
+            );
             if (!thumbErr) {
               const { data: thumbUrlData } = supabase.storage
                 .from("inspection-images")
@@ -264,7 +289,9 @@ export default function CaptureProcessing() {
           // typically 4032×3024 + minimal compression — resizing to a
           // 2048 long edge with quality 0.85 cuts upload bytes ~5×
           // without a visible quality drop on grading crops.
-          const optimized = await optimizeImageForUpload(sourceUri);
+          const optimized = await monitorPilotStage("photo.optimize", () =>
+            optimizeImageForUpload(sourceUri),
+          );
           console.info(
             "[processing] photo optimized %d→%d bytes",
             optimized.originalBytes,
@@ -277,9 +304,11 @@ export default function CaptureProcessing() {
             type: "image/jpeg",
             name: "capture.jpg",
           } as unknown as Blob);
-          const { error: uploadErr } = await supabase.storage
-            .from("inspection-images")
-            .upload(path, fd, { contentType: "image/jpeg", upsert: false });
+          const { error: uploadErr } = await monitorPilotStage("photo.upload", () =>
+            supabase.storage
+              .from("inspection-images")
+              .upload(path, fd, { contentType: "image/jpeg", upsert: false }),
+          );
           const { data: urlData } = supabase.storage.from("inspection-images").getPublicUrl(path);
           if (cancelledRef.current) return;
           if (uploadErr) console.warn("[processing] photo upload queued", uploadErr);
@@ -292,7 +321,9 @@ export default function CaptureProcessing() {
         let calibrationReading = session.capturedCalibrationReading;
         if (session.capturedMediaKind === "photo") {
           try {
-            const aruco = await detectArucoCalibration(sourceUri);
+            const aruco = await monitorPilotStage("photo.aruco", () =>
+              detectArucoCalibration(sourceUri),
+            );
             if (aruco) {
               calibrationReading = aruco.reading;
               session.set({
@@ -320,9 +351,12 @@ export default function CaptureProcessing() {
         // px/mm.
         let analyzerImageUri = sourceUri;
         if (session.capturedMediaKind === "video" && videoThumbnailLocalUri) {
-          analyzerImageUri = videoThumbnailLocalUri;
+          const thumbnailUri = videoThumbnailLocalUri;
+          analyzerImageUri = thumbnailUri;
           try {
-            const aruco = await detectArucoCalibration(videoThumbnailLocalUri);
+            const aruco = await monitorPilotStage("video.thumbnail.aruco", () =>
+              detectArucoCalibration(thumbnailUri),
+            );
             if (aruco) {
               calibrationReading = aruco.reading;
               session.set({
@@ -350,13 +384,15 @@ export default function CaptureProcessing() {
                   mean_area_mm2: 0,
                 },
               }
-            : await analyzer.analyze(
-                { kind: "uri", uri: analyzerImageUri },
-                {
-                  pxPerMm: effectivePxPerMm,
-                  classFilter,
-                  roi: session.mode === "live" ? session.roi : null,
-                },
+            : await monitorPilotStage("analyzer.single-shot", () =>
+                analyzer.analyze(
+                  { kind: "uri", uri: analyzerImageUri },
+                  {
+                    pxPerMm: effectivePxPerMm,
+                    classFilter,
+                    roi: session.mode === "live" ? session.roi : null,
+                  },
+                ),
               );
         if (cancelledRef.current) return;
 

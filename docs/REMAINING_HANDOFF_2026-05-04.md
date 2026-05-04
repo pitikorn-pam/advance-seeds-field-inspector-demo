@@ -11,15 +11,15 @@ Supersedes [`docs/REMAINING_HANDOFF_2026-05-03.md`](./REMAINING_HANDOFF_2026-05-
 - **Auto-install on Wi-Fi** opt-in toggle (Settings → Models). Default off. Custom `Toggle` component in design DNA replaces the platform Switch.
 - **Notification on new model** ([`ModelUpdateNotifier`](../apps/mobile/components/home/ModelUpdateNotifier.tsx)): emits the in-app notification on the FIRST sighting of each version_id (AsyncStorage-keyed), persists across launches.
 - **Variety editor**: chip-multiselect of the active model's `class_names` for `model_class_aliases` (new column on `varieties` — migration `20260504000001_varieties_model_class_aliases.sql` applied to remote).
-- **Active model** is consulted via three-tier `mapClassFilterForModel`: explicit aliases → variety-name substring → COCO synonym fallback. Tier 4 also passes through the variety's COCO id directly so models that preserve COCO indices in their post-NMS output (Ultralytics fine-tunes from COCO weights) draw boxes correctly.
+- **Active model** is consulted via three-tier `mapClassFilterForModel`: explicit aliases → variety-name substring → COCO synonym fallback into the model's 0-based class space. The old COCO-id pass-through workaround was removed after the model re-export was verified.
 
 ### Live capture — overlay now draws on iPhone Air
 
-Two real bugs + one workaround uncovered:
+Two real bugs were uncovered and fixed:
 
 1. **iOS frame-processor plugin** picked the largest output tensor — for YOLO26-seg this returned the mask prototype `[1, 32, 160, 160]`, not detections `[1, 300, 38]`. Fixed by selecting by **shape signature** `[1, 300, 6 | ≥38]` (`AdvanceSeedsCoreMLFrameProcessorPlugin.mm`).
 2. **Frame orientation** wasn't forwarded to `VNImageRequestHandler`. Camera buffer arrives in landscape sensor orientation; without the hint, Vision fed the model a sideways image and confidence collapsed. Fixed by mapping `Frame.orientation` (UIImageOrientation) → `CGImagePropertyOrientation` and passing it to the request handler.
-3. **Workaround**: the user's custom YOLO26-seg model emits COCO-preserved class indices (banana=46, etc.) in its post-NMS output despite declaring 6 custom classes. `mapClassFilterForModel` now accepts both 0-based indices AND original COCO ids, so detections pass through. Long-term fix is to re-export the model with proper class indices.
+3. **Model re-export cleanup**: the earlier COCO-preserved class-id issue is closed. The active custom model now emits 0-based class indices, and the app no longer accepts original COCO ids as pass-through classes for custom segmentation models.
 
 ### Continuous LiDAR calibration
 
@@ -76,7 +76,7 @@ Two real bugs + one workaround uncovered:
 
 ### 🟡 Save & sync perceived slowness
 
-- **Status**: Mitigated. `optimizeImageForUpload` now skips files <1.5 MB and times out at 3 s. If still slow, investigate `create.mutateAsync` (Supabase RPC) latency or the offline-detection path.
+- **Status**: Mitigated and instrumented. `optimizeImageForUpload` now skips files <1.5 MB and times out at 3 s. Capture processing logs `[pilot-monitor]` timing for photo/video upload, thumbnail work, ArUco, analyzer, and recording insert stages so pilot reports can be tied to a concrete slow stage.
 
 ### ✅ Android live preview QA on Z Flip 7 FE
 
@@ -108,5 +108,6 @@ idevicesyslog -u $(idevice_id -l | head -1)
 
 ## What's next
 
-1. Create and publish the `v0.4.0` release artifact if needed.
-2. Keep monitoring save/sync latency during pilot usage.
+1. Push `main` and `v0.4.0`.
+2. Publish the local Android APK to Firebase App Distribution.
+3. Keep monitoring `[pilot-monitor]` save/sync timings during pilot usage.

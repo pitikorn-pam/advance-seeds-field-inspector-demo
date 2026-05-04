@@ -276,20 +276,16 @@ The mobile app moved from "CRUD over a sample image in Expo Go" to **production-
 - **The token pipeline** is the source of truth for visual identity. Editing `docs/handoff/design-tokens.json` regenerates all consumers (Tailwind preset, CSS vars, TS export). The Swift/Kotlin stubs in `docs/handoff/` are the contract for the eventual native rebuild.
 - **The CSV export column order** is locked in `openspec/specs/reporting-and-export/spec.md` — any change is a new spec, not a silent edit.
 
-### What needs follow-up before production
+### Current follow-up after v0.4.0
 
-| Item                                             | Where                                                                               | Estimated effort |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------- | ---------------- |
-| Real YOLOv11n integration (Phase 4)              | swap `MockSeedAnalyzer` for TFLite + CoreML in `apps/mobile/lib/analyzer/`          | 3–5 days         |
-| Live calibration (ArUco + LiDAR; Phase 5 part-2) | custom Expo Modules wrapping OpenCV (Swift / Kotlin) + ARKit                        | 1–2 weeks        |
-| iOS distribution                                 | Apple Developer Program enrollment then EAS preview profile + Firebase App Dist     | 2 days           |
-| Skia detection-overlay rings on Live mode (6.1)  | needs Phase 4 frame source                                                          | 1 day            |
-| Polygon vertex drag + circle radius drag         | extend `RoiOverlay`'s rect handle pattern to other shapes                           | 4 hours          |
-| Reference dimensions on `varieties`              | migration adds `reference_length_mm` / `reference_width_mm`; Library row uses these | 2 hours          |
-| Real seed photos                                 | replace branded placeholders in `supabase/seed.sql`                                 | 1 hour           |
-| `expo-file-system` `/legacy` → new `Paths/File`  | `apps/mobile/app/reports.tsx` + capture upload paths                                | 2 hours          |
+| Item                                             | Where                                                              | Status |
+| ------------------------------------------------ | ------------------------------------------------------------------ | ------ |
+| Android Firebase pilot artifact                  | local APK build + `apps/mobile/scripts/distribute-android.mjs`     | active |
+| Save/sync latency monitoring                     | `[pilot-monitor]` logs in `apps/mobile/app/capture/processing.tsx` | active |
+| Real seed photos                                 | replace branded placeholders in `supabase/seed.sql`                | later  |
+| `expo-file-system` `/legacy` -> new `Paths/File` | `apps/mobile/app/reports.tsx` + capture upload paths               | later  |
 
-### Total to production beta: **6–10 weeks** (down from v0.1's 8–12 because three-step capture, ROI tools, recording, snapshot, profile/library/history surfaces are all now demo-shipped)
+The earlier Phase 4/5 items are now landed: TFLite/Core ML analyzers, live detection overlays, ArUco calibration, continuous LiDAR, model registry install/activation, and the Android/iOS frame-processor output-shape fixes are all part of the v0.4.0 release line.
 
 ---
 
