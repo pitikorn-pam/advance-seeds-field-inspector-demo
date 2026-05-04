@@ -47,6 +47,7 @@ export type TfliteDelegate = "nnapi" | "android-gpu" | "cpu";
 export interface LoadedTfliteModel {
   model: TfliteModel;
   outputKind: TfliteOutputKind;
+  outputIndex: number;
   /** Cached output tensor shape — Nitro hybrid getters can lose their
    *  native state across fast-refresh, so reading `model.outputs` repeatedly
    *  is unsafe. Capture once at load time and reuse. */
@@ -66,6 +67,28 @@ const GLOBAL_KEY = "__advanceSeedsTfliteModelPromise";
 type GlobalModelSlot = { key: string; promise: Promise<LoadedTfliteModel> };
 type GlobalSlot = { [GLOBAL_KEY]?: GlobalModelSlot | null };
 const globalSlot = globalThis as unknown as GlobalSlot;
+type TfliteTensorInfo = TfliteModel["outputs"][number];
+
+function selectDetectionOutput(outputs: readonly TfliteTensorInfo[]): {
+  index: number;
+  shape: readonly number[];
+} {
+  for (let index = 0; index < outputs.length; index++) {
+    const shape = outputs[index]?.shape ?? [];
+    if (shape.length !== 3) continue;
+    const [batch, rows, fields] = shape;
+    if (batch === 1 && rows === 300 && (fields === 6 || fields >= 38)) {
+      return { index, shape };
+    }
+  }
+  const firstRank3 = outputs.findIndex((output) => (output.shape ?? []).length === 3);
+  if (firstRank3 >= 0) {
+    return { index: firstRank3, shape: outputs[firstRank3].shape };
+  }
+  throw new Error(
+    `Unsupported TFLite output shapes ${outputs.map((output) => output.shape.join("x")).join(",")}`,
+  );
+}
 
 // Singleton loader — TfliteSeedAnalyzer (single-shot) and useLiveDetections
 // (worklet) share one TfliteModel instance instead of paying ~5 MB twice.
@@ -94,7 +117,7 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
       }
       const inputs = model.inputs;
       const outputs = model.outputs;
-      if (inputs.length !== 1 || outputs.length !== 1) {
+      if (inputs.length !== 1 || outputs.length < 1) {
         throw new Error(`Unexpected tensor signature: in=${inputs.length} out=${outputs.length}`);
       }
       const inShape = inputs[0].shape;
@@ -105,7 +128,8 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
       ) {
         throw new Error(`Unsupported input shape ${inShape.join("x")}; expected 1x640x640x3`);
       }
-      const outShape = outputs[0].shape;
+      const selectedOutput = selectDetectionOutput(outputs);
+      const outShape = selectedOutput.shape;
       if (outShape.length !== 3) {
         throw new Error(`Unsupported output rank ${outShape.length}; expected rank-3 tensor`);
       }
@@ -123,6 +147,7 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
       return {
         model,
         outputKind,
+        outputIndex: selectedOutput.index,
         outputShape,
         delegate: activeDelegate,
         sourceKey: source.key,
@@ -164,14 +189,23 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
   private constructor(
     private readonly model: TfliteModel,
     private readonly outputKind: TfliteOutputKind,
+    private readonly outputIndex: number,
     private readonly outputShape: readonly [number, number, number],
     readonly delegate: TfliteDelegate,
     private readonly modelRecord: InstalledModelRecord | null,
   ) {}
 
   static async load(): Promise<TfliteSeedAnalyzer> {
-    const { model, outputKind, outputShape, delegate, modelRecord } = await loadSharedTfliteModel();
-    return new TfliteSeedAnalyzer(model, outputKind, outputShape, delegate, modelRecord);
+    const { model, outputKind, outputIndex, outputShape, delegate, modelRecord } =
+      await loadSharedTfliteModel();
+    return new TfliteSeedAnalyzer(
+      model,
+      outputKind,
+      outputIndex,
+      outputShape,
+      delegate,
+      modelRecord,
+    );
   }
 
   async analyze(image: ImageRef, options: AnalyzeOptions): Promise<AnalysisResult> {
@@ -190,7 +224,11 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     const outputs = this.model.runSync([lb.tensor.buffer as ArrayBuffer]);
     const inferMs = Date.now() - inferStartedAt;
     recordInference(`tflite-${this.delegate}`, inferMs);
-    const out = new Float32Array(outputs[0]);
+    const selectedOutput = outputs[this.outputIndex];
+    if (!selectedOutput) {
+      throw new Error(`Missing selected TFLite output index ${this.outputIndex}`);
+    }
+    const out = new Float32Array(selectedOutput);
     const decodeOpts = {
       letterbox: lb,
       scoreThreshold: hp.scoreThreshold,
