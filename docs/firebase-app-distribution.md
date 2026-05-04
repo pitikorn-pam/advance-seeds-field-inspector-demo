@@ -72,6 +72,10 @@ FIREBASE_APK_PATH=android/app/build/outputs/apk/release/app-release.apk \
   pnpm run dist:android
 ```
 
+`build:preview:android:local` patches the generated Gradle metaspace cap before
+running `:app:assembleRelease`; the release graph otherwise can fail during
+`:app:compileReleaseKotlin` with `Metaspace`.
+
 ### EAS Android release build
 
 Use this only when a cloud-built artifact is explicitly desired.

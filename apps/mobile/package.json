@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "lint": "eslint app components lib",
     "typecheck": "tsc --noEmit",
-    "build:preview:android:local": "cd android && ./gradlew :app:assembleRelease --console=plain",
+    "build:preview:android:local": "node scripts/build-android-release-local.mjs",
     "build:preview:android": "eas build --profile preview --platform android",
     "build:preview:ios": "eas build --profile preview --platform ios",
     "dist:android": "node scripts/distribute-android.mjs"
@@ -76,6 +76,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@babel/plugin-transform-react-jsx": "^7.28.6",
     "@expo/ngrok": "^4.1.3",
     "@types/node": "^22.7.5",
     "@types/react": "~19.2.0",
