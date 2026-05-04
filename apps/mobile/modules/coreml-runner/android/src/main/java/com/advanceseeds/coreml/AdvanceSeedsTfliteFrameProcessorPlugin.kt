@@ -58,13 +58,14 @@ private object AndroidTfliteRunner {
       lastTimingLogAtMs = now
       Log.d(
         TAG,
-        "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} output=${activeRunner.outputShape.joinToString("x")}"
+        "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")}"
       )
     }
     return mapOf(
       "shape" to activeRunner.outputShape.toList(),
       "values" to activeRunner.outputValues(),
       "delegate" to activeRunner.delegateName,
+      "outputIndex" to activeRunner.selectedOutputIndex,
     )
   }
 
@@ -109,7 +110,8 @@ private object AndroidTfliteRunner {
       private set
     private var benchmarked = false
     private val inputTensor = cpuInterpreter.getInputTensor(0)
-    private val outputTensor = cpuInterpreter.getOutputTensor(0)
+    val selectedOutputIndex = selectDetectionOutputTensorIndex(cpuInterpreter)
+    private val outputTensor = cpuInterpreter.getOutputTensor(selectedOutputIndex)
     val outputShape: IntArray = outputTensor.shape()
     private val inputType = inputTensor.dataType()
     private val outputType = outputTensor.dataType()
@@ -138,7 +140,7 @@ private object AndroidTfliteRunner {
       }
       inputBuffer = ByteBuffer.allocateDirect(inputBytes).order(ByteOrder.nativeOrder())
       outputBuffer = ByteBuffer.allocateDirect(outputFloatCount * FLOAT_BYTES).order(ByteOrder.nativeOrder())
-      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType output=${outputShape.joinToString("x")} delegate=cpu gpuCandidate=${gpuInterpreter != null}")
+      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType outputIndex=$selectedOutputIndex output=${outputShape.joinToString("x")} delegate=cpu gpuCandidate=${gpuInterpreter != null}")
     }
 
     fun fillInputFromYuv(
@@ -200,14 +202,20 @@ private object AndroidTfliteRunner {
       if (!benchmarked) benchmarkDelegate()
       outputBuffer.rewind()
       try {
-        selectedInterpreter.run(inputBuffer, outputBuffer)
+        selectedInterpreter.runForMultipleInputsOutputs(
+          arrayOf(inputBuffer),
+          mapOf(selectedOutputIndex to outputBuffer as Any),
+        )
       } catch (err: Throwable) {
         if (delegateName != "cpu") {
           Log.w(TAG, "delegate=$delegateName failed during live inference; falling back to cpu", err)
           selectedInterpreter = cpuInterpreter
           delegateName = "cpu"
           outputBuffer.rewind()
-          cpuInterpreter.run(inputBuffer, outputBuffer)
+          cpuInterpreter.runForMultipleInputsOutputs(
+            arrayOf(inputBuffer),
+            mapOf(selectedOutputIndex to outputBuffer as Any),
+          )
         } else {
           throw err
         }
@@ -234,7 +242,10 @@ private object AndroidTfliteRunner {
       return try {
         outputBuffer.rewind()
         val startedAtMs = System.currentTimeMillis()
-        candidate.run(inputBuffer, outputBuffer)
+        candidate.runForMultipleInputsOutputs(
+          arrayOf(inputBuffer),
+          mapOf(selectedOutputIndex to outputBuffer as Any),
+        )
         outputBuffer.rewind()
         inputBuffer.rewind()
         System.currentTimeMillis() - startedAtMs
@@ -281,6 +292,30 @@ private object AndroidTfliteRunner {
       setNumThreads(2)
       setUseXNNPACK(true)
     }
+
+  private fun selectDetectionOutputTensorIndex(interpreter: Interpreter): Int {
+    var bestIndex = 0
+    var bestRank = -1
+    var bestCount = -1
+    for (i in 0 until interpreter.outputTensorCount) {
+      val shape = interpreter.getOutputTensor(i).shape()
+      var rank = 1
+      if (shape.size == 3) {
+        if (shape[0] == 1 && shape[1] == 300 && (shape[2] == 6 || shape[2] >= 38)) {
+          rank = 3
+        } else {
+          rank = 2
+        }
+      }
+      val count = shape.fold(1) { acc, value -> acc * value }
+      if (rank > bestRank || (rank == bestRank && count > bestCount)) {
+        bestRank = rank
+        bestCount = count
+        bestIndex = i
+      }
+    }
+    return bestIndex
+  }
 
   private fun createGpuDelegate(): GpuDelegate? {
     return try {
