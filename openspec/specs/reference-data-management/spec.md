@@ -76,3 +76,24 @@ The mobile app SHALL provide a `/profile` route as a standalone screen mirroring
 - **WHEN** she taps the Profile row
 - **THEN** the `/profile` screen opens with her data
 - **AND** the back button returns her to Settings
+
+### Requirement: Variety stores model class aliases
+The `varieties` table SHALL include a nullable `model_class_aliases text[]` column. Operators map the variety to specific class names from the active registry model so the live detector's class filter matches the model's actual output indices.
+
+#### Scenario: Variety editor surfaces active model class chips
+- **GIVEN** a registry model is active with `class_names = ["apple","apple_spot","banana","banana_spot","orange","orange_spot"]`
+- **WHEN** an admin opens the variety editor for "Banana"
+- **THEN** a **Model classes** field renders one chip per model class
+- **AND** tapping a chip toggles its inclusion in the variety's `model_class_aliases`
+- **AND** save persists the array to Supabase
+
+#### Scenario: Variety mapping precedence
+- **GIVEN** a variety's `model_class_aliases` is `["banana", "banana_spot"]`
+- **WHEN** the live detector resolves the active class filter
+- **THEN** these names take precedence over the legacy `coco_class_id` and over case-insensitive variety-name matches
+- **AND** when no alias is set the detector falls back through name-substring → COCO synonym in that order
+
+#### Scenario: Empty aliases mean "use defaults"
+- **GIVEN** a variety with `model_class_aliases = NULL` (never edited)
+- **WHEN** the live detector resolves
+- **THEN** it falls through to the variety-name match and finally to COCO; the aliases field is treated as "no opinion"

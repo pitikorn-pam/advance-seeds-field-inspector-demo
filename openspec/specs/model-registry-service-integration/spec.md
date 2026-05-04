@@ -63,10 +63,13 @@ Mobile must not embed service-role or R2 credentials; it uses the public Supabas
 ## Implementation Notes
 
 - Use `FileSystem.createDownloadResumable` for download progress + cancellation.
-- Use SHA-256 verification of base64-encoded artifact as recorded in manifest.
+- Use SHA-256 verification of base64-encoded artifact as recorded in manifest. Hashing is done in pure JS (`lib/models/sha256.ts`); the previously-attempted `expo-crypto.digestStringAsync` path was reverted because it hashes the base64 string itself, not the decoded bytes.
 - iOS: extract `.mlpackage.zip` then call `CoreMLRunner.compileModelPackage()` then smoke-load via `CoreMLRunner.loadModelAtPath()`.
 - Android: smoke-load via `react-native-fast-tflite` using `loadTensorflowModel({ url })`.
 - Maintain `active-model.json` and `previous-active-model.json` for safe rollback.
+- Variety → model class translation lives in `mapClassFilterForModel`. Tier 1 is operator-curated `varieties.model_class_aliases` (chip selector in the variety editor sources from the active model's `class_names`). Tier 2 is variety-name substring match. Tier 3 is the legacy COCO-synonym fallback. Tier 4 (workaround) passes through the original `classFilter` COCO ids — required for custom models exported from Ultralytics that preserve COCO-style class indices in their post-NMS output despite declaring 6-class metadata.
+- iOS frame-processor plugin selects the detection output by **shape signature** `[1, 300, 6 | ≥38]`, not by element count — picking the largest tensor returned the segmentation mask prototype `[1, 32, 160, 160]` instead of detections.
+- Hot-path artifact verify uses `quickVerifyArtifact` (existence + size only). Full SHA-256 verify (`verifyInstalledArtifact`) runs only at install / activate to avoid blocking Home cold start.
 
 ## Tests / QA Matrix
 

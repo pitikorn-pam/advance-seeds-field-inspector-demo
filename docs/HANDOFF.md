@@ -4,7 +4,7 @@
 
 > **Working directory:** `/Users/ppungpong/Github/advance-seeds-field-inspector-demo`. Do **not** build from the iCloud path (`~/Library/Mobile Documents/...`) — Ruby's `require` breaks on the ZWJ emoji in the path, which kills `pod install`. See [Critical environment rules](#critical-environment-rules-read-before-any-rebuild).
 
-> **Current remaining-work hand-off:** see [`docs/REMAINING_HANDOFF_2026-05-03.md`](./REMAINING_HANDOFF_2026-05-03.md) for the latest phase list and a ready-to-paste prompt for the next AI agent.
+> **Current remaining-work hand-off:** see [`docs/REMAINING_HANDOFF_2026-05-04.md`](./REMAINING_HANDOFF_2026-05-04.md) for the latest phase list and a ready-to-paste prompt for the next AI agent.
 
 ---
 

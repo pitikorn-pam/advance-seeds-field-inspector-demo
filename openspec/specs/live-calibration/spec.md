@@ -20,13 +20,20 @@ The mobile app SHALL expose a `LiveCalibrator` interface that observes camera fr
 - **AND** the value is mathematically consistent with the marker's pixel size in the frame
 
 ### Requirement: LiDAR calibration on supported iOS devices
-On iOS devices with a LiDAR sensor, the mobile app SHALL provide a `LidarCalibrator` that derives `pxPerMm` from depth + camera intrinsics.
+On iOS devices with a LiDAR sensor, the mobile app SHALL provide a `LidarCalibrator` that derives `pxPerMm` from depth + camera intrinsics. LiDAR readings stream **continuously** at 10 Hz with EMA smoothing — operators move the device freely and `pxPerMm` updates per frame, recomputing seed measurements without a stand-still lock phase.
 
-#### Scenario: LiDAR locks at 28 cm distance
-- **GIVEN** the user is in precise mode on an iPhone or iPad with a LiDAR sensor
-- **WHEN** they hold the device 28 cm above a tray
-- **THEN** the calibration banner shows "Calibration locked" with a LiDAR-derived px/mm value and "28 cm"
-- **AND** confidence is ≥ 0.6
+#### Scenario: LiDAR streams updated readings as the operator moves
+- **GIVEN** the user is in live or precise mode on an iPhone Air / iPad Pro / iPhone 12+ Pro
+- **WHEN** they shift the camera from 30 cm to 18 cm above a tray over 2 s
+- **THEN** the calibration banner pxPerMm + distance label update smoothly across the move
+- **AND** the live overlay's seed-size measurements track the new working distance without an explicit re-calibrate gesture
+- **AND** EMA smoothing absorbs single-frame depth noise without freezing the value
+
+#### Scenario: First confident reading dismisses the calibration overlay
+- **GIVEN** the user opens Live or Precise capture on a LiDAR device
+- **WHEN** the first reading at confidence ≥ 0.6 lands
+- **THEN** the calibrating-depth onboarding overlay dismisses
+- **AND** subsequent live LiDAR readings flow into the bottom calibration banner without re-entering the overlay within the same session
 
 #### Scenario: LiDAR unsupported — ArUco fallback is selected automatically
 - **GIVEN** a device without a LiDAR sensor (iPhone < 12 Pro, all Android)

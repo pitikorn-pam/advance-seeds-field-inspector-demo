@@ -216,3 +216,22 @@ An inspector SHALL be able to delete their own inspection. An admin SHALL NOT be
 - **GIVEN** Alex is admin and inspection X is owned by Jane
 - **WHEN** he attempts to delete X
 - **THEN** the action is unavailable in UI and would be denied by RLS if attempted directly
+
+### Requirement: Analyzer model snapshot on every inspection
+Each inspection's `metadata.analyzer_model` SHALL capture which detector + threshold tuning produced its results, frozen at capture time.
+
+#### Scenario: Inspection records the active model
+- **GIVEN** the operator captures with the registry model `0.3.2` from the production channel
+- **WHEN** the inspection is saved
+- **THEN** `metadata.analyzer_model` contains `id` (`production-{version_id}-{platform}`), `display_name` (`0.3.2`), `source` (`production`), `model_name` (`yolo26n-seg`), `version` (`0.3.2`), `analyzer_runtime` (`coreml-yolo`), and the active `score_threshold` + `iou_threshold`
+
+#### Scenario: Inspection records bundled fallback when no registry model active
+- **GIVEN** no registry model is active and the analyzer runs the bundled CoreML weights
+- **WHEN** the inspection is saved
+- **THEN** `metadata.analyzer_model.source` is `bundled` and `model_name` / `version` are null
+
+#### Scenario: Result + Detail surfaces the snapshot
+- **GIVEN** an inspection with `analyzer_model` metadata
+- **WHEN** the operator opens either the capture-review screen or the inspection-detail screen
+- **THEN** the metadata block renders a "Detector model" row (collapsed: `0.3.2 · Production`; expanded: runtime + trained-as + thresholds)
+- **AND** the metadata block uses thin section dividers between Location / Device / Capture / Detector groups

@@ -291,3 +291,27 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 - **AND** missing or old-default `targetFps` values of 15 or higher migrate to
   the new 30 fps live inference target
 - **AND** explicit lower tuning values such as 5 or 10 are preserved
+
+### Requirement: Capture-time media optimization before upload
+Saved photos and videos SHALL be downscaled and re-encoded before upload to Supabase Storage so field captures stay within mobile-data budgets without losing seed-grading detail.
+
+#### Scenario: Photo upload is resized to 2048 long edge
+- **GIVEN** the operator captures a still on iPhone Air (4032×3024 source)
+- **WHEN** `processing.tsx` runs `optimizeImageForUpload` before upload
+- **THEN** the JPEG is resized to a 2048 long edge at quality 0.85
+- **AND** the upload size is typically ~5× smaller than the source
+- **AND** sources already smaller than 1.5 MB pass through unchanged
+- **AND** optimization is bounded by a 3 s wall-clock timeout — on timeout the source is uploaded as-is
+
+#### Scenario: Video upload uses the 720p preset
+- **GIVEN** the operator records a video with annotation overlays
+- **WHEN** the iOS RoiVideoExporter composes the final mp4
+- **THEN** it uses `AVAssetExportPreset1280x720` in preference to `AVAssetExportPresetHighestQuality`
+- **AND** if the device cannot satisfy the 720p preset the exporter falls back to `HighestQuality`
+- **AND** the resulting mp4 is typically 3–4× smaller than the previous export
+
+#### Scenario: Video thumbnail upload is downscaled
+- **GIVEN** the operator records a video and `processing.tsx` extracts a midpoint thumbnail for the inspection's `image_url`
+- **WHEN** the thumbnail is uploaded to Supabase Storage
+- **THEN** `optimizeImageForUpload` resizes it to a 1280 long edge at quality 0.8
+- **AND** the same 1.5 MB skip and 3 s timeout safety nets apply

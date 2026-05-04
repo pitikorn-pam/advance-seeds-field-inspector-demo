@@ -4,6 +4,14 @@ import * as FileSystem from "expo-file-system/legacy";
 
 const DEFAULT_MAX_LONG_EDGE = 2048;
 const DEFAULT_QUALITY = 0.85;
+/** Skip optimization if the source is already this small — re-encoding
+ *  smaller files is rarely a win, and the ~300 ms ImageManipulator
+ *  cost makes the user-visible save flow feel slower. */
+const OPTIMIZE_THRESHOLD_BYTES = 1_500_000;
+/** Hard cap on optimization wall-clock so a stuck native call can't
+ *  block the save flow indefinitely. Worst case: original file is
+ *  uploaded at full size, which the user can already tolerate. */
+const TIMEOUT_MS = 3000;
 
 interface OptimizationOptions {
   /** Cap the long edge in pixels. iPhone 4032×3024 → 2048×1536 by default. */
@@ -38,23 +46,44 @@ export async function optimizeImageForUpload(
       ? originalInfo.size
       : 0;
 
+  // Cheap files don't benefit from re-encoding — saving 50 KB isn't
+  // worth ~300 ms ImageManipulator latency on the user-blocking save
+  // path. Pass the source URI through unchanged.
+  if (originalBytes > 0 && originalBytes < OPTIMIZE_THRESHOLD_BYTES) {
+    return { uri, originalBytes, optimizedBytes: originalBytes };
+  }
+
+  // Race a hard timeout against the manipulator pipeline so a stuck
+  // native call can't freeze save indefinitely.
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<{ uri: string; bytes: number } | null>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve(null), TIMEOUT_MS);
+  });
+
   try {
     const { width, height } = await getImageDimensions(uri);
     const longEdge = Math.max(width, height);
 
-    const ctx = ImageManipulator.manipulate(uri);
-    if (longEdge > maxLongEdge) {
-      const scale = maxLongEdge / longEdge;
-      ctx.resize({ width: Math.round(width * scale), height: Math.round(height * scale) });
-    }
-    const ref = await ctx.renderAsync();
-    const result = await ref.saveAsync({ compress: quality, format: SaveFormat.JPEG });
+    const work = (async () => {
+      const ctx = ImageManipulator.manipulate(uri);
+      if (longEdge > maxLongEdge) {
+        const scale = maxLongEdge / longEdge;
+        ctx.resize({ width: Math.round(width * scale), height: Math.round(height * scale) });
+      }
+      const ref = await ctx.renderAsync();
+      const out = await ref.saveAsync({ compress: quality, format: SaveFormat.JPEG });
+      const info = await FileSystem.getInfoAsync(out.uri).catch(() => null);
+      const bytes = info && info.exists && typeof info.size === "number" ? info.size : 0;
+      return { uri: out.uri, bytes };
+    })();
 
-    const optimizedInfo = await FileSystem.getInfoAsync(result.uri).catch(() => null);
-    const optimizedBytes =
-      optimizedInfo && optimizedInfo.exists && typeof optimizedInfo.size === "number"
-        ? optimizedInfo.size
-        : 0;
+    const winner = await Promise.race([work, timeout]);
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    if (!winner) {
+      console.warn("[image-optimize] timed out after %dms; using source", TIMEOUT_MS);
+      return { uri, originalBytes, optimizedBytes: originalBytes };
+    }
+    const optimizedBytes = winner.bytes;
 
     // If somehow the "optimized" output is bigger (shouldn't happen
     // unless source was already aggressively compressed), keep the
@@ -62,8 +91,9 @@ export async function optimizeImageForUpload(
     if (optimizedBytes > 0 && originalBytes > 0 && optimizedBytes >= originalBytes) {
       return { uri, originalBytes, optimizedBytes: originalBytes };
     }
-    return { uri: result.uri, originalBytes, optimizedBytes };
+    return { uri: winner.uri, originalBytes, optimizedBytes };
   } catch (err) {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
     console.warn("[image-optimize] failed; using source", err);
     return { uri, originalBytes, optimizedBytes: originalBytes };
   }
