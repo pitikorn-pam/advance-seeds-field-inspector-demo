@@ -1,64 +1,88 @@
 # Model Registry Service Integration
 
-## Summary
+## Purpose
+Mobile consumes the model registry service to list, download, validate, install, activate, and roll back TFLite (Android) and Core ML (iOS) model artifacts without embedding service-role or R2 credentials.
 
-Mobile shall consume a model registry service to list, download, validate, install, and activate TFLite (Android) and Core ML (iOS) model artifacts. The mobile app keeps a manual index URL fallback for local or offline testing and maintains an on-device registry of installed artifacts with activation and rollback semantics.
+## Requirements
+### Requirement: Registry service listing
+The mobile app SHALL list deployed model candidates for staging and production channels through the public model registry service boundary.
 
-## Service Boundary
+#### Scenario: List candidates from dashboard
+- **GIVEN** Supabase public environment variables are configured
+- **WHEN** the user refreshes More -> Model registry for staging or production
+- **THEN** the app SHALL call `listDeployedModelCandidates({ channel })`
+- **AND** the screen SHALL display the returned candidates
 
-Mobile APIs (in `apps/mobile/lib/models/registryService.ts`):
+### Requirement: Default model resolution
+The mobile app SHALL probe the registry service for the default model after startup without blocking the Home screen's first paint.
 
-- `listDeployedModelCandidates({ channel })`
-- `resolveDefaultModel({ channel, currentVersion, currentCompat })`
-- `listDeployedModelsUrl(...)`
-- `resolveDefaultModelUrl(...)`
+#### Scenario: Resolve channel update probe
+- **GIVEN** the app has a current active model version
+- **WHEN** analyzer resolution runs after startup
+- **THEN** the app SHALL call `resolveDefaultModel` with `currentVersion` and `currentCompat`
+- **AND** the app SHALL log the response for diagnostics
 
-Low-level installer (in `apps/mobile/lib/models/modelRegistry.ts`) handles:
-- parsing index/manifest
-- download + SHA-256 verification
-- iOS `.mlpackage.zip` extraction + compile to `.mlmodelc`
-- Android `.tflite` download + smoke-load test
-- writing `registry.json`, `active-model.json`, `previous-active-model.json`
+### Requirement: Android TFLite installation
+The mobile app SHALL install Android `.tflite` artifacts from registry candidates with download progress, hash validation, smoke-load validation, and local registry persistence.
 
-Mobile must not embed service-role or R2 credentials; it uses the public Supabase anon key only for those functions that accept it.
+#### Scenario: Install Android TFLite candidate
+- **GIVEN** a TFLite candidate exists in the registry index
+- **WHEN** the user installs it
+- **THEN** the app SHALL download the `.tflite` with progress
+- **AND** the app SHALL verify SHA-256
+- **AND** the app SHALL smoke-load the model with `react-native-fast-tflite`
+- **AND** the app SHALL store the artifact under `models/<id>/`
+- **AND** the app SHALL record the model in `registry.json`
+- **AND** activation SHALL prefer the installed artifact for live inference
 
-## Runtime Flow
+### Requirement: iOS Core ML installation
+The mobile app SHALL install iOS `.mlpackage.zip` artifacts from registry candidates with download progress, hash validation, extraction, Core ML compilation, smoke-load validation, and local registry persistence.
 
-1. Operator deploys model(s) to the ML dashboard (staging/production channels).
-2. User opens More → Model registry in the mobile app.
-3. The screen calls `listDeployedModelCandidates()` for the selected channel.
-4. User taps Install on a candidate.
-5. The app downloads the artifact, verifies SHA-256, validates metadata compatibility, smoke-loads the model, and installs it into app document storage.
-6. Activation writes `active-model.json`; previous active saved to `previous-active-model.json` for rollback.
-7. On startup, analyzer selection prefers the active installed model and falls back to bundled weights or classical analyzer.
+#### Scenario: Install iOS Core ML candidate
+- **GIVEN** an `.mlpackage.zip` candidate exists in the registry index
+- **WHEN** the user installs it
+- **THEN** the app SHALL download the package with progress
+- **AND** the app SHALL verify SHA-256
+- **AND** the app SHALL extract the package
+- **AND** the app SHALL compile it to `.mlmodelc`
+- **AND** the app SHALL smoke-load the compiled model
+- **AND** the app SHALL store the compiled model under `models/<id>/`
+- **AND** the app SHALL record the model in `registry.json`
 
-## Acceptance Criteria / Scenarios
+### Requirement: Install cancellation
+The mobile app SHALL allow a user to cancel a running model install and clean up partial files.
 
-- Scenario: List candidates from dashboard
-  - GIVEN Supabase public env vars are configured
-  - WHEN the user refreshes More → Model registry for staging or production
-  - THEN the app shall call `list-deployed-models` and display returned candidates
+#### Scenario: Cancel install
+- **GIVEN** a model artifact download is in progress
+- **WHEN** the user taps Cancel
+- **THEN** the running download SHALL be cancelled
+- **AND** partial files SHALL be removed
+- **AND** the UI SHALL return to idle
 
-- Scenario: Install Android TFLite candidate
-  - GIVEN a TFLite candidate exists in the index
-  - WHEN the user installs it
-  - THEN the app downloads the `.tflite` with progress, verifies SHA-256, smoke-loads it, stores under `models/<id>/`, and records it in `registry.json`
-  - AND activation prefers installed artifact for live inference
+### Requirement: Activation and rollback
+The mobile app SHALL keep an on-device registry of installed artifacts and preserve the previous active model for rollback.
 
-- Scenario: Install iOS Core ML candidate
-  - GIVEN an `.mlpackage.zip` is available
-  - WHEN the user installs it
-  - THEN the app downloads the package with progress, verifies SHA-256, extracts, compiles to `.mlmodelc`, smoke-loads, stores under `models/<id>/`, and records in `registry.json`
+#### Scenario: Activate installed model
+- **GIVEN** an installed model has passed compatibility validation and smoke-load validation
+- **WHEN** the user activates it
+- **THEN** the app SHALL write `active-model.json`
+- **AND** the app SHALL write the prior active model to `previous-active-model.json`
+- **AND** analyzer selection SHALL prefer the active installed model on the next load
 
-- Scenario: Cancel install
-  - GIVEN a download is in progress
-  - WHEN the user taps Cancel
-  - THEN the running download is cancelled, partial files are removed, and the UI returns to idle
+#### Scenario: Roll back to previous active model
+- **GIVEN** `previous-active-model.json` exists
+- **WHEN** the user rolls back from More -> Model registry
+- **THEN** the app SHALL restore the previous model as active
+- **AND** analyzer selection SHALL use the restored artifact
 
-- Scenario: resolve-channel update probe
-  - GIVEN the app has a current active version
-  - WHEN the app starts
-  - THEN it SHALL call `resolveDefaultModel` with `currentVersion` and `currentCompat` and log the response
+### Requirement: Local fallback
+The mobile app SHALL keep a manual index URL fallback for local or offline model testing.
+
+#### Scenario: Install from local model index
+- **GIVEN** a developer configures a local model index URL
+- **WHEN** the registry service is unavailable or local testing is requested
+- **THEN** the app SHALL parse the local index and manifest
+- **AND** the same install, verification, activation, and rollback rules SHALL apply
 
 ## Implementation Notes
 
@@ -67,7 +91,7 @@ Mobile must not embed service-role or R2 credentials; it uses the public Supabas
 - iOS: extract `.mlpackage.zip` then call `CoreMLRunner.compileModelPackage()` then smoke-load via `CoreMLRunner.loadModelAtPath()`.
 - Android: smoke-load via `react-native-fast-tflite` using `loadTensorflowModel({ url })`.
 - Maintain `active-model.json` and `previous-active-model.json` for safe rollback.
-- Variety → model class translation lives in `mapClassFilterForModel`. Tier 1 is operator-curated `varieties.model_class_aliases` (chip selector in the variety editor sources from the active model's `class_names`). Tier 2 is variety-name substring match. Tier 3 is the legacy COCO-synonym fallback. Tier 4 (workaround) passes through the original `classFilter` COCO ids — required for custom models exported from Ultralytics that preserve COCO-style class indices in their post-NMS output despite declaring 6-class metadata.
+- Variety -> model class translation lives in `mapClassFilterForModel`. Tier 1 is operator-curated `varieties.model_class_aliases` (chip selector in the variety editor sources from the active model's `class_names`). Tier 2 is variety-name substring match. Tier 3 is the legacy COCO-synonym fallback into the model's 0-based class space.
 - iOS frame-processor plugin selects the detection output by **shape signature** `[1, 300, 6 | ≥38]`, not by element count — picking the largest tensor returned the segmentation mask prototype `[1, 32, 160, 160]` instead of detections.
 - Hot-path artifact verify uses `quickVerifyArtifact` (existence + size only). Full SHA-256 verify (`verifyInstalledArtifact`) runs only at install / activate to avoid blocking Home cold start.
 
