@@ -70,15 +70,10 @@ export default function HomeScreen() {
   }, [data]);
 
   // Edge-drag shortcut: pull the home screen rightward from the left
-  // edge to reveal "New inspection". Home content tracks the finger so
-  // the user feels like they're physically dragging a door open; release
-  // past COMMIT_DX commits and pushes /capture/setup, otherwise the
-  // content springs back. Tuning knobs:
-  //   • EDGE_TRIGGER_PX — start zone on the left edge. Wider competes
-  //     with horizontal-scroll children; narrower feels finicky.
-  //   • COMMIT_DX — release threshold. Lower = twitchier, higher = more
-  //     deliberate and forgiving of accidental drags.
-  const EDGE_TRIGGER_PX = 30;
+  // edge to reveal "New inspection". The gesture is mounted on a narrow
+  // edge strip instead of the whole screen so Android does not route every
+  // Home tap/scroll through this pan recognizer.
+  const EDGE_TRIGGER_PX = 36;
   const COMMIT_DX = 100;
 
   const startCapture = useCallback(() => {
@@ -165,71 +160,84 @@ export default function HomeScreen() {
   if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
   return (
-    <GestureDetector gesture={edgeSwipe}>
-      <View style={{ flex: 1, backgroundColor: "#000" }}>
-        <Animated.View
-          pointerEvents="none"
-          style={[{ position: "absolute", inset: 0, backgroundColor: "#000" }, backdropStyle]}
-        />
-        <Animated.View style={[{ flex: 1 }, dragStyle]} className="bg-bg-secondary">
-          <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
-            <ScrollView
-              contentContainerClassName="px-xl py-md gap-lg"
-              refreshControl={
-                <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
-              }
-            >
-              {/* Greeting + initials chip */}
-              <View className="flex-row items-center gap-md">
-                <View className="flex-1">
-                  <Text className="text-caption text-fg-secondary">{dateLabel}</Text>
-                  <Text
-                    className="text-fg-primary font-medium mt-xs"
-                    style={{ fontSize: 22, letterSpacing: -0.4 }}
-                  >
-                    {firstName ? t("home:greeting", { name: firstName }) : t("common:appName")}
-                  </Text>
-                </View>
-                {profile?.role ? (
-                  <Pill
-                    tone={profile.role === "admin" ? "brand" : "info"}
-                    label={t(`common:roles.${profile.role}`)}
-                  />
-                ) : null}
-                <NotificationBell />
-              </View>
-
-              {isLoading ? (
-                <Skeleton style={{ height: 168 }} />
-              ) : (
-                <HeroCard todayInspections={todayInspections} />
-              )}
-
-              {isLoading ? (
-                <SkeletonList rows={3} rowHeight={64} />
-              ) : recent.length > 0 ? (
-                <RecentInspections rows={recent} />
-              ) : (
-                <Pressable
-                  onPress={() => {
-                    session.reset();
-                    router.push("/capture/setup");
-                  }}
-                  className="rounded-2xl border border-line-tertiary bg-bg-primary px-lg py-2xl items-center"
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      <Animated.View
+        pointerEvents="none"
+        style={[{ position: "absolute", inset: 0, backgroundColor: "#000" }, backdropStyle]}
+      />
+      <Animated.View style={[{ flex: 1 }, dragStyle]} className="bg-bg-secondary">
+        <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
+          <ScrollView
+            contentContainerClassName="px-xl py-md gap-lg"
+            refreshControl={
+              <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
+            }
+          >
+            {/* Greeting + initials chip */}
+            <View className="flex-row items-center gap-md">
+              <View className="flex-1">
+                <Text className="text-caption text-fg-secondary">{dateLabel}</Text>
+                <Text
+                  className="text-fg-primary font-medium mt-xs"
+                  style={{ fontSize: 22, letterSpacing: -0.4 }}
                 >
-                  <Text className="text-body text-fg-secondary text-center">
-                    {t("inspections:list.empty")}
-                  </Text>
-                </Pressable>
-              )}
+                  {firstName ? t("home:greeting", { name: firstName }) : t("common:appName")}
+                </Text>
+              </View>
+              {profile?.role ? (
+                <Pill
+                  tone={profile.role === "admin" ? "brand" : "info"}
+                  label={t(`common:roles.${profile.role}`)}
+                />
+              ) : null}
+              <NotificationBell />
+            </View>
 
-              <ModelUpdateBanner />
-              <ModelUpdateNotifier />
-              <SyncBanner />
-            </ScrollView>
-          </SafeAreaView>
-        </Animated.View>
-      </View>
-    </GestureDetector>
+            {isLoading ? (
+              <Skeleton style={{ height: 168 }} />
+            ) : (
+              <HeroCard todayInspections={todayInspections} />
+            )}
+
+            {isLoading ? (
+              <SkeletonList rows={3} rowHeight={64} />
+            ) : recent.length > 0 ? (
+              <RecentInspections rows={recent} />
+            ) : (
+              <Pressable
+                onPress={() => {
+                  session.reset();
+                  router.push("/capture/setup");
+                }}
+                className="rounded-2xl border border-line-tertiary bg-bg-primary px-lg py-2xl items-center"
+              >
+                <Text className="text-body text-fg-secondary text-center">
+                  {t("inspections:list.empty")}
+                </Text>
+              </Pressable>
+            )}
+
+            <ModelUpdateBanner />
+            <ModelUpdateNotifier />
+            <SyncBanner />
+          </ScrollView>
+        </SafeAreaView>
+      </Animated.View>
+      <GestureDetector gesture={edgeSwipe}>
+        <View
+          accessibilityElementsHidden
+          collapsable={false}
+          importantForAccessibility="no-hide-descendants"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: EDGE_TRIGGER_PX,
+            zIndex: 20,
+          }}
+        />
+      </GestureDetector>
+    </View>
   );
 }
