@@ -11,6 +11,7 @@ import {
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
 } from "@/lib/queries";
+import { displayNotificationCopy } from "@/lib/notifications/display";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
@@ -33,7 +34,7 @@ const KIND_VISUAL: Record<NotificationKind, { icon: typeof Info; color: string; 
  * fetch.
  */
 export default function NotificationsModal() {
-  const { t, i18n } = useTranslation(["common", "notifications"]);
+  const { t, i18n } = useTranslation(["common", "notifications", "more"]);
   const router = useRouter();
   const { profile } = useAuth();
   const { data, isLoading, isError, refetch } = useNotifications();
@@ -111,6 +112,7 @@ export default function NotificationsModal() {
               notification={item}
               isLast={index === visible.length - 1}
               dateFmt={dateFmt}
+              t={t}
               onPress={() => onPressItem(item)}
             />
           )}
@@ -134,16 +136,19 @@ function NotificationRow({
   notification,
   isLast,
   dateFmt,
+  t,
   onPress,
 }: {
   notification: Notification;
   isLast: boolean;
   dateFmt: Intl.DateTimeFormat;
+  t: (key: string, options?: Record<string, unknown>) => string;
   onPress: () => void;
 }) {
   const visual = KIND_VISUAL[notification.kind];
   const Icon = visual.icon;
   const unread = notification.read_at === null;
+  const copy = displayNotificationCopy(notification, t);
 
   return (
     <Pressable
@@ -163,15 +168,15 @@ function NotificationRow({
             className={`flex-1 text-title font-medium ${unread ? "text-fg-primary" : "text-fg-secondary"}`}
             numberOfLines={1}
           >
-            {notification.title}
+            {copy.title}
           </Text>
           {unread ? (
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#0F6E56" }} />
           ) : null}
         </View>
-        {notification.body ? (
+        {copy.body ? (
           <Text className="text-caption text-fg-secondary mt-xs" numberOfLines={2}>
-            {notification.body}
+            {copy.body}
           </Text>
         ) : null}
         <Text className="text-caption text-fg-tertiary mt-xs">

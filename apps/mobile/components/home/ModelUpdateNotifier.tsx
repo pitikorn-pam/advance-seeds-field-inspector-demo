@@ -40,10 +40,12 @@ export function ModelUpdateNotifier() {
         : null;
     notify({
       kind: "info",
-      title: t("update.notifyTitle", { semver: update.semver }),
-      body: sizeMb ? t("update.notifyBodyWithSize", { size: sizeMb }) : t("update.notifyBody"),
+      title: t("models.update.notifyTitle", { semver: update.semver }),
+      body: sizeMb
+        ? t("models.update.notifyBodyWithSize", { size: sizeMb })
+        : t("models.update.notifyBody"),
       route: "/more/models",
-      metadata: { version_id: update.version_id, semver: update.semver },
+      metadata: { version_id: update.version_id, semver: update.semver, size_mb: sizeMb },
     });
   }, [update, notify, t]);
 

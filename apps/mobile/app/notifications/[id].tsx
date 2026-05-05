@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react-native";
 import type { NotificationKind } from "@advance-seeds/types";
 import { useNotifications, useInspections } from "@/lib/queries";
+import { displayNotificationCopy } from "@/lib/notifications/display";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 
@@ -24,7 +25,7 @@ const KIND_VISUAL: Record<NotificationKind, { icon: typeof Info; color: string; 
  */
 export default function NotificationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t, i18n } = useTranslation(["common", "notifications"]);
+  const { t, i18n } = useTranslation(["common", "notifications", "more"]);
   const router = useRouter();
   const { data, isLoading, isError, refetch } = useNotifications();
   const inspections = useInspections();
@@ -67,6 +68,7 @@ export default function NotificationDetail() {
 
   const visual = KIND_VISUAL[notification.kind];
   const Icon = visual.icon;
+  const copy = displayNotificationCopy(notification, t);
   const routeOk = routeAvailable(notification.route, inspections.data);
   const onOpen = () => {
     if (notification.route && routeOk) {
@@ -91,15 +93,15 @@ export default function NotificationDetail() {
               <Icon color={visual.color} size={22} />
             </View>
             <View className="flex-1">
-              <Text className="text-h2 font-medium text-fg-primary">{notification.title}</Text>
+              <Text className="text-h2 font-medium text-fg-primary">{copy.title}</Text>
               <Text className="text-caption text-fg-tertiary mt-xs">
                 {dateFmt.format(new Date(notification.created_at))}
               </Text>
             </View>
           </View>
 
-          {notification.body ? (
-            <Text className="mt-md text-body text-fg-secondary">{notification.body}</Text>
+          {copy.body ? (
+            <Text className="mt-md text-body text-fg-secondary">{copy.body}</Text>
           ) : null}
         </View>
 
