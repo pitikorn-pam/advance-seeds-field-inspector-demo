@@ -6,9 +6,16 @@ import test from "node:test";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(root, "compatibility.ts"), "utf8");
+const analyzerRoot = join(root, "..", "analyzer");
+const liveSource = readFileSync(join(analyzerRoot, "useLiveDetections.ts"), "utf8");
 
 test("segmentation model class filters do not pass through COCO ids", () => {
   assert.doesNotMatch(source, /Tier 4/);
   assert.doesNotMatch(source, /mapped\.add\(id\)/);
   assert.match(source, /COCO_TO_MODEL_NAMES/);
+});
+
+test("iOS live fallback keeps bundled model filters in bundled class space", () => {
+  assert.match(liveSource, /setActiveModel\(source\.modelPath \? active : null\)/);
+  assert.doesNotMatch(liveSource, /void readActiveModel\(\)\.then\(\(rec\) => \{\s*if \(!cancelled\) setActiveModel\(rec\);/);
 });

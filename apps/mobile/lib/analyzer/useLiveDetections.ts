@@ -163,16 +163,19 @@ function useLiveDetectionsCoreML(options: Options): State {
   useEffect(() => {
     let cancelled = false;
     resolveCoreMLModelSource()
-      .then((source) => {
-        if (!cancelled) setModelPath(source.modelPath ?? null);
+      .then(async (source) => {
+        const active = await readActiveModel();
+        if (cancelled) return;
+        setModelPath(source.modelPath ?? null);
+        setActiveModel(source.modelPath ? active : null);
       })
       .catch((err) => {
         console.warn("[live-detections coreml] active model unavailable; using bundle", err);
-        if (!cancelled) setModelPath(null);
+        if (!cancelled) {
+          setModelPath(null);
+          setActiveModel(null);
+        }
       });
-    void readActiveModel().then((rec) => {
-      if (!cancelled) setActiveModel(rec);
-    });
     return () => {
       cancelled = true;
     };
