@@ -278,12 +278,12 @@ The mobile app moved from "CRUD over a sample image in Expo Go" to **production-
 
 ### Current follow-up after v0.4.0
 
-| Item                                             | Where                                                              | Status |
-| ------------------------------------------------ | ------------------------------------------------------------------ | ------ |
-| Android Firebase pilot artifact                  | local APK build + `apps/mobile/scripts/distribute-android.mjs`     | active |
-| Save/sync latency monitoring                     | `[pilot-monitor]` logs in `apps/mobile/app/capture/processing.tsx` | active |
-| Real seed photos                                 | replace branded placeholders in `supabase/seed.sql`                | later  |
-| `expo-file-system` `/legacy` -> new `Paths/File` | `apps/mobile/app/reports.tsx` + capture upload paths               | later  |
+| Item                                             | Where                                                              | Status                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------ | ----------------------------------------------------- |
+| Android Firebase pilot artifact                  | local APK build + `apps/mobile/scripts/distribute-android.mjs`     | passed                                                |
+| Save/sync latency monitoring                     | `[pilot-monitor]` logs in `apps/mobile/app/capture/processing.tsx` | passed in manual QA; keep available for pilot reports |
+| Real seed photos                                 | replace branded placeholders in `supabase/seed.sql`                | later                                                 |
+| `expo-file-system` `/legacy` -> new `Paths/File` | `apps/mobile/app/reports.tsx` + capture upload paths               | later                                                 |
 
 The earlier Phase 4/5 items are now landed: TFLite/Core ML analyzers, live detection overlays, ArUco calibration, continuous LiDAR, model registry install/activation, and the Android/iOS frame-processor output-shape fixes are all part of the v0.4.0 release line.
 

@@ -74,9 +74,9 @@ Two real bugs were uncovered and fixed:
 - **Status**: Re-export verified with proper 0-based class indices.
 - **Repo cleanup**: Tier-4 COCO id pass-through removed from `mapClassFilterForModel`; custom segmentation models now rely on explicit aliases, variety-name matches, or COCO synonym mapping into the model's 0-based class space.
 
-### 🟡 Save & sync perceived slowness
+### ✅ Save & sync perceived slowness
 
-- **Status**: Mitigated and instrumented. `optimizeImageForUpload` now skips files <1.5 MB and times out at 3 s. Capture processing logs `[pilot-monitor]` timing for photo/video upload, thumbnail work, ArUco, analyzer, and recording insert stages so pilot reports can be tied to a concrete slow stage.
+- **Status**: Mitigated, instrumented, and manually passed in pilot QA. `optimizeImageForUpload` now skips files <1.5 MB and times out at 3 s. Capture processing logs `[pilot-monitor]` timing for photo/video upload, thumbnail work, ArUco, analyzer, and recording insert stages so future pilot reports can be tied to a concrete slow stage.
 
 ### ✅ Android live preview QA on Z Flip 7 FE
 
@@ -108,6 +108,6 @@ idevicesyslog -u $(idevice_id -l | head -1)
 
 ## What's next
 
-1. Push `main` and `v0.4.0`.
-2. Publish the local Android APK to Firebase App Distribution.
-3. Keep monitoring `[pilot-monitor]` save/sync timings during pilot usage.
+1. Continue routine pilot observation with `[pilot-monitor]` logs if a tester reports slow save/sync.
+2. Later polish: replace placeholder seed photos in `supabase/seed.sql`.
+3. Later cleanup: migrate legacy `expo-file-system` calls to the new `Paths/File` API.
