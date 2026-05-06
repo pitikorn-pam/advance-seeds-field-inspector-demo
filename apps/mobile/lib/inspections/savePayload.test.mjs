@@ -63,6 +63,50 @@ test("buildInspectionSavePayload preserves nullable references", () => {
   assert.equal(payload.metadata, null);
 });
 
+test("buildInspectionSavePayload drops measurements that would overflow Supabase numeric columns", () => {
+  const validSeed = {
+    ...SEED,
+    index: 1,
+    length_mm: 8.1234,
+    width_mm: 3.4567,
+    area_mm2: 27.8912,
+  };
+  const overflowSeed = {
+    ...SEED,
+    index: 2,
+    length_mm: 1200,
+    width_mm: 3,
+    area_mm2: 36,
+  };
+  const payload = buildInspectionSavePayload(
+    baseOptions({
+      summary: {
+        total_seeds: 2,
+        mean_length_mm: 604,
+        mean_width_mm: 3.2,
+        mean_area_mm2: 31.9,
+      },
+      seeds: [validSeed, overflowSeed],
+      metadata: { platform: "android" },
+    }),
+  );
+
+  assert.equal(payload.total_seeds, 1);
+  assert.equal(payload.mean_length_mm, 8.123);
+  assert.equal(payload.mean_width_mm, 3.457);
+  assert.equal(payload.mean_area_mm2, 27.891);
+  assert.deepEqual(
+    payload.seeds.map((seed) => seed.index),
+    [1],
+  );
+  assert.deepEqual(payload.metadata.persistence_sanitization, {
+    reason: "db_numeric_range",
+    original_seed_count: 2,
+    persisted_seed_count: 1,
+    dropped_seed_count: 1,
+  });
+});
+
 test("toInspectionQueuePayload uses the local file URI for the queue's local_media_uri", () => {
   const payload = buildInspectionSavePayload(
     baseOptions({ imageUrl: "file:///var/mobile/Containers/.../local.jpg" }),

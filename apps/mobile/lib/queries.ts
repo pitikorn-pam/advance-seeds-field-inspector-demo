@@ -524,6 +524,9 @@ export async function createInspectionRemote(args: {
     defects: JSON.parse(JSON.stringify(s.defects)),
     bbox: JSON.parse(JSON.stringify(s.bbox)),
   }));
+  if (seedRows.length === 0) {
+    return data.id;
+  }
   const { error: seedErr } = await supabase
     .from("seeds")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
