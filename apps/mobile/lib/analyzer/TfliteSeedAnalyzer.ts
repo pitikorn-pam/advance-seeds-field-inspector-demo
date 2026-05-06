@@ -3,6 +3,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { toByteArray } from "base64-js";
 import jpeg from "jpeg-js";
 import { loadTensorflowModel, type TfliteModel } from "react-native-fast-tflite";
+import CoreMLRunner from "@advance-seeds/coreml-runner";
 import type {
   AnalysisFrameResult,
   AnalysisResult,
@@ -17,7 +18,6 @@ import {
   decodeYolo,
   decodeYoloNms,
   decodeYoloSegmentationNms,
-  letterbox,
   mapDetectionsToSeeds,
   nonMaxSuppression,
   summarizeSeeds,
@@ -25,6 +25,7 @@ import {
 import type { RawDetection } from "./yolo";
 import { ensureHyperParamsLoaded, getHyperParamsSync } from "./hyperparams";
 import { recordInference } from "./inferenceStats";
+import { prepareYoloInput, resolvePreprocessProfile } from "./preprocess";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
 import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
@@ -216,8 +217,15 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     const pixels = await decodeImage(image);
     const decodeMs = Date.now() - decodeStartedAt;
 
+    const preprocessProfile = resolvePreprocessProfile(
+      hp.preprocessProfile,
+      this.modelRecord?.metadata ?? null,
+    );
     const lbStartedAt = Date.now();
-    const lb = letterbox(pixels, YOLO_INPUT_SIZE);
+    const lb = prepareYoloInput(pixels, {
+      target: YOLO_INPUT_SIZE,
+      profile: preprocessProfile,
+    });
     const lbMs = Date.now() - lbStartedAt;
 
     const inferStartedAt = Date.now();
@@ -232,7 +240,12 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     const decodeOpts = {
       letterbox: lb,
       scoreThreshold: hp.scoreThreshold,
-      classFilter: mapClassFilterForModel(options.classFilter, this.modelRecord?.metadata),
+      classFilter: mapClassFilterForModel(
+        options.classFilter,
+        this.modelRecord?.metadata,
+        options.varietyNames ?? null,
+        options.modelClassAliases ?? null,
+      ),
     };
     const raw: RawDetection[] =
       this.outputKind === "nms"
@@ -252,7 +265,7 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
 
     const totalMs = Date.now() - startedAt;
     console.info(
-      `[analyzer] ${this.id} decode=${decodeMs}ms letterbox=${lbMs}ms infer=${inferMs}ms total=${totalMs}ms raw=${raw.length} kept=${kept.length} seeds=${seeds.length} frame=${pixels.width}x${pixels.height}`,
+      `[analyzer] ${this.id} preprocess=${preprocessProfile} decode=${decodeMs}ms letterbox=${lbMs}ms infer=${inferMs}ms total=${totalMs}ms raw=${raw.length} kept=${kept.length} seeds=${seeds.length} frame=${pixels.width}x${pixels.height}`,
     );
 
     return {
@@ -276,6 +289,26 @@ async function decodeImage(image: ImageRef): Promise<PixelImage> {
   }
   if (image.kind !== "uri") {
     throw new Error(`Unsupported image ref: ${image.kind}`);
+  }
+  // Android: hand the JPEG to the native BitmapFactory decoder. ~10×
+  // faster than the pure-JS jpeg-js path on Hermes, and returns the
+  // pixel buffer in the same RGBA layout PixelImage expects. iOS
+  // continues to use the jpeg-js path because iOS doesn't expose this
+  // method (CoreML's image-input handles decode internally for the
+  // inference path; only the rare ClassicalSeedAnalyzer flow would
+  // benefit there, which is fast enough as-is).
+  if (Platform.OS === "android") {
+    try {
+      const decoded = await CoreMLRunner.decodeJpegToRgba(image.uri);
+      // The bridge marshals Kotlin ByteArray as a JS number[] of byte
+      // values. Wrap in a Uint8Array (PixelImage's expected layout) so
+      // downstream indexing is fast and types line up with jpeg-js's
+      // useTArray output.
+      const data = new Uint8Array(decoded.data);
+      return { width: decoded.width, height: decoded.height, data };
+    } catch (err) {
+      console.warn("[analyzer] native jpeg decode failed; falling back to jpeg-js", err);
+    }
   }
   const base64 = await FileSystem.readAsStringAsync(image.uri, {
     encoding: FileSystem.EncodingType.Base64,

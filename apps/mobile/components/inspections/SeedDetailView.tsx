@@ -3,7 +3,6 @@ import { Alert, ScrollView, View, Text, Image as RNImage } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Image as ExpoImage } from "expo-image";
 import { ChevronLeft, Edit3 } from "lucide-react-native";
 import type { BoundingBox, SeedGrade } from "@advance-seeds/types";
 import { Card } from "@/components/ui/Card";
@@ -189,6 +188,8 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
           : "#DC2828";
 
   const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
+  const [getSizeError, setGetSizeError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   useEffect(() => {
     if (!sourceUri) return;
     let cancelled = false;
@@ -197,8 +198,10 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
       (width, height) => {
         if (!cancelled) setDims({ width, height });
       },
-      () => {
-        // best-effort; placeholder fallback below
+      (err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[SeedHero] Image.getSize failed", sourceUri, msg);
+        if (!cancelled) setGetSizeError(msg);
       },
     );
     return () => {
@@ -207,6 +210,7 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
   }, [sourceUri]);
 
   const projection = projectBboxToHero(seed.bbox, dims);
+  const bboxInvalid = seed.bbox.width <= 0 || seed.bbox.height <= 0;
 
   return (
     <View
@@ -218,10 +222,21 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
           style={{ position: "absolute", inset: 0 }}
           accessibilityLabel={`Seed #${seed.index} crop`}
         >
-          <ExpoImage
+          {/* Use RN's <Image> here, not expo-image: the main capture preview
+              renders the same URL via RN <Image> successfully, but expo-image
+              with cachePolicy="memory-disk" intermittently fails to display
+              the same source on the seed-hero (different request stack, no
+              onError fired). Cross-component consistency means whatever
+              loads on the parent page also loads here. */}
+          <RNImage
             source={{ uri: sourceUri }}
-            cachePolicy="memory-disk"
-            contentFit="cover"
+            resizeMode="cover"
+            onError={(e) => {
+              const native = e.nativeEvent as { error?: string } | undefined;
+              const reason = native?.error ?? "Image load failed";
+              console.warn("[SeedHero] Image error", sourceUri, reason);
+              setImageError(reason);
+            }}
             style={{
               position: "absolute",
               left: projection.left,
@@ -247,6 +262,51 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
       ) : (
         <SeedShape ringColor={ringColor} />
       )}
+
+      {/* Diagnostic overlay — only renders when something looks wrong.
+          Stays in the codebase so future regressions surface in-screen
+          (with the actual reason) rather than as silent black images. */}
+      {(() => {
+        const fitsInside =
+          dims &&
+          seed.bbox.x >= 0 &&
+          seed.bbox.y >= 0 &&
+          seed.bbox.x + seed.bbox.width <= dims.width &&
+          seed.bbox.y + seed.bbox.height <= dims.height;
+        const status = !sourceUri
+          ? "no image_url"
+          : getSizeError
+            ? `getSize:${getSizeError}`
+            : imageError
+              ? `load:${imageError}`
+              : bboxInvalid
+                ? "bbox invalid"
+                : dims && !fitsInside
+                  ? "bbox outside image"
+                  : null;
+        if (status === null) return null;
+        const bb = `bbox=${seed.bbox.x.toFixed(0)},${seed.bbox.y.toFixed(0)} ${seed.bbox.width.toFixed(0)}×${seed.bbox.height.toFixed(0)}`;
+        const dimStr = dims ? `dims=${dims.width}×${dims.height}` : "dims=loading…";
+        return (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: 8,
+              right: 8,
+              bottom: 8,
+              backgroundColor: "rgba(0,0,0,0.7)",
+              borderRadius: 6,
+              paddingHorizontal: 8,
+              paddingVertical: 6,
+            }}
+          >
+            <Text style={{ color: "#FFFFFF", fontSize: 10 }} numberOfLines={4}>
+              {`${status} · ${bb} · ${dimStr}`}
+            </Text>
+          </View>
+        );
+      })()}
     </View>
   );
 }
@@ -254,8 +314,18 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
 function projectBboxToHero(bbox: BoundingBox, dims: { width: number; height: number } | null) {
   if (!dims || dims.width <= 0 || dims.height <= 0) return null;
   if (bbox.width <= 0 || bbox.height <= 0) return null;
+  // Project a fixed crop region (bbox + 15% margin) into the hero
+  // container. Same visual framing on iOS and Android regardless of how
+  // big the stored image is in inspection.image_url. Without this the
+  // operator sees inconsistent margins between the two platforms — iOS
+  // tends to show a tight bbox view because its `image_url` is stored
+  // at full sensor resolution, while Android shows more context around
+  // the bbox because it stores a downsized JPEG.
   const inner = HERO_SIZE - HERO_PADDING * 2;
-  const scale = Math.min(inner / bbox.width, inner / bbox.height);
+  const margin = 0.15;
+  const cropW = bbox.width * (1 + 2 * margin);
+  const cropH = bbox.height * (1 + 2 * margin);
+  const scale = Math.min(inner / cropW, inner / cropH);
   const imageWidth = dims.width * scale;
   const imageHeight = dims.height * scale;
   const bboxCenterDX = (bbox.x + bbox.width / 2) * scale;

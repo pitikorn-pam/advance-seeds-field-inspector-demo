@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Segmented } from "@/components/ui/Segmented";
+import { Toggle } from "@/components/ui/Toggle";
+import { useAutoInstallOnWifi } from "@/lib/models/autoInstall";
 import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
 import {
   cancelArtifactDownload,
@@ -58,7 +60,8 @@ interface RegistryRow {
 }
 
 export default function ModelRegistryScreen() {
-  const { t } = useTranslation(["common", "more"]);
+  const { t } = useTranslation(["common", "more", "settings"]);
+  const [autoInstallOnWifi, setAutoInstallOnWifi] = useAutoInstallOnWifi();
   const router = useRouter();
   const params = useLocalSearchParams<{ install?: string }>();
   const requestedInstallVersionId = typeof params.install === "string" ? params.install : null;
@@ -329,6 +332,24 @@ export default function ModelRegistryScreen() {
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
         <Text className="text-caption text-fg-secondary">{t("more:models.intro")}</Text>
+
+        <Card>
+          <View className="flex-row items-center gap-md">
+            <View className="flex-1">
+              <Text className="text-body text-fg-primary">
+                {t("settings:models.autoInstallOnWifi")}
+              </Text>
+              <Text className="text-caption text-fg-secondary mt-xs">
+                {t("settings:models.autoInstallOnWifiHint")}
+              </Text>
+            </View>
+            <Toggle
+              value={autoInstallOnWifi}
+              onValueChange={setAutoInstallOnWifi}
+              accessibilityLabel={t("settings:models.autoInstallOnWifi")}
+            />
+          </View>
+        </Card>
 
         {error ? (
           <StatusBanner

@@ -143,6 +143,12 @@ export default function CaptureClassesScreen() {
                     </Text>
                   </View>
                   <View className="items-end gap-[2px]">
+                    <Pill
+                      tone={variety.is_active ? "success" : "warning"}
+                      label={t(
+                        variety.is_active ? "varieties:status.active" : "varieties:status.inactive",
+                      )}
+                    />
                     {variety.ref_length_mm && variety.ref_width_mm ? (
                       <Pill
                         tone="neutral"

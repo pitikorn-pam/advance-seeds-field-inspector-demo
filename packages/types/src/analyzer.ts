@@ -26,6 +26,19 @@ export interface AnalyzeOptions {
    * be retargeted without redeploying the model.
    */
   classFilter?: number[];
+  /**
+   * Display names of the active variety/varieties. Fed to the name-based
+   * fallback in `mapClassFilterForModel` for segmentation-class models that
+   * don't honor COCO indices. Mirrors what `useLiveDetections` already does
+   * so the post-capture analyzer can reach the same detections live found.
+   */
+  varietyNames?: readonly string[] | null;
+  /**
+   * Operator-curated class names from the active variety
+   * (`varieties.model_class_aliases`). Tier-1 input to
+   * `mapClassFilterForModel`; bypasses name/COCO heuristics.
+   */
+  modelClassAliases?: readonly string[] | null;
   /** Non-blocking progress hook (0..1). */
   onProgress?: (progress: number) => void;
   /** Caller-supplied AbortSignal so screens can cancel long-running analysis. */

@@ -8,8 +8,14 @@
     "code": "Batch code",
     "location": "Location",
     "sownAt": "Sown date",
-    "notes": "Notes"
+    "notes": "Notes",
+    "status": "Usage status"
   },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "statusHint": "Inactive batches stay visible in history but are hidden from new inspection setup.",
   "codePlaceholder": "e.g. 2026-RICE-A1",
   "locationPlaceholder": "Field name or coordinates",
   "notesPlaceholder": "Anything to remember about this batch",
@@ -19,7 +25,11 @@
   "sownPending": "No sown date",
   "noLocation": "No location",
   "searchPlaceholder": "Search code, location, notes",
-  "deleteConfirm": "Delete this batch?",
+  "deleteConfirm": "Delete this batch? Batches with saved inspections cannot be deleted.",
+  "deleteBlocked": "This batch has saved inspections, so it cannot be deleted. Mark it inactive instead to hide it from new inspections.",
+  "deleteFailed": "Could not delete this batch. Please try again.",
+  "saveNeedsMigration": "The active/inactive database migration has not been applied yet. Apply the reference active status migration, then save again.",
+  "saveFailed": "Could not save this batch. Please try again.",
   "empty": "No batches yet.",
   "emptyFiltered": "No batches match your search.",
   "invalidCode": "Batch code is required.",

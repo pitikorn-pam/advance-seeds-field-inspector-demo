@@ -14,6 +14,17 @@ interface Props {
   /** Stage dims — the visible area of the camera preview the overlay covers. */
   stageWidth: number;
   stageHeight: number;
+  /**
+   * Display name of the active variety. When set, every bbox is labeled
+   * with this name regardless of the model's internal class id — what
+   * the operator selected is what they expect to see on screen.
+   */
+  varietyName?: string | null;
+  /**
+   * Active model's class_names. Used as a fallback label when no variety
+   * is selected and the model exposes its own class list (e.g. "item").
+   */
+  modelClassNames?: readonly string[] | null;
 }
 
 const PALETTE: Record<string, string> = {
@@ -63,6 +74,8 @@ export function DetectionOverlay({
   frameHeight,
   stageWidth,
   stageHeight,
+  varietyName,
+  modelClassNames,
 }: Props) {
   const projected = useMemo(() => {
     if (!frameResult || frameWidth <= 0 || frameHeight <= 0) return [];
@@ -76,7 +89,17 @@ export function DetectionOverlay({
       const y = s.bbox.y * scale - dy;
       const w = s.bbox.width * scale;
       const h = s.bbox.height * scale;
-      const className = COCO_NAMES[s.class_id ?? -1] ?? "Item";
+      // Label resolution priority:
+      //  1. Operator's variety selection — what they chose, what they expect.
+      //  2. Active model's class_names[id] — surfaces "item"/"seed" etc when
+      //     no variety is bound, useful for diagnosing model behaviour.
+      //  3. COCO id → demo class name (Banana/Apple/...) for the bundled fallback.
+      //  4. Generic "Item" as last resort.
+      const modelClassName =
+        modelClassNames && s.class_id !== undefined && s.class_id !== null
+          ? (modelClassNames[s.class_id] ?? null)
+          : null;
+      const className = varietyName ?? modelClassName ?? COCO_NAMES[s.class_id ?? -1] ?? "Item";
       const cx = frameWidth > 0 ? (s.bbox.x + s.bbox.width / 2) / frameWidth : 0;
       const cy = frameHeight > 0 ? (s.bbox.y + s.bbox.height / 2) / frameHeight : 0;
       const bucketKey = identityKey(s.class_id, cx, cy);

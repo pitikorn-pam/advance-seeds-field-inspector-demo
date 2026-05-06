@@ -7,9 +7,19 @@
     "scientificName": "Scientific name",
     "description": "Description",
     "imageUrl": "Image URL",
-    "colorKey": "Color theme"
+    "colorKey": "Color theme",
+    "status": "Usage status"
   },
-  "deleteConfirm": "Delete this variety? Inspections referencing it will be unaffected.",
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "statusHint": "Inactive varieties stay visible in history but are hidden from new inspection setup.",
+  "deleteConfirm": "Delete this variety? Varieties with saved inspections cannot be deleted.",
+  "deleteBlocked": "This variety has saved inspections, so it cannot be deleted. Keep it for traceability or create a new variety instead.",
+  "deleteFailed": "Could not delete this variety. Please try again.",
+  "saveNeedsMigration": "The active/inactive database migration has not been applied yet. Apply the reference active status migration, then save again.",
+  "saveFailed": "Could not save this variety. Please try again.",
   "empty": "No varieties yet.",
   "detail": {
     "referenceTitle": "Reference dimensions",
@@ -18,6 +28,7 @@
     "averageGrade": "Average grade",
     "gradeAPct": "{{percent}}% Grade A",
     "inspectionsCount": "{{count}} inspections · {{seeds}} seeds",
-    "startInspection": "Start inspection"
+    "startInspection": "Start inspection",
+    "inactiveUsage": "This variety is inactive and cannot be used for new inspections."
   }
 }

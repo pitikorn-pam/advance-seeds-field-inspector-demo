@@ -219,11 +219,68 @@ export default function InspectionDetail() {
               ) : null}
             </View>
 
-            {mediaUrl ? (
-              <View className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
+            <View className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
+              {mediaUrl ? (
                 <CaptureMediaPreview uri={mediaUrl} kind={captureMedia.kind} roi={roi} />
-              </View>
-            ) : null}
+              ) : (
+                <View className="flex-1 items-center justify-center px-md">
+                  <Text className="text-caption text-warning-text text-center">
+                    No image stored on this inspection.
+                  </Text>
+                  <Text
+                    className="text-caption text-fg-tertiary text-center mt-xs"
+                    numberOfLines={2}
+                    selectable
+                  >
+                    image_url={String(inspection.image_url ?? "null")}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {(() => {
+              // Calibration sanity gate. Surfaces a warning whenever the
+              // measurements are likely wrong — not just when every seed
+              // happens to grade reject. Three trigger conditions:
+              //
+              //   1. **No calibration metadata** — inspection saved with
+              //      the fallback `pxPerMm = 38.4`. Measurements are
+              //      placeholder values, not real mm.
+              //   2. **Source != aruco** — LiDAR or live-derived px/mm
+              //      was reused on the captured photo. The pixel space
+              //      doesn't match the photo's resolution, so mm values
+              //      systematically over/under-shoot. ArUco-on-photo is
+              //      the only source that's guaranteed to match the
+              //      photo's pixel space.
+              //   3. **All seeds graded reject** — even if the source is
+              //      ArUco, sub-millimeter measurements suggest the
+              //      marker detection produced a wrong value (e.g., on a
+              //      non-5cm marker, or skewed perspective).
+              const px = calibration?.px_per_mm ?? null;
+              const src = calibration?.source ?? null;
+              const allReject = seeds.length > 0 && seeds.every((s) => s.grade === "reject");
+              const noCalibration = !src;
+              const liveCalibration = src === "lidar" || src === "manual";
+              const trigger = allReject || noCalibration || liveCalibration;
+              if (!trigger) return null;
+              const reason = noCalibration
+                ? "No ArUco marker detected in this photo — measurements use a placeholder px/mm and are not accurate."
+                : liveCalibration
+                  ? `Calibration source is "${src}" — derived from the live preview, not the captured photo. Pixel scale may not match.`
+                  : "All detections graded reject — likely a calibration mismatch.";
+              return (
+                <View className="rounded-lg border border-line-tertiary bg-warning-bg px-lg py-md">
+                  <Text className="text-caption font-medium text-warning-text">{reason}</Text>
+                  <Text className="text-caption text-warning-text mt-xs" selectable>
+                    px_per_mm={px === null ? "missing" : px.toFixed(2)} · source={src ?? "none"}
+                  </Text>
+                  <Text className="text-caption text-fg-tertiary mt-xs">
+                    For accurate measurements, re-capture with the 5 cm ArUco card clearly visible
+                    in the frame so post-capture calibration runs against the actual photo.
+                  </Text>
+                </View>
+              );
+            })()}
 
             {note ? (
               <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
@@ -439,6 +496,10 @@ export default function InspectionDetail() {
                               score: analyzerModel.score_threshold.toFixed(2),
                               iou: analyzerModel.iou_threshold.toFixed(2),
                             })}
+                          />
+                          <MetadataRow
+                            label={t("inspections:detail.metadata.detectorPreprocess")}
+                            value={analyzerModel.preprocess_profile}
                           />
                         </>
                       ) : null}

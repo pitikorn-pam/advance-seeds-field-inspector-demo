@@ -163,6 +163,10 @@ function BatchRow({
         </Text>
       </View>
       <View className="items-end gap-[2px]">
+        <Pill
+          tone={batch.is_active ? "success" : "warning"}
+          label={t(batch.is_active ? "status.active" : "status.inactive")}
+        />
         {batch.sown_at ? (
           <Pill tone="neutral" label={t("sownPill", { date: batch.sown_at })} />
         ) : (

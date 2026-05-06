@@ -66,6 +66,7 @@ export default function LibraryTab() {
   const grouped = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = (data ?? []).filter((v) => {
+      if (v.is_active === false) return false;
       if (family !== "all" && v.color_key !== family) return false;
       if (!q) return true;
       const hay = `${v.name} ${v.scientific_name ?? ""}`.toLowerCase();

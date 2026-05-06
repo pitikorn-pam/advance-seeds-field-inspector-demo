@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { FlatList, View, Text, Pressable, RefreshControl } from "react-native";
+import { ActivityIndicator, FlatList, View, Text, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Link, useRouter } from "expo-router";
 import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react-native";
-import { useInspections } from "@/lib/queries";
+import { useInspectionsPaged } from "@/lib/queries";
 import type { InspectionRow } from "@/lib/queries";
 import { useSyncQueueEntries } from "@/lib/sync/store";
 import type { SyncQueueEntry } from "@/lib/sync/types";
@@ -50,10 +50,20 @@ const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
 export default function HistoryScreen() {
   const { t, i18n } = useTranslation(["common", "history", "inspections"]);
   const router = useRouter();
-  const { data, isLoading, isError, refetch, isRefetching } = useInspections();
+  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
+  const {
+    data: paged,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInspectionsPaged({ start: dateRange.start, end: dateRange.end });
+  const data = useMemo<InspectionRow[]>(() => paged?.pages.flat() ?? [], [paged]);
   const queueEntries = useSyncQueueEntries();
   const [filter, setFilter] = useState<Filter>("all");
-  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const segmentOptions: Array<{ value: Filter; label: string }> = [
@@ -65,7 +75,6 @@ export default function HistoryScreen() {
   ];
 
   const grouped = useMemo(() => {
-    if (!data) return [];
     const local = queueEntries
       .filter((entry) => entry.payload.kind === "inspection")
       .filter(
@@ -78,6 +87,8 @@ export default function HistoryScreen() {
         syncState: entry.status === "failed" ? "failed" : "pending",
       }));
     const remote = data.map<HistoryItem>((row) => ({ kind: "remote", row, syncState: "synced" }));
+    // Local queue entries are not constrained by the server-side date range,
+    // so honour it client-side here too. Sync-state filter stays client-side.
     const filtered = applyFilter([...local, ...remote], filter, dateRange);
     return groupByDate(filtered);
   }, [data, queueEntries, filter, dateRange]);
@@ -122,6 +133,17 @@ export default function HistoryScreen() {
         maxToRenderPerBatch={12}
         windowSize={9}
         removeClippedSubviews
+        onEndReachedThreshold={0.4}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+        }}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View className="py-md items-center">
+              <ActivityIndicator color="#0F6E56" />
+            </View>
+          ) : null
+        }
         ListHeaderComponent={
           <View className="gap-md mb-md">
             <Segmented<Filter>

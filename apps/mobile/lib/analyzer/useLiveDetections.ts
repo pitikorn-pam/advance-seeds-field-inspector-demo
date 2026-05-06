@@ -16,6 +16,7 @@ import {
   decodeYolo,
   decodeYoloNms,
   decodeYoloSegmentationNms,
+  unrotateBbox,
   mapDetectionsToSeeds,
   nonMaxSuppression,
   summarizeSeeds,
@@ -26,6 +27,7 @@ import {
   type TfliteOutputKind,
 } from "./TfliteSeedAnalyzer";
 import { useHyperParams } from "./hyperparams";
+import { resolvePreprocessProfile } from "./preprocess";
 import { recordInference, type InferenceSource } from "./inferenceStats";
 import { resolveCoreMLModelSource } from "./CoreMLSeedAnalyzer";
 import type { InstalledModelRecord } from "@/lib/models/types";
@@ -152,6 +154,16 @@ function useLiveDetectionsCoreML(options: Options): State {
       mountedRef.current = false;
     };
   }, []);
+  // Tracks current `enabled` state from a worklet's perspective. Inflight
+  // results (decoded async on the JS thread) check this before writing
+  // to React state — without it, results that started before enabled
+  // flipped false land *after* the cleanup setDetections(null), pinning
+  // a stale bbox on the live overlay until the next ArUco re-detect.
+  const enabledRef = useRef(enabled);
+  useEffect(() => {
+    enabledRef.current = enabled;
+    if (!enabled) setDetections(null);
+  }, [enabled]);
 
   // Initialised once. Vision Camera proxies the native plugin lookup
   // through JSI; the resulting object is worklet-shareable.
@@ -202,6 +214,17 @@ function useLiveDetectionsCoreML(options: Options): State {
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
   const targetFps = hp.targetFps;
+  const preprocessProfile = useMemo(
+    () => resolvePreprocessProfile(hp.preprocessProfile, activeModel?.metadata ?? null),
+    [hp.preprocessProfile, activeModel],
+  );
+  useEffect(() => {
+    if (preprocessProfile === "morph_fused_v1") {
+      console.warn(
+        "[live-detections coreml] preprocess=morph_fused_v1 requested; iOS Core ML frame processor runs raw_rgb in v1",
+      );
+    }
+  }, [preprocessProfile]);
 
   const decodeOnJS = useMemo(
     () =>
@@ -215,36 +238,54 @@ function useLiveDetectionsCoreML(options: Options): State {
           frameHeight: number,
           frameTimestampMs: number,
           inferElapsedMs: number,
+          orientation: string,
         ) => {
           recordInference("coreml", inferElapsedMs);
           const out = Float32Array.from(values);
-          // Match the Android branch's 3-way split so segmentation
-          // models (shape[2] >= 38: bbox + score + cls + mask coeffs)
-          // are decoded by `decodeYoloSegmentationNms`. Without this,
-          // shape[2]==38 falls through to "raw" and treats mask
-          // coefficients as class scores — every detection scores 0.
           const outputKind: "raw" | "nms" | "segmentation" =
             shape2 === 6 ? "nms" : shape2 > 6 ? "segmentation" : "raw";
-          // Vision uses `scaleFit` (aspect-fit + center crop) when handing
-          // the frame to the model; mirror its inverse so detection boxes
-          // land in original-frame pixel space.
-          const cropSize = Math.min(frameWidth, frameHeight);
-          const scale = YOLO_INPUT_SIZE / cropSize;
-          const padX = -((frameWidth - cropSize) / 2) * scale;
-          const padY = -((frameHeight - cropSize) / 2) * scale;
+          // Vision rotates the camera buffer based on `frame.orientation`
+          // before running the model, so the model output's 640-canvas
+          // coords are relative to the *post-rotation* image dims, not
+          // the sensor-native ones we receive as frame.width/frame.height.
+          // Use post-rotation dims to compute the letterbox-inverse, then
+          // map the resulting bboxes back to sensor coords with the
+          // matching inverse rotation. This eliminates the edge-of-frame
+          // drift on iOS live overlays.
+          const rotates =
+            orientation === "left" ||
+            orientation === "right" ||
+            orientation === "left-mirrored" ||
+            orientation === "right-mirrored";
+          const postW = rotates ? frameHeight : frameWidth;
+          const postH = rotates ? frameWidth : frameHeight;
+          const scale = YOLO_INPUT_SIZE / Math.max(postW, postH);
+          const newW = Math.round(postW * scale);
+          const newH = Math.round(postH * scale);
+          const padX = Math.floor((YOLO_INPUT_SIZE - newW) / 2);
+          const padY = Math.floor((YOLO_INPUT_SIZE - newH) / 2);
           const decodeOpts = {
             letterbox: { scale, padX, padY, target: YOLO_INPUT_SIZE },
             scoreThreshold,
             classFilter: mappedClassFilter,
           };
           const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
-          const raw =
+          const rawDetections =
             outputKind === "nms"
               ? decodeYoloNms(out, shape, decodeOpts)
               : outputKind === "segmentation"
                 ? decodeYoloSegmentationNms(out, shape, decodeOpts)
                 : decodeYolo(out, shape, decodeOpts);
-          const kept = outputKind === "raw" ? nonMaxSuppression(raw, iouThreshold) : raw;
+          // Bboxes are now in post-rotation pixel space. Inverse-rotate
+          // each one back to sensor (frame.width × frame.height) coords
+          // so DetectionOverlay can project them onto the camera preview.
+          const sensorDetections = rotates
+            ? rawDetections.map((d) => unrotateBbox(d, postW, postH, orientation))
+            : rawDetections;
+          const kept =
+            outputKind === "raw"
+              ? nonMaxSuppression(sensorDetections, iouThreshold)
+              : sensorDetections;
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,
             frameHeight,
@@ -252,6 +293,12 @@ function useLiveDetectionsCoreML(options: Options): State {
             roi: roi ?? null,
           });
           if (!mountedRef.current) return;
+          // Discard inflight results that landed *after* the consumer
+          // disabled the hook (e.g., user navigated away from the scan
+          // screen). Without this, the live overlay sticks on the last
+          // detection from before the navigation until ArUco re-detects
+          // and resets the camera flow.
+          if (!enabledRef.current) return;
           const now = Date.now();
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
           lastSetAtRef.current = now;
@@ -282,13 +329,14 @@ function useLiveDetectionsCoreML(options: Options): State {
           const result = plugin.call(frame, {
             assetName: COREML_ASSET,
             modelPath: modelPath ?? "",
+            preprocessProfile,
           });
           const inferElapsedMs = Date.now() - startedAt;
           if (!result) return;
-          // Plugin returns { outputName, shape: number[], values: number[] }.
           const r = result as unknown as {
             shape: number[];
             values: number[];
+            orientation?: string;
           };
           const shape = r.shape;
           decodeOnJS(
@@ -300,18 +348,15 @@ function useLiveDetectionsCoreML(options: Options): State {
             frame.height,
             frame.timestamp,
             inferElapsedMs,
+            r.orientation ?? "up",
           );
         } catch (err) {
           console.warn("[live-detections coreml] frame processing failed", err);
         }
       });
     },
-    [enabled, plugin, decodeOnJS, targetFps, modelPath],
+    [enabled, plugin, decodeOnJS, targetFps, modelPath, preprocessProfile],
   );
-
-  useEffect(() => {
-    if (!enabled) setDetections(null);
-  }, [enabled]);
 
   return useMemo(
     () => ({
@@ -326,6 +371,9 @@ function useLiveDetectionsCoreML(options: Options): State {
 // ---------------------------------------------------------------------
 // Android — native TFLite frame-processor plugin
 // ---------------------------------------------------------------------
+
+// Cached so we only log delegate selection once per change, not per frame.
+let lastLoggedDelegate: string | null = null;
 
 function useLiveDetectionsAndroidNative(options: Options): State {
   const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases } = options;
@@ -342,6 +390,16 @@ function useLiveDetectionsAndroidNative(options: Options): State {
       mountedRef.current = false;
     };
   }, []);
+  // Tracks current `enabled` state from a worklet's perspective. Inflight
+  // results (decoded async on the JS thread) check this before writing
+  // to React state — without it, results that started before enabled
+  // flipped false land *after* the cleanup setDetections(null), pinning
+  // a stale bbox on the live overlay until the next ArUco re-detect.
+  const enabledRef = useRef(enabled);
+  useEffect(() => {
+    enabledRef.current = enabled;
+    if (!enabled) setDetections(null);
+  }, [enabled]);
 
   const plugin = useMemo(
     () => VisionCameraProxy.initFrameProcessorPlugin("advanceSeedsRunTFLite", {}),
@@ -356,6 +414,10 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   // delivery continue while the latest eligible frame is analyzed.
   const targetFps = Math.min(hp.targetFps, 5);
   const roiCropNorm = useMemo(() => roiBboxSquareNorm(roi ?? null), [roi]);
+  const preprocessProfile = useMemo(
+    () => resolvePreprocessProfile(hp.preprocessProfile, activeModel?.metadata ?? null),
+    [hp.preprocessProfile, activeModel],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -384,11 +446,12 @@ function useLiveDetectionsAndroidNative(options: Options): State {
       modelClassAliases ?? null,
     );
     console.info(
-      "[live-detections tflite] model=%s mappedFilter=%o",
+      "[live-detections tflite] model=%s preprocess=%s mappedFilter=%o",
       activeModel?.id ?? "bundled",
+      preprocessProfile,
       mapped,
     );
-  }, [activeModel, classFilter, varietyNames, modelClassAliases]);
+  }, [activeModel, classFilter, varietyNames, modelClassAliases, preprocessProfile]);
 
   const decodeOnJS = useMemo(
     () =>
@@ -409,6 +472,12 @@ function useLiveDetectionsAndroidNative(options: Options): State {
         ) => {
           const source: InferenceSource = delegate === "gpu" ? "tflite-android-gpu" : "tflite-cpu";
           recordInference(source, inferElapsedMs);
+          if (__DEV__ && lastLoggedDelegate !== delegate) {
+            lastLoggedDelegate = delegate;
+            console.info(
+              `[live-detections android-native] delegate=${delegate} (first inference: ${inferElapsedMs}ms)`,
+            );
+          }
           const out = Float32Array.from(values);
           const outputKind: "raw" | "nms" | "segmentation" =
             shape2 === 6 ? "nms" : shape2 > 6 ? "segmentation" : "raw";
@@ -478,6 +547,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             );
           }
           if (!mountedRef.current) return;
+          if (!enabledRef.current) return;
           const now = Date.now();
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
           lastSetAtRef.current = now;
@@ -533,6 +603,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               cropX,
               cropY,
               cropSize,
+              preprocessProfile,
             });
             const inferElapsedMs = Date.now() - startedAt;
             if (!result) return;
@@ -562,12 +633,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
         });
       });
     },
-    [enabled, plugin, decodeOnJS, targetFps, roiCropNorm, activeModel],
+    [enabled, plugin, decodeOnJS, targetFps, roiCropNorm, activeModel, preprocessProfile],
   );
-
-  useEffect(() => {
-    if (!enabled) setDetections(null);
-  }, [enabled]);
 
   return useMemo(
     () => ({
@@ -576,258 +643,5 @@ function useLiveDetectionsAndroidNative(options: Options): State {
       frameProcessor: enabled && plugin ? frameProcessor : undefined,
     }),
     [detections, enabled, frameProcessor, plugin],
-  );
-}
-
-// ---------------------------------------------------------------------
-// Android — TFLite + JS-thread inference (worklet does resize only)
-//
-// Kept as a dormant fallback per task 19.2: the active Android path now
-// runs entirely native (`useLiveDetectionsTfliteNative`); this hook stays
-// here as a reference implementation in case the native plugin needs to
-// be A/B'd against the old JS-bound path. Underscore prefix tells ESLint
-// the unused export is intentional.
-// ---------------------------------------------------------------------
-
-function _useLiveDetectionsTflite(options: Options): State {
-  const { enabled, pxPerMm, classFilter, roi } = options;
-  const modelRef = useRef<TfliteModel | null>(null);
-  const outputKindRef = useRef<TfliteOutputKind>("raw");
-  const delegateRef = useRef<TfliteDelegate>("cpu");
-  const [ready, setReady] = useState(false);
-  const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
-  const lastSetAtRef = useRef(0);
-  // Tracks whether the consuming screen is still mounted. A worklet-dispatched
-  // inferOnJS callback can land on the JS thread after the user has already
-  // navigated away from /capture/scan, and a stale setDetections then triggers
-  // React's "state update on unmounted component" warning.
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-  // Pre-allocate the inference tensor once; reusing avoids ~5 MB Float32Array
-  // allocations per frame. The worklet ships compact uint8 RGB pixels across
-  // the JS boundary, then this tensor is filled with normalized float input
-  // for TFLite.
-  const tensorRef = useRef<Float32Array | null>(null);
-  // Worklet-readable in-flight flag so the frame processor can skip frames
-  // while a previous inference is still running on the JS thread. Without
-  // this, frames pile up in the JS queue (model.runSync is ~30–60 ms; at
-  // 30 fps the queue grows by ~17 ms per frame) and detections lag visibly
-  // behind motion. SharedValue gives us atomic worklet↔JS reads.
-  const inFlight = useMemo(() => Worklets.createSharedValue(false), []);
-  const { resize } = useResizePlugin();
-  const hp = useHyperParams();
-  const scoreThreshold = hp.scoreThreshold;
-  const iouThreshold = hp.iouThreshold;
-  const targetFps = hp.targetFps;
-  const RENDER_THROTTLE_MS = 50;
-  // Re-derive the ROI crop window only when the ROI shape changes; the worklet
-  // captures a stable plain object via the deps array. `null` keeps the
-  // previous center-crop-to-square behaviour for un-bounded captures.
-  const roiCropNorm = useMemo(() => roiBboxSquareNorm(roi ?? null), [roi]);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadSharedTfliteModel()
-      .then((loaded) => {
-        if (cancelled) return;
-        modelRef.current = loaded.model;
-        outputKindRef.current = loaded.outputKind;
-        delegateRef.current = loaded.delegate;
-        setReady(true);
-      })
-      .catch((err) => {
-        console.warn("[live-detections] tflite unavailable", err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const inferOnJS = useMemo(
-    () =>
-      Worklets.createRunOnJS(
-        (
-          input: Uint8Array,
-          frameWidth: number,
-          frameHeight: number,
-          letterboxScale: number,
-          letterboxPadX: number,
-          letterboxPadY: number,
-          frameTimestampMs: number,
-        ) => {
-          const model = modelRef.current;
-          if (!model) {
-            inFlight.value = false;
-            return;
-          }
-          // Copy into a reusable Float32Array and normalize [0..255] → [0..1].
-          // Keeping the worklet output as Uint8Array cuts the cross-runtime
-          // copy from ~4.9 MB to ~1.2 MB for 640x640 RGB and avoids the native
-          // resize plugin's float conversion while the ImageProxy is held.
-          const len = input.length;
-          if (!tensorRef.current || tensorRef.current.length !== len) {
-            tensorRef.current = new Float32Array(len);
-          }
-          const tensor = tensorRef.current;
-          const inv255 = 1 / 255;
-          for (let i = 0; i < len; i++) tensor[i] = input[i] * inv255;
-          // Async `model.run()` runs inference on a Nitro background thread
-          // instead of blocking the JS thread for the full 30-50 ms NNAPI
-          // window. That matters when objects are detected: the JS thread
-          // can keep handling React reconciliation + Vision Camera frame
-          // dispatch in parallel with the model. With runSync the same JS
-          // thread did all three serially, which read as visible lag.
-          const inferStartedAt = Date.now();
-          model
-            .run([tensor.buffer as ArrayBuffer])
-            .then((outputs) => {
-              recordInference(
-                `tflite-${delegateRef.current}` as InferenceSource,
-                Date.now() - inferStartedAt,
-              );
-              const out = new Float32Array(outputs[0]);
-              const outputKind = outputKindRef.current;
-              const lb = {
-                scale: letterboxScale,
-                padX: letterboxPadX,
-                padY: letterboxPadY,
-                target: YOLO_INPUT_SIZE,
-              };
-              const shape = (outputKind === "nms"
-                ? [1, 300, 6]
-                : [1, 84, 8400]) as unknown as readonly [number, number, number];
-              const decodeOpts = {
-                letterbox: lb,
-                scoreThreshold,
-                classFilter: classFilter ? [...classFilter] : null,
-              };
-              const raw =
-                outputKind === "nms"
-                  ? decodeYoloNms(out, shape, decodeOpts)
-                  : decodeYolo(out, shape, decodeOpts);
-              const kept = outputKind === "nms" ? raw : nonMaxSuppression(raw, iouThreshold);
-              const seeds = mapDetectionsToSeeds(kept, {
-                frameWidth,
-                frameHeight,
-                pxPerMm,
-                roi: roi ?? null,
-              });
-              const now = Date.now();
-              if (mountedRef.current && now - lastSetAtRef.current >= RENDER_THROTTLE_MS) {
-                lastSetAtRef.current = now;
-                setDetections({
-                  seeds,
-                  summary: summarizeSeeds(seeds),
-                  frameTimestampMs,
-                  frameWidth,
-                  frameHeight,
-                  analyzerId: "tflite-yolo-live",
-                });
-              }
-            })
-            .catch((err) => {
-              console.warn("[live-detections] run failed", err);
-            })
-            .finally(() => {
-              inFlight.value = false;
-            });
-        },
-      ),
-    [classFilter, pxPerMm, roi, scoreThreshold, iouThreshold, inFlight],
-  );
-
-  const frameProcessor = useFrameProcessor(
-    (frame) => {
-      "worklet";
-      if (!enabled) return;
-      // Drop frames while the JS thread is still inferring the previous
-      // one. Without this back-pressure, runSync calls queue up indefinitely
-      // and detection visibly lags real motion.
-      if (inFlight.value) return;
-      runAtTargetFps(targetFps, () => {
-        "worklet";
-        // Re-check + set inFlight as the FIRST thing inside the gated block.
-        // Setting after `resize()` opened a 5-10 ms race window during which
-        // multiple worklet invocations could pass the check, each acquiring an
-        // image from CameraX's `ImageAnalysis` pool (size 6). When the pool
-        // ran out, Camera2 threw `IllegalStateException: maxImages (6) has
-        // already been acquired` and stalled the preview — the visible
-        // "stuck/laggy when objects detected" symptom. Atomic gate first;
-        // resize the frame only if we won the race.
-        if (inFlight.value) return;
-        inFlight.value = true;
-        try {
-          // ROI-aware crop: when the user has bounded a region, hand the
-          // resize plugin only the ROI bbox (square-padded) so YOLO sees more
-          // pixels per object inside the ROI and detections outside are
-          // physically impossible — both faster and more accurate. With no
-          // ROI we keep the original center-crop-to-square fallback.
-          let cropX = 0;
-          let cropY = 0;
-          let cropSize = Math.min(frame.width, frame.height);
-          if (roiCropNorm) {
-            cropSize = Math.round(roiCropNorm.size * Math.min(frame.width, frame.height));
-            cropX = Math.round(roiCropNorm.x * frame.width);
-            cropY = Math.round(roiCropNorm.y * frame.height);
-            // Re-clamp in pixel space — rounding can push us 1 px past the edge.
-            if (cropX + cropSize > frame.width) cropX = frame.width - cropSize;
-            if (cropY + cropSize > frame.height) cropY = frame.height - cropSize;
-          } else {
-            cropX = Math.round((frame.width - cropSize) / 2);
-            cropY = Math.round((frame.height - cropSize) / 2);
-          }
-          const resized = resize(frame, {
-            crop: { x: cropX, y: cropY, width: cropSize, height: cropSize },
-            scale: { width: YOLO_INPUT_SIZE, height: YOLO_INPUT_SIZE },
-            pixelFormat: "rgb",
-            dataType: "uint8",
-          });
-          const fpScale = YOLO_INPUT_SIZE / cropSize;
-          const fpPadX = -cropX * fpScale;
-          const fpPadY = -cropY * fpScale;
-          // Worklets-core 1.6 rejects raw ArrayBuffer as a shared value but
-          // accepts typed arrays. .slice() detaches us from the resize plugin's
-          // worklet-owned buffer so the JS thread owns a private copy; using
-          // uint8 keeps that critical section small while CameraX is waiting
-          // for the ImageProxy to be released.
-          inferOnJS(
-            resized.slice(),
-            frame.width,
-            frame.height,
-            fpScale,
-            fpPadX,
-            fpPadY,
-            frame.timestamp,
-          );
-        } catch (err) {
-          const e = err as { message?: string; name?: string } | undefined;
-          console.warn(
-            "[live-detections] frame processing failed",
-            String(e?.name ?? "?"),
-            String(e?.message ?? err),
-          );
-          inFlight.value = false;
-        }
-      });
-    },
-    [enabled, resize, inferOnJS, targetFps, inFlight, roiCropNorm],
-  );
-
-  useEffect(() => {
-    if (!enabled) setDetections(null);
-  }, [enabled]);
-
-  return useMemo(
-    () => ({
-      detections,
-      ready,
-      frameProcessor: enabled && ready ? frameProcessor : undefined,
-    }),
-    [detections, enabled, frameProcessor, ready],
   );
 }

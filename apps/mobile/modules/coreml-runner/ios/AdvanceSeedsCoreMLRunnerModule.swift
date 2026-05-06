@@ -178,16 +178,41 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
   }
 
   private static func flattenLargestOutput(_ result: MLFeatureProvider) throws -> [String: Any] {
+    // Pick the **detection** MultiArray output, not just the largest one.
+    // YOLO26-NMS exports produce two outputs: detections at `[1, 300, 6]`
+    // (or `[1, 300, 38+]` for seg) ≈ 11k floats, and a mask prototype
+    // tensor at `[1, 32, 160, 160]` ≈ 820k floats. Picking by element
+    // count returns the mask prototype, which our JS decoder then reads
+    // as if it were detections — every "detection" comes back as random
+    // mask activations. Match by shape signature instead, mirroring the
+    // ObjC frame-processor's `flattenLargestMultiArray`.
     var bestName = ""
     var bestArray: MLMultiArray?
+    var bestRank = -1 // 0=none, 1=fallback largest, 2=3D non-detection, 3=detection signature
     var bestCount = -1
     for name in result.featureNames {
       guard let f = result.featureValue(for: name), f.type == .multiArray, let arr = f.multiArrayValue
       else { continue }
-      if arr.count > bestCount {
-        bestName = name
-        bestArray = arr
+      let shape = arr.shape
+      var rank = 1
+      if shape.count == 3 {
+        let d0 = shape[0].intValue
+        let d1 = shape[1].intValue
+        let d2 = shape[2].intValue
+        // YOLO post-NMS detection signature: [1, 300, 6] (det only) or
+        // [1, 300, 38+] (seg with mask coefs).
+        if d0 == 1 && d1 == 300 && (d2 == 6 || d2 >= 38) {
+          rank = 3
+        } else {
+          // Other 3D outputs preferred over 4D mask prototypes.
+          rank = 2
+        }
+      }
+      if rank > bestRank || (rank == bestRank && arr.count > bestCount) {
+        bestRank = rank
         bestCount = arr.count
+        bestArray = arr
+        bestName = name
       }
     }
     guard let array = bestArray else {
@@ -221,6 +246,14 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
         values[i] = Double(truncating: array[i])
       }
     }
+    // Path B Phase 1 — returning all output tensors via `extraOutputs`
+    // — was attempted but reverted: marshaling a ~820k-float mask
+    // prototype tensor through the Swift→JS bridge as NSArray<NSNumber>
+    // is prohibitively expensive AND on iPhone Air the side effects on
+    // the request/response lifecycle correlated with post-capture
+    // returning zero detections. Phase 2 (mask rendering) will need a
+    // binary-blob bridge or selective-by-name marshaling before it can
+    // ship; until then we return only the chosen detection tensor.
     return [
       "outputName": bestName,
       "shape": array.shape.map { $0.intValue },

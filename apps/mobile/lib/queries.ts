@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import type {
   Inspection,
   Seed,
@@ -195,6 +195,37 @@ export function useInspections() {
   });
 }
 
+// Paginated variant for the History screen. Cursor is the captured_at of the
+// last item on the previous page (keyset pagination). Date range is pushed
+// to the server so filters resolve on the first page; sync-state filters
+// stay client-side because pending/failed entries live in the local queue,
+// not the server table.
+const HISTORY_PAGE_SIZE = 30;
+
+export function useInspectionsPaged(filter: { start: string | null; end: string | null }) {
+  return useInfiniteQuery({
+    queryKey: [...keys.inspections, "paged", filter.start, filter.end] as const,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }): Promise<InspectionRow[]> => {
+      let q = supabase
+        .from("inspections")
+        .select(inspectionListSelect)
+        .order("captured_at", { ascending: false })
+        .limit(HISTORY_PAGE_SIZE);
+      if (pageParam) q = q.lt("captured_at", pageParam);
+      if (filter.start) q = q.gte("captured_at", `${filter.start}T00:00:00`);
+      if (filter.end) q = q.lte("captured_at", `${filter.end}T23:59:59.999`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as InspectionRow[];
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < HISTORY_PAGE_SIZE) return undefined;
+      return lastPage[lastPage.length - 1]?.captured_at ?? undefined;
+    },
+  });
+}
+
 export function useInspection(id: string | undefined) {
   return useQuery({
     queryKey: keys.inspection(id ?? ""),
@@ -254,7 +285,7 @@ export function useVarieties() {
 
 type VarietyInput = Pick<
   Variety,
-  "name" | "scientific_name" | "description" | "image_url" | "color_key"
+  "name" | "scientific_name" | "description" | "image_url" | "color_key" | "is_active"
 > &
   Partial<
     Pick<Variety, "coco_class_id" | "model_class_aliases" | "ref_length_mm" | "ref_width_mm">
@@ -279,6 +310,14 @@ export function useDeleteVariety() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { count, error: countError } = await supabase
+        .from("inspections")
+        .select("id", { count: "exact", head: true })
+        .eq("variety_id", id);
+      if (countError) throw countError;
+      if ((count ?? 0) > 0) {
+        throw new Error("VARIETY_IN_USE");
+      }
       const { error } = await supabase.from("varieties").delete().eq("id", id);
       if (error) throw error;
     },
@@ -297,7 +336,7 @@ export function useBatches() {
   });
 }
 
-type BatchInput = Pick<Batch, "code" | "location" | "sown_at" | "notes">;
+type BatchInput = Pick<Batch, "code" | "location" | "sown_at" | "notes" | "is_active">;
 export function useUpsertBatch() {
   const qc = useQueryClient();
   return useMutation({
@@ -318,6 +357,14 @@ export function useDeleteBatch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      const { count, error: countError } = await supabase
+        .from("inspections")
+        .select("id", { count: "exact", head: true })
+        .eq("batch_id", id);
+      if (countError) throw countError;
+      if ((count ?? 0) > 0) {
+        throw new Error("BATCH_IN_USE");
+      }
       const { error } = await supabase.from("batches").delete().eq("id", id);
       if (error) throw error;
     },

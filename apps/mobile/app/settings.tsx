@@ -6,9 +6,7 @@ import Constants from "expo-constants";
 import { ChevronLeft } from "lucide-react-native";
 import { useTheme } from "@/lib/theme";
 import { useSyncQueue } from "@/lib/sync/useSyncQueue";
-import { useAutoInstallOnWifi } from "@/lib/models/autoInstall";
 import { Card } from "@/components/ui/Card";
-import { Toggle } from "@/components/ui/Toggle";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -25,8 +23,6 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const syncQueue = useSyncQueue();
-  const [autoInstallOnWifi, setAutoInstallOnWifi] = useAutoInstallOnWifi();
-
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "—";
@@ -149,29 +145,6 @@ export default function SettingsScreen() {
                   onPress={() => void syncQueue.clearFailed()}
                 />
               </View>
-            </View>
-          </Card>
-        </View>
-
-        <View className="gap-md">
-          <Text className="text-caption uppercase text-fg-secondary">
-            {t("settings:sections.models")}
-          </Text>
-          <Card>
-            <View className="flex-row items-center gap-md">
-              <View className="flex-1">
-                <Text className="text-body text-fg-primary">
-                  {t("settings:models.autoInstallOnWifi")}
-                </Text>
-                <Text className="text-caption text-fg-secondary mt-xs">
-                  {t("settings:models.autoInstallOnWifiHint")}
-                </Text>
-              </View>
-              <Toggle
-                value={autoInstallOnWifi}
-                onValueChange={setAutoInstallOnWifi}
-                accessibilityLabel={t("settings:models.autoInstallOnWifi")}
-              />
             </View>
           </Card>
         </View>

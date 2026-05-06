@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import { ScrollView, View, Text, Pressable, TextInput } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, ScrollView, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -12,6 +12,9 @@ import { LoadingState } from "@/components/ui/States";
 import { DropdownSearch } from "@/components/ui/DropdownSearch";
 import type { DropdownItem } from "@/components/ui/DropdownSearch";
 import { useCaptureSession } from "@/lib/capture/session";
+import { readActiveModel } from "@/lib/models/modelStore";
+import type { InstalledModelRecord } from "@/lib/models/types";
+import { effectiveModelAliases } from "@/lib/analyzer/captureClasses";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FAEEDA", fg: "#854F0B" },
@@ -40,6 +43,21 @@ export default function CaptureSetup() {
   const varieties = useVarieties();
   const batches = useBatches();
 
+  const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void readActiveModel().then((rec) => {
+      if (!cancelled) setActiveModel(rec);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const activeModelClassNames = useMemo<readonly string[]>(() => {
+    const names = activeModel?.metadata?.class_names;
+    return Array.isArray(names) ? names : [];
+  }, [activeModel]);
+
   useEffect(() => {
     if (session.calibrationId) {
       session.set({ calibrationId: null });
@@ -48,38 +66,76 @@ export default function CaptureSetup() {
 
   const varietyOptions = useMemo<DropdownItem[]>(() => {
     if (!varieties.data) return [];
-    return varieties.data.map((v) => {
-      const tint = VARIETY_TINTS[v.color_key ?? ""] ?? null;
-      return {
-        id: v.id,
-        label: v.name,
-        meta: v.scientific_name ?? null,
-        leading: tint ? (
-          <VarietyThumb letter={v.name.charAt(0)} tint={tint} />
-        ) : (
-          <VarietyThumb letter={v.name.charAt(0)} tint={{ bg: "#F4F4F1", fg: "#6B6B68" }} />
-        ),
-      };
-    });
+    return varieties.data
+      .filter((v) => v.is_active !== false)
+      .map((v) => {
+        const tint = VARIETY_TINTS[v.color_key ?? ""] ?? null;
+        return {
+          id: v.id,
+          label: v.name,
+          meta: v.scientific_name ?? null,
+          leading: tint ? (
+            <VarietyThumb letter={v.name.charAt(0)} tint={tint} />
+          ) : (
+            <VarietyThumb letter={v.name.charAt(0)} tint={{ bg: "#F4F4F1", fg: "#6B6B68" }} />
+          ),
+        };
+      });
   }, [varieties.data]);
 
   const batchOptions = useMemo<DropdownItem[]>(() => {
     if (!batches.data) return [];
-    return batches.data.map((b) => ({
-      id: b.id,
-      label: b.code,
-      meta: b.location ?? null,
-    }));
+    return batches.data
+      .filter((b) => b.is_active !== false)
+      .map((b) => ({
+        id: b.id,
+        label: b.code,
+        meta: b.location ?? null,
+      }));
   }, [batches.data]);
+
+  const selectedVariety = useMemo(
+    () => varieties.data?.find((v) => v.id === session.varietyId) ?? null,
+    [varieties.data, session.varietyId],
+  );
 
   if (varieties.isLoading || batches.isLoading) {
     return <LoadingState />;
   }
 
   const canContinue = !!session.varietyId;
+  const liveAliases = effectiveModelAliases(
+    selectedVariety?.model_class_aliases,
+    activeModelClassNames,
+  );
+  // Only enforce alias binding when the active model actually advertises a
+  // class list. The bundled COCO YOLO does not, in which case detection
+  // falls through to coco_class_id / name match — same as before this
+  // editor change. Guarding here would otherwise lock operators out of
+  // every inspection on the demo build with no editor chips to recover.
+  const modelExposesClassNames = activeModelClassNames.length > 0;
+  const needsBinding = !!selectedVariety && modelExposesClassNames && liveAliases.length === 0;
 
   const onContinue = () => {
     if (!canContinue) return;
+    if (needsBinding && selectedVariety) {
+      const modelName = activeModel?.displayName ?? "";
+      Alert.alert(
+        t("inspections:capture.bindRequiredTitle"),
+        t("inspections:capture.bindRequiredBody", {
+          variety: selectedVariety.name,
+          model: modelName,
+        }),
+        [
+          { text: t("common:actions.cancel"), style: "cancel" },
+          {
+            text: t("inspections:capture.bindRequiredAction"),
+            onPress: () => router.push(`/more/capture-classes/${selectedVariety.id}` as never),
+          },
+        ],
+      );
+      return;
+    }
     router.push("/capture/mode" as never);
   };
 
@@ -113,6 +169,11 @@ export default function CaptureSetup() {
             placeholder={t("inspections:capture.varietyPlaceholder")}
             invalid={!session.varietyId}
           />
+          {needsBinding ? (
+            <Text className="text-caption text-warning-text px-xs mt-xs">
+              {t("inspections:capture.bindRequiredHint")}
+            </Text>
+          ) : null}
         </View>
 
         {/* Batch — non-mandatory dropdown with search. */}

@@ -45,6 +45,8 @@ export interface Variety {
   ref_length_mm: number | null;
   /** Reference short-axis dimension in mm, used for grading. */
   ref_width_mm: number | null;
+  /** Hidden from new capture setup usage when false; historical records keep referencing it. */
+  is_active: boolean;
   created_by: string;
   created_at: string;
 }
@@ -55,6 +57,8 @@ export interface Batch {
   location: string | null;
   sown_at: string | null;
   notes: string | null;
+  /** Hidden from new capture setup usage when false; historical records keep referencing it. */
+  is_active: boolean;
   created_by: string;
   created_at: string;
 }

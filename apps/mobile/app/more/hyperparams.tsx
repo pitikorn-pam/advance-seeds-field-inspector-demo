@@ -13,6 +13,7 @@ import { type InferenceStat, useInferenceStats } from "@/lib/analyzer/inferenceS
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
+import { Toggle } from "@/components/ui/Toggle";
 
 const SCORE_PRESETS = [0.25, 0.4, 0.5, 0.6, 0.75];
 const IOU_PRESETS = [0.45, 0.55, 0.65, 0.75, 0.85];
@@ -83,6 +84,18 @@ export default function HyperParamsScreen() {
           onPick={(v) => void setHyperParams({ targetFps: v })}
         />
 
+        <FeatureToggleCard
+          label={t("more:hyperparams.morphFeature")}
+          hint={t("more:hyperparams.morphFeatureHint")}
+          enabled={hp.preprocessProfile === "morph_fused_v1"}
+          onToggle={(enabled) =>
+            void setHyperParams({
+              preprocessProfile: enabled ? "morph_fused_v1" : "raw_rgb",
+            })
+          }
+          accessibilityLabel={t("more:hyperparams.morphFeature")}
+        />
+
         {stats.length > 0 ? (
           <Card>
             <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-xs">
@@ -105,7 +118,8 @@ export default function HyperParamsScreen() {
           </Text>
           <Text className="text-caption text-fg-tertiary">
             score {DEFAULT_HYPERPARAMS.scoreThreshold} · iou {DEFAULT_HYPERPARAMS.iouThreshold} ·{" "}
-            {DEFAULT_HYPERPARAMS.targetFps} fps
+            {DEFAULT_HYPERPARAMS.targetFps} fps ·{" "}
+            {t(`more:hyperparams.preprocessProfileValue.${DEFAULT_HYPERPARAMS.preprocessProfile}`)}
           </Text>
           <Button
             className="mt-md"
@@ -117,6 +131,32 @@ export default function HyperParamsScreen() {
         </Card>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function FeatureToggleCard({
+  label,
+  hint,
+  enabled,
+  onToggle,
+  accessibilityLabel,
+}: {
+  label: string;
+  hint: string;
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  accessibilityLabel: string;
+}) {
+  return (
+    <Card>
+      <View className="flex-row items-center justify-between gap-md">
+        <View className="flex-1">
+          <Text className="text-caption uppercase tracking-wide text-fg-secondary">{label}</Text>
+          <Text className="text-caption text-fg-tertiary mt-xs">{hint}</Text>
+        </View>
+        <Toggle value={enabled} onValueChange={onToggle} accessibilityLabel={accessibilityLabel} />
+      </View>
+    </Card>
   );
 }
 

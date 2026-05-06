@@ -19,6 +19,7 @@ import {
   type AnalyzerModelMetadata,
 } from "@/lib/inspections/metadata";
 import { getHyperParamsSync } from "@/lib/analyzer/hyperparams";
+import { resolvePreprocessProfile } from "@/lib/analyzer/preprocess";
 import { readActiveModel } from "@/lib/models/modelStore";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { addQueueEntry } from "@/lib/sync/store";
@@ -64,6 +65,7 @@ function buildAnalyzerModelMetadata(
       analyzer_runtime: analyzerRuntime,
       score_threshold: hp.scoreThreshold,
       iou_threshold: hp.iouThreshold,
+      preprocess_profile: resolvePreprocessProfile(hp.preprocessProfile, active.metadata),
     };
   }
   // Fallback: bundled / classical / mock — no registry record. Map the
@@ -82,6 +84,7 @@ function buildAnalyzerModelMetadata(
     analyzer_runtime: analyzerRuntime,
     score_threshold: hp.scoreThreshold,
     iou_threshold: hp.iouThreshold,
+    preprocess_profile: resolvePreprocessProfile(hp.preprocessProfile, null),
   };
 }
 
@@ -709,6 +712,10 @@ export default function CaptureReview() {
                             score: reviewAnalyzerModel.score_threshold.toFixed(2),
                             iou: reviewAnalyzerModel.iou_threshold.toFixed(2),
                           })}
+                        />
+                        <MetadataRow
+                          label={t("inspections:detail.metadata.detectorPreprocess")}
+                          value={reviewAnalyzerModel.preprocess_profile}
                         />
                       </>
                     ) : null}

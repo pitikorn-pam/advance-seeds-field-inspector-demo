@@ -116,6 +116,10 @@ export default function CaptureProcessing() {
     //   • analyzer single-shot
     // Declared at the outer scope so both stages can read it.
     let videoThumbnailLocalUri: string | null = null;
+    // Resized JPEG used for both ArUco + analyzer in the photo branch. The
+    // photo branch promotes this from optimizeImageForUpload(); ArUco and
+    // the analyzer share the same pixel space so pxPerMm stays consistent.
+    let photoAnalyzerUri: string = sourceUri;
 
     void (async () => {
       try {
@@ -285,18 +289,31 @@ export default function CaptureProcessing() {
             recordingId,
           });
         } else {
-          // Stage 1: optimize → upload via FormData. iPhone JPEGs are
-          // typically 4032×3024 + minimal compression — resizing to a
-          // 2048 long edge with quality 0.85 cuts upload bytes ~5×
-          // without a visible quality drop on grading crops.
+          // Stage 1: optimize → upload via FormData. Source iPhone/Samsung
+          // JPEGs are typically 4032×3024 + minimal compression. We resize
+          // to a 1280 long edge (~1280×960, ~720p): YOLO downsamples to
+          // 640×640 internally so any size above ~1280 is loss-free for
+          // detection, and on Android the post-capture analyzer decodes
+          // JPEGs in pure JS via jpeg-js — going from 4032 to 1280 is a
+          // ~10× pixel reduction and proportional decode speedup. The
+          // inspection result image is shown at viewport sizes well under
+          // 1280 px wide, so display fidelity is preserved.
           const optimized = await monitorPilotStage("photo.optimize", () =>
-            optimizeImageForUpload(sourceUri),
+            optimizeImageForUpload(sourceUri, { maxLongEdge: 1280 }),
           );
           console.info(
             "[processing] photo optimized %d→%d bytes",
             optimized.originalBytes,
             optimized.optimizedBytes,
           );
+          // Promote the optimized URI for downstream ArUco + analyzer use.
+          // YOLO downsamples to 640×640 internally, so feeding a 2048-long-edge
+          // JPEG is loss-free for detection. Big win on Android, where the
+          // post-capture analyzer decodes JPEGs in pure JS via jpeg-js — a
+          // 4032 px source can take seconds, the optimized one is ~5× faster.
+          // ArUco moves with it so pxPerMm stays in the same pixel space as
+          // the bboxes the analyzer produces.
+          photoAnalyzerUri = optimized.uri;
           const path = `${profile.id}/${Date.now()}.jpg`;
           const fd = new FormData();
           fd.append("file", {
@@ -322,7 +339,7 @@ export default function CaptureProcessing() {
         if (session.capturedMediaKind === "photo") {
           try {
             const aruco = await monitorPilotStage("photo.aruco", () =>
-              detectArucoCalibration(sourceUri),
+              detectArucoCalibration(photoAnalyzerUri),
             );
             if (aruco) {
               calibrationReading = aruco.reading;
@@ -343,13 +360,20 @@ export default function CaptureProcessing() {
           activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
             ? [activeVariety.coco_class_id]
             : [...DEFAULT_CAPTURE_CLASS_IDS];
+        // Mirror the live detection path so post-capture analyze sees the
+        // same detections. With the Detector Class section removed,
+        // varieties bind to the model by name (model_class_aliases) — the
+        // analyzer needs both signals to translate them into model class
+        // indices via mapClassFilterForModel.
+        const varietyNames = activeVariety?.name ? [activeVariety.name] : null;
+        const modelClassAliases = activeVariety?.model_class_aliases ?? null;
         // For video captures we run the analyzer on the same representative
         // still that became the inspection's image_url (extracted above when
         // the video branch ran). Keeps the displayed crops consistent with
         // the analyzed frame and avoids extracting twice. ArUco calibration
         // also runs on the thumbnail so video flows benefit from marker-based
         // px/mm.
-        let analyzerImageUri = sourceUri;
+        let analyzerImageUri = photoAnalyzerUri;
         if (session.capturedMediaKind === "video" && videoThumbnailLocalUri) {
           const thumbnailUri = videoThumbnailLocalUri;
           analyzerImageUri = thumbnailUri;
@@ -390,11 +414,25 @@ export default function CaptureProcessing() {
                   {
                     pxPerMm: effectivePxPerMm,
                     classFilter,
+                    varietyNames,
+                    modelClassAliases,
                     roi: session.mode === "live" ? session.roi : null,
                   },
                 ),
               );
         if (cancelledRef.current) return;
+
+        // No-detection inspections are saved with an empty seed list rather
+        // than being blocked. The review screen surfaces the count
+        // prominently so the operator can re-capture or accept; blocking
+        // here turned every false-positive frame into a frustrating retry
+        // loop. The earlier hard guard helped find decoder/format bugs but
+        // is no longer needed now that the pipeline is correct.
+        if (result.seeds.length === 0 && result.analyzerId !== "skip-video") {
+          console.warn(
+            "[processing] analyzer returned 0 seeds; saving inspection with empty result",
+          );
+        }
 
         // Reveal the count step once we know the number of seeds, then
         // grading after a short pause so the user sees the transition.

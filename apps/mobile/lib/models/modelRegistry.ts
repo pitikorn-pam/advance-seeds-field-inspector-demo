@@ -33,6 +33,8 @@ type DeploymentMetadata = Record<string, unknown> & {
   output_shape?: unknown;
   metrics?: unknown;
   hyperparameters?: unknown;
+  preprocess?: unknown;
+  preprocess_profile?: unknown;
 };
 
 type DeployedModelsResponse = {
@@ -168,6 +170,11 @@ function metadataFromDeployment(model: DeployedModel): ModelMetadata {
     output_shape: Array.isArray(md.output_shape) ? md.output_shape : [1, 300, 38],
     score_threshold: 0.25,
     iou_threshold: 0.45,
+    preprocess: {
+      profile:
+        readPreprocessProfile(md.preprocess) ??
+        (md.preprocess_profile === "morph_fused_v1" ? "morph_fused_v1" : "raw_rgb"),
+    },
     calibration: {
       required: true,
       supported_sources: ["aruco", "manual"],
@@ -182,6 +189,12 @@ function metadataFromDeployment(model: DeployedModel): ModelMetadata {
     metrics: md.metrics,
     hyperparameters: md.hyperparameters,
   };
+}
+
+function readPreprocessProfile(value: unknown): "raw_rgb" | "morph_fused_v1" | null {
+  if (!value || typeof value !== "object") return null;
+  const profile = (value as { profile?: unknown }).profile;
+  return profile === "raw_rgb" || profile === "morph_fused_v1" ? profile : null;
 }
 
 function candidateFromManifest(

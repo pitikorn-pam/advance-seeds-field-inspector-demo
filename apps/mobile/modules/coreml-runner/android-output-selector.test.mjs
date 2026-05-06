@@ -14,7 +14,10 @@ test("Android TFLite frame processor selects YOLO detection output by shape", ()
   const source = readFileSync(androidPlugin, "utf8");
 
   assert.match(source, /selectDetectionOutputTensorIndex/);
-  assert.match(source, /shape\[0\] == 1 && shape\[1\] == 300 && \(shape\[2\] == 6 \|\| shape\[2\] >= 38\)/);
+  assert.match(
+    source,
+    /shape\[0\] == 1 && shape\[1\] == 300 && \(shape\[2\] == 6 \|\| shape\[2\] >= 38\)/,
+  );
   assert.doesNotMatch(source, /private val outputTensor = cpuInterpreter\.getOutputTensor\(0\)/);
   assert.match(source, /selectedOutputIndex/);
 });
@@ -46,4 +49,14 @@ test("Android TFLite runner defers GPU delegate benchmark off the first frame", 
   assert.match(source, /startGpuBenchmarkAsync\(\)/);
   assert.match(source, /thread\(name = "AdvanceSeedsTfliteGpuBenchmark", isDaemon = true\)/);
   assert.match(source, /gpuMs < \(cpuMs \* GPU_WIN_MARGIN\)\.toLong\(\)/);
+});
+
+test("Android TFLite frame processor accepts opt-in morphology preprocessing", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.match(source, /preprocessProfile/);
+  assert.match(source, /"morph_fused_v1"/);
+  assert.match(source, /fillInputMorphFusedFromYuv/);
+  assert.match(source, /fillInputRawFromYuv/);
+  assert.match(source, /preprocess=\$preprocessProfile/);
 });

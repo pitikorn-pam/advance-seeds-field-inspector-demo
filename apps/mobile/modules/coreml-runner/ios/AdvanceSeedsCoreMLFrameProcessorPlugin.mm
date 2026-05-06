@@ -233,7 +233,29 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
     NSLog(@"[CoreML FP] performRequests failed: %@", runErr);
     return nil;
   }
-  return result;
+  if (result == nil) {
+    return nil;
+  }
+  // Pass the orientation through to JS so it can apply rotation-aware
+  // letterbox-inverse + post-rotation → sensor-coords transform on the
+  // bbox positions. Without this, JS uses pre-rotation frame dims for
+  // both, which approximates correctly near the canvas center but
+  // drifts at the edges (the "live overlay slightly off" symptom).
+  NSString *orientationKey;
+  switch (frame.orientation) {
+    case UIImageOrientationUp:            orientationKey = @"up"; break;
+    case UIImageOrientationDown:          orientationKey = @"down"; break;
+    case UIImageOrientationLeft:          orientationKey = @"left"; break;
+    case UIImageOrientationRight:         orientationKey = @"right"; break;
+    case UIImageOrientationUpMirrored:    orientationKey = @"up-mirrored"; break;
+    case UIImageOrientationDownMirrored:  orientationKey = @"down-mirrored"; break;
+    case UIImageOrientationLeftMirrored:  orientationKey = @"left-mirrored"; break;
+    case UIImageOrientationRightMirrored: orientationKey = @"right-mirrored"; break;
+    default:                              orientationKey = @"up"; break;
+  }
+  NSMutableDictionary *out = [result mutableCopy];
+  out[@"orientation"] = orientationKey;
+  return out;
 }
 
 VISION_EXPORT_FRAME_PROCESSOR(AdvanceSeedsCoreMLFrameProcessorPlugin, advanceSeedsRunCoreML)

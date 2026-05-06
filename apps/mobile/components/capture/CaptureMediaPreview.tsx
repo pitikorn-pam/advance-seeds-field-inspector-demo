@@ -1,4 +1,5 @@
-import { Image, View } from "react-native";
+import { useState } from "react";
+import { Image, Text, View } from "react-native";
 import { useVideoPlayer, VideoView } from "expo-video";
 import type { Roi } from "@/lib/capture/roi";
 import { RoiPreviewOverlay } from "@/components/camera/RoiPreviewOverlay";
@@ -18,9 +19,39 @@ export function CaptureMediaPreview({ uri, kind, roi = null }: Props) {
       </View>
     );
   }
+  return <PhotoPreview uri={uri} roi={roi} />;
+}
+
+function PhotoPreview({ uri, roi }: { uri: string; roi: Roi | null }) {
+  const [error, setError] = useState<string | null>(null);
   return (
-    <View className="h-full w-full">
-      <Image source={{ uri }} className="h-full w-full" resizeMode="cover" />
+    <View className="h-full w-full bg-bg-tertiary">
+      {error ? (
+        <View className="absolute inset-0 items-center justify-center px-md">
+          <Text className="text-caption text-danger-text text-center" numberOfLines={3}>
+            {error}
+          </Text>
+          <Text
+            className="text-caption text-fg-tertiary text-center mt-xs"
+            numberOfLines={2}
+            selectable
+          >
+            {uri}
+          </Text>
+        </View>
+      ) : (
+        <Image
+          source={{ uri }}
+          className="h-full w-full"
+          resizeMode="cover"
+          onError={(e) => {
+            const native = e.nativeEvent as { error?: string } | undefined;
+            const reason = native?.error ?? "Image render failed";
+            console.warn("[CaptureMediaPreview] image load failed", uri, reason);
+            setError(reason);
+          }}
+        />
+      )}
       <RoiPreviewOverlay roi={roi} />
     </View>
   );

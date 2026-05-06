@@ -1,10 +1,10 @@
 # Project Hand-off — Advance Seeds Field Inspector Demo
 
-**Status: production-shaped mobile demo (v0.3.x).** Mobile is a custom dev-client running on real camera hardware with prototype-faithful navigation, the three-step capture journey, ROI tools, video recording, snapshots to Photos, ArUco + LiDAR calibration, **in-app notifications**, **dropdown-search variety/batch pickers**, **auto-tag GPS location** on captures and recordings, and a polished Library tab. ML Phase 1 now uses an on-device classical analyzer behind the `SeedAnalyzer` interface; Phase 2 TFLite/Core ML remains the next analyzer uplift.
+**Status: production-shaped mobile demo (v0.5.x).** Mobile is a custom dev-client running on real camera hardware with prototype-faithful navigation, the three-step capture journey, ROI tools, video recording, snapshots to Photos, ArUco + LiDAR calibration, **in-app notifications**, **dropdown-search variety/batch pickers**, **auto-tag GPS location** on captures and recordings, and a polished Library tab. **Phase 2 ML (real YOLOv11/YOLO26 segmentation via Core ML on iOS / TFLite on Android) is shipped and stabilized** — see the [2026-05-06 detection-pipeline-stabilization change](../openspec/changes/archive/2026-05-06-detection-pipeline-stabilization/proposal.md) for the cross-platform correctness, performance, and UX work that closed the live + post-capture pipeline on freshly trained custom seg models.
 
 > **Working directory:** `/Users/ppungpong/Github/advance-seeds-field-inspector-demo`. Do **not** build from the iCloud path (`~/Library/Mobile Documents/...`) — Ruby's `require` breaks on the ZWJ emoji in the path, which kills `pod install`. See [Critical environment rules](#critical-environment-rules-read-before-any-rebuild).
 
-> **Current remaining-work hand-off:** see [`docs/REMAINING_HANDOFF_2026-05-04.md`](./REMAINING_HANDOFF_2026-05-04.md) for the latest phase list and a ready-to-paste prompt for the next AI agent.
+> **Current remaining-work hand-off:** see [`docs/REMAINING_HANDOFF_2026-05-04.md`](./REMAINING_HANDOFF_2026-05-04.md) for the latest phase list and a ready-to-paste prompt for the next AI agent. Path B (segmentation mask polygon rendering) remains deferred; the Phase 1 attempt and the binary-blob-bridge architecture for a future Phase 2 are documented in the 2026-05-06 design note.
 
 ---
 

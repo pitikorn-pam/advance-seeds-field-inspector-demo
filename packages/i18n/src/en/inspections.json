@@ -44,6 +44,7 @@
       "detectorModel": "Detector model",
       "detectorRuntime": "Inference runtime",
       "detectorTrainedAs": "Trained as",
+      "detectorPreprocess": "Preprocessing",
       "detectorThresholds": "Thresholds",
       "detectorThresholdsValue": "score ≥ {{score}} · IoU ≤ {{iou}}",
       "detectorSource": {
@@ -146,6 +147,10 @@
     "notesPlaceholder": "Field conditions, source, observations…",
     "autoTagTitle": "Auto-tag location",
     "autoTagSubtitle": "Save GPS coordinates with each inspection",
+    "bindRequiredTitle": "Bind detector classes",
+    "bindRequiredBody": "\"{{variety}}\" is not bound to any class in the active model ({{model}}). Bind at least one model class before starting an inspection.",
+    "bindRequiredAction": "Bind classes",
+    "bindRequiredHint": "Not bound to any class in the active model. Tap Continue to bind.",
     "location": {
       "deniedTitle": "Location access is off",
       "deniedBody": "Inspections will save without GPS coordinates. Open Settings to enable location access for Advance Seeds."

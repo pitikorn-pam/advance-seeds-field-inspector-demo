@@ -251,13 +251,14 @@ export default function CapturePrecise() {
               })
             }
           >
-            {stageSize && liveDetections.detections ? (
+            {stageSize && cameraActive && !busy && liveDetections.detections ? (
               <DetectionOverlay
                 frameResult={liveDetections.detections}
                 frameWidth={liveDetections.detections.frameWidth ?? 1920}
                 frameHeight={liveDetections.detections.frameHeight ?? 1080}
                 stageWidth={stageSize.width}
                 stageHeight={stageSize.height}
+                varietyName={activeVariety?.name ?? null}
               />
             ) : null}
             <View className="absolute inset-0 m-2xl">

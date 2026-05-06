@@ -7,6 +7,7 @@ import type {
   CaptureMediaKind,
   CaptureMode,
 } from "@/lib/capture/session";
+import type { PreprocessProfile } from "@/lib/analyzer/preprocess";
 
 export interface DeviceUsageMetadata {
   device_name: string | null;
@@ -49,6 +50,8 @@ export interface AnalyzerModelMetadata {
   score_threshold: number;
   /** NMS IoU threshold (raw YOLO11/8 head only — ignored by NMS-baked exports). */
   iou_threshold: number;
+  /** Input preprocessing profile applied before detector inference. */
+  preprocess_profile: PreprocessProfile;
 }
 
 export interface CalibrationMetadata {
@@ -210,6 +213,7 @@ export function readAnalyzerModelMetadata(metadata: unknown): AnalyzerModelMetad
     analyzer_runtime: typeof m.analyzer_runtime === "string" ? m.analyzer_runtime : "unknown",
     score_threshold: typeof m.score_threshold === "number" ? m.score_threshold : 0,
     iou_threshold: typeof m.iou_threshold === "number" ? m.iou_threshold : 0,
+    preprocess_profile: m.preprocess_profile === "morph_fused_v1" ? "morph_fused_v1" : "raw_rgb",
   };
 }
 

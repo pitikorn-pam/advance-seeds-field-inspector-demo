@@ -1,7 +1,5 @@
 import type { ModelMetadata } from "./types";
 
-const REQUIRED_CLASSES = ["apple", "apple_spot", "banana", "banana_spot", "orange", "orange_spot"];
-
 export function validateModelMetadata(metadata: ModelMetadata): string[] {
   const errors: string[] = [];
   if (metadata.task !== "instance-segmentation") errors.push("task must be instance-segmentation");
@@ -11,17 +9,45 @@ export function validateModelMetadata(metadata: ModelMetadata): string[] {
   if (metadata.input_size !== 640) errors.push("input_size must be 640");
   if (metadata.output_kind !== "segmentation") errors.push("output_kind must be segmentation");
   if (metadata.calibration?.required !== true) errors.push("calibration.required must be true");
-  if (JSON.stringify(metadata.class_names) !== JSON.stringify(REQUIRED_CLASSES)) {
-    errors.push("class_names must match the Advance Seeds segmentation contract");
+  // class_names: any non-empty array of unique strings is accepted. The
+  // variety editor's `model_class_aliases` binding lets operators map
+  // varieties onto whatever classes the model exposes, so the registry
+  // no longer needs a fixed 6-class contract.
+  if (!Array.isArray(metadata.class_names) || metadata.class_names.length === 0) {
+    errors.push("class_names must be a non-empty array of strings");
+  } else {
+    const allStrings = metadata.class_names.every(
+      (n): n is string => typeof n === "string" && n.length > 0,
+    );
+    if (!allStrings) {
+      errors.push("class_names must contain only non-empty strings");
+    } else if (new Set(metadata.class_names).size !== metadata.class_names.length) {
+      errors.push("class_names must not contain duplicates");
+    }
   }
+  // output_shape must start with [1, 300, N]. The trailing channel count
+  // varies by export format:
+  //   • NMS-fused (Ultralytics `nms=True`): N = 4 + 1 (conf) + 1 (cls) + 32 (masks) = 38, regardless of class count
+  //   • Raw (no NMS): N = 4 + numClasses + 32, e.g. 38 for 1-class, 42 for 6-class
+  // We accept either layout — both produce per-detection rows the JS
+  // decoder can interpret. Lower bound 37 covers the 1-class raw case.
   if (
     !Array.isArray(metadata.output_shape) ||
     metadata.output_shape.length < 3 ||
     metadata.output_shape[0] !== 1 ||
     metadata.output_shape[1] !== 300 ||
-    metadata.output_shape[2] < 38
+    metadata.output_shape[2] < 37
   ) {
-    errors.push("output_shape must start with [1,300,38]");
+    errors.push("output_shape must start with [1,300,N] where N ≥ 37");
+  } else if (Array.isArray(metadata.class_names) && metadata.class_names.length > 0) {
+    const channels = metadata.output_shape[2];
+    const nmsExpected = 4 + 1 + 1 + 32; // 38
+    const rawExpected = 4 + metadata.class_names.length + 32;
+    if (channels !== nmsExpected && channels !== rawExpected) {
+      errors.push(
+        `output_shape[2] (${channels}) must equal ${nmsExpected} (NMS-fused) or ${rawExpected} (raw, ${metadata.class_names.length} classes)`,
+      );
+    }
   }
   return errors;
 }

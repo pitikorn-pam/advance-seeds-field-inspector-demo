@@ -246,6 +246,12 @@ export default function CaptureScan() {
   const onShutter = async () => {
     // Tap-to-stop while recording — overrides photo capture.
     if (recording.isRecording) {
+      // Detach the live frame processor *before* signaling stop so the
+      // camera tears down cleanly. On iOS the live worklet sharing the
+      // camera buffer with the running video encoder during stop has
+      // crashed the app immediately on Z Flip-style teardown sequences;
+      // setting busy=true gates `activeFrameProcessor` to undefined.
+      setBusy(true);
       recording.stop();
       return;
     }
@@ -456,13 +462,14 @@ export default function CaptureScan() {
               })
             }
           >
-            {stageSize && liveDetections.detections ? (
+            {stageSize && cameraActive && !busy && liveDetections.detections ? (
               <DetectionOverlay
                 frameResult={liveDetections.detections}
                 frameWidth={liveDetections.detections.frameWidth ?? 1920}
                 frameHeight={liveDetections.detections.frameHeight ?? 1080}
                 stageWidth={stageSize.width}
                 stageHeight={stageSize.height}
+                varietyName={activeVariety?.name ?? null}
               />
             ) : null}
             <RoiOverlay drawingTool={roiTool} roi={session.roi} onRoi={setRoi} />

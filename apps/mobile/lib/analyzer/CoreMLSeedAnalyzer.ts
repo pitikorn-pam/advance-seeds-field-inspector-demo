@@ -10,20 +10,23 @@ import type {
 } from "@advance-seeds/types";
 import CoreMLRunner, { type CoreMLModelInfo } from "@advance-seeds/coreml-runner";
 import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
+import { mapClassFilterForModel } from "@/lib/models/compatibility";
 import {
   YOLO_INPUT_SIZE,
   decodeYolo,
   decodeYoloNms,
+  decodeYoloSegmentationNms,
   mapDetectionsToSeeds,
   nonMaxSuppression,
   summarizeSeeds,
 } from "./yolo";
 import type { RawDetection } from "./yolo";
 import { ensureHyperParamsLoaded, getHyperParamsSync } from "./hyperparams";
+import { resolvePreprocessProfile } from "./preprocess";
 
 const MODEL_ASSET = "yolo26n";
 
-type OutputKind = "raw" | "nms";
+type OutputKind = "raw" | "nms" | "segmentation";
 
 interface LoadedCoreMLModel {
   info: CoreMLModelInfo;
@@ -53,7 +56,11 @@ export function loadSharedCoreMLModel(): Promise<LoadedCoreMLModel> {
           .filter((o) => o.shape && o.shape.length > 0)
           .sort((a, b) => prod(b.shape!) - prod(a.shape!))[0] ?? info.outputs[0];
       const lastDim = primary?.shape?.[primary.shape.length - 1] ?? 0;
-      const outputKind: OutputKind = lastDim === 6 ? "nms" : "raw";
+      // Detect output format by trailing dim: 6 = NMS-fused detection only
+      // (x1,y1,x2,y2,conf,cls); >6 = NMS-fused segmentation (adds mask
+      // coefs). Otherwise the model emits raw per-anchor scores and must
+      // run JS-side NMS via decodeYolo.
+      const outputKind: OutputKind = lastDim === 6 ? "nms" : lastDim > 6 ? "segmentation" : "raw";
       console.info(
         `[analyzer] coreml source=${source.key} output kind=${outputKind} primary=${primary?.name} shape=${(primary?.shape ?? []).join("x")}`,
       );
@@ -114,18 +121,17 @@ function prod(s: number[]): number {
  * magnitude faster than the JS jpeg-js TFLite path).
  *
  * Coordinate handling:
- *   - The bundled YOLO26 Core ML model takes a 640×640 image input;
- *     CoreML's `MLImageConstraint` aspect-fits with a center-crop, so
- *     detections come back in 640-px space relative to the *cropped*
- *     square of the source photo, NOT the full photo dims.
- *   - We read source image dims via `Image.getSize` (cheap, no native
- *     change required) and feed them to the same letterbox-inverse
- *     decoder helpers used by the worklet path: a detection at (cx, cy)
- *     in 640 maps to (offsetX + cx * cropSize/640) in the source image.
+ *   - CoreML's `MLImageConstraint` with `aspectFit` scales the longer
+ *     edge to 640 and pads the shorter edge with gray (114), the same
+ *     letterbox standard YOLO exports use. Detections come back in
+ *     640-px space relative to that *padded* canvas.
+ *   - The letterbox params here (scale = 640 / max(srcW, srcH); padX, padY
+ *     = (640 − newWH) / 2) feed into the shared decoder at yolo.ts, whose
+ *     inverse `(cx − padX) / scale` projects bboxes back to source-image
+ *     pixel space.
  *   - With detections in source-image pixel space, the session ROI
  *     (normalized [0..1] against the source photo) compares correctly
- *     in `mapDetectionsToSeeds`, fixing the earlier `seeds=0 while
- *     kept=N` bug when an ROI was active.
+ *     in `mapDetectionsToSeeds`.
  */
 export class CoreMLSeedAnalyzer implements SeedAnalyzer {
   readonly id = "coreml-yolo";
@@ -147,6 +153,16 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     const startedAt = Date.now();
     await ensureHyperParamsLoaded();
     const hp = getHyperParamsSync();
+    const active = await readActiveModel();
+    const preprocessProfile = resolvePreprocessProfile(
+      hp.preprocessProfile,
+      active?.platform === "ios" ? active.metadata : null,
+    );
+    if (preprocessProfile === "morph_fused_v1") {
+      console.warn(
+        "[analyzer] coreml-yolo preprocess=morph_fused_v1 requested; iOS Core ML image-input path runs raw_rgb in v1",
+      );
+    }
 
     // Source dims drive the inverse-letterbox math + ROI normalization.
     // Image.getSize is async but cheap (RN's image loader caches).
@@ -159,10 +175,23 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     });
     const srcW = dims.width;
     const srcH = dims.height;
-    const cropSize = Math.min(srcW, srcH);
-    const fitScale = YOLO_INPUT_SIZE / cropSize;
-    const padX = -((srcW - cropSize) / 2) * fitScale;
-    const padY = -((srcH - cropSize) / 2) * fitScale;
+    // Aspect-fit-pad letterbox params, matching the standard YOLO CoreML
+    // export (and the Android TFLite path's `letterbox()` in yolo.ts).
+    // CoreML's `MLImageConstraint` with `aspectFit` scales the longer edge
+    // to 640 and pads the shorter edge to keep aspect ratio. The decoder
+    // at yolo.ts:87 inverts via `(cx - padX) / scale`, which exactly
+    // undoes this convention.
+    //
+    // Earlier this code used a center-crop convention (negative padX/padY,
+    // scale by the *shorter* edge). That assumption matched neither the
+    // standard CoreML export nor the Android path — bboxes landed in
+    // wrong/blank regions on iOS while Android stayed accurate. Switching
+    // to aspect-fit-pad aligns iOS with Android and the decoder math.
+    const fitScale = YOLO_INPUT_SIZE / Math.max(srcW, srcH);
+    const newW = Math.round(srcW * fitScale);
+    const newH = Math.round(srcH * fitScale);
+    const padX = Math.floor((YOLO_INPUT_SIZE - newW) / 2);
+    const padY = Math.floor((YOLO_INPUT_SIZE - newH) / 2);
 
     const inferStartedAt = Date.now();
     const result = this.source.modelPath
@@ -175,13 +204,26 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     const decodeOpts = {
       letterbox: { scale: fitScale, padX, padY, target: YOLO_INPUT_SIZE },
       scoreThreshold: hp.scoreThreshold,
-      classFilter: options.classFilter ?? null,
+      // Mirror the live path: aliases + variety names resolve to model
+      // class indices through the same compatibility helper. Without this
+      // the post-capture analyzer would only honor COCO-id filters and
+      // miss every detection on a custom seg model.
+      classFilter: mapClassFilterForModel(
+        options.classFilter,
+        active?.metadata ?? null,
+        options.varietyNames ?? null,
+        options.modelClassAliases ?? null,
+      ),
     };
     const raw: RawDetection[] =
       this.outputKind === "nms"
         ? decodeYoloNms(out, shape, decodeOpts)
-        : decodeYolo(out, shape, decodeOpts);
-    const kept = this.outputKind === "nms" ? raw : nonMaxSuppression(raw, hp.iouThreshold);
+        : this.outputKind === "segmentation"
+          ? decodeYoloSegmentationNms(out, shape, decodeOpts)
+          : decodeYolo(out, shape, decodeOpts);
+    // Segmentation output is already NMS-fused on-graph; only the raw
+    // path needs JS-side NMS. nms-fused detection is also pre-NMS'd.
+    const kept = this.outputKind === "raw" ? nonMaxSuppression(raw, hp.iouThreshold) : raw;
     const seeds = mapDetectionsToSeeds(kept, {
       frameWidth: srcW,
       frameHeight: srcH,
@@ -191,7 +233,7 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
 
     const totalMs = Date.now() - startedAt;
     console.info(
-      `[analyzer] ${this.id} infer=${inferMs}ms total=${totalMs}ms raw=${raw.length} kept=${kept.length} seeds=${seeds.length} src=${srcW}x${srcH}`,
+      `[analyzer] ${this.id} preprocess=${preprocessProfile} infer=${inferMs}ms total=${totalMs}ms raw=${raw.length} kept=${kept.length} seeds=${seeds.length} src=${srcW}x${srcH}`,
     );
 
     return {

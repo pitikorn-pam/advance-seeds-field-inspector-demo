@@ -54,6 +54,17 @@
     "iouThresholdHint": "JS-side NMS overlap cutoff. YOLO26 (NMS-baked) ignores this.",
     "targetFps": "Live fps",
     "targetFpsHint": "Worklet inference rate for both iOS Core ML and Android TFLite (GPU). 30 fps matches camera native rate.",
+    "preprocessProfile": "Input preprocessing",
+    "preprocessProfileHint": "Experimental morphology enhancement for models trained or validated with it. Model uses registry metadata and falls back to raw RGB.",
+    "morphFeature": "Morphological enhancement",
+    "morphFeatureHint": "Turn on the experimental morphology-fused input path for Android live and TFLite photo inference. Leave off for models trained on raw RGB.",
+    "featureOn": "On",
+    "featureOff": "Off",
+    "preprocessProfileValue": {
+      "model": "Model default",
+      "raw_rgb": "Raw RGB",
+      "morph_fused_v1": "Morph fused v1"
+    },
     "defaults": "Defaults",
     "reset": "Reset to defaults",
     "resetTitle": "Reset hyperparameters?",

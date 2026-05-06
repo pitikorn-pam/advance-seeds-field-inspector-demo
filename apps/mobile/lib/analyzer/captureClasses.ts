@@ -21,3 +21,21 @@ export const DEFAULT_CAPTURE_CLASSES: readonly CaptureClass[] = [
 export const DEFAULT_CAPTURE_CLASS_IDS: readonly number[] = DEFAULT_CAPTURE_CLASSES.map(
   (c) => c.cocoClassId,
 );
+
+/**
+ * A variety's `model_class_aliases` is only meaningful while the active
+ * model still exposes those class names. Switching to a different model
+ * effectively unbinds the variety until the operator re-picks classes from
+ * the new model's class list. We compute this at use-time rather than
+ * rewriting the DB on model swap, so flipping back to the original model
+ * restores the binding without further action.
+ */
+export function effectiveModelAliases(
+  storedAliases: readonly string[] | null | undefined,
+  activeModelClassNames: readonly string[] | null | undefined,
+): readonly string[] {
+  if (!storedAliases || storedAliases.length === 0) return [];
+  if (!activeModelClassNames || activeModelClassNames.length === 0) return [];
+  const allowed = new Set(activeModelClassNames);
+  return storedAliases.filter((a) => allowed.has(a));
+}

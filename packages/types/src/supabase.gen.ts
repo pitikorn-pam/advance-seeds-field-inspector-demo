@@ -15,6 +15,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_active: boolean
           location: string | null
           notes: string | null
           sown_at: string | null
@@ -24,6 +25,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_active?: boolean
           location?: string | null
           notes?: string | null
           sown_at?: string | null
@@ -33,6 +35,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_active?: boolean
           location?: string | null
           notes?: string | null
           sown_at?: string | null
@@ -234,6 +237,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          is_active: boolean
           model_class_aliases: string[] | null
           name: string
           ref_length_mm: number | null
@@ -248,6 +252,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean
           model_class_aliases?: string[] | null
           name: string
           ref_length_mm?: number | null
@@ -262,6 +267,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean
           model_class_aliases?: string[] | null
           name?: string
           ref_length_mm?: number | null
@@ -430,4 +436,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -54,6 +54,17 @@
     "iouThresholdHint": "ค่าทับซ้อนสำหรับ NMS ฝั่ง JS YOLO26 (มี NMS ในกราฟ) ไม่ใช้ค่านี้",
     "targetFps": "อัตราเฟรมสด",
     "targetFpsHint": "อัตราการอนุมาน worklet ใช้ทั้ง iOS Core ML และ Android TFLite (GPU) — 30 fps ตรงกับอัตรากล้อง",
+    "preprocessProfile": "การเตรียมภาพเข้าโมเดล",
+    "preprocessProfileHint": "โหมดทดลองสำหรับเพิ่มลักษณะเชิงสัณฐาน ใช้กับโมเดลที่ฝึกหรือทดสอบกับโหมดนี้แล้ว Model จะอิง metadata และ fallback เป็น Raw RGB",
+    "morphFeature": "เพิ่มลักษณะเชิงสัณฐาน",
+    "morphFeatureHint": "เปิดเส้นทาง Morphology-fused แบบทดลองสำหรับ Android live และ TFLite photo inference ปิดไว้สำหรับโมเดลที่ฝึกกับ Raw RGB",
+    "featureOn": "เปิด",
+    "featureOff": "ปิด",
+    "preprocessProfileValue": {
+      "model": "ค่าจากโมเดล",
+      "raw_rgb": "Raw RGB",
+      "morph_fused_v1": "Morph fused v1"
+    },
     "defaults": "ค่าเริ่มต้น",
     "reset": "กลับค่าเริ่มต้น",
     "resetTitle": "รีเซ็ตไฮเปอร์พารามิเตอร์?",

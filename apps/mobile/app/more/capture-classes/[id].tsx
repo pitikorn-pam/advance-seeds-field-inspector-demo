@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Trash2 } from "lucide-react-native";
 import type { Variety } from "@advance-seeds/types";
@@ -11,9 +12,9 @@ import { useDeleteVariety, useUpsertVariety, useVarieties } from "@/lib/queries"
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Toggle } from "@/components/ui/Toggle";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
-import { DEFAULT_CAPTURE_CLASSES } from "@/lib/analyzer/captureClasses";
 import { readActiveModel } from "@/lib/models/modelStore";
 import type { InstalledModelRecord } from "@/lib/models/types";
 
@@ -23,10 +24,10 @@ interface FormState {
   description: string;
   imageUrl: string;
   colorKey: string;
-  cocoClassId: string;
   modelClassAliases: string[];
   refLength: string;
   refWidth: string;
+  isActive: boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -35,18 +36,11 @@ const EMPTY_FORM: FormState = {
   description: "",
   imageUrl: "",
   colorKey: "rice",
-  cocoClassId: "",
   modelClassAliases: [],
   refLength: "",
   refWidth: "",
+  isActive: true,
 };
-
-const COLOR_KEYS: ReadonlyArray<{ key: string; bg: string; fg: string }> = [
-  { key: "corn", bg: "#FAEEDA", fg: "#854F0B" },
-  { key: "rice", bg: "#EAF3DE", fg: "#3B6D11" },
-  { key: "legume", bg: "#E1F5EE", fg: "#0F6E56" },
-  { key: "mungbean", bg: "#FAECE7", fg: "#993C1D" },
-];
 
 /**
  * Variety editor — single source of truth for create + edit on the
@@ -99,13 +93,8 @@ export default function VarietyEditor() {
       Alert.alert(t("more:masterData.invalidName"));
       return;
     }
-    const parsedClass = form.cocoClassId === "" ? null : Number(form.cocoClassId);
     const parsedLen = form.refLength === "" ? null : Number(form.refLength);
     const parsedWid = form.refWidth === "" ? null : Number(form.refWidth);
-    if (parsedClass !== null && !Number.isInteger(parsedClass)) {
-      Alert.alert(t("more:masterData.invalidClass"));
-      return;
-    }
     if (parsedLen !== null && !(parsedLen > 0)) {
       Alert.alert(t("more:masterData.invalidLength"));
       return;
@@ -114,21 +103,27 @@ export default function VarietyEditor() {
       Alert.alert(t("more:masterData.invalidWidth"));
       return;
     }
-    await upsert.mutateAsync({
-      id: editing?.id,
-      name,
-      scientific_name: form.scientificName.trim() || null,
-      description: form.description.trim() || null,
-      image_url: form.imageUrl.trim() || null,
-      color_key: form.colorKey || "rice",
-      coco_class_id: parsedClass,
-      // null means "no opinion → fall back to name match / COCO";
-      // [] means "operator explicitly cleared all model classes".
-      model_class_aliases: form.modelClassAliases.length > 0 ? form.modelClassAliases : null,
-      ref_length_mm: parsedLen,
-      ref_width_mm: parsedWid,
-    });
-    router.back();
+    try {
+      await upsert.mutateAsync({
+        id: editing?.id,
+        name,
+        scientific_name: form.scientificName.trim() || null,
+        description: form.description.trim() || null,
+        image_url: form.imageUrl.trim() || null,
+        color_key: form.colorKey || "rice",
+        // Detector binding is now name-based via model_class_aliases. The
+        // legacy COCO id column is preserved (for varieties created before
+        // this change) but no longer written from the editor.
+        coco_class_id: editing?.coco_class_id ?? null,
+        model_class_aliases: form.modelClassAliases.length > 0 ? form.modelClassAliases : null,
+        ref_length_mm: parsedLen,
+        ref_width_mm: parsedWid,
+        is_active: form.isActive,
+      });
+      router.back();
+    } catch (error) {
+      Alert.alert(t("common:states.error"), saveErrorMessage(error, t));
+    }
   };
 
   const onDelete = () => {
@@ -140,8 +135,12 @@ export default function VarietyEditor() {
         text: t("common:actions.delete"),
         style: "destructive",
         onPress: async () => {
-          await del.mutateAsync(target.id);
-          router.back();
+          try {
+            await del.mutateAsync(target.id);
+            router.back();
+          } catch (error) {
+            Alert.alert(t("common:states.error"), deleteErrorMessage(error, t));
+          }
         },
       },
     ]);
@@ -210,39 +209,6 @@ export default function VarietyEditor() {
                 keyboardType="url"
               />
             </Field>
-            <Field label={t("more:masterData.colorKey")}>
-              <View className="flex-row flex-wrap gap-sm">
-                {COLOR_KEYS.map((opt) => (
-                  <ColorChip
-                    key={opt.key}
-                    label={t(`library:segments.${opt.key}` as never, opt.key)}
-                    bg={opt.bg}
-                    fg={opt.fg}
-                    active={form.colorKey === opt.key}
-                    onPress={() => setForm((s) => ({ ...s, colorKey: opt.key }))}
-                  />
-                ))}
-              </View>
-            </Field>
-
-            <Field label={t("more:masterData.detectorClass")}>
-              <View className="flex-row flex-wrap gap-sm">
-                <ClassChip
-                  label={t("more:masterData.unmappedShort")}
-                  active={form.cocoClassId === ""}
-                  onPress={() => setForm((s) => ({ ...s, cocoClassId: "" }))}
-                />
-                {DEFAULT_CAPTURE_CLASSES.map((opt) => (
-                  <ClassChip
-                    key={opt.cocoClassId}
-                    label={`${opt.name} · ${opt.cocoClassId}`}
-                    active={form.cocoClassId === String(opt.cocoClassId)}
-                    onPress={() => setForm((s) => ({ ...s, cocoClassId: String(opt.cocoClassId) }))}
-                  />
-                ))}
-              </View>
-            </Field>
-
             <Field
               label={t("more:masterData.modelClasses")}
               hint={
@@ -299,6 +265,15 @@ export default function VarietyEditor() {
               />
             </Field>
 
+            <StatusToggle
+              label={t("varieties:fields.status")}
+              hint={t("varieties:statusHint")}
+              activeLabel={t("varieties:status.active")}
+              inactiveLabel={t("varieties:status.inactive")}
+              value={form.isActive}
+              onChange={(isActive) => setForm((s) => ({ ...s, isActive }))}
+            />
+
             <View className="flex-row gap-sm mt-sm">
               {canDelete ? (
                 <Button
@@ -353,6 +328,35 @@ function Field({
   );
 }
 
+function StatusToggle({
+  label,
+  hint,
+  activeLabel,
+  inactiveLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  activeLabel: string;
+  inactiveLabel: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <View className="flex-row items-center justify-between gap-md rounded-lg border border-line-tertiary bg-bg-secondary px-md py-md">
+      <View className="flex-1">
+        <Text className="text-caption uppercase tracking-wide text-fg-secondary">{label}</Text>
+        <Text className={`text-title mt-xs ${value ? "text-success-text" : "text-warning-text"}`}>
+          {value ? activeLabel : inactiveLabel}
+        </Text>
+        <Text className="text-caption text-fg-tertiary mt-xs">{hint}</Text>
+      </View>
+      <Toggle value={value} onValueChange={onChange} accessibilityLabel={label} />
+    </View>
+  );
+}
+
 function ClassChip({
   label,
   active,
@@ -376,35 +380,6 @@ function ClassChip({
   );
 }
 
-function ColorChip({
-  label,
-  bg,
-  fg,
-  active,
-  onPress,
-}: {
-  label: string;
-  bg: string;
-  fg: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      className={`rounded-full px-md py-sm border-2 ${active ? "border-brand" : "border-transparent"}`}
-      style={{ backgroundColor: bg }}
-    >
-      <Text className="text-caption font-medium" style={{ color: fg }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 function hydrateForm(v: Variety): FormState {
   return {
     name: v.name,
@@ -412,11 +387,46 @@ function hydrateForm(v: Variety): FormState {
     description: v.description ?? "",
     imageUrl: v.image_url ?? "",
     colorKey: v.color_key ?? "rice",
-    cocoClassId:
-      v.coco_class_id !== null && v.coco_class_id !== undefined ? String(v.coco_class_id) : "",
     modelClassAliases: Array.isArray(v.model_class_aliases) ? [...v.model_class_aliases] : [],
     refLength:
       v.ref_length_mm !== null && v.ref_length_mm !== undefined ? String(v.ref_length_mm) : "",
     refWidth: v.ref_width_mm !== null && v.ref_width_mm !== undefined ? String(v.ref_width_mm) : "",
+    isActive: v.is_active !== false,
   };
+}
+
+function deleteErrorMessage(error: unknown, t: TFunction): string {
+  if (error instanceof Error && error.message === "VARIETY_IN_USE") {
+    return t("varieties:deleteBlocked");
+  }
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { code?: string }).code === "23503"
+  ) {
+    return t("varieties:deleteBlocked");
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return t("varieties:deleteFailed");
+}
+
+function saveErrorMessage(error: unknown, t: TFunction): string {
+  if (isMissingActiveStatusColumn(error)) {
+    return t("varieties:saveNeedsMigration");
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return t("varieties:saveFailed");
+}
+
+function isMissingActiveStatusColumn(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; message?: string };
+  const message = candidate.message ?? "";
+  return (
+    candidate.code === "PGRST204" ||
+    candidate.code === "42703" ||
+    /is_active/i.test(message) ||
+    /schema cache/i.test(message)
+  );
 }

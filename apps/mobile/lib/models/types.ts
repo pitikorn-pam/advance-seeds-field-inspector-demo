@@ -1,6 +1,7 @@
 export type ModelPlatform = "android" | "ios";
 export type ModelQuantization = "none" | "fp16" | "int8";
 export type ModelInstallStatus = "installed" | "active" | "failed";
+export type ModelPreprocessProfile = "raw_rgb" | "morph_fused_v1";
 
 export interface ModelMetadata {
   model_name: string;
@@ -12,6 +13,9 @@ export interface ModelMetadata {
   output_shape: number[];
   score_threshold?: number;
   iou_threshold?: number;
+  preprocess?: {
+    profile?: ModelPreprocessProfile;
+  };
   calibration?: {
     required?: boolean;
     supported_sources?: string[];

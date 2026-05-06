@@ -20,6 +20,8 @@ export interface HyperParams {
   iouThreshold: number;
   /** Live worklet inference rate (iOS Core ML + Android TFLite/GPU). */
   targetFps: number;
+  /** QA override for model input preprocessing. "model" defers to active model metadata. */
+  preprocessProfile: "model" | "raw_rgb" | "morph_fused_v1";
 }
 
 export const DEFAULT_HYPERPARAMS: HyperParams = {
@@ -30,10 +32,15 @@ export const DEFAULT_HYPERPARAMS: HyperParams = {
   scoreThreshold: 0.25,
   iouThreshold: 0.65,
   targetFps: 30,
+  preprocessProfile: "model",
 };
 
-const STORAGE_KEY = "advance-seeds.hyperparams.v3";
-const LEGACY_STORAGE_KEYS = ["advance-seeds.hyperparams.v2", "advance-seeds.hyperparams.v1"];
+const STORAGE_KEY = "advance-seeds.hyperparams.v4";
+const LEGACY_STORAGE_KEYS = [
+  "advance-seeds.hyperparams.v3",
+  "advance-seeds.hyperparams.v2",
+  "advance-seeds.hyperparams.v1",
+];
 
 let current: HyperParams = { ...DEFAULT_HYPERPARAMS };
 let loaded = false;
@@ -128,6 +135,10 @@ function clamp(p: HyperParams): HyperParams {
     scoreThreshold: clampNumber(p.scoreThreshold, 0.05, 0.95),
     iouThreshold: clampNumber(p.iouThreshold, 0.1, 0.95),
     targetFps: clampNumber(Math.round(p.targetFps), 1, 60),
+    preprocessProfile:
+      p.preprocessProfile === "raw_rgb" || p.preprocessProfile === "morph_fused_v1"
+        ? p.preprocessProfile
+        : "model",
   };
 }
 

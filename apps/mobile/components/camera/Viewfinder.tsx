@@ -85,6 +85,17 @@ export function Viewfinder({
   }, [format, preferredCameraFps]);
   const [requesting, setRequesting] = useState(false);
 
+  // Strip `audio: true` if mic permission is missing — Vision Camera throws
+  // a microphone-permission-denied error on mount otherwise. Recording will
+  // re-request permission on demand if the user tries it. Hoisted above the
+  // permission/device early returns so it runs unconditionally on every
+  // render (Rules of Hooks).
+  const safeCameraProps = useMemo(
+    () =>
+      cameraProps?.audio && !micPerm.hasPermission ? { ...cameraProps, audio: false } : cameraProps,
+    [cameraProps, micPerm.hasPermission],
+  );
+
   const requestPermissions = async () => {
     setRequesting(true);
     try {
@@ -127,15 +138,6 @@ export function Viewfinder({
       </View>
     );
   }
-
-  // Strip `audio: true` if mic permission is missing — Vision Camera throws
-  // a microphone-permission-denied error on mount otherwise. Recording will
-  // re-request permission on demand if the user tries it.
-  const safeCameraProps = useMemo(
-    () =>
-      cameraProps?.audio && !micPerm.hasPermission ? { ...cameraProps, audio: false } : cameraProps,
-    [cameraProps, micPerm.hasPermission],
-  );
 
   if (!active) {
     return (

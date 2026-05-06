@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ScrollView, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Calendar, ChevronLeft, Trash2, X } from "lucide-react-native";
 import type { Batch } from "@advance-seeds/types";
@@ -13,6 +14,7 @@ import { useBatches, useDeleteBatch, useUpsertBatch } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Toggle } from "@/components/ui/Toggle";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 
@@ -21,9 +23,10 @@ interface FormState {
   location: string;
   sownAt: string;
   notes: string;
+  isActive: boolean;
 }
 
-const EMPTY_FORM: FormState = { code: "", location: "", sownAt: "", notes: "" };
+const EMPTY_FORM: FormState = { code: "", location: "", sownAt: "", notes: "", isActive: true };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -69,14 +72,19 @@ export default function BatchEditor() {
       Alert.alert(t("batches:invalidDate"));
       return;
     }
-    await upsert.mutateAsync({
-      id: editing?.id,
-      code,
-      location: form.location.trim() || null,
-      sown_at: sownAt || null,
-      notes: form.notes.trim() || null,
-    });
-    router.back();
+    try {
+      await upsert.mutateAsync({
+        id: editing?.id,
+        code,
+        location: form.location.trim() || null,
+        sown_at: sownAt || null,
+        notes: form.notes.trim() || null,
+        is_active: form.isActive,
+      });
+      router.back();
+    } catch (error) {
+      Alert.alert(t("common:states.error"), saveErrorMessage(error, t));
+    }
   };
 
   const onDelete = () => {
@@ -88,8 +96,12 @@ export default function BatchEditor() {
         text: t("common:actions.delete"),
         style: "destructive",
         onPress: async () => {
-          await del.mutateAsync(target.id);
-          router.back();
+          try {
+            await del.mutateAsync(target.id);
+            router.back();
+          } catch (error) {
+            Alert.alert(t("common:states.error"), deleteErrorMessage(error, t));
+          }
         },
       },
     ]);
@@ -179,6 +191,15 @@ export default function BatchEditor() {
               />
             </Field>
 
+            <StatusToggle
+              label={t("batches:fields.status")}
+              hint={t("batches:statusHint")}
+              activeLabel={t("batches:status.active")}
+              inactiveLabel={t("batches:status.inactive")}
+              value={form.isActive}
+              onChange={(isActive) => setForm((s) => ({ ...s, isActive }))}
+            />
+
             <View className="flex-row gap-sm mt-sm">
               {canDelete ? (
                 <Button
@@ -242,11 +263,77 @@ function Field({
   );
 }
 
+function StatusToggle({
+  label,
+  hint,
+  activeLabel,
+  inactiveLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  activeLabel: string;
+  inactiveLabel: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <View className="flex-row items-center justify-between gap-md rounded-lg border border-line-tertiary bg-bg-secondary px-md py-md">
+      <View className="flex-1">
+        <Text className="text-caption uppercase tracking-wide text-fg-secondary">{label}</Text>
+        <Text className={`text-title mt-xs ${value ? "text-success-text" : "text-warning-text"}`}>
+          {value ? activeLabel : inactiveLabel}
+        </Text>
+        <Text className="text-caption text-fg-tertiary mt-xs">{hint}</Text>
+      </View>
+      <Toggle value={value} onValueChange={onChange} accessibilityLabel={label} />
+    </View>
+  );
+}
+
 function hydrate(b: Batch): FormState {
   return {
     code: b.code,
     location: b.location ?? "",
     sownAt: b.sown_at ?? "",
     notes: b.notes ?? "",
+    isActive: b.is_active !== false,
   };
+}
+
+function deleteErrorMessage(error: unknown, t: TFunction): string {
+  if (error instanceof Error && error.message === "BATCH_IN_USE") {
+    return t("batches:deleteBlocked");
+  }
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { code?: string }).code === "23503"
+  ) {
+    return t("batches:deleteBlocked");
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return t("batches:deleteFailed");
+}
+
+function saveErrorMessage(error: unknown, t: TFunction): string {
+  if (isMissingActiveStatusColumn(error)) {
+    return t("batches:saveNeedsMigration");
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return t("batches:saveFailed");
+}
+
+function isMissingActiveStatusColumn(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; message?: string };
+  const message = candidate.message ?? "";
+  return (
+    candidate.code === "PGRST204" ||
+    candidate.code === "42703" ||
+    /is_active/i.test(message) ||
+    /schema cache/i.test(message)
+  );
 }

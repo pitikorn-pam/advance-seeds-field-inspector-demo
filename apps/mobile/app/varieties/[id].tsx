@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Pill } from "@/components/ui/Pill";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 
@@ -117,6 +118,11 @@ export default function VarietyDetail() {
           >
             {variety.name}
           </Text>
+          {variety.is_active === false ? (
+            <View className="mt-sm self-start">
+              <Pill tone="warning" label={t("varieties:status.inactive")} />
+            </View>
+          ) : null}
           {variety.scientific_name ? (
             <Text className="text-caption italic text-fg-secondary mt-xs">
               {variety.scientific_name}
@@ -190,9 +196,15 @@ export default function VarietyDetail() {
       </ScrollView>
 
       <View className="px-xl pb-xl">
+        {variety.is_active === false ? (
+          <Text className="text-caption text-fg-secondary mb-sm">
+            {t("varieties:detail.inactiveUsage")}
+          </Text>
+        ) : null}
         <Button
           label={t("varieties:detail.startInspection")}
           renderLeadingIcon={() => <CameraIcon color="#FFFFFF" size={18} />}
+          disabled={variety.is_active === false}
           onPress={onStartInspection}
         />
       </View>
