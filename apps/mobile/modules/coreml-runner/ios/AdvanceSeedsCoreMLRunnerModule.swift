@@ -173,8 +173,18 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
   }
 
   private static func loadCGImage(at url: URL) -> CGImage? {
-    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-    return CGImageSourceCreateImageAtIndex(src, 0, nil)
+    guard let image = UIImage(contentsOfFile: url.path) else { return nil }
+    if image.imageOrientation == .up, let cgImage = image.cgImage {
+      return cgImage
+    }
+    let format = UIGraphicsImageRendererFormat.default()
+    format.scale = image.scale
+    format.opaque = false
+    let renderer = UIGraphicsImageRenderer(size: image.size, format: format)
+    let normalized = renderer.image { _ in
+      image.draw(in: CGRect(origin: .zero, size: image.size))
+    }
+    return normalized.cgImage
   }
 
   private static func flattenLargestOutput(_ result: MLFeatureProvider) throws -> [String: Any] {

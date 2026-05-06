@@ -117,6 +117,8 @@ export interface AnalysisFrameResult {
   /** Native frame dimensions used for bbox coordinates. */
   frameWidth?: number;
   frameHeight?: number;
+  /** Native frame orientation label when provided by the camera runtime. */
+  frameOrientation?: string;
   analyzerId: string;
 }
 

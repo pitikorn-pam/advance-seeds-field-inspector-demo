@@ -15,8 +15,8 @@ import { useCaptureSession } from "@/lib/capture/session";
  * (prototype-fidelity-pass D2).
  *
  * Two cards: Live scan (red dot + Fast/No-calibration tags) and Precise
- * capture (brand-bordered, "Lab grade" badge, Accurate/Slower tags). Tap
- * either card to commit `mode` to the session and route to the chosen
+ * capture ("Lab grade" badge, Accurate/Slower tags). Tap either card to
+ * commit `mode` to the session and route to the chosen
  * camera screen. The camera screens themselves are unchanged from
  * mobile-real-usage; the split only affects the journey.
  *
@@ -110,7 +110,6 @@ export default function CaptureMode() {
             t("inspections:capture.modePicker.tagAccurate"),
             t("inspections:capture.modePicker.tagSlower"),
           ]}
-          bordered
           onPress={goPrecise}
         />
       </ScrollView>
@@ -127,7 +126,6 @@ interface ModeCardProps {
   body: string;
   tags: string[];
   highlightLabel?: string;
-  bordered?: boolean;
   onPress: () => void;
 }
 
@@ -140,18 +138,13 @@ function ModeCard({
   body,
   tags,
   highlightLabel,
-  bordered = false,
   onPress,
 }: ModeCardProps) {
   return (
     <Pressable
       onPress={onPress}
       className="rounded-2xl bg-bg-primary p-lg gap-md"
-      style={
-        bordered
-          ? { borderWidth: 2, borderColor: "#0F6E56" }
-          : { borderWidth: 0.5, borderColor: "rgba(0,0,0,0.06)" }
-      }
+      style={{ borderWidth: 0.5, borderColor: "rgba(0,0,0,0.06)" }}
     >
       <View className="flex-row items-center gap-md">
         <View

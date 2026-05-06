@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { Image, View, Text, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { Check } from "lucide-react-native";
-import type { AnalysisResult } from "@advance-seeds/types";
+import type { AnalysisFrameResult, AnalysisResult, AnalyzedSeed } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
@@ -39,6 +39,104 @@ async function monitorPilotStage<T>(stage: string, work: () => Promise<T>): Prom
       console.info("[pilot-monitor] %s: %dms", stage, elapsedMs);
     }
   }
+}
+
+async function liveFrameFallbackResult(
+  frameResult: AnalysisFrameResult | null,
+  imageUri: string,
+): Promise<AnalysisResult | null> {
+  if (!frameResult || frameResult.seeds.length === 0) return null;
+  const frameWidth = frameResult.frameWidth ?? 0;
+  const frameHeight = frameResult.frameHeight ?? 0;
+  if (frameWidth <= 0 || frameHeight <= 0) return null;
+  const image = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+    Image.getSize(
+      imageUri,
+      (width, height) => resolve({ width, height }),
+      (err) => reject(err),
+    );
+  });
+  const oriented = orientLiveSeeds(frameResult.seeds, {
+    frameWidth,
+    frameHeight,
+    imageWidth: image.width,
+    imageHeight: image.height,
+    orientation: frameResult.frameOrientation ?? "up",
+  });
+  return {
+    analyzerId: `${frameResult.analyzerId}+shutter-fallback`,
+    durationMs: 0,
+    seeds: oriented,
+    summary: frameResult.summary,
+  };
+}
+
+function orientLiveSeeds(
+  seeds: readonly AnalyzedSeed[],
+  dims: {
+    frameWidth: number;
+    frameHeight: number;
+    imageWidth: number;
+    imageHeight: number;
+    orientation: string;
+  },
+): AnalyzedSeed[] {
+  const { frameWidth, frameHeight, imageWidth, imageHeight, orientation } = dims;
+  const rotates =
+    orientation === "left" ||
+    orientation === "right" ||
+    orientation === "left-mirrored" ||
+    orientation === "right-mirrored";
+  const orientedWidth = rotates ? frameHeight : frameWidth;
+  const orientedHeight = rotates ? frameWidth : frameHeight;
+  const scaleX = imageWidth / orientedWidth;
+  const scaleY = imageHeight / orientedHeight;
+  return seeds.map((seed, index) => {
+    const box = rotateLiveBox(seed.bbox, frameWidth, frameHeight, orientation);
+    return {
+      ...seed,
+      index: index + 1,
+      bbox: {
+        x: Math.round(box.x * scaleX),
+        y: Math.round(box.y * scaleY),
+        width: Math.round(box.width * scaleX),
+        height: Math.round(box.height * scaleY),
+      },
+    };
+  });
+}
+
+function rotateLiveBox(
+  box: AnalyzedSeed["bbox"],
+  frameWidth: number,
+  frameHeight: number,
+  orientation: string,
+): AnalyzedSeed["bbox"] {
+  if (orientation === "right" || orientation === "right-mirrored") {
+    return {
+      x: frameHeight - box.y - box.height,
+      y: box.x,
+      width: box.height,
+      height: box.width,
+    };
+  }
+  if (orientation === "left" || orientation === "left-mirrored") {
+    return {
+      x: box.y,
+      y: frameWidth - box.x - box.width,
+      width: box.height,
+      height: box.width,
+    };
+  }
+  if (orientation === "down" || orientation === "down-mirrored") {
+    return {
+      x: frameWidth - box.x - box.width,
+      y: frameHeight - box.y - box.height,
+      width: box.width,
+      height: box.height,
+    };
+  }
+  return box;
 }
 
 /**
@@ -393,7 +491,7 @@ export default function CaptureProcessing() {
           }
         }
         const effectivePxPerMm = calibrationReading?.pxPerMm ?? 38.4;
-        const result: AnalysisResult =
+        let result: AnalysisResult =
           analyzerImageUri === sourceUri && session.capturedMediaKind === "video"
             ? // Thumbnail extraction failed — fall back to empty result so the
               // Review page still mounts with the video.
@@ -420,6 +518,22 @@ export default function CaptureProcessing() {
                   },
                 ),
               );
+        if (result.seeds.length === 0 && result.analyzerId !== "skip-video") {
+          const fallback = await liveFrameFallbackResult(
+            session.capturedLiveFrameResult,
+            analyzerImageUri,
+          ).catch((err) => {
+            console.warn("[processing] live-frame fallback unavailable", err);
+            return null;
+          });
+          if (fallback) {
+            console.warn(
+              "[processing] analyzer returned 0 seeds; using shutter live-frame fallback with %d seeds",
+              fallback.seeds.length,
+            );
+            result = fallback;
+          }
+        }
         if (cancelledRef.current) return;
 
         // No-detection inspections are saved with an empty seed list rather

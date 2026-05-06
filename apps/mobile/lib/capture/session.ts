@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { AnalysisResult, CalibrationReading } from "@advance-seeds/types";
+import type { AnalysisFrameResult, AnalysisResult, CalibrationReading } from "@advance-seeds/types";
 import type { Roi } from "./roi";
 import type { CapturedLocation } from "./location";
 
@@ -72,6 +72,8 @@ interface CaptureSessionState {
   uploadedVideoUrl: string | null;
   /** Analyzer output consumed by review after the processing route unmounts. */
   analysisResult: AnalysisResult | null;
+  /** Latest live-detection frame frozen at shutter time as a post-capture fallback. */
+  capturedLiveFrameResult: AnalysisFrameResult | null;
   /**
    * Active region-of-interest (Phase 6b). Null when the user hasn't drawn
    * one — KPI strip shows full-frame counts in that case. Lives on the
@@ -108,6 +110,7 @@ const initial: CaptureSessionState = {
   uploadedImageUrl: null,
   uploadedVideoUrl: null,
   analysisResult: null,
+  capturedLiveFrameResult: null,
   roi: null,
   capturedLocation: null,
 };

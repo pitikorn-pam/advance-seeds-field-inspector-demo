@@ -136,14 +136,11 @@ function prod(s: number[]): number {
 export class CoreMLSeedAnalyzer implements SeedAnalyzer {
   readonly id = "coreml-yolo";
 
-  private constructor(
-    private readonly outputKind: OutputKind,
-    private readonly source: CoreMLModelSource,
-  ) {}
+  private constructor() {}
 
   static async load(): Promise<CoreMLSeedAnalyzer> {
-    const { outputKind, source } = await loadSharedCoreMLModel();
-    return new CoreMLSeedAnalyzer(outputKind, source);
+    await loadSharedCoreMLModel();
+    return new CoreMLSeedAnalyzer();
   }
 
   async analyze(image: ImageRef, options: AnalyzeOptions): Promise<AnalysisResult> {
@@ -153,6 +150,7 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     const startedAt = Date.now();
     await ensureHyperParamsLoaded();
     const hp = getHyperParamsSync();
+    const { outputKind, source } = await loadSharedCoreMLModel();
     const active = await readActiveModel();
     const preprocessProfile = resolvePreprocessProfile(
       hp.preprocessProfile,
@@ -194,9 +192,9 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     const padY = Math.floor((YOLO_INPUT_SIZE - newH) / 2);
 
     const inferStartedAt = Date.now();
-    const result = this.source.modelPath
-      ? await CoreMLRunner.runOnImageURLAtPath(this.source.modelPath, image.uri)
-      : await CoreMLRunner.runOnImageURL(this.source.assetName, image.uri);
+    const result = source.modelPath
+      ? await CoreMLRunner.runOnImageURLAtPath(source.modelPath, image.uri)
+      : await CoreMLRunner.runOnImageURL(source.assetName, image.uri);
     const inferMs = Date.now() - inferStartedAt;
     const out = Float32Array.from(result.values);
     const shape = result.shape as unknown as readonly [number, number, number];
@@ -216,14 +214,14 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
       ),
     };
     const raw: RawDetection[] =
-      this.outputKind === "nms"
+      outputKind === "nms"
         ? decodeYoloNms(out, shape, decodeOpts)
-        : this.outputKind === "segmentation"
+        : outputKind === "segmentation"
           ? decodeYoloSegmentationNms(out, shape, decodeOpts)
           : decodeYolo(out, shape, decodeOpts);
     // Segmentation output is already NMS-fused on-graph; only the raw
     // path needs JS-side NMS. nms-fused detection is also pre-NMS'd.
-    const kept = this.outputKind === "raw" ? nonMaxSuppression(raw, hp.iouThreshold) : raw;
+    const kept = outputKind === "raw" ? nonMaxSuppression(raw, hp.iouThreshold) : raw;
     const seeds = mapDetectionsToSeeds(kept, {
       frameWidth: srcW,
       frameHeight: srcH,

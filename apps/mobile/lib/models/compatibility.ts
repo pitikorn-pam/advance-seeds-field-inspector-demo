@@ -3,8 +3,8 @@ import type { ModelMetadata } from "./types";
 export function validateModelMetadata(metadata: ModelMetadata): string[] {
   const errors: string[] = [];
   if (metadata.task !== "instance-segmentation") errors.push("task must be instance-segmentation");
-  if (!/^yolo26[ns]-seg$/.test(metadata.model_name)) {
-    errors.push("model_name must be yolo26n-seg or yolo26s-seg");
+  if (!/^yolo26[a-z0-9]+-seg$/.test(metadata.model_name)) {
+    errors.push("model_name must be a YOLO26 segmentation model such as yolo26m-seg");
   }
   if (metadata.input_size !== 640) errors.push("input_size must be 640");
   if (metadata.output_kind !== "segmentation") errors.push("output_kind must be segmentation");

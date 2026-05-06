@@ -187,39 +187,26 @@ async function getActiveTfliteSource(): Promise<{
 export class TfliteSeedAnalyzer implements SeedAnalyzer {
   readonly id = "tflite-yolo";
 
-  private constructor(
-    private readonly model: TfliteModel,
-    private readonly outputKind: TfliteOutputKind,
-    private readonly outputIndex: number,
-    private readonly outputShape: readonly [number, number, number],
-    readonly delegate: TfliteDelegate,
-    private readonly modelRecord: InstalledModelRecord | null,
-  ) {}
+  private constructor() {}
 
   static async load(): Promise<TfliteSeedAnalyzer> {
-    const { model, outputKind, outputIndex, outputShape, delegate, modelRecord } =
-      await loadSharedTfliteModel();
-    return new TfliteSeedAnalyzer(
-      model,
-      outputKind,
-      outputIndex,
-      outputShape,
-      delegate,
-      modelRecord,
-    );
+    await loadSharedTfliteModel();
+    return new TfliteSeedAnalyzer();
   }
 
   async analyze(image: ImageRef, options: AnalyzeOptions): Promise<AnalysisResult> {
     const startedAt = Date.now();
     await ensureHyperParamsLoaded();
     const hp = getHyperParamsSync();
+    const { model, outputKind, outputIndex, outputShape, delegate, modelRecord } =
+      await loadSharedTfliteModel();
     const decodeStartedAt = Date.now();
     const pixels = await decodeImage(image);
     const decodeMs = Date.now() - decodeStartedAt;
 
     const preprocessProfile = resolvePreprocessProfile(
       hp.preprocessProfile,
-      this.modelRecord?.metadata ?? null,
+      modelRecord?.metadata ?? null,
     );
     const lbStartedAt = Date.now();
     const lb = prepareYoloInput(pixels, {
@@ -229,12 +216,12 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     const lbMs = Date.now() - lbStartedAt;
 
     const inferStartedAt = Date.now();
-    const outputs = this.model.runSync([lb.tensor.buffer as ArrayBuffer]);
+    const outputs = model.runSync([lb.tensor.buffer as ArrayBuffer]);
     const inferMs = Date.now() - inferStartedAt;
-    recordInference(`tflite-${this.delegate}`, inferMs);
-    const selectedOutput = outputs[this.outputIndex];
+    recordInference(`tflite-${delegate}`, inferMs);
+    const selectedOutput = outputs[outputIndex];
     if (!selectedOutput) {
-      throw new Error(`Missing selected TFLite output index ${this.outputIndex}`);
+      throw new Error(`Missing selected TFLite output index ${outputIndex}`);
     }
     const out = new Float32Array(selectedOutput);
     const decodeOpts = {
@@ -242,20 +229,20 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
       scoreThreshold: hp.scoreThreshold,
       classFilter: mapClassFilterForModel(
         options.classFilter,
-        this.modelRecord?.metadata,
+        modelRecord?.metadata,
         options.varietyNames ?? null,
         options.modelClassAliases ?? null,
       ),
     };
     const raw: RawDetection[] =
-      this.outputKind === "nms"
-        ? decodeYoloNms(out, this.outputShape, decodeOpts)
-        : this.outputKind === "segmentation"
-          ? decodeYoloSegmentationNms(out, this.outputShape, decodeOpts)
-          : decodeYolo(out, this.outputShape, decodeOpts);
+      outputKind === "nms"
+        ? decodeYoloNms(out, outputShape, decodeOpts)
+        : outputKind === "segmentation"
+          ? decodeYoloSegmentationNms(out, outputShape, decodeOpts)
+          : decodeYolo(out, outputShape, decodeOpts);
     // YOLO26 already runs NMS in the graph, so re-running it would be a no-op
     // on overlap and a needless O(n²) on JS. Skip when the graph handled it.
-    const kept = this.outputKind === "raw" ? nonMaxSuppression(raw, hp.iouThreshold) : raw;
+    const kept = outputKind === "raw" ? nonMaxSuppression(raw, hp.iouThreshold) : raw;
     const seeds = mapDetectionsToSeeds(kept, {
       frameWidth: pixels.width,
       frameHeight: pixels.height,

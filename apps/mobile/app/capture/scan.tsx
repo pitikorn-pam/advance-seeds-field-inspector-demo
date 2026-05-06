@@ -182,6 +182,7 @@ export default function CaptureScan() {
         uploadedImageUrl: null,
         uploadedVideoUrl: null,
         analysisResult: null,
+        capturedLiveFrameResult: liveDetections.detections,
         recordingDurationMs: Math.max(0, Math.round(durationMs)),
         recordingId: null,
         cameraPosition: position,
@@ -295,6 +296,7 @@ export default function CaptureScan() {
         uploadedImageUrl: null,
         uploadedVideoUrl: null,
         analysisResult: null,
+        capturedLiveFrameResult: liveDetections.detections,
         recordingDurationMs: null,
         recordingId: null,
         cameraPosition: position,
@@ -418,6 +420,27 @@ export default function CaptureScan() {
         performanceProfile={androidFrameProcessorActive ? "low" : "quality"}
         cameraProps={viewfinderCameraProps}
       >
+        <View
+          className="absolute inset-0"
+          pointerEvents="none"
+          onLayout={(e) =>
+            setStageSize({
+              width: e.nativeEvent.layout.width,
+              height: e.nativeEvent.layout.height,
+            })
+          }
+        >
+          {stageSize && cameraActive && !busy && liveDetections.detections ? (
+            <DetectionOverlay
+              frameResult={liveDetections.detections}
+              frameWidth={liveDetections.detections.frameWidth ?? 1920}
+              frameHeight={liveDetections.detections.frameHeight ?? 1080}
+              stageWidth={stageSize.width}
+              stageHeight={stageSize.height}
+              varietyName={activeVariety?.name ?? null}
+            />
+          ) : null}
+        </View>
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel={`${t("inspections:capture.live.pillLabel")} · ${t("inspections:capture.shutter")}`}
@@ -451,27 +474,8 @@ export default function CaptureScan() {
           {/* ROI overlay sits between the chrome and the KPI strip. When no
               tool is active it's pointerEvents-transparent and only renders
               the committed shape; when a tool is active it captures touches
-              for drawing. Phase 4 will render Skia detection rings here too. */}
-          <View
-            className="flex-1"
-            pointerEvents="box-none"
-            onLayout={(e) =>
-              setStageSize({
-                width: e.nativeEvent.layout.width,
-                height: e.nativeEvent.layout.height,
-              })
-            }
-          >
-            {stageSize && cameraActive && !busy && liveDetections.detections ? (
-              <DetectionOverlay
-                frameResult={liveDetections.detections}
-                frameWidth={liveDetections.detections.frameWidth ?? 1920}
-                frameHeight={liveDetections.detections.frameHeight ?? 1080}
-                stageWidth={stageSize.width}
-                stageHeight={stageSize.height}
-                varietyName={activeVariety?.name ?? null}
-              />
-            ) : null}
+              for drawing. */}
+          <View className="flex-1" pointerEvents="box-none">
             <RoiOverlay drawingTool={roiTool} roi={session.roi} onRoi={setRoi} />
           </View>
 

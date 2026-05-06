@@ -169,6 +169,7 @@ export default function CapturePrecise() {
         uploadedImageUrl: null,
         uploadedVideoUrl: null,
         analysisResult: null,
+        capturedLiveFrameResult: liveDetections.detections,
         recordingDurationMs: null,
         recordingId: null,
         cameraPosition: position,
@@ -230,6 +231,27 @@ export default function CapturePrecise() {
         performanceProfile={androidFrameProcessorActive ? "low" : "quality"}
         cameraProps={viewfinderCameraProps}
       >
+        <View
+          className="absolute inset-0"
+          pointerEvents="none"
+          onLayout={(e) =>
+            setStageSize({
+              width: e.nativeEvent.layout.width,
+              height: e.nativeEvent.layout.height,
+            })
+          }
+        >
+          {stageSize && cameraActive && !busy && liveDetections.detections ? (
+            <DetectionOverlay
+              frameResult={liveDetections.detections}
+              frameWidth={liveDetections.detections.frameWidth ?? 1920}
+              frameHeight={liveDetections.detections.frameHeight ?? 1080}
+              stageWidth={stageSize.width}
+              stageHeight={stageSize.height}
+              varietyName={activeVariety?.name ?? null}
+            />
+          ) : null}
+        </View>
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel={`${t("inspections:capture.precise.pillLabel")} · ${t("inspections:capture.shutter")}`}
@@ -241,26 +263,7 @@ export default function CapturePrecise() {
 
           {/* Corner brackets + "Hold steady" guidance. Phase 5 hooks the
               calibrator's distance reading into the live label below. */}
-          <View
-            className="flex-1 items-center justify-center"
-            pointerEvents="none"
-            onLayout={(e) =>
-              setStageSize({
-                width: e.nativeEvent.layout.width,
-                height: e.nativeEvent.layout.height,
-              })
-            }
-          >
-            {stageSize && cameraActive && !busy && liveDetections.detections ? (
-              <DetectionOverlay
-                frameResult={liveDetections.detections}
-                frameWidth={liveDetections.detections.frameWidth ?? 1920}
-                frameHeight={liveDetections.detections.frameHeight ?? 1080}
-                stageWidth={stageSize.width}
-                stageHeight={stageSize.height}
-                varietyName={activeVariety?.name ?? null}
-              />
-            ) : null}
+          <View className="flex-1 items-center justify-center" pointerEvents="none">
             <View className="absolute inset-0 m-2xl">
               <View className="absolute top-0 left-0 h-6 w-6 rounded-tl-md border-t-2 border-l-2 border-white/55" />
               <View className="absolute top-0 right-0 h-6 w-6 rounded-tr-md border-t-2 border-r-2 border-white/55" />

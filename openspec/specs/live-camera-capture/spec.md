@@ -19,7 +19,7 @@ The mobile app SHALL render a fullscreen live camera preview during the capture 
 - **THEN** an empty-state with "Camera permission required" + a button to open OS Settings is shown instead of the preview
 
 ### Requirement: Live mode capture
-The mobile app SHALL provide a "Live" capture mode that runs YOLOv11n inference on each frame at ≥ 5 fps and renders detection rings over the preview in real time.
+The mobile app SHALL provide a "Live" capture mode that runs YOLO inference on sampled camera frames at ≥ 5 fps and renders detection rings over the preview in real time.
 
 #### Scenario: Live detections animate over the preview
 - **GIVEN** the user has selected variety + batch and is in live mode
@@ -158,6 +158,32 @@ The detection overlay SHALL animate bounding-box transitions between successive 
 - **THEN** the bounding box fades out over ~160 ms
 - **AND** the fades do not stall the JS thread or the camera preview
 
+### Requirement: Live inference sampling is decoupled from preview FPS
+The mobile app SHALL keep camera preview delivery smooth while sampling only eligible frames for YOLO inference according to the live inference `targetFps` hyperparameter.
+
+#### Scenario: iOS preview stays smooth while inference samples every other 30 fps frame by default
+- **GIVEN** the iOS camera preview is configured at 30 fps
+- **AND** live inference `targetFps` is left at the default 15
+- **WHEN** live detection is enabled
+- **THEN** the Core ML frame processor uses `runAtTargetFps(15)` for model work
+- **AND** camera preview delivery remains configured independently at 30 fps
+- **AND** the overlay interpolates successive detection results so motion reads smoothly between sampled inference frames
+
+#### Scenario: Android keeps its native-plugin safety cap
+- **GIVEN** the Android low-pressure camera profile is active for live YOLO
+- **AND** live inference `targetFps` is left at the default 15
+- **WHEN** live detection is enabled
+- **THEN** the native TFLite frame processor requests an effective inference rate of `min(targetFps, 5)`
+- **AND** preview delivery remains governed by the camera profile rather than by model inference elapsed time
+- **AND** the app logs requested and effective inference FPS for QA
+
+#### Scenario: Shutter fallback uses the most recent sampled detection result
+- **GIVEN** live detection is sampling fewer frames than the preview receives
+- **WHEN** the user taps shutter
+- **THEN** the capture session freezes the most recent live detection result available at shutter time
+- **AND** if post-capture single-shot analysis returns zero seeds, the processing flow may use that frozen sampled result as the live-frame fallback
+- **AND** the fallback preserves frame dimensions and orientation metadata needed for correct overlay projection
+
 ### Requirement: Native camera delivery load is constrained for frame processors
 The Camera component SHALL constrain its native delivery rate via Vision Camera's `format` + `fps` props so the underlying `ImageAnalysis` buffer pool does not overflow on devices that default to high-rate capture.
 
@@ -211,12 +237,12 @@ under sustained detections.
   1.2 MB rather than about 4.9 MB
 
 #### Scenario: Legacy hyperparams migrate to safer Android live defaults
-- **GIVEN** a device has hyperparams persisted from the v1 store where live
+- **GIVEN** a device has hyperparams persisted from an older store where live
   `targetFps` defaulted to 30
 - **WHEN** hyperparams hydrate after upgrade
-- **THEN** the app writes the v2 store
-- **AND** missing or 30+ legacy `targetFps` values migrate to 15
-- **AND** explicit lower tuning values such as 5, 10, or 15 are preserved
+- **THEN** the app writes the v5 store
+- **AND** missing or old-default `targetFps` values of 30 migrate to 15
+- **AND** explicit tuning values such as 5, 10, 15, or 60 are preserved
 
 ### Requirement: Android TFLite avoids camera-pipeline delegate contention
 Android TFLite inference SHALL default to the CPU delegate while the live camera
@@ -283,14 +309,14 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 - **AND** it writes RGB values directly into the input tensor without allocating
   per-pixel arrays
 
-#### Scenario: Android live default increases after native migration
-- **GIVEN** a device has hyperparams persisted from the v2 store where live
-  `targetFps` defaulted to 15
+#### Scenario: Android live default remains sampled after native migration
+- **GIVEN** a device has hyperparams persisted from a store where live
+  `targetFps` defaulted to 30
 - **WHEN** hyperparams hydrate after the native Android migration
-- **THEN** the app writes the v3 store
-- **AND** missing or old-default `targetFps` values of 15 or higher migrate to
-  the new 30 fps live inference target
-- **AND** explicit lower tuning values such as 5 or 10 are preserved
+- **THEN** the app writes the v5 store
+- **AND** missing or old-default `targetFps` values of 30 migrate to the
+  sampled 15 fps live inference target
+- **AND** explicit tuning values such as 5, 10, or 15 are preserved
 
 ### Requirement: Capture-time media optimization before upload
 Saved photos and videos SHALL be downscaled and re-encoded before upload to Supabase Storage so field captures stay within mobile-data budgets without losing seed-grading detail.

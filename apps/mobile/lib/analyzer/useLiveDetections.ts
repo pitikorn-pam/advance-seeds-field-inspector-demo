@@ -214,6 +214,13 @@ function useLiveDetectionsCoreML(options: Options): State {
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
   const targetFps = hp.targetFps;
+  useEffect(() => {
+    console.info(
+      "[live-detections coreml] inferenceFps requested=%d effective=%d previewFps=30",
+      targetFps,
+      targetFps,
+    );
+  }, [targetFps]);
   const preprocessProfile = useMemo(
     () => resolvePreprocessProfile(hp.preprocessProfile, activeModel?.metadata ?? null),
     [hp.preprocessProfile, activeModel],
@@ -308,6 +315,7 @@ function useLiveDetectionsCoreML(options: Options): State {
             frameTimestampMs,
             frameWidth,
             frameHeight,
+            frameOrientation: orientation,
             analyzerId: "coreml-yolo-live",
           });
         },
@@ -412,7 +420,16 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   // The current Android CPU/native YOLO11n path is too slow for every camera
   // frame. Keep inference intentionally sparse; runAsync below lets preview
   // delivery continue while the latest eligible frame is analyzed.
-  const targetFps = Math.min(hp.targetFps, 5);
+  const requestedTargetFps = hp.targetFps;
+  const targetFps = Math.min(requestedTargetFps, 5);
+  useEffect(() => {
+    console.info(
+      "[live-detections tflite] inferenceFps requested=%d effective=%d previewProfile=%s",
+      requestedTargetFps,
+      targetFps,
+      Platform.OS === "android" ? "android-low-pressure" : "default",
+    );
+  }, [requestedTargetFps, targetFps]);
   const roiCropNorm = useMemo(() => roiBboxSquareNorm(roi ?? null), [roi]);
   const preprocessProfile = useMemo(
     () => resolvePreprocessProfile(hp.preprocessProfile, activeModel?.metadata ?? null),

@@ -19,3 +19,9 @@ test("iOS live fallback keeps bundled model filters in bundled class space", () 
   assert.match(liveSource, /setActiveModel\(source\.modelPath \? active : null\)/);
   assert.doesNotMatch(liveSource, /void readActiveModel\(\)\.then\(\(rec\) => \{\s*if \(!cancelled\) setActiveModel\(rec\);/);
 });
+
+test("YOLO26 segmentation compatibility accepts non-nano variants", () => {
+  assert.doesNotMatch(source, /yolo26\[ns\]-seg/);
+  assert.match(source, /\^yolo26\[a-z0-9\]\+-seg\$/);
+  assert.match(source, /yolo26m-seg/);
+});

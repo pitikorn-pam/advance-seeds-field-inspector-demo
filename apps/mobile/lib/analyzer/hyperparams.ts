@@ -4,7 +4,8 @@ import { useSyncExternalStore } from "react";
 // User-tunable inference hyperparameters. Persisted to AsyncStorage so
 // changes survive a JS reload. Surfaced from More → Reference →
 // Hyperparameters for QA / threshold tuning while we work with a
-// generic COCO model.
+// generic COCO model. `targetFps` controls sampled inference cadence, not the
+// native camera preview frame rate.
 //
 // Reads are synchronous (defaults until disk hydrates, then merged) so
 // analyzers can grab the current value at the start of every `analyze()`
@@ -18,7 +19,7 @@ export interface HyperParams {
   scoreThreshold: number;
   /** IoU threshold for our JS-side NMS (raw YOLO11/8 head only). */
   iouThreshold: number;
-  /** Live worklet inference rate (iOS Core ML + Android TFLite/GPU). */
+  /** Live worklet inference sampling rate (preview FPS is configured separately). */
   targetFps: number;
   /** QA override for model input preprocessing. "model" defers to active model metadata. */
   preprocessProfile: "model" | "raw_rgb" | "morph_fused_v1";
@@ -31,12 +32,13 @@ export const DEFAULT_HYPERPARAMS: HyperParams = {
   // training run, then tune back up once recall stabilises.
   scoreThreshold: 0.25,
   iouThreshold: 0.65,
-  targetFps: 30,
+  targetFps: 15,
   preprocessProfile: "model",
 };
 
-const STORAGE_KEY = "advance-seeds.hyperparams.v4";
+const STORAGE_KEY = "advance-seeds.hyperparams.v5";
 const LEGACY_STORAGE_KEYS = [
+  "advance-seeds.hyperparams.v4",
   "advance-seeds.hyperparams.v3",
   "advance-seeds.hyperparams.v2",
   "advance-seeds.hyperparams.v1",
@@ -144,11 +146,10 @@ function clamp(p: HyperParams): HyperParams {
 
 function migrateLegacyHyperParams(parsed: Partial<HyperParams>): HyperParams {
   const migrated = { ...DEFAULT_HYPERPARAMS, ...parsed };
-  // v2 shipped with a conservative 15 fps live default while Android pixels
-  // still crossed into JS. The Android detector is now native, so missing or
-  // old default values migrate to the new 30 fps live target. Explicitly tuned
-  // low values below 15 are preserved.
-  if (parsed.targetFps === undefined || parsed.targetFps >= 15) {
+  // v4 shipped with a 30 fps inference default, which made the model consume
+  // every iOS preview frame. v5 keeps preview smooth but samples inference at
+  // 15 fps by default. Preserve explicit tuning values except the old default.
+  if (parsed.targetFps === undefined || parsed.targetFps === 30) {
     migrated.targetFps = DEFAULT_HYPERPARAMS.targetFps;
   }
   return clamp(migrated);

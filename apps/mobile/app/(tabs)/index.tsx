@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from "react";
-import { ScrollView, View, Text, Pressable, RefreshControl } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { ScrollView, View, Text, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -12,12 +12,22 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
+import { Calendar, X } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
+import { useTheme } from "@/lib/theme";
 import { Pill } from "@/components/ui/Pill";
+import { Button } from "@/components/ui/Button";
+import { Segmented } from "@/components/ui/Segmented";
 import { ErrorState } from "@/components/ui/States";
 import { Skeleton, SkeletonList } from "@/components/ui/Skeleton";
+import {
+  DateRangePicker,
+  type DateRange,
+  rangeLabel,
+  toDateKey,
+} from "@/components/ui/DateRangePicker";
 import { HeroCard } from "@/components/home/HeroCard";
 import { RecentInspections } from "@/components/home/RecentInspections";
 import { SyncBanner } from "@/components/home/SyncBanner";
@@ -25,26 +35,29 @@ import { ModelUpdateBanner } from "@/components/home/ModelUpdateBanner";
 import { ModelUpdateNotifier } from "@/components/home/ModelUpdateNotifier";
 import { NotificationBell } from "@/components/home/NotificationBell";
 
+type HomeRangePreset = "today" | "last7" | "last30" | "custom";
+
 /**
- * Home dashboard. Mirrors the prototype's home layout (prototype-fidelity-pass
- * D4): greeting + brand-deep hero card with today's KPIs + sparkline + big
- * primary CTA + recent inspections list + sync banner.
+ * Home dashboard. Summarizes current field operations while the Inspect tab
+ * and edge swipe own capture entry.
  *
- * Today's inspections are filtered client-side from the same `useInspections`
- * query the History screen uses — RLS guarantees only the user's own rows.
+ * Dashboard and recent rows are derived client-side from the same
+ * `useInspections` query the History screen uses — RLS guarantees only
+ * the user's own rows.
  * Recent shows up to 3 most recent regardless of date so the section never
  * empties immediately after onboarding.
  *
- * The "+ New inspection" CTA routes to /capture/setup, matching the Inspect
- * tab destination — two access paths to the same flow as documented in the
- * mobile-navigation spec.
  */
 export default function HomeScreen() {
-  const { t, i18n } = useTranslation(["common", "home", "inspections"]);
+  const { t, i18n } = useTranslation(["common", "home", "history", "inspections"]);
   const { profile } = useAuth();
+  const { resolved } = useTheme();
   const router = useRouter();
   const session = useCaptureSession();
   const { data, isLoading, isError, refetch, isRefetching } = useInspections();
+  const [rangePreset, setRangePreset] = useState<HomeRangePreset>("today");
+  const [dateRange, setDateRange] = useState<DateRange>(() => presetToRange("today"));
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const firstName = (profile?.full_name ?? profile?.email ?? "").split(/\s+|@/)[0];
 
@@ -58,16 +71,36 @@ export default function HomeScreen() {
     [i18n.language],
   );
 
-  // Filter to today's inspections for the hero card. recent = top-3
-  // overall (most recent), so the recent list still renders something
-  // sensible immediately after a new install when "today" is empty.
-  const { todayInspections, recent } = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const today = (data ?? []).filter((row) => new Date(row.captured_at) >= startOfToday);
+  // Recent = top-3 overall (most recent), so the list still renders something
+  // sensible even when today's dashboard is empty.
+  const recent = useMemo(() => {
     const top3 = (data ?? []).slice(0, 3);
-    return { todayInspections: today, recent: top3 };
+    return top3;
   }, [data]);
+  const dashboardInspections = useMemo(
+    () => filterByDateRange(data ?? [], dateRange),
+    [data, dateRange],
+  );
+  const dashboardDateLabel = rangeLabel(dateRange, i18n.language, t);
+  const hasCustomDateRange = rangePreset === "custom" && (!!dateRange.start || !!dateRange.end);
+  const iconColor = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
+  const rangeOptions = useMemo(
+    () =>
+      (["today", "last7", "last30", "custom"] as HomeRangePreset[]).map((value) => ({
+        value,
+        label: t(`home:datePresets.${value}`),
+      })),
+    [t],
+  );
+
+  const setPreset = (next: HomeRangePreset) => {
+    setRangePreset(next);
+    if (next === "custom") {
+      setDatePickerOpen(true);
+      return;
+    }
+    setDateRange(presetToRange(next));
+  };
 
   // Edge-drag shortcut: pull the home screen rightward from the left
   // edge to reveal "New inspection". The gesture is mounted on a narrow
@@ -196,7 +229,40 @@ export default function HomeScreen() {
             {isLoading ? (
               <Skeleton style={{ height: 168 }} />
             ) : (
-              <HeroCard todayInspections={todayInspections} />
+              <>
+                <View className="gap-sm">
+                  <Segmented<HomeRangePreset>
+                    value={rangePreset}
+                    onChange={setPreset}
+                    options={rangeOptions}
+                    variant="tag"
+                    scrollable
+                  />
+                  {rangePreset === "custom" ? (
+                    <View className="flex-row items-center gap-xs">
+                      <Button
+                        className="flex-1"
+                        size="sm"
+                        variant="outline"
+                        label={dashboardDateLabel}
+                        renderLeadingIcon={() => <Calendar color="#0F6E56" size={14} />}
+                        onPress={() => setDatePickerOpen(true)}
+                      />
+                      {hasCustomDateRange ? (
+                        <Button
+                          size="icon"
+                          variant="tinted"
+                          accessibilityLabel={t("common:actions.clear")}
+                          onPress={() => setDateRange({ start: null, end: null })}
+                        >
+                          <X color={iconColor} size={16} />
+                        </Button>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+                <HeroCard inspections={dashboardInspections} dateLabel={dashboardDateLabel} />
+              </>
             )}
 
             {isLoading ? (
@@ -204,17 +270,11 @@ export default function HomeScreen() {
             ) : recent.length > 0 ? (
               <RecentInspections rows={recent} />
             ) : (
-              <Pressable
-                onPress={() => {
-                  session.reset();
-                  router.push("/capture/setup");
-                }}
-                className="rounded-2xl border border-line-tertiary bg-bg-primary px-lg py-2xl items-center"
-              >
+              <View className="rounded-2xl border border-line-tertiary bg-bg-primary px-lg py-2xl items-center">
                 <Text className="text-body text-fg-secondary text-center">
-                  {t("inspections:list.empty")}
+                  {t("home:recentEmpty")}
                 </Text>
-              </Pressable>
+              </View>
             )}
 
             <ModelUpdateBanner />
@@ -238,6 +298,37 @@ export default function HomeScreen() {
           }}
         />
       </GestureDetector>
+      <DateRangePicker
+        visible={datePickerOpen}
+        value={dateRange}
+        locale={i18n.language}
+        onClose={() => setDatePickerOpen(false)}
+        onClear={() => setDateRange({ start: null, end: null })}
+        onChange={setDateRange}
+      />
     </View>
   );
+}
+
+function presetToRange(preset: HomeRangePreset): DateRange {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (preset === "today") {
+    return { start: toDateKey(today), end: toDateKey(today) };
+  }
+  if (preset === "last7" || preset === "last30") {
+    const start = new Date(today);
+    start.setDate(today.getDate() - (preset === "last7" ? 6 : 29));
+    return { start: toDateKey(start), end: toDateKey(today) };
+  }
+  return { start: null, end: null };
+}
+
+function filterByDateRange<T extends { captured_at: string }>(rows: T[], range: DateRange): T[] {
+  if (!range.start) return rows;
+  const end = range.end ?? range.start;
+  return rows.filter((row) => {
+    const key = toDateKey(new Date(row.captured_at));
+    return key >= range.start! && key <= end;
+  });
 }
