@@ -169,14 +169,18 @@ export default function CaptureSetup() {
             <Text className="text-title text-fg-primary font-medium">
               {modelInstallGate.installing
                 ? t("inspections:capture.modelInstallBlockedTitle")
-                : t("inspections:capture.modelRequiredTitle")}
+                : modelInstallGate.modelStatus === "inactive"
+                  ? t("inspections:capture.modelInactiveTitle")
+                  : t("inspections:capture.modelRequiredTitle")}
             </Text>
             <Text className="text-body text-fg-secondary">
               {modelInstallGate.installing
                 ? t("inspections:capture.modelInstallBlockedBody", {
                     name: modelInstallGate.install.displayName ?? t("more:models.defaultPill"),
                   })
-                : t("inspections:capture.modelRequiredBody")}
+                : modelInstallGate.modelStatus === "inactive"
+                  ? t("inspections:capture.modelInactiveBody")
+                  : t("inspections:capture.modelRequiredBody")}
             </Text>
           </Card>
         ) : null}

@@ -23,12 +23,16 @@ export default function InspectTab() {
   if (modelInstallGate.blocked) {
     const title = modelInstallGate.installing
       ? t("inspections:capture.modelInstallBlockedTitle")
-      : t("inspections:capture.modelRequiredTitle");
+      : modelInstallGate.modelStatus === "inactive"
+        ? t("inspections:capture.modelInactiveTitle")
+        : t("inspections:capture.modelRequiredTitle");
     const body = modelInstallGate.installing
       ? t("inspections:capture.modelInstallBlockedBody", {
           name: modelInstallGate.install.displayName ?? t("more:models.defaultPill"),
         })
-      : t("inspections:capture.modelRequiredBody");
+      : modelInstallGate.modelStatus === "inactive"
+        ? t("inspections:capture.modelInactiveBody")
+        : t("inspections:capture.modelRequiredBody");
     return (
       <SafeAreaView className="flex-1 bg-bg-secondary px-xl py-2xl" edges={["top", "bottom"]}>
         <View className="flex-1 items-center justify-center gap-md">

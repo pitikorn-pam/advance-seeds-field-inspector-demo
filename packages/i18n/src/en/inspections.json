@@ -157,6 +157,8 @@
     "bindRequiredHint": "Not bound to any class in the active model. Tap Continue to bind.",
     "modelInstallBlockedTitle": "Model setup in progress",
     "modelInstallBlockedBody": "{{name}} is still downloading and activating in the background. Please wait until model setup is complete before starting an inspection.",
+    "modelInactiveTitle": "Activate installed model",
+    "modelInactiveBody": "A model is installed on this device but is not active yet. Open Models and tap Activate before starting an inspection.",
     "modelRequiredTitle": "Model setup required",
     "modelRequiredBody": "Live inspection needs an installed and active model for this device. Please wait for automatic setup to finish, or install the default model from Models.",
     "location": {

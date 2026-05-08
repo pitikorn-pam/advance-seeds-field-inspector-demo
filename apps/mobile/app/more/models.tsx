@@ -145,9 +145,11 @@ export default function ModelRegistryScreen() {
       setError(null);
       setProgressById((p) => ({ ...p, [candidate.id]: { phase: "preparing" } }));
       try {
-        await installCandidate(candidate, (progress) => {
+        const record = await installCandidate(candidate, (progress) => {
           setProgressById((p) => ({ ...p, [candidate.id]: progress }));
         });
+        await activateInstalledModel(record);
+        resetSharedTfliteModel();
         await reloadInstalled();
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
