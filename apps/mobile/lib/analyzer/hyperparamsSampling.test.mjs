@@ -37,3 +37,10 @@ test("live detectors log requested and effective inference fps for QA", () => {
   assert.match(liveSource, /\[live-detections coreml\] inferenceFps requested=%d effective=%d/);
   assert.match(liveSource, /\[live-detections tflite\] inferenceFps requested=%d effective=%d/);
 });
+
+test("iOS live detector keeps the worklet enabled ref synchronized", () => {
+  assert.match(
+    liveSource,
+    /function useLiveDetectionsCoreML[\s\S]*enabledRef\.current = enabled;[\s\S]*if \(!enabled\) setDetections\(null\);[\s\S]*\}, \[enabled\]\);/,
+  );
+});

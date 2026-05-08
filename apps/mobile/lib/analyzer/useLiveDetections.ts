@@ -159,7 +159,7 @@ function useLiveDetectionsCoreML(options: Options): State {
   useEffect(() => {
     enabledRef.current = enabled;
     if (!enabled) setDetections(null);
-  }, []);
+  }, [enabled]);
 
   // Initialised once. Vision Camera proxies the native plugin lookup
   // through JSI; the resulting object is worklet-shareable.
