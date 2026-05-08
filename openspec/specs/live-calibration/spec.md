@@ -45,7 +45,8 @@ On iOS devices with a LiDAR sensor, the mobile app SHALL provide a `LidarCalibra
 - **GIVEN** the user is in capture on an iOS device with LiDAR
 - **WHEN** ARKit scene depth is unavailable or confidence is below 0.6
 - **THEN** the shutter remains gated by automatic calibration
-- **AND** the capture screen falls back to ArUco if LiDAR cannot start
+- **AND** the capture screen falls back to ArUco if LiDAR cannot start or no reading arrives within 1.6 seconds
+- **AND** the initial depth-calibration overlay does not permanently block the ArUco frame processor after that fallback window
 
 ### Requirement: ArUco marker calibration cross-platform
 The mobile app SHALL provide an `ArucoCalibrator` that detects a 5 cm × 5 cm ArUco marker (DICT_4X4_50, marker ID 0) in camera frames and computes `pxPerMm` from its pixel size.
@@ -67,6 +68,13 @@ The mobile app SHALL provide an `ArucoCalibrator` that detects a 5 cm × 5 cm Ar
 - **WHEN** the user repeatedly enters and exits the camera or keeps the marker in frame for an extended scan
 - **THEN** the OpenCV detector reuses native detector state and bounded-size frame mats
 - **AND** the app does not crash with native OpenCV memory exhaustion
+
+#### Scenario: Android live ArUco native errors fail closed
+- **GIVEN** Android live or precise capture is observing camera frames for ArUco calibration
+- **WHEN** OpenCV loading, frame conversion, or marker detection throws inside the native frame-processor callback
+- **THEN** the native plugin logs the frame-processing error
+- **AND** returns `null` for that frame
+- **AND** the app keeps the camera route open instead of terminating the release build
 
 #### Scenario: User shares the ArUco marker
 - **GIVEN** the user is viewing the Calibration menu

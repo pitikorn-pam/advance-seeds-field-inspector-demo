@@ -12,11 +12,6 @@ android {
     versionCode 1
     versionName '0.1.0'
   }
-  sourceSets {
-    main {
-      assets.srcDirs += ['../../../assets/models']
-    }
-  }
 }
 
 dependencies {

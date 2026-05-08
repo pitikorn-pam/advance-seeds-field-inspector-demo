@@ -21,8 +21,4 @@ Pod::Spec.new do |s|
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.source_files = "**/*.{h,m,mm,swift}"
   s.public_header_files = "**/*.h"
-  # Compiled Core ML model. Bundled directly into the host app's resources
-  # so `Bundle.main.url(forResource: "yolo26n", withExtension: "mlmodelc")`
-  # resolves at runtime.
-  s.resources = ["yolo26n.mlmodelc"]
 end

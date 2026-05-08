@@ -10,10 +10,28 @@
 
 ## What's running today
 
-| Surface              | URL / How to run                                                             | Notes                                                                                |
-| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Mobile app**       | `npx expo run:ios --device` (one-time) → JS reload over Metro for daily work | iOS + Android via custom dev-client APK / IPA. SDK 54, mocked YOLOv11n, manual calib |
-| **Supabase backend** | `gqsxiohxokgwwugeoxmy.supabase.co` (cloud) + local Docker                    | 7 tables, RLS, 7 seeded inspections, 2 users, recordings + inspection metadata       |
+| Surface              | URL / How to run                                                             | Notes                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Mobile app**       | `npx expo run:ios --device` (one-time) → JS reload over Metro for daily work | iOS + Android via custom dev-client APK / IPA. SDK 54, external YOLO26 model install, LiDAR/ArUco calibration |
+| **Supabase backend** | `gqsxiohxokgwwugeoxmy.supabase.co` (cloud) + local Docker                    | 7 tables, RLS, 7 seeded inspections, 2 users, recordings + inspection metadata                                |
+
+### Release build notes
+
+- The base mobile app no longer bundles app-owned seed detector binaries. Android
+  `.tflite` and iOS `.mlmodelc` artifacts must be installed and activated from
+  More -> Model registry before live or post-capture analysis can run.
+- Firebase-distributed release builds should show the model-required state when
+  no active installed model is verified. They should not silently fall back to
+  bundled weights.
+- Android live ArUco/TFLite native frame-processor failures are expected to log
+  and return an empty frame result instead of closing the app.
+- iOS capture falls back from stalled LiDAR calibration to live ArUco after the
+  short LiDAR fallback window, so presenting the ArUco card should unlock
+  analysis even when scene depth does not emit.
+- iOS Firebase Ad Hoc installs require each tester device UDID in the
+  provisioning profile. As of the 2026-05-08 smoke attempt, EAS listed only
+  `MacBook Pro` for team `CH382U22B6`; the connected iPhone Air rejected the IPA
+  with `0xe8008012` until it is registered via `eas device:create` and rebuilt.
 
 ### Demo accounts
 

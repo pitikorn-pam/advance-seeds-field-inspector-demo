@@ -132,7 +132,8 @@ export async function verifyInstalledArtifact(record: InstalledModelRecord): Pro
  * verified once at install in the user's private app sandbox; an
  * unchanged file is overwhelmingly likely to still be intact. If iOS
  * trims the documents directory between launches the `info.exists`
- * branch catches it and the analyzer falls back to bundled weights.
+ * branch catches it and inspection stays blocked until the model is
+ * reinstalled.
  */
 export async function quickVerifyArtifact(record: InstalledModelRecord): Promise<boolean> {
   const info = await FileSystem.getInfoAsync(record.artifactUri);

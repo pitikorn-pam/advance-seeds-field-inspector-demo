@@ -1,12 +1,11 @@
-// Default produce demo classes used when the runtime model is generic
-// COCO-trained yolo*.tflite. These ride along with the real `varieties`
-// table (column `coco_class_id`) — the table is the source of truth, this
-// list is only a documented fallback for offline / first-run scenarios.
+// Default produce demo classes used when an installed runtime model exposes
+// COCO-compatible ids. These ride along with the real `varieties` table
+// (column `coco_class_id`) — the table is the source of truth.
 
 export interface CaptureClass {
   /** Display name shown in dropdowns + KPI strip. */
   name: string;
-  /** Index in the COCO 80-class label set (matches the bundled tflite). */
+  /** Index in the COCO 80-class label set. */
   cocoClassId: number;
 }
 

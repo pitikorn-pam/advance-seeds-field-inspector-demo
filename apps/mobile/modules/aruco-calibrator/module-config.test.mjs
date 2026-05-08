@@ -33,3 +33,17 @@ test("ArUco calibrator Expo module is registered for Android", () => {
     true,
   );
 });
+
+test("Android ArUco frame processor does not crash release camera on native errors", () => {
+  const source = readFileSync(
+    join(
+      root,
+      "android/src/main/java/com/advanceseeds/aruco/AdvanceSeedsArucoFrameProcessorPlugin.kt",
+    ),
+    "utf8",
+  );
+
+  assert.match(source, /catch \(t: Throwable\)/);
+  assert.match(source, /Log\.w\(tag, "live ArUco frame processing failed", t\)/);
+  assert.match(source, /return null/);
+});

@@ -42,8 +42,19 @@ Do not add service-role or R2 credentials to the mobile app.
 5. Install verifies SHA-256 and metadata compatibility.
 6. Android smoke-loads TFLite; iOS compiles and smoke-loads Core ML.
 7. Activation writes `active-model.json`.
-8. Analyzer startup and live inference prefer the active installed model and
-   fall back to bundled weights when the active artifact is invalid.
+8. Analyzer startup and live inference require the active installed model. If
+   the artifact is missing or invalid, capture shows the model-required state
+   and analysis does not fall back to bundled weights.
+
+## Packaging Rule
+
+The base mobile app must not ship app-owned detector binaries. Keep
+`assets/models/*.tflite`, compiled `.mlmodelc` outputs, podspec resource
+entries, Gradle resource source sets, and Metro `.tflite` asset rules out of
+the release package. Models are installed later through the registry flow above.
+
+Android APK inspection may still show third-party dependency models, for
+example MLKit barcode `.tflite` assets. Those are not the seed detector.
 
 ## Current Smoke Result
 

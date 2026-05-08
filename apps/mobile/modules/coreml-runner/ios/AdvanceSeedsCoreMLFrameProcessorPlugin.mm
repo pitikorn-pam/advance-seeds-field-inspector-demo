@@ -5,7 +5,7 @@
 #import <VisionCamera/Frame.h>
 #import <VisionCamera/FrameProcessorPlugin.h>
 
-// CoreML Vision Camera frame-processor plugin. Runs the bundled YOLO26
+// CoreML Vision Camera frame-processor plugin. Runs the installed YOLO26
 // model on each camera frame entirely on the worklet thread — no JS
 // bridge round-trip per frame, no SharedArrayBuffer cloning. Returns the
 // largest output multiArray flattened to an NSArray of doubles + its
@@ -13,7 +13,7 @@
 // straight.
 //
 // Usage from a worklet:
-//   const result = __advanceSeedsRunCoreML(frame, { assetName: "yolo26n" });
+//   const result = __advanceSeedsRunCoreML(frame, { modelPath });
 // The first call lazy-loads the .mlmodelc; subsequent calls reuse the
 // cached MLModel.
 
@@ -46,9 +46,6 @@ static MLModel *loadModel(NSString *assetName, NSString *modelPath) {
     return cached;
   }
   NSURL *url = fileURLFromURI(modelPath);
-  if (url == nil) {
-    url = [[NSBundle mainBundle] URLForResource:assetName withExtension:@"mlmodelc"];
-  }
   if (url == nil) {
     return nil;
   }
@@ -161,6 +158,9 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
     assetName = @"yolo26n";
   }
   NSString *modelPath = arguments[@"modelPath"];
+  if (modelPath == nil || modelPath.length == 0) {
+    return nil;
+  }
   NSString *modelKey = (modelPath != nil && modelPath.length > 0) ? modelPath : assetName;
   CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   if (imageBuffer == nil) {

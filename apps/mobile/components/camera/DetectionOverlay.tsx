@@ -93,7 +93,7 @@ export function DetectionOverlay({
       //  1. Operator's variety selection — what they chose, what they expect.
       //  2. Active model's class_names[id] — surfaces "item"/"seed" etc when
       //     no variety is bound, useful for diagnosing model behaviour.
-      //  3. COCO id → demo class name (Banana/Apple/...) for the bundled fallback.
+      //  3. COCO id → demo class name (Banana/Apple/...) for compatible models.
       //  4. Generic "Item" as last resort.
       const modelClassName =
         modelClassNames && s.class_id !== undefined && s.class_id !== null

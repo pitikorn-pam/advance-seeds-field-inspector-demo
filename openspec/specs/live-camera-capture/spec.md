@@ -258,13 +258,13 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 - **WHEN** the frame processor receives a YUV camera frame
 - **THEN** the native plugin crops the active square ROI from the `ImageProxy`
 - **AND** it samples/resizes directly into the 640x640 RGB TFLite input tensor
-- **AND** it runs the bundled `yolo11n-seeds.tflite` model in native code
+- **AND** it runs the verified active installed TFLite model file in native code
 - **AND** only the model output tensor values and shape are returned to JS
 - **AND** no `vision-camera-resize-plugin` pixel buffer is copied across the
   worklet-to-JS boundary for the live Android path
 
 #### Scenario: Android native live detector uses stable CPU fallback first
-- **GIVEN** the native Android live detector loads the bundled TFLite model
+- **GIVEN** the native Android live detector loads the active installed TFLite model
 - **WHEN** inference starts on the Z Flip 7 FE class of hardware
 - **THEN** the native plugin benchmarks CPU/XNNPACK against the Android GPU
   delegate when the device reports GPU compatibility
@@ -272,6 +272,13 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 - **AND** it falls back to CPU if GPU is unsupported, benchmark setup fails, or
   a later GPU inference throws
 - **AND** logs include native plugin timing with the selected delegate name
+
+#### Scenario: Android native live detector errors do not close release builds
+- **GIVEN** Android live detections are enabled from a Firebase-distributed release build
+- **WHEN** model-file loading, tensor preparation, or native inference throws inside the frame processor
+- **THEN** the native plugin logs the failure
+- **AND** returns `null` for that frame
+- **AND** the camera preview remains mounted instead of terminating the app process
 
 #### Scenario: Android native live detector does not block preview frames
 - **GIVEN** Android live YOLO owns the frame processor stream

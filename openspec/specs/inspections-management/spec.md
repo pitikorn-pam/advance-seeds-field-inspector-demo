@@ -69,11 +69,17 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
 - **WHEN** photo analysis runs
 - **THEN** only seed detections whose bbox centroid is inside the ROI contribute to saved per-seed rows and summary values
 
-#### Scenario: TFLite analyzer is preferred when the model loads
-- **GIVEN** `apps/mobile/assets/models/yolo11n-seeds.tflite` is bundled
-- **WHEN** the app starts
-- **THEN** `selectAnalyzer()` instantiates `TfliteSeedAnalyzer` and registers it with `AnalyzerProvider`
-- **AND** a single info log records the analyzer ID (e.g. "tflite-yolo11n")
+#### Scenario: Analyzer is selected from an active installed model
+- **GIVEN** the device has a verified active installed model artifact for its platform
+- **WHEN** analysis starts
+- **THEN** `selectAnalyzer()` instantiates the platform analyzer with that installed artifact
+- **AND** a single info log records the analyzer ID and active model metadata
+
+#### Scenario: Analyzer blocks when no active model is installed
+- **GIVEN** the device has no verified active installed model artifact
+- **WHEN** live or post-capture analysis starts
+- **THEN** analyzer selection fails with a model-install-required error
+- **AND** the app does not use a bundled detector fallback
 
 #### Scenario: Android can activate a validated downloaded TFLite model
 - **GIVEN** a local file URL or local HTTP model index exposes an Android `.tflite` candidate
@@ -83,7 +89,7 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
 - **AND** activation is blocked unless SHA-256 and metadata compatibility
   checks pass and the model loads for a smoke inference
 - **AND** Android single-shot and live TFLite paths load the active installed
-  model file, falling back to the bundled model if no active model is valid
+  model file, blocking inspection if no active model is valid
 - **AND** the user can roll back to the previous active model
 
 #### Scenario: iOS can activate a validated downloaded Core ML package
@@ -93,7 +99,7 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
 - **THEN** the app downloads the package, verifies its SHA-256, extracts the
   `.mlpackage`, compiles it to `.mlmodelc`, and smoke-loads it with Core ML
 - **AND** iOS single-shot and live Core ML paths load the active installed
-  compiled model, falling back to the bundled model if no active model is valid
+  compiled model, blocking inspection if no active model is valid
 - **AND** the user can roll back to the previous active model
 
 #### Scenario: Mobile consumes dashboard model deployment services
@@ -108,10 +114,10 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
   testing fallback
 
 #### Scenario: CoreML analyzer is preferred on iPhone with Neural Engine
-- **GIVEN** the device is iPhone 12 Pro+ AND `yolo11n-seeds.mlpackage` is bundled
-- **WHEN** the app starts
+- **GIVEN** the device is iPhone 12 Pro+ and a verified active installed Core ML artifact exists
+- **WHEN** analysis starts
 - **THEN** `selectAnalyzer()` prefers `CoreMLSeedAnalyzer` over Tflite
-- **AND** the registered analyzer ID is "coreml-yolo11n"
+- **AND** the registered analyzer ID reflects the active Core ML YOLO runtime
 
 #### Scenario: Mock fallback when real analysis is unavailable
 - **GIVEN** the app cannot decode the captured image or the analyzer finds no usable seed-like blobs
@@ -227,10 +233,11 @@ Each inspection's `metadata.analyzer_model` SHALL capture which detector + thres
 - **WHEN** the inspection is saved
 - **THEN** `metadata.analyzer_model` contains `id` (`production-{version_id}-{platform}`), `display_name` (`0.3.2`), `source` (`production`), `model_name` (`yolo26n-seg`), `version` (`0.3.2`), `analyzer_runtime` (`coreml-yolo`), and the active `score_threshold` + `iou_threshold`
 
-#### Scenario: Inspection records bundled fallback when no registry model active
-- **GIVEN** no registry model is active and the analyzer runs the bundled CoreML weights
-- **WHEN** the inspection is saved
-- **THEN** `metadata.analyzer_model.source` is `bundled` and `model_name` / `version` are null
+#### Scenario: Inspection cannot be saved from model-backed analysis without active model metadata
+- **GIVEN** no registry model is active
+- **WHEN** the inspector attempts model-backed capture or post-capture analysis
+- **THEN** the app blocks the workflow before saving an inspection result
+- **AND** saved model-backed inspections always include `metadata.analyzer_model.source` from the active installed model
 
 #### Scenario: Result + Detail surfaces the snapshot
 - **GIVEN** an inspection with `analyzer_model` metadata

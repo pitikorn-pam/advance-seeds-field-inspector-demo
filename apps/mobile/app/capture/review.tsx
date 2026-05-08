@@ -56,7 +56,7 @@ function buildAnalyzerModelMetadata(
       ? "staging"
       : active.id.startsWith("production-")
         ? "production"
-        : "bundled";
+        : "production";
     return {
       id: active.id,
       display_name: active.displayName.replace(/\s+default\s*$/i, "").trim(),
@@ -69,15 +69,15 @@ function buildAnalyzerModelMetadata(
       preprocess_profile: resolvePreprocessProfile(hp.preprocessProfile, active.metadata),
     };
   }
-  // Fallback: bundled / classical / mock — no registry record. Map the
-  // analyzer's own id to a sensible source label.
+  // Fallback: classical / mock — no registry record. A TFLite/CoreML runtime
+  // without an active model should be blocked before capture.
   const source: AnalyzerModelMetadata["source"] = analyzerRuntime.startsWith("classical")
     ? "classical"
     : analyzerRuntime === "mock"
       ? "mock"
-      : "bundled";
+      : "production";
   return {
-    id: source === "bundled" ? `bundled:${analyzerRuntime}` : source,
+    id: source === "production" ? `installed:${analyzerRuntime}:missing-metadata` : source,
     display_name: analyzerRuntime,
     source,
     model_name: null,

@@ -9,8 +9,8 @@ import { TfliteSeedAnalyzer } from "./TfliteSeedAnalyzer";
 //   iOS:     CoreMLSeedAnalyzer  → TfliteSeedAnalyzer → ClassicalSeedAnalyzer → Mock.
 //   Android: TfliteSeedAnalyzer  → ClassicalSeedAnalyzer → Mock.
 //
-// The chain stays tolerant of a missing/invalid model file so a dev-client
-// build boots even if a model artifact hasn't been bundled yet.
+// The chain stays tolerant of a missing/invalid installed model so the app
+// boots cleanly while inspection remains gated by model readiness.
 export async function selectAnalyzer(): Promise<SeedAnalyzer> {
   if (Platform.OS === "ios") {
     try {

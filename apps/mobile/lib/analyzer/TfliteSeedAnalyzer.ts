@@ -30,11 +30,6 @@ import type { InstalledModelRecord } from "@/lib/models/types";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
 import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
 
-// Generic COCO yolo11n.tflite acts as a structural placeholder until a
-// seed-trained model is dropped at the same path. See assets/models/README.md.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const MODEL_SOURCE = require("../../assets/models/yolo11n-seeds.tflite");
-
 // "raw" head emits [1, 4+numClasses, anchors] (YOLO 8/11), "nms" head emits
 // [1, maxDet, 6] with NMS already baked in (YOLO 26 default export).
 export type TfliteOutputKind = "raw" | "nms" | "segmentation";
@@ -170,7 +165,7 @@ export function resetSharedTfliteModel(): void {
 
 async function getActiveTfliteSource(): Promise<{
   key: string;
-  source: number | { url: string };
+  source: { url: string };
   record: InstalledModelRecord | null;
 }> {
   const active = await readActiveModel();
@@ -181,7 +176,7 @@ async function getActiveTfliteSource(): Promise<{
       record: active,
     };
   }
-  return { key: "bundled:yolo11n-seeds.tflite", source: MODEL_SOURCE, record: null };
+  throw new Error("No installed active Android model is available.");
 }
 
 export class TfliteSeedAnalyzer implements SeedAnalyzer {

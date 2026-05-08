@@ -23,7 +23,6 @@ class AdvanceSeedsTfliteFrameProcessorPlugin : FrameProcessorPlugin() {
 
 private object AndroidTfliteRunner {
   private const val TAG = "AdvanceSeedsTFLite"
-  private const val DEFAULT_MODEL_ASSET = "yolo11n-seeds.tflite"
   private const val INPUT_SIZE = 640
   private const val CHANNELS = 3
   private const val FLOAT_BYTES = 4
@@ -36,67 +35,65 @@ private object AndroidTfliteRunner {
   @Volatile private var lastTimingLogAtMs = 0L
 
   fun run(frame: Frame, params: Map<String, Any>?): Map<String, Any>? {
-    val image = frame.imageProxy
-    val assetName = (params?.get("assetName") as? String)?.takeIf { it.isNotBlank() }
-      ?: DEFAULT_MODEL_ASSET
-    val modelPath = (params?.get("modelPath") as? String)?.takeIf { it.isNotBlank() }
-    val cropSize = numberParam(params, "cropSize", min(image.width, image.height).toDouble())
-      .toInt()
-      .coerceAtLeast(1)
-    val cropX = numberParam(params, "cropX", ((image.width - cropSize) / 2.0))
-      .toInt()
-      .coerceIn(0, max(0, image.width - cropSize))
-    val cropY = numberParam(params, "cropY", ((image.height - cropSize) / 2.0))
-      .toInt()
-      .coerceIn(0, max(0, image.height - cropSize))
-    val preprocessProfile = (params?.get("preprocessProfile") as? String)
-      ?.takeIf { it == "morph_fused_v1" }
-      ?: "raw_rgb"
+    try {
+      val image = frame.imageProxy
+      val modelPath = (params?.get("modelPath") as? String)?.takeIf { it.isNotBlank() }
+        ?: return null
+      val cropSize = numberParam(params, "cropSize", min(image.width, image.height).toDouble())
+        .toInt()
+        .coerceAtLeast(1)
+      val cropX = numberParam(params, "cropX", ((image.width - cropSize) / 2.0))
+        .toInt()
+        .coerceIn(0, max(0, image.width - cropSize))
+      val cropY = numberParam(params, "cropY", ((image.height - cropSize) / 2.0))
+        .toInt()
+        .coerceIn(0, max(0, image.height - cropSize))
+      val preprocessProfile = (params?.get("preprocessProfile") as? String)
+        ?.takeIf { it == "morph_fused_v1" }
+        ?: "raw_rgb"
 
-    val activeRunner = getRunner(assetName, modelPath)
-    val startedAtMs = System.currentTimeMillis()
-    synchronized(lock) {
-      activeRunner.fillInputFromYuv(
-        image.planes,
-        image.width,
-        image.height,
-        cropX,
-        cropY,
-        cropSize,
-        preprocessProfile,
+      val activeRunner = getRunner(modelPath)
+      val startedAtMs = System.currentTimeMillis()
+      synchronized(lock) {
+        activeRunner.fillInputFromYuv(
+          image.planes,
+          image.width,
+          image.height,
+          cropX,
+          cropY,
+          cropSize,
+          preprocessProfile,
+        )
+        activeRunner.run()
+      }
+      val elapsedMs = System.currentTimeMillis() - startedAtMs
+      val now = System.currentTimeMillis()
+      if (now - lastTimingLogAtMs > 2_000) {
+        lastTimingLogAtMs = now
+        Log.d(
+          TAG,
+          "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} preprocess=$preprocessProfile elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")} bridgeOutput=${activeRunner.bridgeOutputShape.joinToString("x")}"
+        )
+      }
+      return mapOf(
+        "shape" to activeRunner.bridgeOutputShape.toList(),
+        "values" to activeRunner.outputValues(),
+        "delegate" to activeRunner.delegateName,
+        "outputIndex" to activeRunner.selectedOutputIndex,
       )
-      activeRunner.run()
+    } catch (t: Throwable) {
+      Log.w(TAG, "live TFLite frame processing failed", t)
+      return null
     }
-    val elapsedMs = System.currentTimeMillis() - startedAtMs
-    val now = System.currentTimeMillis()
-    if (now - lastTimingLogAtMs > 2_000) {
-      lastTimingLogAtMs = now
-      Log.d(
-        TAG,
-        "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} preprocess=$preprocessProfile elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")} bridgeOutput=${activeRunner.bridgeOutputShape.joinToString("x")}"
-      )
-    }
-    return mapOf(
-      "shape" to activeRunner.bridgeOutputShape.toList(),
-      "values" to activeRunner.outputValues(),
-      "delegate" to activeRunner.delegateName,
-      "outputIndex" to activeRunner.selectedOutputIndex,
-    )
   }
 
-  private fun getRunner(assetName: String, modelPath: String?): Runner {
-    val sourceKey = modelPath ?: "asset:$assetName"
+  private fun getRunner(modelPath: String): Runner {
+    val sourceKey = modelPath
     runner?.takeIf { it.sourceKey == sourceKey }?.let { return it }
     synchronized(lock) {
       runner?.takeIf { it.sourceKey == sourceKey }?.let { return it }
-      val context = AdvanceSeedsAppContextHolder.context
-        ?: throw IllegalStateException("Android app context unavailable for TFLite asset loading")
-      val bytes = if (modelPath != null) {
-        val path = modelPath.removePrefix("file://")
-        File(path).readBytes()
-      } else {
-        context.assets.open(assetName).use { stream -> stream.readBytes() }
-      }
+      val path = modelPath.removePrefix("file://")
+      val bytes = File(path).readBytes()
       return Runner(ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).also { buffer ->
         buffer.put(bytes)
         buffer.rewind()

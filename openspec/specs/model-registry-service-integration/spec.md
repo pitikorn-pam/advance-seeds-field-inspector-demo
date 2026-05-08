@@ -75,6 +75,22 @@ The mobile app SHALL keep an on-device registry of installed artifacts and prese
 - **THEN** the app SHALL restore the previous model as active
 - **AND** analyzer selection SHALL use the restored artifact
 
+### Requirement: Base app does not bundle detector weights
+The mobile app SHALL keep detector model binaries outside the shipped base application package. Live and post-capture inspection paths SHALL require a verified active installed model artifact before starting model-backed analysis.
+
+#### Scenario: Release build starts without detector binaries
+- **GIVEN** a preview or production mobile build is created for Firebase App Distribution
+- **WHEN** the Android APK or iOS IPA is inspected
+- **THEN** it SHALL NOT contain the app-owned seed detector `.tflite` artifact
+- **AND** it SHALL NOT contain the app-owned compiled Core ML `.mlmodelc` directory
+- **AND** third-party SDK assets such as MLKit barcode models remain allowed when required by dependencies
+
+#### Scenario: Capture is blocked until a model is installed
+- **GIVEN** no active installed model artifact can be verified on the device
+- **WHEN** the inspector opens live or precise capture
+- **THEN** the app SHALL show the model-required or model-installing state instead of attaching the live detector frame processor
+- **AND** post-capture analyzer selection SHALL fail with an actionable model-install error rather than falling back to bundled weights
+
 ### Requirement: Local fallback
 The mobile app SHALL keep a manual index URL fallback for local or offline model testing.
 
@@ -91,6 +107,7 @@ The mobile app SHALL keep a manual index URL fallback for local or offline model
 - iOS: extract `.mlpackage.zip` then call `CoreMLRunner.compileModelPackage()` then smoke-load via `CoreMLRunner.loadModelAtPath()`.
 - Android: smoke-load via `react-native-fast-tflite` using `loadTensorflowModel({ url })`.
 - Maintain `active-model.json` and `previous-active-model.json` for safe rollback.
+- Detector binaries are external artifacts only. Do not add `assets/models/*.tflite`, compiled `.mlmodelc`, or podspec/Gradle resource rules that bundle app-owned model weights back into the base app.
 - Variety -> model class translation lives in `mapClassFilterForModel`. Tier 1 is operator-curated `varieties.model_class_aliases` (chip selector in the variety editor sources from the active model's `class_names`). Tier 2 is variety-name substring match. Tier 3 is the legacy COCO-synonym fallback into the model's 0-based class space.
 - iOS frame-processor plugin selects the detection output by **shape signature** `[1, 300, 6 | ≥38]`, not by element count — picking the largest tensor returned the segmentation mask prototype `[1, 32, 160, 160]` instead of detections.
 - Hot-path artifact verify uses `quickVerifyArtifact` (existence + size only). Full SHA-256 verify (`verifyInstalledArtifact`) runs only at install / activate to avoid blocking Home cold start.
@@ -99,6 +116,7 @@ The mobile app SHALL keep a manual index URL fallback for local or offline model
 
 - Android: install staging TFLite → activate → live capture
 - iOS: install staging Core ML → compile → activate → live capture
+- Packaging: assert release artifacts do not contain app-owned seed detector binaries
 - Rollback: activate new model → capture → rollback → verify previous active
 - Offline: install from local HTTP index → verify offline use
 

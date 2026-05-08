@@ -12,9 +12,19 @@ for (const file of ["scan.tsx", "precise.tsx"]) {
 
     assert.match(
       source,
-      /const androidFrameProcessorActive =\n\s+Platform\.OS === "android" && !busy && !modelInstallInProgress && activeFrameProcessor !== undefined;/,
+      /const androidFrameProcessorActive =\s+Platform\.OS === "android" &&\s+!busy &&\s+!modelInstallInProgress &&\s+activeFrameProcessor !== undefined;/s,
     );
     assert.match(source, /photo: !androidFrameProcessorActive/);
     assert.match(source, /performanceProfile=\{androidFrameProcessorActive \? "low" : "quality"\}/);
+  });
+
+  test(`${file} falls back from stalled LiDAR gating to live ArUco calibration`, () => {
+    const source = readFileSync(join(root, file), "utf8");
+
+    assert.match(source, /const LIDAR_ARUCO_FALLBACK_DELAY_MS = 1600;/);
+    assert.match(source, /const \[lidarArucoFallbackReady, setLidarArucoFallbackReady\] = useState\(false\);/);
+    assert.match(source, /liveLidar\.supported === false \|\| lidarArucoFallbackReady/);
+    assert.match(source, /!lidarArucoFallbackReady/);
+    assert.match(source, /setTimeout\(\s*\(\) => setLidarArucoFallbackReady\(true\),\s*LIDAR_ARUCO_FALLBACK_DELAY_MS,\s*\)/s);
   });
 }

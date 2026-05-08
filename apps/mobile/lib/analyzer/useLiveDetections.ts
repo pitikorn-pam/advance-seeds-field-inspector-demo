@@ -638,7 +638,6 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             }
             const startedAt = Date.now();
             const result = plugin.call(frame, {
-              assetName: "yolo11n-seeds.tflite",
               modelPath: activeModel.artifactUri,
               cropX,
               cropY,

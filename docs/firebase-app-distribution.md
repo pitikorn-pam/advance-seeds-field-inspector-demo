@@ -76,6 +76,48 @@ FIREBASE_APK_PATH=android/app/build/outputs/apk/release/app-release.apk \
 running `:app:assembleRelease`; the release graph otherwise can fail during
 `:app:compileReleaseKotlin` with `Metaspace`.
 
+### iOS preview build + distribution
+
+Use this path for Firebase-distributed iOS tester builds. The release artifact
+uses the same external model installation contract as Android; testers must
+install and activate a compatible model from More -> Model registry before
+opening Inspect.
+
+```bash
+cd apps/mobile
+pnpm exec eas build --profile preview --platform ios --non-interactive
+FIREBASE_GROUPS=pilot pnpm run dist:ios
+```
+
+The Ad Hoc provisioning profile must include each tester device UDID. If iOS
+shows "integrity could not be verified" or `0xe8008012`, register the device:
+
+```bash
+cd apps/mobile
+pnpm exec eas device:create
+pnpm exec eas build --profile preview --platform ios --non-interactive --clear-cache
+FIREBASE_GROUPS=pilot pnpm run dist:ios
+```
+
+### Release capture smoke test
+
+Run this after installing a Firebase-distributed build on each platform:
+
+1. Open More -> Model registry, install a compatible production model, and
+   activate it.
+2. Open Inspect -> Live and wait for calibration.
+3. On iOS, if LiDAR does not emit a reading, present the ArUco card. ArUco
+   should begin scanning after the 1.6 s LiDAR fallback window.
+4. On Android, keep the ArUco card visible for at least 10 seconds. Native
+   frame-processor errors should log and return an empty frame result instead
+   of closing the app.
+5. Capture one result and verify the Detector model row appears in Review /
+   Inspection Detail.
+
+The base app intentionally does not bundle the seed detector model. A release
+APK/IPA that opens Inspect without an active installed model should show the
+model-required state, not live detection.
+
 ### EAS Android release build
 
 Use this only when a cloud-built artifact is explicitly desired.
@@ -132,5 +174,8 @@ podspec / app.json plugin list edits). For those, rebuild + redistribute.
   changed. Run `eas credentials` → Android → check that there's only one
   active keystore. The fix is to publish a new build with the canonical
   keystore and have the tester uninstall the old version once.
+- **iOS tester sees "integrity could not be verified"** — the tester device is
+  missing from the Ad Hoc provisioning profile. Run `eas device:create`, rebuild
+  the iOS preview artifact, then redistribute it.
 - **`firebase: command not found`** — the install step (`npm i -g firebase-tools`)
   needs `sudo` on system Node, or use `pnpm dlx firebase-tools` per call.

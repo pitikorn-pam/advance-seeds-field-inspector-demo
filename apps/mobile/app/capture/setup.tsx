@@ -100,10 +100,8 @@ export default function CaptureSetup() {
     activeModelClassNames,
   );
   // Only enforce alias binding when the active model actually advertises a
-  // class list. The bundled COCO YOLO does not, in which case detection
-  // falls through to coco_class_id / name match — same as before this
-  // editor change. Guarding here would otherwise lock operators out of
-  // every inspection on the demo build with no editor chips to recover.
+  // class list. Some installed models do not, in which case detection falls
+  // through to coco_class_id / name match.
   const modelExposesClassNames = activeModelClassNames.length > 0;
   const needsBinding = !!selectedVariety && modelExposesClassNames && liveAliases.length === 0;
 

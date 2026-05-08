@@ -60,3 +60,11 @@ test("Android TFLite frame processor accepts opt-in morphology preprocessing", (
   assert.match(source, /fillInputRawFromYuv/);
   assert.match(source, /preprocess=\$preprocessProfile/);
 });
+
+test("Android TFLite frame processor returns null instead of crashing release camera", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.match(source, /catch \(t: Throwable\)/);
+  assert.match(source, /Log\.w\(TAG, "live TFLite frame processing failed", t\)/);
+  assert.match(source, /return null/);
+});

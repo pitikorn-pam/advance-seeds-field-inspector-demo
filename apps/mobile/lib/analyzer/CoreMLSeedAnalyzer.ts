@@ -24,8 +24,6 @@ import type { RawDetection } from "./yolo";
 import { ensureHyperParamsLoaded, getHyperParamsSync } from "./hyperparams";
 import { resolvePreprocessProfile } from "./preprocess";
 
-const MODEL_ASSET = "yolo26n";
-
 type OutputKind = "raw" | "nms" | "segmentation";
 
 interface LoadedCoreMLModel {
@@ -36,8 +34,7 @@ interface LoadedCoreMLModel {
 
 export interface CoreMLModelSource {
   key: string;
-  assetName: string;
-  modelPath?: string;
+  modelPath: string;
 }
 
 let modelPromise: Promise<LoadedCoreMLModel> | null = null;
@@ -48,9 +45,7 @@ export function loadSharedCoreMLModel(): Promise<LoadedCoreMLModel> {
     if (modelPromise && modelPromiseKey === source.key) return modelPromise;
     modelPromiseKey = source.key;
     modelPromise = (async () => {
-      const info = source.modelPath
-        ? await CoreMLRunner.loadModelAtPath(source.modelPath)
-        : await CoreMLRunner.loadModel(source.assetName);
+      const info = await CoreMLRunner.loadModelAtPath(source.modelPath);
       const primary =
         info.outputs
           .filter((o) => o.shape && o.shape.length > 0)
@@ -77,30 +72,26 @@ export function loadSharedCoreMLModel(): Promise<LoadedCoreMLModel> {
 export async function resolveCoreMLModelSource(): Promise<CoreMLModelSource> {
   const active = await readActiveModel();
   const platformOk = active?.platform === "ios";
-  const hasCompiledUri = Boolean(active?.compiledArtifactUri);
+  const compiledUri = active?.compiledArtifactUri ?? null;
+  const hasCompiledUri = Boolean(compiledUri);
   const verified = active ? await quickVerifyArtifact(active) : false;
-  const compiledExists = active?.compiledArtifactUri
-    ? await fileExists(active.compiledArtifactUri)
-    : false;
-  if (platformOk && hasCompiledUri && verified && compiledExists && active) {
+  const compiledExists = compiledUri ? await fileExists(compiledUri) : false;
+  if (platformOk && compiledUri && verified && compiledExists && active) {
     return {
       key: `installed:${active.id}`,
-      assetName: MODEL_ASSET,
-      modelPath: active.compiledArtifactUri,
+      modelPath: compiledUri,
     };
   }
   if (active) {
-    // Only worth logging when there's *some* expectation of an active
-    // model — silent fallback when nothing's installed is normal.
     console.info(
-      "[coreml resolve] using bundled — platformOk=%s hasCompiledUri=%s verified=%s compiledExists=%s",
+      "[coreml resolve] installed model unusable — platformOk=%s hasCompiledUri=%s verified=%s compiledExists=%s",
       platformOk,
       hasCompiledUri,
       verified,
       compiledExists,
     );
   }
-  return { key: `asset:${MODEL_ASSET}`, assetName: MODEL_ASSET };
+  throw new Error("No installed active iOS model is available.");
 }
 
 async function fileExists(uri: string): Promise<boolean> {
@@ -192,9 +183,7 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     const padY = Math.floor((YOLO_INPUT_SIZE - newH) / 2);
 
     const inferStartedAt = Date.now();
-    const result = source.modelPath
-      ? await CoreMLRunner.runOnImageURLAtPath(source.modelPath, image.uri)
-      : await CoreMLRunner.runOnImageURL(source.assetName, image.uri);
+    const result = await CoreMLRunner.runOnImageURLAtPath(source.modelPath, image.uri);
     const inferMs = Date.now() - inferStartedAt;
     const out = Float32Array.from(result.values);
     const shape = result.shape as unknown as readonly [number, number, number];

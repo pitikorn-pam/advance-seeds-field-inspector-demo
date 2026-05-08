@@ -20,6 +20,8 @@ import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibrati
 import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
+const LIDAR_ARUCO_FALLBACK_DELAY_MS = 1600;
+
 /**
  * Precise capture mode.
  *
@@ -46,9 +48,12 @@ export default function CapturePrecise() {
   const [showGrid, setShowGrid] = useState(false);
   // Continuous LiDAR — see scan.tsx for the design notes.
   const [firstLidarReadingSeen, setFirstLidarReadingSeen] = useState(false);
+  const [lidarArucoFallbackReady, setLidarArucoFallbackReady] = useState(false);
   const liveLidar = useLiveLidarCalibration(cameraActive && position === "back");
   const liveAruco = useLiveArucoCalibration(
-    cameraActive && position === "back" && liveLidar.supported === false,
+    cameraActive &&
+      position === "back" &&
+      (liveLidar.supported === false || lidarArucoFallbackReady),
   );
   const manualCalibration = useCalibrator();
   const modelInstallGate = useModelInstallInspectionGate();
@@ -58,7 +63,11 @@ export default function CapturePrecise() {
   const automaticCalibrationProfileName =
     automaticCalibration?.source === "manual" ? manualCalibration.profileName : null;
   const lidarGateActive =
-    cameraActive && position === "back" && liveLidar.supported !== false && !firstLidarReadingSeen;
+    cameraActive &&
+    position === "back" &&
+    liveLidar.supported !== false &&
+    !firstLidarReadingSeen &&
+    !lidarArucoFallbackReady;
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
@@ -131,10 +140,12 @@ export default function CapturePrecise() {
       setCameraActive(true);
       setTorch("off");
       setFirstLidarReadingSeen(false);
+      setLidarArucoFallbackReady(false);
       return () => {
         setCameraActive(false);
         setTorch("off");
         setFirstLidarReadingSeen(false);
+        setLidarArucoFallbackReady(false);
       };
     }, []),
   );
@@ -144,6 +155,16 @@ export default function CapturePrecise() {
       setFirstLidarReadingSeen(true);
     }
   }, [liveLidar.result, firstLidarReadingSeen]);
+
+  useEffect(() => {
+    if (!cameraActive || position !== "back" || liveLidar.supported === false || liveLidar.result) {
+      setLidarArucoFallbackReady(false);
+      return;
+    }
+
+    const timer = setTimeout(() => setLidarArucoFallbackReady(true), LIDAR_ARUCO_FALLBACK_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [cameraActive, position, liveLidar.supported, liveLidar.result]);
 
   const leaveCamera = () => {
     setCameraActive(false);
