@@ -12,12 +12,12 @@ const i18nSource = readFileSync(
   "utf8",
 );
 
-test("live inference defaults to sampled 15 fps and migrates the old 30 fps default", () => {
-  assert.match(hyperparamsSource, /targetFps:\s*15/);
-  assert.match(hyperparamsSource, /advance-seeds\.hyperparams\.v5/);
-  assert.match(hyperparamsSource, /"advance-seeds\.hyperparams\.v4"/);
-  assert.match(hyperparamsSource, /parsed\.targetFps === undefined \|\| parsed\.targetFps === 30/);
-  assert.doesNotMatch(hyperparamsSource, /parsed\.targetFps >= 15/);
+test("live inference defaults to requested 30 fps and migrates the old 15 fps default", () => {
+  assert.match(hyperparamsSource, /targetFps:\s*30/);
+  assert.match(hyperparamsSource, /advance-seeds\.hyperparams\.v6/);
+  assert.match(hyperparamsSource, /"advance-seeds\.hyperparams\.v5"/);
+  assert.match(hyperparamsSource, /parsed\.targetFps === undefined \|\| parsed\.targetFps === 15/);
+  assert.doesNotMatch(hyperparamsSource, /parsed\.targetFps === 30\)/);
 });
 
 test("live inference fps copy describes model sampling rather than preview fps", () => {

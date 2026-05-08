@@ -25,6 +25,10 @@
   bundled weights.
 - Android live ArUco/TFLite native frame-processor failures are expected to log
   and return an empty frame result instead of closing the app.
+- More -> Hyperparameters defaults live inference FPS to a shared requested
+  `30 fps` on both platforms. iOS uses the requested value directly; Android
+  still logs requested/effective FPS and applies the native live-detector safety
+  cap while the low-pressure camera profile is active.
 - iOS capture falls back from stalled LiDAR calibration to live ArUco after the
   short LiDAR fallback window, so presenting the ArUco card should unlock
   analysis even when scene depth does not emit.

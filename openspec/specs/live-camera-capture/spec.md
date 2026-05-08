@@ -154,19 +154,20 @@ The detection overlay SHALL animate bounding-box transitions between successive 
 ### Requirement: Live inference sampling is decoupled from preview FPS
 The mobile app SHALL keep camera preview delivery smooth while sampling only eligible frames for YOLO inference according to the live inference `targetFps` hyperparameter.
 
-#### Scenario: iOS preview stays smooth while inference samples every other 30 fps frame by default
+#### Scenario: iOS preview uses the default 30 fps inference request
 - **GIVEN** the iOS camera preview is configured at 30 fps
-- **AND** live inference `targetFps` is left at the default 15
+- **AND** live inference `targetFps` is left at the default 30
 - **WHEN** live detection is enabled
-- **THEN** the Core ML frame processor uses `runAtTargetFps(15)` for model work
+- **THEN** the Core ML frame processor uses `runAtTargetFps(30)` for model work
 - **AND** camera preview delivery remains configured independently at 30 fps
 - **AND** the overlay interpolates successive detection results so motion reads smoothly between sampled inference frames
 
 #### Scenario: Android keeps its native-plugin safety cap
 - **GIVEN** the Android low-pressure camera profile is active for live YOLO
-- **AND** live inference `targetFps` is left at the default 15
+- **AND** live inference `targetFps` is left at the default 30
 - **WHEN** live detection is enabled
 - **THEN** the native TFLite frame processor requests an effective inference rate of `min(targetFps, 5)`
+- **AND** the requested inference FPS is logged as 30 while the effective Android native rate is logged as 5
 - **AND** preview delivery remains governed by the camera profile rather than by model inference elapsed time
 - **AND** the app logs requested and effective inference FPS for QA
 
@@ -231,11 +232,11 @@ under sustained detections.
 
 #### Scenario: Legacy hyperparams migrate to safer Android live defaults
 - **GIVEN** a device has hyperparams persisted from an older store where live
-  `targetFps` defaulted to 30
+  `targetFps` defaulted to 15
 - **WHEN** hyperparams hydrate after upgrade
-- **THEN** the app writes the v5 store
-- **AND** missing or old-default `targetFps` values of 30 migrate to 15
-- **AND** explicit tuning values such as 5, 10, 15, or 60 are preserved
+- **THEN** the app writes the v6 store
+- **AND** missing or old-default `targetFps` values of 15 migrate to the shared 30 fps default
+- **AND** explicit low tuning values such as 5 or 10 and high tuning values such as 60 are preserved
 
 ### Requirement: Android TFLite avoids camera-pipeline delegate contention
 Android TFLite inference SHALL default to the CPU delegate while the live camera
@@ -311,12 +312,12 @@ plugin so camera pixels do not cross from CameraX into JS for every live frame.
 
 #### Scenario: Android live default remains sampled after native migration
 - **GIVEN** a device has hyperparams persisted from a store where live
-  `targetFps` defaulted to 30
+  `targetFps` defaulted to 15
 - **WHEN** hyperparams hydrate after the native Android migration
-- **THEN** the app writes the v5 store
-- **AND** missing or old-default `targetFps` values of 30 migrate to the
-  sampled 15 fps live inference target
-- **AND** explicit tuning values such as 5, 10, or 15 are preserved
+- **THEN** the app writes the v6 store
+- **AND** missing or old-default `targetFps` values of 15 migrate to the
+  shared 30 fps live inference target
+- **AND** explicit low tuning values such as 5 or 10 are preserved
 
 ### Requirement: Capture-time media optimization before upload
 Saved photos and videos SHALL be downscaled and re-encoded before upload to Supabase Storage so field captures stay within mobile-data budgets without losing seed-grading detail.

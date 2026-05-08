@@ -32,12 +32,13 @@ export const DEFAULT_HYPERPARAMS: HyperParams = {
   // training run, then tune back up once recall stabilises.
   scoreThreshold: 0.25,
   iouThreshold: 0.65,
-  targetFps: 15,
+  targetFps: 30,
   preprocessProfile: "model",
 };
 
-const STORAGE_KEY = "advance-seeds.hyperparams.v5";
+const STORAGE_KEY = "advance-seeds.hyperparams.v6";
 const LEGACY_STORAGE_KEYS = [
+  "advance-seeds.hyperparams.v5",
   "advance-seeds.hyperparams.v4",
   "advance-seeds.hyperparams.v3",
   "advance-seeds.hyperparams.v2",
@@ -146,10 +147,10 @@ function clamp(p: HyperParams): HyperParams {
 
 function migrateLegacyHyperParams(parsed: Partial<HyperParams>): HyperParams {
   const migrated = { ...DEFAULT_HYPERPARAMS, ...parsed };
-  // v4 shipped with a 30 fps inference default, which made the model consume
-  // every iOS preview frame. v5 keeps preview smooth but samples inference at
-  // 15 fps by default. Preserve explicit tuning values except the old default.
-  if (parsed.targetFps === undefined || parsed.targetFps === 30) {
+  // v5 shipped with a 15 fps inference default. v6 restores the shared default
+  // request to 30 fps on both platforms; Android still applies its native
+  // safety cap in useLiveDetections. Preserve explicit low tuning values.
+  if (parsed.targetFps === undefined || parsed.targetFps === 15) {
     migrated.targetFps = DEFAULT_HYPERPARAMS.targetFps;
   }
   return clamp(migrated);
