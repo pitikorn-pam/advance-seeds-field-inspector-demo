@@ -22,9 +22,6 @@ export function HeroCard({ inspections, dateLabel }: Props) {
   const palette = resolved === "dark" ? darkPalette : lightPalette;
 
   const totalSeeds = inspections.reduce((s, r) => s + (r.total_seeds ?? 0), 0);
-  const batchesToday = new Set(
-    inspections.map((r) => r.batch_id).filter((id): id is string => !!id),
-  ).size;
   const weightedLength = weightedMean(
     inspections.map((row) => ({
       value: row.mean_length_mm,
@@ -92,8 +89,8 @@ export function HeroCard({ inspections, dateLabel }: Props) {
           <MetricTile
             icon={<Clock3 color={palette.iconNeutral} size={16} />}
             iconBg={palette.iconNeutralBg}
-            value={batchesToday.toLocaleString()}
-            label={t("metricBatches")}
+            value={lastCapture ? formatRelative(lastCapture, t) : "--"}
+            label={t("metricLastRun")}
             palette={palette}
           />
         </View>

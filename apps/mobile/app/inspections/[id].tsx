@@ -12,7 +12,9 @@ import { policyFor } from "@/lib/access";
 import { useInspection, useDeleteInspection } from "@/lib/queries";
 import { displayInspectionNote } from "@/lib/inspections/notes";
 import {
+  type AnalysisDiagnosticsMetadata,
   readAnalyzerModelMetadata,
+  readAnalysisDiagnosticsMetadata,
   readCaptureMetadata,
   readCalibrationMetadata,
   readDeviceUsageMetadata,
@@ -145,6 +147,7 @@ export default function InspectionDetail() {
   const captureDetail = readCaptureMetadata(metadata);
   const calibration = readCalibrationMetadata(metadata);
   const analyzerModel = readAnalyzerModelMetadata(metadata);
+  const analysisDiagnostics = readAnalysisDiagnosticsMetadata(metadata);
 
   const saveImage = async () => {
     if (!mediaUrl) return;
@@ -205,7 +208,6 @@ export default function InspectionDetail() {
               <Text className="text-caption text-fg-secondary mt-xs">
                 {dateFmt.format(new Date(inspection.captured_at))} ·{" "}
                 {inspection.inspector?.full_name ?? inspection.inspector?.email}
-                {inspection.batch?.code ? ` · ${inspection.batch.code}` : ""}
               </Text>
               {roiLabel ? (
                 <View className="mt-sm flex-row">
@@ -221,7 +223,12 @@ export default function InspectionDetail() {
 
             <View className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
               {mediaUrl ? (
-                <CaptureMediaPreview uri={mediaUrl} kind={captureMedia.kind} roi={roi} />
+                <CaptureMediaPreview
+                  uri={mediaUrl}
+                  kind={captureMedia.kind}
+                  roi={roi}
+                  seeds={seeds}
+                />
               ) : (
                 <View className="flex-1 items-center justify-center px-md">
                   <Text className="text-caption text-warning-text text-center">
@@ -459,6 +466,38 @@ export default function InspectionDetail() {
                                 : "—"
                             }
                           />
+                          {analysisDiagnostics ? (
+                            <>
+                              <MetadataRow
+                                label={t("inspections:detail.metadata.analyzedImage")}
+                                value={formatImageDiagnostic(
+                                  analysisDiagnostics.analyzed_image_width,
+                                  analysisDiagnostics.analyzed_image_height,
+                                  analysisDiagnostics.analyzed_image_orientation,
+                                )}
+                              />
+                              <MetadataRow
+                                label={t("inspections:detail.metadata.liveVsAnalyze")}
+                                value={formatLiveAnalyzeDiagnostic(analysisDiagnostics)}
+                              />
+                              <MetadataRow
+                                label={t("inspections:detail.metadata.liveFallback")}
+                                value={t(
+                                  analysisDiagnostics.used_live_frame_fallback
+                                    ? "inspections:detail.metadata.boolean.yes"
+                                    : "inspections:detail.metadata.boolean.no",
+                                )}
+                              />
+                              <MetadataRow
+                                label={t("inspections:detail.metadata.calibrationFallback")}
+                                value={t(
+                                  analysisDiagnostics.calibration_fallback_used
+                                    ? "inspections:detail.metadata.boolean.yes"
+                                    : "inspections:detail.metadata.boolean.no",
+                                )}
+                              />
+                            </>
+                          ) : null}
                         </>
                       ) : null}
                     </>
@@ -663,4 +702,18 @@ function formatCalibrationValue(pxPerMm: number, t: ReturnType<typeof useTransla
   return t("inspections:detail.metadata.calibrationValue", {
     pxPerMm: pxPerMm.toFixed(1),
   });
+}
+
+function formatImageDiagnostic(
+  width: number | null,
+  height: number | null,
+  orientation: string | null,
+) {
+  const size = width && height ? `${width}×${height}` : "—";
+  return orientation ? `${size} · ${orientation}` : size;
+}
+
+function formatLiveAnalyzeDiagnostic(diagnostics: AnalysisDiagnosticsMetadata) {
+  const live = diagnostics.live_seed_count === null ? "—" : diagnostics.live_seed_count.toString();
+  return `${live} → ${diagnostics.analyze_seed_count}`;
 }

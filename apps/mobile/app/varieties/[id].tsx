@@ -65,7 +65,7 @@ export default function VarietyDetail() {
 
   const onStartInspection = () => {
     // Explicit "Start inspection" from a variety detail is a fresh-start
-    // gesture: previous batch / calibration / notes / ROI / location-tag
+    // gesture: previous calibration / notes / ROI / location-tag
     // intent shouldn't latch onto the new attempt. Reset first, then
     // commit only the chosen variety.
     session.reset({ varietyId: variety.id });

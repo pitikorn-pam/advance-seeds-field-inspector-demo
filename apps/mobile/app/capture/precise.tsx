@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Alert, ActivityIndicator, Pressable, Platform } from "react-native";
+import { View, Text, Alert, ActivityIndicator, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -10,13 +10,15 @@ import { GlassTopBar } from "@/components/camera/GlassTopBar";
 import type { FlashMode } from "@/components/camera/GlassTopBar";
 import { ShutterBar } from "@/components/camera/ShutterBar";
 import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
-import { useCaptureSession } from "@/lib/capture/session";
+import { captureFrameMetadataFromPhoto, useCaptureSession } from "@/lib/capture/session";
 import { useLiveDetections } from "@/lib/analyzer/useLiveDetections";
 import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { DetectionOverlay } from "@/components/camera/DetectionOverlay";
 import { useVarieties } from "@/lib/queries";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
+import { useCalibrator } from "@/lib/calibration/useCalibrator";
+import { useBackgroundModelInstall } from "@/lib/models/installProgressStore";
 
 /**
  * Precise capture mode.
@@ -48,14 +50,21 @@ export default function CapturePrecise() {
   const liveAruco = useLiveArucoCalibration(
     cameraActive && position === "back" && liveLidar.supported === false,
   );
-  const automaticCalibration = liveLidar.result ?? liveAruco.result;
+  const manualCalibration = useCalibrator();
+  const backgroundModelInstall = useBackgroundModelInstall();
+  const modelInstallInProgress = backgroundModelInstall.status === "installing";
+  const automaticCalibration =
+    liveLidar.result?.reading ?? liveAruco.result?.reading ?? manualCalibration.reading;
+  const automaticCalibrationProfileName =
+    automaticCalibration?.source === "manual" ? manualCalibration.profileName : null;
   const lidarGateActive =
     cameraActive && position === "back" && liveLidar.supported !== false && !firstLidarReadingSeen;
   // Torch fallback for vision-camera's unreliable flash:'on' on iOS 26 +
   // iPhone 17 series — see scan.tsx for the rationale.
   const [torch, setTorch] = useState<"off" | "on">("off");
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
-  const calibrationLocked = liveLidar.locked || liveAruco.locked;
+  const calibrationLocked =
+    liveLidar.locked || liveAruco.locked || manualCalibration.reading !== null;
   const varieties = useVarieties();
   const activeVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId),
@@ -72,19 +81,35 @@ export default function CapturePrecise() {
     () => (activeVariety?.name ? [activeVariety.name] : null),
     [activeVariety?.name],
   );
+  const gradingConfig = useMemo(
+    () =>
+      activeVariety
+        ? {
+            criteria: activeVariety.grade_criteria,
+            targetLengthMm: activeVariety.ref_length_mm,
+            targetWidthMm: activeVariety.ref_width_mm,
+          }
+        : null,
+    [activeVariety],
+  );
   const liveDetections = useLiveDetections({
-    enabled: cameraActive && calibrationLocked && !busy,
-    pxPerMm: automaticCalibration?.reading.pxPerMm ?? 38.4,
+    enabled: cameraActive && calibrationLocked && !busy && !modelInstallInProgress,
+    pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
     classFilter: liveClassFilter,
     varietyNames: preciseVarietyNames,
     modelClassAliases: activeVariety?.model_class_aliases ?? null,
     roi: null,
+    gradingConfig,
   });
-  const activeFrameProcessor = busy
-    ? undefined
-    : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
+  const activeFrameProcessor =
+    busy || modelInstallInProgress
+      ? undefined
+      : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
   const androidFrameProcessorActive =
-    Platform.OS === "android" && !busy && activeFrameProcessor !== undefined;
+    Platform.OS === "android" &&
+    !busy &&
+    !modelInstallInProgress &&
+    activeFrameProcessor !== undefined;
   const viewfinderCameraProps = useMemo(
     () => ({
       photo: !androidFrameProcessorActive,
@@ -127,7 +152,7 @@ export default function CapturePrecise() {
   };
 
   const ensureCalibrationLock = () => {
-    if (liveLidar.result || (liveAruco.locked && liveAruco.result)) {
+    if (liveLidar.result || (liveAruco.locked && liveAruco.result) || manualCalibration.reading) {
       return true;
     }
     Alert.alert(
@@ -170,13 +195,15 @@ export default function CapturePrecise() {
         uploadedVideoUrl: null,
         analysisResult: null,
         capturedLiveFrameResult: liveDetections.detections,
+        capturedFrameMetadata: captureFrameMetadataFromPhoto(photo),
+        analysisDiagnostics: null,
         recordingDurationMs: null,
         recordingId: null,
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
-        capturedCalibrationReading: automaticCalibration?.reading ?? null,
-        capturedCalibrationProfileName: null,
+        capturedCalibrationReading: automaticCalibration ?? null,
+        capturedCalibrationProfileName: automaticCalibrationProfileName,
       });
 
       // Deactivate the camera before pushing — same rnscreens-vs-camera-surface
@@ -279,7 +306,7 @@ export default function CapturePrecise() {
             >
               {automaticCalibration
                 ? t("inspections:capture.calibration.lockedHintBare", {
-                    pxPerMm: automaticCalibration.reading.pxPerMm.toFixed(1),
+                    pxPerMm: automaticCalibration.pxPerMm.toFixed(1),
                   })
                 : t("inspections:capture.precise.distanceUnknown")}
             </Text>
@@ -287,8 +314,8 @@ export default function CapturePrecise() {
 
           <View className="mx-md mb-md" pointerEvents="box-none">
             <CalibrationBanner
-              reading={automaticCalibration?.reading ?? null}
-              profileName={null}
+              reading={automaticCalibration ?? null}
+              profileName={automaticCalibrationProfileName}
               distanceLabel={liveLidar.distanceLabel}
             />
           </View>

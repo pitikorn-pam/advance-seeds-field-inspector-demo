@@ -10,7 +10,10 @@ for (const file of ["scan.tsx", "precise.tsx"]) {
   test(`${file} keeps Android in low-stream mode for calibration and detection`, () => {
     const source = readFileSync(join(root, file), "utf8");
 
-    assert.match(source, /const androidFrameProcessorActive =\n\s+Platform\.OS === "android" && !busy && activeFrameProcessor !== undefined;/);
+    assert.match(
+      source,
+      /const androidFrameProcessorActive =\n\s+Platform\.OS === "android" && !busy && !modelInstallInProgress && activeFrameProcessor !== undefined;/,
+    );
     assert.match(source, /photo: !androidFrameProcessorActive/);
     assert.match(source, /performanceProfile=\{androidFrameProcessorActive \? "low" : "quality"\}/);
   });

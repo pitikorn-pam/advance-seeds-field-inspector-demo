@@ -1,7 +1,7 @@
 # live-camera-capture Specification
 
 ## Purpose
-Define the live and precise camera capture modes, frame processing, ROI tools, detection overlays, and platform-specific inference pipelines.
+Define the unified live camera capture flow, frame processing, ROI tools, detection overlays, and platform-specific inference pipelines.
 
 ## Requirements
 ### Requirement: Live camera viewfinder
@@ -18,11 +18,11 @@ The mobile app SHALL render a fullscreen live camera preview during the capture 
 - **WHEN** the user opens the scan screen
 - **THEN** an empty-state with "Camera permission required" + a button to open OS Settings is shown instead of the preview
 
-### Requirement: Live mode capture
-The mobile app SHALL provide a "Live" capture mode that runs YOLO inference on sampled camera frames at ≥ 5 fps and renders detection rings over the preview in real time.
+### Requirement: Unified live capture
+The mobile app SHALL provide a unified capture screen that runs YOLO inference on sampled camera frames at ≥ 5 fps and renders detection rings over the preview in real time.
 
 #### Scenario: Live detections animate over the preview
-- **GIVEN** the user has selected variety + batch and is in live mode
+- **GIVEN** the user has selected a variety and is in capture
 - **WHEN** they hold the camera over a tray of seeds
 - **THEN** colored rings appear around each detected seed within 200 ms of the seed entering the frame
 - **AND** the KPI strip updates "Count / Avg mm / Grade A%" continuously
@@ -35,21 +35,14 @@ The mobile app SHALL provide a "Live" capture mode that runs YOLO inference on s
 - **AND** an inspection row is created with `total_seeds`, `mean_length_mm`, `mean_width_mm`, `mean_area_mm2` from the frozen frame
 - **AND** the user navigates to the review screen
 
-### Requirement: Precise mode capture
-The mobile app SHALL provide a "Precise" capture mode that requires a stable calibration lock before allowing shutter activation.
+### Requirement: Capture blocks without adaptive calibration
+The mobile app SHALL require LiDAR, ArUco, or an explicit fallback calibration before shutter activation so millimeter measurements remain traceable.
 
-#### Scenario: Precise mode blocks shutter without lock
-- **GIVEN** the user is in precise mode and no calibration is locked yet
-- **WHEN** they tap the shutter
-- **THEN** the shutter does not fire
-- **AND** the calibration pill displays "Hold steady" with the current distance reading
-
-#### Scenario: Precise mode fires on lock
-- **GIVEN** LiDAR or ArUco calibration has reached confidence ≥ 0.8 for 1 continuous second
+#### Scenario: Capture blocks shutter without calibration
+- **GIVEN** no LiDAR, ArUco, or manual fallback calibration is available
 - **WHEN** the user taps the shutter
-- **THEN** a high-resolution photo is taken via `takePhoto`
-- **AND** YOLOv11n single-shot inference runs on the captured photo
-- **AND** the calibration value at lock time is stored on the inspection row
+- **THEN** the shutter does not fire
+- **AND** the calibration guidance explains how to present the ArUco card or adjust device distance
 
 ### Requirement: Captured photo upload before result navigation
 The mobile app SHALL upload the captured photo to Supabase Storage before navigating to the review screen.
@@ -69,14 +62,14 @@ The mobile app SHALL upload the captured photo to Supabase Storage before naviga
 The frame processor that drives live detection SHALL not block the UI thread; visible UI must remain at ≥ 50 fps even when inference is running.
 
 #### Scenario: UI stays responsive during live inference
-- **GIVEN** live mode is running with continuous detections
+- **GIVEN** capture is running with continuous detections
 - **WHEN** the user scrolls or interacts with overlay elements
 - **THEN** the UI animates smoothly without dropped frames in the visible layer
 - **AND** the inference loop runs on a separate worklet thread
 
 #### Scenario: Camera route releases native resources on exit and re-entry
 - **GIVEN** the user captures or records media, completes analysis, and lands on the Inspection Result page
-- **WHEN** they tap Back to return to Live or Precise capture, or leave camera for another menu and reopen capture
+- **WHEN** they tap Back to return to capture, or leave camera for another menu and reopen capture
 - **THEN** the native camera view has been remounted cleanly
 - **AND** shutter and record controls are enabled for a new capture attempt
 - **AND** the app does not show a native view reparenting error or camera-session closed error
@@ -197,7 +190,7 @@ The Camera component SHALL constrain its native delivery rate via Vision Camera'
 
 #### Scenario: Android switches to low-pressure delivery when live YOLO is attached
 - **GIVEN** Android live YOLO owns the frame processor stream
-- **WHEN** the `<Camera>` component is rendered for Live or Precise capture
+- **WHEN** the `<Camera>` component is rendered for capture
 - **THEN** `useCameraFormat` selects a 1280x720-or-smaller format while preferring 30 fps
 - **AND** the Android native YOLO frame processor caps the requested inference rate to 5 fps until a faster delegate/model profile is proven
 - **AND** leaving live YOLO restores the quality camera profile for capture setup and still-photo handoff

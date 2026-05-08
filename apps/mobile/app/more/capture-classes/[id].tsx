@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Trash2 } from "lucide-react-native";
-import type { Variety } from "@advance-seeds/types";
+import type { GradeCriteriaGrade, Json, Variety, VarietyGradeCriteria } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useDeleteVariety, useUpsertVariety, useVarieties } from "@/lib/queries";
@@ -27,8 +27,20 @@ interface FormState {
   modelClassAliases: string[];
   refLength: string;
   refWidth: string;
+  gradeCriteria: GradeCriteriaForm;
   isActive: boolean;
 }
+
+type GradeCriteriaField = "lengthMin" | "lengthMax" | "widthMin" | "widthMax";
+type GradeCriteriaForm = Record<GradeCriteriaGrade, Record<GradeCriteriaField, string>>;
+
+const GRADE_KEYS: GradeCriteriaGrade[] = ["A", "B", "C"];
+
+const EMPTY_GRADE_CRITERIA: GradeCriteriaForm = {
+  A: { lengthMin: "", lengthMax: "", widthMin: "", widthMax: "" },
+  B: { lengthMin: "", lengthMax: "", widthMin: "", widthMax: "" },
+  C: { lengthMin: "", lengthMax: "", widthMin: "", widthMax: "" },
+};
 
 const EMPTY_FORM: FormState = {
   name: "",
@@ -39,6 +51,7 @@ const EMPTY_FORM: FormState = {
   modelClassAliases: [],
   refLength: "",
   refWidth: "",
+  gradeCriteria: emptyGradeCriteriaForm(),
   isActive: true,
 };
 
@@ -46,7 +59,7 @@ const EMPTY_FORM: FormState = {
  * Variety editor — single source of truth for create + edit on the
  * `varieties` table. Owns the public profile fields (name, scientific
  * name, description, image, family color) and the master-data fields
- * (detector class, reference dimensions). The Varieties tab now reads
+ * (detector class, grading criteria). The Varieties tab now reads
  * from the same row but never edits.
  */
 export default function VarietyEditor() {
@@ -103,6 +116,13 @@ export default function VarietyEditor() {
       Alert.alert(t("more:masterData.invalidWidth"));
       return;
     }
+    let gradeCriteria: VarietyGradeCriteria | null;
+    try {
+      gradeCriteria = buildGradeCriteria(form.gradeCriteria);
+    } catch {
+      Alert.alert(t("more:masterData.invalidGradeCriteria"));
+      return;
+    }
     try {
       await upsert.mutateAsync({
         id: editing?.id,
@@ -118,6 +138,7 @@ export default function VarietyEditor() {
         model_class_aliases: form.modelClassAliases.length > 0 ? form.modelClassAliases : null,
         ref_length_mm: parsedLen,
         ref_width_mm: parsedWid,
+        grade_criteria: gradeCriteria as unknown as Json | null,
         is_active: form.isActive,
       });
       router.back();
@@ -265,6 +286,22 @@ export default function VarietyEditor() {
               />
             </Field>
 
+            <GradeCriteriaEditor
+              value={form.gradeCriteria}
+              onChange={(grade, field, text) =>
+                setForm((s) => ({
+                  ...s,
+                  gradeCriteria: {
+                    ...s.gradeCriteria,
+                    [grade]: {
+                      ...s.gradeCriteria[grade],
+                      [field]: text,
+                    },
+                  },
+                }))
+              }
+            />
+
             <StatusToggle
               label={t("varieties:fields.status")}
               hint={t("varieties:statusHint")}
@@ -380,6 +417,65 @@ function ClassChip({
   );
 }
 
+function GradeCriteriaEditor({
+  value,
+  onChange,
+}: {
+  value: GradeCriteriaForm;
+  onChange: (grade: GradeCriteriaGrade, field: GradeCriteriaField, text: string) => void;
+}) {
+  const { t } = useTranslation(["more"]);
+  return (
+    <View className="gap-sm rounded-lg border border-line-tertiary bg-bg-secondary px-md py-md">
+      <View>
+        <Text className="text-caption uppercase tracking-wide text-fg-secondary">
+          {t("more:masterData.gradeCriteria")}
+        </Text>
+        <Text className="text-caption text-fg-tertiary mt-xs">
+          {t("more:masterData.gradeCriteriaHint")}
+        </Text>
+      </View>
+      {GRADE_KEYS.map((grade) => (
+        <View key={grade} className="gap-xs">
+          <Text className="text-title text-fg-primary">{grade}</Text>
+          <View className="flex-row gap-sm">
+            <Input
+              className="flex-1"
+              placeholder={t("more:masterData.gradeLengthMin")}
+              keyboardType="decimal-pad"
+              value={value[grade].lengthMin}
+              onChangeText={(text) => onChange(grade, "lengthMin", text)}
+            />
+            <Input
+              className="flex-1"
+              placeholder={t("more:masterData.gradeLengthMax")}
+              keyboardType="decimal-pad"
+              value={value[grade].lengthMax}
+              onChangeText={(text) => onChange(grade, "lengthMax", text)}
+            />
+          </View>
+          <View className="flex-row gap-sm">
+            <Input
+              className="flex-1"
+              placeholder={t("more:masterData.gradeWidthMin")}
+              keyboardType="decimal-pad"
+              value={value[grade].widthMin}
+              onChangeText={(text) => onChange(grade, "widthMin", text)}
+            />
+            <Input
+              className="flex-1"
+              placeholder={t("more:masterData.gradeWidthMax")}
+              keyboardType="decimal-pad"
+              value={value[grade].widthMax}
+              onChangeText={(text) => onChange(grade, "widthMax", text)}
+            />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function hydrateForm(v: Variety): FormState {
   return {
     name: v.name,
@@ -391,8 +487,69 @@ function hydrateForm(v: Variety): FormState {
     refLength:
       v.ref_length_mm !== null && v.ref_length_mm !== undefined ? String(v.ref_length_mm) : "",
     refWidth: v.ref_width_mm !== null && v.ref_width_mm !== undefined ? String(v.ref_width_mm) : "",
+    gradeCriteria: hydrateGradeCriteria(v.grade_criteria),
     isActive: v.is_active !== false,
   };
+}
+
+function hydrateGradeCriteria(criteria: VarietyGradeCriteria | null): GradeCriteriaForm {
+  const next = emptyGradeCriteriaForm();
+  if (!criteria) return next;
+  for (const grade of GRADE_KEYS) {
+    const rule = criteria[grade];
+    if (!rule) continue;
+    next[grade] = {
+      lengthMin: formatCriteriaNumber(rule.length_mm?.min),
+      lengthMax: formatCriteriaNumber(rule.length_mm?.max),
+      widthMin: formatCriteriaNumber(rule.width_mm?.min),
+      widthMax: formatCriteriaNumber(rule.width_mm?.max),
+    };
+  }
+  return next;
+}
+
+function buildGradeCriteria(form: GradeCriteriaForm): VarietyGradeCriteria | null {
+  const criteria: VarietyGradeCriteria = {};
+  for (const grade of GRADE_KEYS) {
+    const lengthMin = parseCriteriaNumber(form[grade].lengthMin);
+    const lengthMax = parseCriteriaNumber(form[grade].lengthMax);
+    const widthMin = parseCriteriaNumber(form[grade].widthMin);
+    const widthMax = parseCriteriaNumber(form[grade].widthMax);
+    assertValidRange(lengthMin, lengthMax);
+    assertValidRange(widthMin, widthMax);
+    if (lengthMin === null && lengthMax === null && widthMin === null && widthMax === null) {
+      continue;
+    }
+    criteria[grade] = {
+      length_mm: { min: lengthMin, max: lengthMax },
+      width_mm: { min: widthMin, max: widthMax },
+    };
+  }
+  return Object.keys(criteria).length > 0 ? criteria : null;
+}
+
+function emptyGradeCriteriaForm(): GradeCriteriaForm {
+  return {
+    A: { ...EMPTY_GRADE_CRITERIA.A },
+    B: { ...EMPTY_GRADE_CRITERIA.B },
+    C: { ...EMPTY_GRADE_CRITERIA.C },
+  };
+}
+
+function formatCriteriaNumber(value: number | null | undefined): string {
+  return value !== null && value !== undefined && Number.isFinite(value) ? String(value) : "";
+}
+
+function parseCriteriaNumber(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) throw new Error("INVALID_GRADE_CRITERIA");
+  return parsed;
+}
+
+function assertValidRange(min: number | null, max: number | null): void {
+  if (min !== null && max !== null && min > max) throw new Error("INVALID_GRADE_CRITERIA");
 }
 
 function deleteErrorMessage(error: unknown, t: TFunction): string {

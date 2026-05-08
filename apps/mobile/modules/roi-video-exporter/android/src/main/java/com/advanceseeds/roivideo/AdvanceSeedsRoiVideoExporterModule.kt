@@ -179,13 +179,19 @@ private object AndroidRoiVideoExporter {
       canvas.drawColor(Color.BLACK)
       val target = fitCenter(bitmap.width, bitmap.height, width, height)
       canvas.drawBitmap(bitmap, null, target, null)
-      drawRoi(canvas, roi, target)
+      drawOverlay(canvas, roi, target)
     } finally {
       surface.unlockCanvasAndPost(canvas)
     }
   }
 
-  private fun drawRoi(canvas: Canvas, roi: Map<String, Any?>, rect: RectF) {
+  private fun drawOverlay(canvas: Canvas, overlay: Map<String, Any?>, rect: RectF) {
+    val roi = overlay["roi"] as? Map<*, *> ?: if (overlay["kind"] is String) overlay else null
+    if (roi != null) drawRoi(canvas, roi, rect)
+    drawSeeds(canvas, overlay, rect)
+  }
+
+  private fun drawRoi(canvas: Canvas, roi: Map<*, *>, rect: RectF) {
     val path = Path()
     when (roi["kind"] as? String) {
       "rect" -> {
@@ -288,6 +294,77 @@ private object AndroidRoiVideoExporter {
   private fun pointX(point: Map<*, *>, rect: RectF) = rect.left + number(point["x"]) * rect.width()
 
   private fun pointY(point: Map<*, *>, rect: RectF) = rect.top + number(point["y"]) * rect.height()
+
+  private fun drawSeeds(canvas: Canvas, overlay: Map<String, Any?>, rect: RectF) {
+    val seeds = overlay["seeds"] as? List<*> ?: return
+    if (seeds.isEmpty()) return
+    val frameWidth = number(overlay["frameWidth"])
+    val frameHeight = number(overlay["frameHeight"])
+    val orientation = overlay["frameOrientation"] as? String ?: "up"
+    val rotates = orientation == "left" || orientation == "right" || orientation == "left-mirrored" || orientation == "right-mirrored"
+    val orientedWidth = if (rotates) frameHeight else frameWidth
+    val orientedHeight = if (rotates) frameWidth else frameHeight
+    val scaleX = if (orientedWidth > 0f) rect.width() / orientedWidth else 1f
+    val scaleY = if (orientedHeight > 0f) rect.height() / orientedHeight else 1f
+    val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.rgb(34, 197, 94)
+      style = Paint.Style.STROKE
+      strokeWidth = max(4f, min(rect.width(), rect.height()) * 0.004f)
+      strokeJoin = Paint.Join.ROUND
+      strokeCap = Paint.Cap.ROUND
+    }
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.argb(26, 34, 197, 94)
+      style = Paint.Style.FILL
+    }
+    val labelFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.argb(209, 12, 18, 14)
+      style = Paint.Style.FILL
+    }
+    val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.WHITE
+      textSize = 14f
+      isFakeBoldText = true
+    }
+
+    seeds.forEach { rawSeed ->
+      val seed = rawSeed as? Map<*, *> ?: return@forEach
+      val bbox = seed["bbox"] as? Map<*, *> ?: return@forEach
+      val orientedBox = rotateBox(bbox, frameWidth, frameHeight, orientation)
+      val x = rect.left + orientedBox.left * scaleX
+      val y = rect.top + orientedBox.top * scaleY
+      val box = RectF(
+        x,
+        y,
+        x + max(1f, orientedBox.width() * scaleX),
+        y + max(1f, orientedBox.height() * scaleY),
+      )
+      canvas.drawRoundRect(box, 4f, 4f, fill)
+      canvas.drawRoundRect(box, 4f, 4f, stroke)
+      val label = "#${(seed["index"] as? Number)?.toInt() ?: 0} ${seed["grade"] as? String ?: ""}"
+      val labelRect = RectF(
+        box.left,
+        max(0f, box.top - 28f),
+        box.left + max(58f, text.measureText(label) + 12f),
+        max(0f, box.top - 28f) + 24f,
+      )
+      canvas.drawRoundRect(labelRect, 4f, 4f, labelFill)
+      canvas.drawText(label, labelRect.left + 6f, labelRect.top + 17f, text)
+    }
+  }
+
+  private fun rotateBox(bbox: Map<*, *>, frameWidth: Float, frameHeight: Float, orientation: String): RectF {
+    val x = number(bbox["x"])
+    val y = number(bbox["y"])
+    val width = number(bbox["width"])
+    val height = number(bbox["height"])
+    return when (orientation) {
+      "right", "right-mirrored" -> RectF(frameHeight - y - height, x, frameHeight - y, x + width)
+      "left", "left-mirrored" -> RectF(y, frameWidth - x - width, y + height, frameWidth - x)
+      "down", "down-mirrored" -> RectF(frameWidth - x - width, frameHeight - y - height, frameWidth - x, frameHeight - y)
+      else -> RectF(x, y, x + width, y + height)
+    }
+  }
 
   private fun number(value: Any?): Float {
     return when (value) {

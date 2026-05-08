@@ -19,7 +19,6 @@ export const namespaces = [
   "auth",
   "inspections",
   "varieties",
-  "batches",
   "reports",
   "settings",
   "calibration",

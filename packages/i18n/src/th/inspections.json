@@ -4,7 +4,6 @@
     "searchPlaceholder": "ค้นหาการตรวจสอบ",
     "filters": {
       "variety": "พันธุ์",
-      "batch": "ล็อต",
       "inspector": "ผู้ตรวจ",
       "dateRange": "ช่วงวันที่"
     },
@@ -41,6 +40,10 @@
       "flash": "แฟลช",
       "roi": "ROI",
       "captureTimestamp": "เวลาถ่าย",
+      "analyzedImage": "ภาพที่ใช้วิเคราะห์",
+      "liveVsAnalyze": "เมล็ดสด → ตรวจสอบ",
+      "liveFallback": "ใช้ผลสดสำรอง",
+      "calibrationFallback": "ใช้ค่าสอบเทียบเริ่มต้น",
       "detectorModel": "โมเดลตรวจจับ",
       "detectorRuntime": "Runtime การประมวลผล",
       "detectorTrainedAs": "ชื่อตอนเทรน",
@@ -71,6 +74,10 @@
         "manual": "โปรไฟล์กำหนดเอง",
         "aruco": "เครื่องหมาย ArUco",
         "lidar": "LiDAR"
+      },
+      "boolean": {
+        "yes": "ใช่",
+        "no": "ไม่"
       }
     },
     "summary": {
@@ -93,14 +100,14 @@
   },
   "capture": {
     "setup": "ตั้งค่า",
-    "setupSubtitle": "ตั้งค่าข้อมูลล็อตก่อนเริ่มถ่าย",
+    "setupSubtitle": "เลือกพันธุ์และเพิ่มบันทึกก่อนเปิดกล้อง",
     "mode": "โหมดถ่าย",
     "modeLive": "สด",
     "modeLiveHint": "ตรวจจับเมล็ดในถาดแบบเรียลไทม์",
     "modePrecise": "แม่นยำ",
     "modePreciseHint": "ถือนิ่งที่ระยะคงที่เพื่อค่าวัดระดับห้องแล็บ",
     "modePicker": {
-      "subtitle": "เลือกวิธีถ่ายล็อตนี้",
+      "subtitle": "การถ่ายใช้เส้นทางกล้องเดียวที่ปรับการสอบเทียบอัตโนมัติ",
       "liveSubtitle": "นับและจัดเกรดแบบเรียลไทม์",
       "liveBody": "ตรวจจับต่อเนื่องที่ 20–30 fps เหมาะกับการตรวจภาคสนาม สาธิต หรือดูภาพรวมของถาด",
       "preciseSubtitle": "ถ่ายช็อตเดียว · สอบเทียบด้วย LiDAR",
@@ -128,7 +135,6 @@
       "precisePrereqUse": "ใช้โหมดนี้สำหรับค่าวัดสุดท้ายและบันทึก QA"
     },
     "modeSingle": "เดี่ยว",
-    "modeBatch": "ชุด",
     "shutter": "ถ่าย",
     "analyzing": "กำลังวิเคราะห์…",
     "saving": "กำลังบันทึก…",
@@ -139,8 +145,6 @@
     "startCapture": "เริ่มถ่าย",
     "selectVariety": "เลือกพันธุ์",
     "varietyPlaceholder": "เลือกพันธุ์…",
-    "selectBatch": "เลือกล็อต (ไม่บังคับ)",
-    "batchPlaceholder": "เลือกล็อต…",
     "selectCalibration": "เลือกการสอบเทียบ",
     "notesLabel": "บันทึกย่อ",
     "notesOptional": "ไม่บังคับ",
@@ -198,6 +202,8 @@
       "alignMarker": "จัดตำแหน่งการ์ด ArUco เพื่อล็อกการสอบเทียบ",
       "lockRequiredTitle": "ต้องล็อกการสอบเทียบก่อน",
       "lockRequiredBody": "ให้การ์ด ArUco 5 ซม. อยู่ในภาพจนขึ้นว่าสอบเทียบล็อกแล้ว จากนั้นค่อยถ่าย",
+      "defaultFallbackTitle": "กำลังใช้สเกลเริ่มต้น",
+      "defaultFallbackBody": "การถ่ายนี้ไม่มีค่าสอบเทียบสด ค่าวัดอาจแม่นยำน้อยลง ควรถือตัวเครื่องขนานกับถาดและให้เห็นการ์ด ArUco เมื่อทำได้",
       "unavailableTitle": "ยังไม่ได้สอบเทียบ",
       "unavailableHint": "ค่าวัดอาจไม่แม่นยำ",
       "recalibrate": "สอบเทียบใหม่"

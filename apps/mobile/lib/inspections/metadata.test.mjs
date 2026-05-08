@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildInspectionMetadata,
+  readAnalysisDiagnosticsMetadata,
   locationDisplayName,
   readCaptureMetadata,
   readCalibrationMetadata,
@@ -26,6 +27,21 @@ const capture = {
   captured_at: "2026-04-29T09:00:00.000Z",
 };
 
+const analysisDiagnostics = {
+  live_seed_count: 11,
+  analyze_seed_count: 12,
+  live_frame_width: 1920,
+  live_frame_height: 1080,
+  live_frame_orientation: "right",
+  analyzed_image_width: 1280,
+  analyzed_image_height: 960,
+  captured_image_orientation: "portrait",
+  analyzed_image_orientation: "up",
+  used_live_frame_fallback: false,
+  calibration_fallback_used: false,
+  calibration_source_used: "lidar",
+};
+
 test("buildInspectionMetadata keeps auto-tag intent even when GPS is unavailable", () => {
   assert.deepEqual(
     buildInspectionMetadata({
@@ -46,6 +62,7 @@ test("buildInspectionMetadata keeps auto-tag intent even when GPS is unavailable
         profileName: "Lab card",
       },
       capture,
+      analysisDiagnostics,
     }),
     {
       calibration: {
@@ -68,6 +85,7 @@ test("buildInspectionMetadata keeps auto-tag intent even when GPS is unavailable
         media_kind: "photo",
         roi_kind: null,
       },
+      analysis_diagnostics: analysisDiagnostics,
       location_capture_enabled: true,
     },
   );
@@ -142,6 +160,7 @@ test("metadata readers return location, device usage, and capture detail", () =>
       roi_kind: "circle",
       captured_at: "2026-04-29T09:00:00.000Z",
     },
+    analysis_diagnostics: analysisDiagnostics,
   };
 
   assert.equal(readLocationMetadata(metadata)?.latitude, 13.794);
@@ -149,6 +168,23 @@ test("metadata readers return location, device usage, and capture detail", () =>
   assert.deepEqual(readDeviceUsageMetadata(metadata), deviceUsage);
   assert.deepEqual(readCaptureMetadata(metadata), metadata.capture);
   assert.deepEqual(readCalibrationMetadata(metadata), metadata.calibration);
+  assert.deepEqual(readAnalysisDiagnosticsMetadata(metadata), analysisDiagnostics);
+});
+
+test("analysis diagnostics marks default calibration fallback explicitly", () => {
+  const metadata = {
+    analysis_diagnostics: {
+      ...analysisDiagnostics,
+      live_seed_count: null,
+      calibration_fallback_used: true,
+      calibration_source_used: "default",
+    },
+  };
+
+  const diagnostics = readAnalysisDiagnosticsMetadata(metadata);
+  assert.equal(diagnostics.live_seed_count, null);
+  assert.equal(diagnostics.calibration_fallback_used, true);
+  assert.equal(diagnostics.calibration_source_used, "default");
 });
 
 test("locationDisplayName prefers reverse-geocoded address", () => {

@@ -12,6 +12,7 @@ import { AnalyzerProvider } from "@/lib/analyzer/AnalyzerProvider";
 import { bootstrapI18n } from "@/lib/i18n";
 import { useOnboarded } from "@/lib/onboarding";
 import { SyncQueueWorker } from "@/lib/sync/SyncQueueWorker";
+import { ModelInstallNotifier } from "@/components/home/ModelInstallNotifier";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -95,6 +96,7 @@ export default function RootLayout() {
                 <StatusBar style="auto" />
                 <StartupGate />
                 <SyncQueueWorker />
+                <ModelInstallNotifier />
                 <Stack
                   screenOptions={{
                     headerShown: false,
@@ -128,10 +130,7 @@ export default function RootLayout() {
                   <Stack.Screen name="inspections/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="seed/[inspection]/[index]" options={{ headerShown: false }} />
                   {/* `(tabs)/inspect` is the tab landing that redirects into
-                      the fullscreen `/capture/*` group below. The capture
-                      stack itself sets headerShown false; the inner mode
-                      and variety-picker screens opt into headers from
-                      their own Stack.Screen options. */}
+                      the fullscreen `/capture/*` group below. */}
                   <Stack.Screen
                     name="capture"
                     options={{ headerShown: false, animation: "slide_from_right" }}
@@ -140,7 +139,6 @@ export default function RootLayout() {
                   <Stack.Screen name="more/recordings" options={{ headerShown: false }} />
                   <Stack.Screen name="more/models" options={{ headerShown: false }} />
                   <Stack.Screen name="varieties/[id]" options={{ headerShown: false }} />
-                  <Stack.Screen name="batches" options={{ headerShown: false }} />
                   <Stack.Screen name="reports" options={{ headerShown: false }} />
                   <Stack.Screen name="calibration" options={{ headerShown: false }} />
                 </Stack>

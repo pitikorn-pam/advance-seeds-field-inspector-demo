@@ -1,5 +1,11 @@
-import type { AnalysisRoi, AnalysisSummary, AnalyzedSeed } from "@advance-seeds/types";
+import type {
+  AnalysisRoi,
+  AnalysisSummary,
+  AnalyzedSeed,
+  SeedGradingConfig,
+} from "@advance-seeds/types";
 import type { PixelImage } from "./ClassicalSeedAnalyzerCore";
+import { gradeSeedByConfig } from "./grading";
 
 export const YOLO_INPUT_SIZE = 640;
 
@@ -401,13 +407,14 @@ export interface MapOptions {
   frameHeight: number;
   pxPerMm: number;
   roi?: AnalysisRoi | null;
+  gradingConfig?: SeedGradingConfig | null;
 }
 
 export function mapDetectionsToSeeds(
   detections: RawDetection[],
   options: MapOptions,
 ): AnalyzedSeed[] {
-  const { frameWidth, frameHeight, pxPerMm, roi } = options;
+  const { frameWidth, frameHeight, pxPerMm, roi, gradingConfig } = options;
   const seeds: AnalyzedSeed[] = [];
   let droppedOutOfBounds = 0;
   let droppedOutOfRoi = 0;
@@ -469,7 +476,7 @@ export function mapDetectionsToSeeds(
       length_mm,
       width_mm,
       area_mm2,
-      grade: gradeSeed(length_mm, width_mm),
+      grade: gradeSeedByConfig(length_mm, width_mm, gradingConfig),
       defects: {},
       class_id: d.classId,
       bbox: {
@@ -537,13 +544,6 @@ function pointInPolygon(p: { x: number; y: number }, points: Array<{ x: number; 
     if (intersect) inside = !inside;
   }
   return inside;
-}
-
-function gradeSeed(lengthMm: number, widthMm: number): AnalyzedSeed["grade"] {
-  const aspect = lengthMm / Math.max(widthMm, 0.001);
-  if (lengthMm < 1 || widthMm < 0.6) return "reject";
-  if (aspect > 4.5 || aspect < 1.2) return "B";
-  return "A";
 }
 
 function round(value: number, digits: number) {

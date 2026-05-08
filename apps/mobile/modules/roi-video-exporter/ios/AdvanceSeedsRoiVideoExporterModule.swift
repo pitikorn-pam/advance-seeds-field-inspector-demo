@@ -33,13 +33,13 @@ private func fileURL(from uri: String) throws -> URL {
 }
 
 private final class OverlayCache: @unchecked Sendable {
-  private let roi: [String: Any]
+  private let overlay: [String: Any]
   private let lock = NSLock()
   private var cachedSize: CGSize = .zero
   private var cachedImage: CIImage?
 
-  init(roi: [String: Any]) {
-    self.roi = roi
+  init(overlay: [String: Any]) {
+    self.overlay = overlay
   }
 
   func image(size: CGSize) -> CIImage {
@@ -56,7 +56,7 @@ private final class OverlayCache: @unchecked Sendable {
 
     let renderer = UIGraphicsImageRenderer(size: size, format: format)
     let image = renderer.image { rendererContext in
-      RoiVideoExporter.drawRoi(roi, in: rendererContext.cgContext, size: size)
+      RoiVideoExporter.drawOverlay(overlay, in: rendererContext.cgContext, size: size)
     }
 
     let ciImage = CIImage(cgImage: image.cgImage!)
@@ -78,7 +78,7 @@ private enum RoiVideoExporter {
       )
     }
 
-    let overlayCache = OverlayCache(roi: roi)
+    let overlayCache = OverlayCache(overlay: roi)
     let videoComposition = AVMutableVideoComposition(asset: asset) { request in
       let sourceImage = request.sourceImage
       let overlayImage = overlayCache.image(size: sourceImage.extent.size)
@@ -138,7 +138,16 @@ private enum RoiVideoExporter {
     }
   }
 
-  fileprivate static func drawRoi(_ roi: [String: Any], in context: CGContext, size: CGSize) {
+  fileprivate static func drawOverlay(_ overlay: [String: Any], in context: CGContext, size: CGSize) {
+    if let roi = overlay["roi"] as? [String: Any] {
+      drawRoi(roi, in: context, size: size)
+    } else if overlay["kind"] is String {
+      drawRoi(overlay, in: context, size: size)
+    }
+    drawSeeds(overlay["seeds"] as? [[String: Any]], overlay: overlay, in: context, size: size)
+  }
+
+  private static func drawRoi(_ roi: [String: Any], in context: CGContext, size: CGSize) {
     let path = UIBezierPath()
     let kind = roi["kind"] as? String
 
@@ -181,6 +190,89 @@ private enum RoiVideoExporter {
 
   private static func point(_ value: [String: Any], size: CGSize) -> CGPoint {
     CGPoint(x: number(value["x"]) * size.width, y: number(value["y"]) * size.height)
+  }
+
+  private static func drawSeeds(
+    _ seeds: [[String: Any]]?,
+    overlay: [String: Any],
+    in context: CGContext,
+    size: CGSize
+  ) {
+    guard let seeds, !seeds.isEmpty else { return }
+    let sourceWidth = number(overlay["frameWidth"])
+    let sourceHeight = number(overlay["frameHeight"])
+    let orientation = overlay["frameOrientation"] as? String ?? "up"
+    let rotates = orientation == "left"
+      || orientation == "right"
+      || orientation == "left-mirrored"
+      || orientation == "right-mirrored"
+    let orientedWidth = rotates ? sourceHeight : sourceWidth
+    let orientedHeight = rotates ? sourceWidth : sourceHeight
+    let scaleX = orientedWidth > 0 ? size.width / orientedWidth : CGFloat(1)
+    let scaleY = orientedHeight > 0 ? size.height / orientedHeight : CGFloat(1)
+    let stroke = UIColor(red: 0.133, green: 0.773, blue: 0.369, alpha: 1)
+    let fill = UIColor(red: 0.133, green: 0.773, blue: 0.369, alpha: 0.10)
+    let labelFill = UIColor(red: 0.047, green: 0.071, blue: 0.055, alpha: 0.82)
+
+    context.saveGState()
+    context.setLineWidth(max(CGFloat(4), min(size.width, size.height) * 0.004))
+    for seed in seeds {
+      guard let bbox = seed["bbox"] as? [String: Any] else { continue }
+      let orientedBox = rotateBox(bbox, frameWidth: sourceWidth, frameHeight: sourceHeight, orientation: orientation)
+      let rect = CGRect(
+        x: orientedBox.minX * scaleX,
+        y: orientedBox.minY * scaleY,
+        width: max(CGFloat(1), orientedBox.width * scaleX),
+        height: max(CGFloat(1), orientedBox.height * scaleY)
+      )
+      context.setFillColor(fill.cgColor)
+      context.setStrokeColor(stroke.cgColor)
+      context.addPath(UIBezierPath(roundedRect: rect, cornerRadius: 4).cgPath)
+      context.drawPath(using: .fillStroke)
+
+      let index = seed["index"] as? NSNumber
+      let grade = seed["grade"] as? String
+      let label = "#\(index?.intValue ?? 0) \(grade ?? "")"
+      let labelRect = CGRect(
+        x: rect.minX,
+        y: max(CGFloat(0), rect.minY - 28),
+        width: max(CGFloat(58), CGFloat(label.count * 10)),
+        height: 24
+      )
+      context.setFillColor(labelFill.cgColor)
+      context.addPath(UIBezierPath(roundedRect: labelRect, cornerRadius: 4).cgPath)
+      context.fillPath()
+      label.draw(
+        in: labelRect.insetBy(dx: 6, dy: 3),
+        withAttributes: [
+          .foregroundColor: UIColor.white,
+          .font: UIFont.boldSystemFont(ofSize: 14)
+        ]
+      )
+    }
+    context.restoreGState()
+  }
+
+  private static func rotateBox(
+    _ bbox: [String: Any],
+    frameWidth: CGFloat,
+    frameHeight: CGFloat,
+    orientation: String
+  ) -> CGRect {
+    let x = number(bbox["x"])
+    let y = number(bbox["y"])
+    let width = number(bbox["width"])
+    let height = number(bbox["height"])
+    switch orientation {
+    case "right", "right-mirrored":
+      return CGRect(x: frameHeight - y - height, y: x, width: height, height: width)
+    case "left", "left-mirrored":
+      return CGRect(x: y, y: frameWidth - x - width, width: height, height: width)
+    case "down", "down-mirrored":
+      return CGRect(x: frameWidth - x - width, y: frameHeight - y - height, width: width, height: height)
+    default:
+      return CGRect(x: x, y: y, width: width, height: height)
+    }
   }
 
   private static func number(_ value: Any?) -> CGFloat {

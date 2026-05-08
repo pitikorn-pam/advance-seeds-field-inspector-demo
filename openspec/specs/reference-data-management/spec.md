@@ -1,7 +1,7 @@
 # reference-data-management Specification
 
 ## Purpose
-Manage varieties, batches, calibration profiles, and user profiles as reference data for inspections.
+Manage varieties, calibration profiles, and user profiles as reference data for inspections.
 
 ## Requirements
 ### Requirement: Varieties CRUD (admin only)
@@ -23,21 +23,15 @@ Both apps SHALL allow admins to create, read, update, and delete `varieties`. In
 - **WHEN** Alex edits the description and saves
 - **THEN** the row's `description` is updated and reflected in the list
 
+#### Scenario: Admin configures grading criteria
+- **WHEN** Alex edits grade A, B, and C length/width millimeter ranges on a variety
+- **THEN** those criteria are saved on the variety row as `grade_criteria`
+- **AND** future inspections of that variety grade seeds from the configured A/B/C ranges
+- **AND** legacy reference length and width remain available as a fallback when no criteria are configured
+
 #### Scenario: Admin deletes an unused variety
 - **WHEN** Alex deletes a variety with no associated inspections
 - **THEN** the row is removed
-
-### Requirement: Batches CRUD (admin only)
-Both apps SHALL allow admins to create, read, update, and delete `batches`. Inspectors SHALL only read.
-
-#### Scenario: Admin creates a batch
-- **WHEN** Alex submits the new-batch form with code "BATCH-2026-05", location, sown date, and notes
-- **THEN** a new row appears in `batches`
-
-#### Scenario: Inspector reads batches in inspection setup
-- **GIVEN** Jane is starting a new inspection
-- **WHEN** the batch dropdown loads
-- **THEN** every existing batch is selectable
 
 ### Requirement: Calibration profiles read-only
 Both apps SHALL display the configured calibration profiles (px/mm value and source LiDAR/ArUco). The demo SHALL NOT expose CRUD actions for these.

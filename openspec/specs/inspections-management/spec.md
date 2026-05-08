@@ -5,22 +5,22 @@ Manage the lifecycle of seed inspections — creation via mobile capture, real M
 
 ## Requirements
 ### Requirement: Create inspection (mobile capture flow)
-The mobile app SHALL allow an inspector to create a new inspection by selecting variety, optional batch, and capture mode (Live or Precise), running real YOLOv11n inference on a real captured camera frame, automatically applying LiDAR or ArUco calibration to produce real millimeter measurements, and persisting the resulting analysis.
+The mobile app SHALL allow an inspector to create a new inspection by selecting a variety, adding optional notes/location tagging, opening a single adaptive capture screen, running real YOLO26 segmentation inference on a captured camera frame, automatically applying LiDAR or ArUco calibration to produce real millimeter measurements, grading from the selected variety configuration, and persisting the resulting analysis.
 
-#### Scenario: Happy-path Live capture with real ML and ArUco calibration
+#### Scenario: Happy-path capture with real ML and ArUco calibration
 - **GIVEN** Jane is on the Home screen with the calibration card placed in front of the tray
-- **WHEN** she taps "+ New inspection", chooses variety "Rice — Hom Mali", batch "BATCH-2026-04", mode "Live", lets ArUco lock, and taps the shutter
-- **THEN** the latest frame's YOLOv11n detections are frozen
+- **WHEN** she taps "+ New inspection", chooses variety "Rice — Hom Mali", lets ArUco lock, and taps the shutter
+- **THEN** the latest frame's YOLO26 detections are frozen
 - **AND** the captured frame is uploaded to Supabase Storage
 - **AND** an inspection row is created with `inspector_id`, image URL, calibration source "aruco", and seeds rows whose measurements were derived from the locked `pxPerMm`
 - **AND** she lands on the Review screen showing the captured frame with bounding-box overlays
 
-#### Scenario: Happy-path Precise capture with LiDAR
-- **GIVEN** Jane is on iPhone 12 Pro+ in precise mode and holds the device 28 cm above the tray
-- **WHEN** LiDAR locks and she taps the shutter
+#### Scenario: Happy-path capture with LiDAR
+- **GIVEN** Jane is on iPhone 12 Pro+ and holds the device 28 cm above the tray
+- **WHEN** LiDAR streams a confident reading and she taps the shutter
 - **THEN** a high-resolution photo is taken
-- **AND** YOLOv11n single-shot inference runs on the captured photo
-- **AND** the inspection row is saved with calibration source "lidar" and the locked `pxPerMm`
+- **AND** YOLO26 single-shot inference runs on the captured photo
+- **AND** the inspection row is saved with calibration source "lidar" and the capture-time `pxPerMm`
 - **AND** the user lands on the Review screen
 
 #### Scenario: Cancel during capture discards nothing
@@ -33,12 +33,6 @@ The mobile app SHALL allow an inspector to create a new inspection by selecting 
 - **WHEN** she taps the close button before tapping Continue
 - **THEN** no inspection row is created
 - **AND** the capture session is reset to defaults
-
-#### Scenario: Cancel during mode pick discards nothing
-- **GIVEN** Jane is on /capture/mode
-- **WHEN** she taps Back
-- **THEN** she returns to /capture/setup with her existing setup values preserved
-- **AND** no inspection row is created
 
 ### Requirement: Real analysis via SeedAnalyzer adapter
 The mobile app SHALL produce inspection results through a `SeedAnalyzer` interface. Phase 1 SHALL use an on-device classical analyzer for captured JPEG photos, segment seed-like blobs, apply the committed ROI, convert pixels to millimeters using the active calibration `pxPerMm`, and fall back to `MockSeedAnalyzer` only when decoding or segmentation cannot produce usable detections. Later TFLite/Core ML implementations SHALL keep the same interface.
@@ -61,6 +55,14 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
 - **THEN** the analyzer downscales the pixel buffer before segmentation
 - **AND** it adjusts `pxPerMm` by the same scale so millimeter measurements remain stable
 - **AND** it logs decode time, analysis time, total time, frame size, analysis size, and detected seed count
+
+#### Scenario: Analyzer grades from variety configuration
+- **GIVEN** the selected variety has configured A/B/C grade criteria in millimeters
+- **WHEN** analyzer maps detections into seeds
+- **THEN** the analyzer evaluates the grade criteria in A, B, C order
+- **AND** the first matching length/width range becomes the seed grade
+- **AND** seeds outside every configured range map to `reject`
+- **AND** when a variety has no `grade_criteria`, the analyzer falls back to legacy reference length/width targets
 
 #### Scenario: Classical analyzer applies ROI
 - **GIVEN** a committed ROI covers only part of the captured frame
@@ -118,7 +120,7 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
 - **AND** the result `analyzerId` includes the fallback analyzer ID for traceability
 
 ### Requirement: List inspections with filters
-Both apps SHALL provide an inspections list with filters by variety, batch, date range, and (admin only) inspector, plus a search field.
+Both apps SHALL provide an inspections list with filters by variety, date range, and (admin only) inspector, plus a search field.
 
 #### Scenario: Inspector sees only own inspections
 - **GIVEN** Jane is signed in

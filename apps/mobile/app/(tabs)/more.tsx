@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import {
   User,
   Video,
-  Layers,
   Target,
   ListChecks,
   BarChart3,
@@ -27,7 +26,7 @@ import { Card } from "@/components/ui/Card";
  *
  *   Account    — personal: Profile, Settings, Sign out
  *   Capture    — video artifacts + inspection history
- *   Reference  — admin reference data: Batches, Calibration profiles
+ *   Reference  — admin reference data: Varieties, Calibration profiles
  *   Insights   — analytics exports
  *
  * Each row pushes onto the stack so the back gesture lands here. Sign out
@@ -102,13 +101,6 @@ export default function MoreScreen() {
             label={t("more:menu.varieties")}
             onPress={() => router.push("/more/capture-classes" as never)}
           />
-          <Divider />
-          <MenuRow
-            renderIcon={() => <Layers color="#1A1A1A" size={16} />}
-            label={t("more:menu.batches")}
-            onPress={() => router.push("/batches")}
-          />
-          <Divider />
           <MenuRow
             renderIcon={() => <Target color="#1A1A1A" size={16} />}
             label={t("more:menu.calibration")}

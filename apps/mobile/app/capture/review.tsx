@@ -10,8 +10,9 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useCaptureSession } from "@/lib/capture/session";
 import { getCurrentLocation } from "@/lib/capture/location";
+import type { CaptureAnalysisDiagnostics } from "@/lib/capture/session";
 import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
-import { shareImageWithRoi, shareVideo } from "@/lib/capture/imageActions";
+import { shareAnnotatedImage, shareVideo } from "@/lib/capture/imageActions";
 import { displayInspectionNote } from "@/lib/inspections/notes";
 import {
   buildInspectionMetadata,
@@ -105,6 +106,20 @@ function buildDeviceUsageMetadata() {
       null,
     runtime_version: Constants.expoRuntimeVersion ?? runtimeVersion,
   };
+}
+
+function formatImageDiagnostic(
+  width: number | null,
+  height: number | null,
+  orientation: string | null,
+) {
+  const size = width && height ? `${width}×${height}` : "—";
+  return orientation ? `${size} · ${orientation}` : size;
+}
+
+function formatLiveAnalyzeDiagnostic(diagnostics: CaptureAnalysisDiagnostics) {
+  const live = diagnostics.live_seed_count === null ? "—" : diagnostics.live_seed_count.toString();
+  return `${live} → ${diagnostics.analyze_seed_count}`;
 }
 
 /**
@@ -245,13 +260,23 @@ export default function CaptureReview() {
     if (!uri) return;
     try {
       if (mediaKind === "video") {
-        const shareUri =
-          previewRoi && session.capturedVideoUri
-            ? await exportAnnotatedVideo(session.capturedVideoUri, previewRoi)
-            : uri;
+        const liveFrame = session.capturedLiveFrameResult;
+        const shareUri = session.capturedVideoUri
+          ? await exportAnnotatedVideo(session.capturedVideoUri, {
+              roi: previewRoi,
+              seeds: liveFrame?.seeds ?? null,
+              frameWidth: liveFrame?.frameWidth ?? null,
+              frameHeight: liveFrame?.frameHeight ?? null,
+              frameOrientation: liveFrame?.frameOrientation ?? null,
+            })
+          : uri;
         await shareVideo(shareUri, t("inspections:capture.review.shareVideo"));
       } else {
-        await shareImageWithRoi(uri, previewRoi, t("inspections:capture.review.shareImage"));
+        await shareAnnotatedImage(
+          uri,
+          { roi: previewRoi, seeds: result.seeds },
+          t("inspections:capture.review.shareImage"),
+        );
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -311,11 +336,12 @@ export default function CaptureReview() {
           captured_at: capturedAt,
         },
         analyzerModel,
+        analysisDiagnostics: session.analysisDiagnostics,
       });
       const payload = buildInspectionSavePayload({
         inspectorId: profile.id,
         varietyId: session.varietyId,
-        batchId: session.batchId,
+        batchId: null,
         calibrationId:
           session.capturedCalibrationReading?.source === "manual" ? session.calibrationId : null,
         imageUrl: session.uploadedImageUrl,
@@ -350,7 +376,7 @@ export default function CaptureReview() {
         const fallbackPayload = buildInspectionSavePayload({
           inspectorId: profile.id,
           varietyId: session.varietyId,
-          batchId: session.batchId,
+          batchId: null,
           calibrationId:
             session.capturedCalibrationReading?.source === "manual" ? session.calibrationId : null,
           imageUrl: session.uploadedImageUrl,
@@ -388,6 +414,7 @@ export default function CaptureReview() {
               flash_mode: session.flashMode,
               captured_at: capturedAt,
             },
+            analysisDiagnostics: session.analysisDiagnostics,
           }),
           notes: session.notes,
         });
@@ -464,9 +491,8 @@ export default function CaptureReview() {
             }
           }
           session.reset();
-          // Pop back to the capture mode screen (scan/precise) so the
-          // inspector can re-shoot without bouncing to Home and re-
-          // entering the variety + mode pickers.
+          // Pop back to the camera so the inspector can re-shoot without
+          // bouncing to Home and re-entering setup.
           if (router.canGoBack()) router.back();
           else router.replace("/capture/setup");
         },
@@ -512,7 +538,24 @@ export default function CaptureReview() {
               className="rounded-xl overflow-hidden"
               style={{ height: 200, backgroundColor: "#1a1816" }}
             >
-              <CaptureMediaPreview uri={previewMediaUri} kind={mediaKind} roi={previewRoi} />
+              <CaptureMediaPreview
+                uri={previewMediaUri}
+                kind={mediaKind}
+                roi={previewRoi}
+                seeds={
+                  mediaKind === "video" ? session.capturedLiveFrameResult?.seeds : result.seeds
+                }
+                seedFrameWidth={
+                  mediaKind === "video"
+                    ? (session.capturedLiveFrameResult?.frameWidth ?? null)
+                    : null
+                }
+                seedFrameHeight={
+                  mediaKind === "video"
+                    ? (session.capturedLiveFrameResult?.frameHeight ?? null)
+                    : null
+                }
+              />
             </View>
 
             {note ? (
@@ -677,6 +720,38 @@ export default function CaptureReview() {
                       label={t("inspections:detail.metadata.captureTimestamp")}
                       value={dateFmt.format(new Date(capturedAt))}
                     />
+                    {session.analysisDiagnostics ? (
+                      <>
+                        <MetadataRow
+                          label={t("inspections:detail.metadata.analyzedImage")}
+                          value={formatImageDiagnostic(
+                            session.analysisDiagnostics.analyzed_image_width,
+                            session.analysisDiagnostics.analyzed_image_height,
+                            session.analysisDiagnostics.analyzed_image_orientation,
+                          )}
+                        />
+                        <MetadataRow
+                          label={t("inspections:detail.metadata.liveVsAnalyze")}
+                          value={formatLiveAnalyzeDiagnostic(session.analysisDiagnostics)}
+                        />
+                        <MetadataRow
+                          label={t("inspections:detail.metadata.liveFallback")}
+                          value={t(
+                            session.analysisDiagnostics.used_live_frame_fallback
+                              ? "inspections:detail.metadata.boolean.yes"
+                              : "inspections:detail.metadata.boolean.no",
+                          )}
+                        />
+                        <MetadataRow
+                          label={t("inspections:detail.metadata.calibrationFallback")}
+                          value={t(
+                            session.analysisDiagnostics.calibration_fallback_used
+                              ? "inspections:detail.metadata.boolean.yes"
+                              : "inspections:detail.metadata.boolean.no",
+                          )}
+                        />
+                      </>
+                    ) : null}
                   </>
                 ) : null}
                 {reviewAnalyzerModel ? (

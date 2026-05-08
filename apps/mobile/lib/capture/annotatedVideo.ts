@@ -1,8 +1,17 @@
 import { Platform } from "react-native";
+import type { AnalyzedSeed } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
 
 interface RoiVideoExporterModule {
   exportWithRoiAsync(inputUri: string, roi: Record<string, unknown>): Promise<string>;
+}
+
+export interface VideoAnnotationOverlay {
+  roi: Roi | null;
+  seeds?: readonly AnalyzedSeed[] | null;
+  frameWidth?: number | null;
+  frameHeight?: number | null;
+  frameOrientation?: string | null;
 }
 
 let nativeModule: RoiVideoExporterModule | null | undefined;
@@ -22,9 +31,34 @@ function getNativeModule() {
   return nativeModule;
 }
 
-export async function exportAnnotatedVideo(inputUri: string, roi: Roi | null): Promise<string> {
-  if (!roi) return inputUri;
+function buildOverlayPayload(overlay: VideoAnnotationOverlay): Record<string, unknown> | null {
+  const seeds = overlay.seeds?.length
+    ? overlay.seeds.map((seed) => ({
+        index: seed.index,
+        grade: seed.grade,
+        bbox: seed.bbox,
+      }))
+    : null;
+  if (!overlay.roi && !seeds) return null;
+  return {
+    roi: overlay.roi,
+    seeds,
+    frameWidth: overlay.frameWidth ?? null,
+    frameHeight: overlay.frameHeight ?? null,
+    frameOrientation: overlay.frameOrientation ?? null,
+  };
+}
+
+export async function exportAnnotatedVideo(
+  inputUri: string,
+  overlay: Roi | VideoAnnotationOverlay | null,
+): Promise<string> {
+  const payload =
+    overlay && "kind" in overlay
+      ? buildOverlayPayload({ roi: overlay })
+      : buildOverlayPayload(overlay ?? { roi: null });
+  if (!payload) return inputUri;
   const exporter = getNativeModule();
   if (!exporter) return inputUri;
-  return exporter.exportWithRoiAsync(inputUri, roi as unknown as Record<string, unknown>);
+  return exporter.exportWithRoiAsync(inputUri, payload);
 }

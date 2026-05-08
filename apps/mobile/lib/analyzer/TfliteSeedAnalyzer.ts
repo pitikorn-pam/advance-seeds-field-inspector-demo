@@ -248,6 +248,7 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
       frameHeight: pixels.height,
       pxPerMm: options.pxPerMm,
       roi: options.roi ?? null,
+      gradingConfig: options.gradingConfig ?? null,
     });
 
     const totalMs = Date.now() - startedAt;

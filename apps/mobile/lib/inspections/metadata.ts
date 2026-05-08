@@ -3,6 +3,7 @@ import type { CapturedLocation } from "@/lib/capture/location";
 import type { CalibrationReading } from "@advance-seeds/types";
 import type {
   CaptureCameraPosition,
+  CaptureAnalysisDiagnostics,
   CaptureFlashMode,
   CaptureMediaKind,
   CaptureMode,
@@ -63,6 +64,8 @@ export interface CalibrationMetadata {
   profile_name: string | null;
 }
 
+export type AnalysisDiagnosticsMetadata = CaptureAnalysisDiagnostics;
+
 interface BuildInspectionMetadataArgs {
   roi: Roi | null;
   mediaKind: CaptureMediaKind;
@@ -80,6 +83,7 @@ interface BuildInspectionMetadataArgs {
     | null;
   capture: Omit<CaptureMetadata, "media_kind" | "roi_kind">;
   analyzerModel: AnalyzerModelMetadata | null;
+  analysisDiagnostics?: AnalysisDiagnosticsMetadata | null;
 }
 
 export function buildInspectionMetadata(
@@ -110,11 +114,42 @@ export function buildInspectionMetadata(
     roi_kind: args.roi?.kind ?? null,
   };
   if (args.analyzerModel) metadata.analyzer_model = args.analyzerModel;
+  if (args.analysisDiagnostics) metadata.analysis_diagnostics = args.analysisDiagnostics;
   if (args.locationTagEnabled) {
     metadata.location_capture_enabled = true;
     if (args.capturedLocation) metadata.location = args.capturedLocation;
   }
   return metadata;
+}
+
+export function readAnalysisDiagnosticsMetadata(
+  metadata: unknown,
+): AnalysisDiagnosticsMetadata | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const row = (metadata as { analysis_diagnostics?: unknown }).analysis_diagnostics;
+  if (!row || typeof row !== "object") return null;
+  const d = row as Partial<AnalysisDiagnosticsMetadata>;
+  if (typeof d.analyze_seed_count !== "number") return null;
+  return {
+    live_seed_count: typeof d.live_seed_count === "number" ? d.live_seed_count : null,
+    analyze_seed_count: d.analyze_seed_count,
+    live_frame_width: typeof d.live_frame_width === "number" ? d.live_frame_width : null,
+    live_frame_height: typeof d.live_frame_height === "number" ? d.live_frame_height : null,
+    live_frame_orientation:
+      typeof d.live_frame_orientation === "string" ? d.live_frame_orientation : null,
+    analyzed_image_width:
+      typeof d.analyzed_image_width === "number" ? d.analyzed_image_width : null,
+    analyzed_image_height:
+      typeof d.analyzed_image_height === "number" ? d.analyzed_image_height : null,
+    captured_image_orientation:
+      typeof d.captured_image_orientation === "string" ? d.captured_image_orientation : null,
+    analyzed_image_orientation:
+      typeof d.analyzed_image_orientation === "string" ? d.analyzed_image_orientation : null,
+    used_live_frame_fallback: d.used_live_frame_fallback === true,
+    calibration_fallback_used: d.calibration_fallback_used === true,
+    calibration_source_used:
+      typeof d.calibration_source_used === "string" ? d.calibration_source_used : "unknown",
+  };
 }
 
 export function readCalibrationMetadata(metadata: unknown): CalibrationMetadata | null {

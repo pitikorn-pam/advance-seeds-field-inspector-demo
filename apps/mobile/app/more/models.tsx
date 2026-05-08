@@ -24,6 +24,10 @@ import {
   type DeploymentChannel,
 } from "@/lib/models/registryService";
 import { publishResolveResult } from "@/lib/models/updateStore";
+import {
+  clearBackgroundModelInstall,
+  useBackgroundModelInstall,
+} from "@/lib/models/installProgressStore";
 import type { InstalledModelRecord, ModelCandidate } from "@/lib/models/types";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -76,8 +80,25 @@ export default function ModelRegistryScreen() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [progressById, setProgressById] = useState<Record<string, InstallProgress>>({});
   const autoInstallTriggeredRef = useRef(false);
+  const backgroundInstall = useBackgroundModelInstall();
 
   const installedById = useMemo(() => new Map(installed.map((m) => [m.id, m])), [installed]);
+  const backgroundCandidateId =
+    backgroundInstall.status === "installing" ? backgroundInstall.candidateId : null;
+  const effectiveBusy = backgroundCandidateId ? `install:${backgroundCandidateId}` : busy;
+  const effectiveProgressById = useMemo(() => {
+    if (
+      backgroundInstall.status !== "installing" ||
+      !backgroundInstall.candidateId ||
+      !backgroundInstall.progress
+    ) {
+      return progressById;
+    }
+    return {
+      ...progressById,
+      [backgroundInstall.candidateId]: backgroundInstall.progress,
+    };
+  }, [backgroundInstall, progressById]);
 
   const reloadInstalled = useCallback(async () => {
     const [rows, activeRow, previousRow] = await Promise.all([
@@ -205,6 +226,12 @@ export default function ModelRegistryScreen() {
   useEffect(() => {
     void reloadInstalled();
   }, [reloadInstalled]);
+
+  useEffect(() => {
+    if (backgroundInstall.status === "completed") {
+      void reloadInstalled();
+    }
+  }, [backgroundInstall.status, backgroundInstall.runId, reloadInstalled]);
 
   // Auto-fetch on mount and on channel change.
   useEffect(() => {
@@ -360,13 +387,39 @@ export default function ModelRegistryScreen() {
           />
         ) : null}
 
+        {backgroundInstall.status === "installing" ? (
+          <StatusBanner
+            tone="info"
+            title={t("more:models.backgroundInstall.title")}
+            message={t("more:models.backgroundInstall.body", {
+              name: backgroundInstall.displayName ?? t("more:models.defaultPill"),
+            })}
+          />
+        ) : backgroundInstall.status === "completed" ? (
+          <StatusBanner
+            tone="success"
+            title={t("more:models.backgroundInstall.completedTitle")}
+            message={t("more:models.backgroundInstall.completedBody", {
+              name: backgroundInstall.displayName ?? t("more:models.defaultPill"),
+            })}
+            onDismiss={() => clearBackgroundModelInstall(backgroundInstall.runId)}
+          />
+        ) : backgroundInstall.status === "failed" ? (
+          <StatusBanner
+            tone="danger"
+            title={t("more:models.backgroundInstall.failedTitle")}
+            message={backgroundInstall.error ?? t("more:models.backgroundInstall.failedBody")}
+            onDismiss={() => clearBackgroundModelInstall(backgroundInstall.runId)}
+          />
+        ) : null}
+
         <RowSection
           title={t("more:models.installed")}
           rows={installedRows}
           loading={busy === "refresh" && rows.length === 0}
           emptyLabel={t("more:models.noInstalled")}
-          busy={busy}
-          progressById={progressById}
+          busy={effectiveBusy}
+          progressById={effectiveProgressById}
           onInstall={(c) => install(c)}
           onActivate={(r) => activate(r)}
           onDelete={(r) => remove(r)}
@@ -378,8 +431,8 @@ export default function ModelRegistryScreen() {
           rows={availableRows}
           loading={busy === "refresh" && rows.length === 0}
           emptyLabel={t("more:models.noCandidatesForChannel")}
-          busy={busy}
-          progressById={progressById}
+          busy={effectiveBusy}
+          progressById={effectiveProgressById}
           onInstall={(c) => install(c)}
           onActivate={(r) => activate(r)}
           onDelete={(r) => remove(r)}
@@ -398,11 +451,11 @@ export default function ModelRegistryScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t("more:models.refresh")}
-                disabled={busy !== null}
+                disabled={effectiveBusy !== null}
                 onPress={() => void refresh(channel)}
                 hitSlop={6}
                 className={`h-7 w-7 items-center justify-center rounded-full border border-line-secondary ${
-                  busy === "refresh" ? "opacity-50" : ""
+                  effectiveBusy === "refresh" ? "opacity-50" : ""
                 }`}
               >
                 <RefreshCw color="#0F6E56" size={14} />

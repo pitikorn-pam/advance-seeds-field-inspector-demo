@@ -4,7 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { ChevronLeft, MapPin } from "lucide-react-native";
-import { useVarieties, useBatches } from "@/lib/queries";
+import * as MediaLibrary from "expo-media-library";
+import { Camera as VCCamera } from "react-native-vision-camera";
+import { useVarieties } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -24,13 +26,12 @@ const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
 };
 
 /**
- * /capture/setup — first step of the three-step capture journey.
+ * /capture/setup — metadata step before opening the unified capture camera.
  *
- * Variety + batch are now in-place dropdown-search inputs (instead of
- * the previous variety-picker route + button list). Variety is mandatory
- * with an "Other (unspecified)" fallback option always available. Batch
- * is non-mandatory. Continue button is disabled while mandatory fields
- * are unset.
+ * Variety is mandatory and notes/location tagging are optional. Continue
+ * requests camera/media permissions and routes directly to live capture;
+ * the older Live/Precise mode picker and batch selection are intentionally
+ * removed from the new inspection journey.
  *
  * Auto-tag location toggle records intent in capture session; actual
  * GPS capture is wired by the upcoming expo-location commit.
@@ -41,7 +42,6 @@ export default function CaptureSetup() {
   const session = useCaptureSession();
 
   const varieties = useVarieties();
-  const batches = useBatches();
 
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   useEffect(() => {
@@ -83,23 +83,12 @@ export default function CaptureSetup() {
       });
   }, [varieties.data]);
 
-  const batchOptions = useMemo<DropdownItem[]>(() => {
-    if (!batches.data) return [];
-    return batches.data
-      .filter((b) => b.is_active !== false)
-      .map((b) => ({
-        id: b.id,
-        label: b.code,
-        meta: b.location ?? null,
-      }));
-  }, [batches.data]);
-
   const selectedVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId) ?? null,
     [varieties.data, session.varietyId],
   );
 
-  if (varieties.isLoading || batches.isLoading) {
+  if (varieties.isLoading) {
     return <LoadingState />;
   }
 
@@ -116,7 +105,24 @@ export default function CaptureSetup() {
   const modelExposesClassNames = activeModelClassNames.length > 0;
   const needsBinding = !!selectedVariety && modelExposesClassNames && liveAliases.length === 0;
 
-  const onContinue = () => {
+  const ensurePhotosPermission = async () => {
+    const current = await MediaLibrary.getPermissionsAsync();
+    if (current.granted || !current.canAskAgain) return;
+    await MediaLibrary.requestPermissionsAsync();
+  };
+
+  const ensureCapturePermission = async () => {
+    const camera = await VCCamera.getCameraPermissionStatus();
+    if (camera === "not-determined") {
+      await VCCamera.requestCameraPermission();
+    }
+    const microphone = await VCCamera.getMicrophonePermissionStatus();
+    if (microphone === "not-determined") {
+      await VCCamera.requestMicrophonePermission();
+    }
+  };
+
+  const onContinue = async () => {
     if (!canContinue) return;
     if (needsBinding && selectedVariety) {
       const modelName = activeModel?.displayName ?? "";
@@ -136,7 +142,10 @@ export default function CaptureSetup() {
       );
       return;
     }
-    router.push("/capture/mode" as never);
+    await ensurePhotosPermission();
+    await ensureCapturePermission();
+    session.set({ mode: "live", batchId: null });
+    router.push("/capture/scan" as never);
   };
 
   const onBack = () => router.replace("/");
@@ -174,20 +183,6 @@ export default function CaptureSetup() {
               {t("inspections:capture.bindRequiredHint")}
             </Text>
           ) : null}
-        </View>
-
-        {/* Batch — non-mandatory dropdown with search. */}
-        <View className="gap-xs">
-          <Text className="text-caption uppercase text-fg-secondary px-xs">
-            {t("inspections:capture.selectBatch")}
-          </Text>
-          <DropdownSearch
-            value={session.batchId}
-            onChange={(id) => session.set({ batchId: id })}
-            options={batchOptions}
-            placeholder={t("inspections:capture.batchPlaceholder")}
-            clearable
-          />
         </View>
 
         {/* Notes textarea. */}

@@ -6,7 +6,13 @@
 // Screen layer never imports a concrete analyzer — only this interface and the
 // useAnalyzer() hook backed by an AnalyzerProvider.
 
-import type { BoundingBox, CalibrationSource, SeedDefects, SeedGrade } from "./domain.js";
+import type {
+  BoundingBox,
+  CalibrationSource,
+  SeedDefects,
+  SeedGrade,
+  VarietyGradeCriteria,
+} from "./domain.js";
 
 /** Minimal handle to image data the analyzer should run on. */
 export type ImageRef =
@@ -17,6 +23,12 @@ export type ImageRef =
 export interface AnalyzeOptions {
   /** Pixels per millimeter, from the active calibration profile. */
   pxPerMm: number;
+  /**
+   * Optional variety-specific grading target. When present, analyzers grade
+   * seeds against configured length/width dimensions instead of the generic
+   * aspect-ratio fallback.
+   */
+  gradingConfig?: SeedGradingConfig | null;
   /** Optional committed region-of-interest; analyzers should ignore detections outside it. */
   roi?: AnalysisRoi | null;
   /**
@@ -43,6 +55,16 @@ export interface AnalyzeOptions {
   onProgress?: (progress: number) => void;
   /** Caller-supplied AbortSignal so screens can cancel long-running analysis. */
   signal?: AbortSignal;
+}
+
+export interface SeedGradingConfig {
+  criteria?: VarietyGradeCriteria | null;
+  targetLengthMm: number | null;
+  targetWidthMm: number | null;
+  fallbackTargetLengthMm?: number | null;
+  fallbackTargetWidthMm?: number | null;
+  /** Absolute tolerance for equality/in-range checks. Defaults to 0.05 mm. */
+  toleranceMm?: number | null;
 }
 
 export type AnalysisRoi =

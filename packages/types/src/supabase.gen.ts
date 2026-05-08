@@ -238,6 +238,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          grade_criteria: Json | null
           model_class_aliases: string[] | null
           name: string
           ref_length_mm: number | null
@@ -253,6 +254,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          grade_criteria?: Json | null
           model_class_aliases?: string[] | null
           name: string
           ref_length_mm?: number | null
@@ -268,6 +270,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          grade_criteria?: Json | null
           model_class_aliases?: string[] | null
           name?: string
           ref_length_mm?: number | null

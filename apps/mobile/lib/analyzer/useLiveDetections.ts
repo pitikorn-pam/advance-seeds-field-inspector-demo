@@ -10,7 +10,7 @@ import type { ReadonlyFrameProcessor } from "react-native-vision-camera";
 import { useResizePlugin } from "vision-camera-resize-plugin";
 import { Worklets } from "react-native-worklets-core";
 import type { TfliteModel } from "react-native-fast-tflite";
-import type { AnalysisFrameResult, AnalysisRoi } from "@advance-seeds/types";
+import type { AnalysisFrameResult, AnalysisRoi, SeedGradingConfig } from "@advance-seeds/types";
 import {
   YOLO_INPUT_SIZE,
   decodeYolo,
@@ -104,6 +104,7 @@ interface Options {
    */
   modelClassAliases?: readonly string[] | null;
   roi?: AnalysisRoi | null;
+  gradingConfig?: SeedGradingConfig | null;
 }
 
 interface State {
@@ -140,7 +141,8 @@ export function useLiveDetections(options: Options): State {
 // ---------------------------------------------------------------------
 
 function useLiveDetectionsCoreML(options: Options): State {
-  const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases } = options;
+  const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases, gradingConfig } =
+    options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const [modelPath, setModelPath] = useState<string | null>(null);
@@ -298,6 +300,7 @@ function useLiveDetectionsCoreML(options: Options): State {
             frameHeight,
             pxPerMm,
             roi: roi ?? null,
+            gradingConfig: gradingConfig ?? null,
           });
           if (!mountedRef.current) return;
           // Discard inflight results that landed *after* the consumer
@@ -320,7 +323,7 @@ function useLiveDetectionsCoreML(options: Options): State {
           });
         },
       ),
-    [mappedClassFilter, pxPerMm, roi, scoreThreshold, iouThreshold],
+    [mappedClassFilter, pxPerMm, roi, gradingConfig, scoreThreshold, iouThreshold],
   );
 
   const frameProcessor = useFrameProcessor(
@@ -384,7 +387,8 @@ function useLiveDetectionsCoreML(options: Options): State {
 let lastLoggedDelegate: string | null = null;
 
 function useLiveDetectionsAndroidNative(options: Options): State {
-  const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases } = options;
+  const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases, gradingConfig } =
+    options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
@@ -527,6 +531,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             frameHeight,
             pxPerMm,
             roi: roi ?? null,
+            gradingConfig: gradingConfig ?? null,
           });
           const logNow = Date.now();
           if (__DEV__ && logNow - lastDecodeLogAtRef.current > 2000) {
@@ -584,6 +589,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
       modelClassAliases,
       pxPerMm,
       roi,
+      gradingConfig,
       liveScoreThreshold,
       scoreThreshold,
       iouThreshold,

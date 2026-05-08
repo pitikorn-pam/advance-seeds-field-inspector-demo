@@ -1,8 +1,14 @@
-import { Alert } from "react-native";
+import { Alert, Image } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
+import type { AnalyzedSeed } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
+
+export interface ImageAnnotationOverlay {
+  roi: Roi | null;
+  seeds?: readonly AnalyzedSeed[] | null;
+}
 
 function cachePath(name: string) {
   return `${FileSystem.cacheDirectory}${name}`;
@@ -31,6 +37,16 @@ async function imageDataUri(uri: string) {
   return `data:image/jpeg;base64,${data}`;
 }
 
+async function imageSize(uri: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    Image.getSize(
+      uri,
+      (width, height) => resolve({ width, height }),
+      () => resolve({ width: 1200, height: 900 }),
+    );
+  });
+}
+
 function roiSvg(roi: Roi | null, width: number, height: number) {
   if (!roi) return "";
   const stroke = "#5DCAA5";
@@ -49,6 +65,24 @@ function roiSvg(roi: Roi | null, width: number, height: number) {
     .map((p) => `<circle cx="${p.x * width}" cy="${p.y * height}" r="10" fill="${stroke}" />`)
     .join("");
   return `<polyline points="${points}" fill="none" stroke="${stroke}" stroke-width="6" />${vertices}`;
+}
+
+function seedSvg(seeds: readonly AnalyzedSeed[] | null | undefined) {
+  if (!seeds?.length) return "";
+  return seeds
+    .map((seed) => {
+      const x = Math.max(0, seed.bbox.x);
+      const y = Math.max(0, seed.bbox.y);
+      const width = Math.max(1, seed.bbox.width);
+      const height = Math.max(1, seed.bbox.height);
+      const label = svgEscape(`#${seed.index} ${seed.grade}`);
+      return `<g>
+  <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="rgba(34, 197, 94, 0.10)" stroke="#22C55E" stroke-width="4" rx="4" />
+  <rect x="${x}" y="${Math.max(0, y - 28)}" width="${Math.max(58, label.length * 10)}" height="24" fill="rgba(12, 18, 14, 0.82)" rx="4" />
+  <text x="${x + 6}" y="${Math.max(17, y - 11)}" fill="#F8FAFC" font-family="Arial, sans-serif" font-size="14" font-weight="700">${label}</text>
+</g>`;
+    })
+    .join("\n");
 }
 
 export async function shareImage(uri: string, title: string) {
@@ -76,17 +110,26 @@ export async function shareVideo(uri: string, title: string) {
 }
 
 export async function shareImageWithRoi(uri: string, roi: Roi | null, title: string) {
-  if (!roi) {
+  await shareAnnotatedImage(uri, { roi }, title);
+}
+
+export async function shareAnnotatedImage(
+  uri: string,
+  overlay: ImageAnnotationOverlay,
+  title: string,
+) {
+  const hasSeeds = Boolean(overlay.seeds?.length);
+  if (!overlay.roi && !hasSeeds) {
     await shareImage(uri, title);
     return;
   }
-  const width = 1200;
-  const height = 900;
+  const { width, height } = await imageSize(uri);
   const href = svgEscape(await imageDataUri(uri));
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="#1a1816" />
-  <image href="${href}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice" />
-  ${roiSvg(roi, width, height)}
+  <image href="${href}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none" />
+  ${roiSvg(overlay.roi, width, height)}
+  ${seedSvg(overlay.seeds)}
 </svg>`;
   const path = cachePath(`capture-roi-${Date.now()}.svg`);
   await FileSystem.writeAsStringAsync(path, svg, { encoding: FileSystem.EncodingType.UTF8 });

@@ -32,9 +32,8 @@ const FAMILY_TINTS: Record<string, { bg: string; fg: string }> = {
  * Reference → Varieties so this tab stays a pure browse surface.
  *
  * Reference dimensions on each row are *observed* — averaged from this
- * variety's recent inspections. The new master-data form lets admins set
- * spec-level reference dims (`ref_length_mm`, `ref_width_mm`); a future
- * pass can prefer those over the observed averages here.
+ * variety's recent inspections. Admin-owned grading criteria live in
+ * More → Reference → Varieties and are applied during capture analysis.
  */
 export default function LibraryTab() {
   const { t } = useTranslation(["common", "varieties", "library"]);

@@ -3,12 +3,12 @@ import type {
   Inspection,
   Seed,
   Variety,
-  Batch,
   CalibrationProfile,
   Profile,
   Recording,
   Notification,
   NotificationKind,
+  Json,
 } from "@advance-seeds/types";
 import { supabase } from "./supabase";
 
@@ -16,7 +16,6 @@ const keys = {
   inspections: ["inspections"] as const,
   inspection: (id: string) => ["inspection", id] as const,
   varieties: ["varieties"] as const,
-  batches: ["batches"] as const,
   calibrations: ["calibrations"] as const,
   profiles: ["profiles"] as const,
   recordings: ["recordings"] as const,
@@ -156,7 +155,6 @@ export function useMarkAllNotificationsRead() {
 
 export type InspectionRow = Inspection & {
   variety: { id: string; name: string; color_key: string | null } | null;
-  batch: { id: string; code: string } | null;
   inspector: { id: string; full_name: string | null; email: string } | null;
 };
 
@@ -176,7 +174,6 @@ const inspectionListSelect = `
   mean_length_mm, mean_width_mm, mean_area_mm2,
   notes, created_at,
   variety:varieties ( id, name, color_key ),
-  batch:batches ( id, code ),
   inspector:profiles!inspections_inspector_id_fkey ( id, full_name, email )
 `;
 const inspectionDetailSelect = `${inspectionListSelect.replace("notes,", "notes, metadata,")}`;
@@ -289,7 +286,7 @@ type VarietyInput = Pick<
 > &
   Partial<
     Pick<Variety, "coco_class_id" | "model_class_aliases" | "ref_length_mm" | "ref_width_mm">
-  >;
+  > & { grade_criteria?: Json | null };
 export function useUpsertVariety() {
   const qc = useQueryClient();
   return useMutation({
@@ -322,53 +319,6 @@ export function useDeleteVariety() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.varieties }),
-  });
-}
-
-export function useBatches() {
-  return useQuery({
-    queryKey: keys.batches,
-    queryFn: async (): Promise<Batch[]> => {
-      const { data, error } = await supabase.from("batches").select("*").order("code");
-      if (error) throw error;
-      return (data ?? []) as unknown as Batch[];
-    },
-  });
-}
-
-type BatchInput = Pick<Batch, "code" | "location" | "sown_at" | "notes" | "is_active">;
-export function useUpsertBatch() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, ...input }: { id?: string } & BatchInput) => {
-      if (id) {
-        const { error } = await supabase.from("batches").update(input).eq("id", id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("batches").insert(input);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.batches }),
-  });
-}
-
-export function useDeleteBatch() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { count, error: countError } = await supabase
-        .from("inspections")
-        .select("id", { count: "exact", head: true })
-        .eq("batch_id", id);
-      if (countError) throw countError;
-      if ((count ?? 0) > 0) {
-        throw new Error("BATCH_IN_USE");
-      }
-      const { error } = await supabase.from("batches").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.batches }),
   });
 }
 

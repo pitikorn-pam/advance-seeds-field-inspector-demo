@@ -1,4 +1,6 @@
 import type { AnalysisResult, AnalysisRoi, AnalyzedSeed } from "@advance-seeds/types";
+import type { SeedGradingConfig } from "@advance-seeds/types";
+import { gradeSeedByConfig } from "./grading";
 
 export interface PixelImage {
   width: number;
@@ -9,6 +11,7 @@ export interface PixelImage {
 interface CoreOptions {
   pxPerMm: number;
   roi?: AnalysisRoi | null;
+  gradingConfig?: SeedGradingConfig | null;
 }
 
 const MIN_COMPONENT_PIXELS = 24;
@@ -81,7 +84,7 @@ export function analyzePixels(pixels: PixelImage, options: CoreOptions): Analysi
         length_mm,
         width_mm,
         area_mm2,
-        grade: gradeSeed(length_mm, width_mm),
+        grade: gradeSeedByConfig(length_mm, width_mm, options.gradingConfig),
         defects: {},
         bbox,
       });
@@ -201,13 +204,6 @@ function pointInPolygon(p: { x: number; y: number }, points: Array<{ x: number; 
     if (intersect) inside = !inside;
   }
   return inside;
-}
-
-function gradeSeed(lengthMm: number, widthMm: number): AnalyzedSeed["grade"] {
-  const aspect = lengthMm / Math.max(widthMm, 0.001);
-  if (lengthMm < 1 || widthMm < 0.6) return "reject";
-  if (aspect > 4.5 || aspect < 1.2) return "B";
-  return "A";
 }
 
 function summarize(seeds: AnalyzedSeed[]): AnalysisResult["summary"] {

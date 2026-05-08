@@ -7,7 +7,6 @@
     "more": "More",
     "inspections": "Inspections",
     "varieties": "Varieties",
-    "batches": "Batches",
     "reports": "Reports",
     "settings": "Settings"
   },
@@ -62,7 +61,7 @@
   },
   "roleDescriptions": {
     "inspector": "Captures field samples and grades seeds in real time.",
-    "admin": "Manages varieties, batches, and inspector accounts."
+    "admin": "Manages varieties and inspector accounts."
   },
   "themes": {
     "light": "Light",

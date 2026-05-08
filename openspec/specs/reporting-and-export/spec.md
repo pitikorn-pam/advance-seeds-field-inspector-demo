@@ -22,7 +22,7 @@ Both apps SHALL allow exporting the currently filtered inspections list as a CSV
 - **WHEN** Alex clicks "Export CSV" on the Reports screen with current filters
 - **THEN** a `inspections-YYYYMMDD.csv` file downloads
 - **AND** the file's first row is a header in this exact column order:
-  `id, captured_at, inspector_email, inspector_name, variety, batch_code, batch_location, calibration_source, calibration_px_per_mm, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2, notes, created_at`
+  `id, captured_at, inspector_email, inspector_name, variety, calibration_source, calibration_px_per_mm, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2, notes, created_at`
 
 #### Scenario: CSV header follows current locale
 - **GIVEN** the user has Thai selected as their locale
@@ -40,4 +40,3 @@ Reports for an inspector SHALL only aggregate the inspector's own inspections; a
 - **GIVEN** Jane has 5 inspections totaling 78 seeds, and Alex has 2 totaling 30 seeds
 - **WHEN** Jane opens Reports with no filter
 - **THEN** the total inspections count is 5 and total seeds is 78
-

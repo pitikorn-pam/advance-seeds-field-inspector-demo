@@ -27,7 +27,7 @@ const DEMO_ACCOUNTS: Record<Panel, DemoAccount> = {
     email: "alex@advanceseeds.com",
     password: "DemoSeeds2026!",
     badge: "Admin",
-    hint: "Admin — manages varieties, batches, and capture-class master data.",
+    hint: "Admin — manages varieties and capture-class master data.",
   },
 };
 

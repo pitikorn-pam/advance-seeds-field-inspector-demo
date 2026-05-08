@@ -4,7 +4,6 @@
     "searchPlaceholder": "Search inspections",
     "filters": {
       "variety": "Variety",
-      "batch": "Batch",
       "inspector": "Inspector",
       "dateRange": "Date range"
     },
@@ -41,6 +40,10 @@
       "flash": "Flash",
       "roi": "ROI",
       "captureTimestamp": "Capture time",
+      "analyzedImage": "Analyzed image",
+      "liveVsAnalyze": "Live → Inspect seeds",
+      "liveFallback": "Used live fallback",
+      "calibrationFallback": "Default calibration fallback",
       "detectorModel": "Detector model",
       "detectorRuntime": "Inference runtime",
       "detectorTrainedAs": "Trained as",
@@ -71,6 +74,10 @@
         "manual": "Manual profile",
         "aruco": "ArUco marker",
         "lidar": "LiDAR"
+      },
+      "boolean": {
+        "yes": "Yes",
+        "no": "No"
       }
     },
     "summary": {
@@ -93,14 +100,14 @@
   },
   "capture": {
     "setup": "Set up",
-    "setupSubtitle": "Set up batch information before capturing.",
+    "setupSubtitle": "Choose the variety and add any notes before opening the camera.",
     "mode": "Capture mode",
     "modeLive": "Live",
     "modeLiveHint": "Real-time detection over a tray of seeds.",
     "modePrecise": "Precise",
     "modePreciseHint": "Hold steady at a fixed distance for lab-grade measurement.",
     "modePicker": {
-      "subtitle": "Pick how you want to capture this batch.",
+      "subtitle": "Capture now uses one adaptive camera journey.",
       "liveSubtitle": "Real-time count and grade",
       "liveBody": "Continuous detection at 20–30 fps. Best for quick field checks, demos, or browsing across a tray.",
       "preciseSubtitle": "Single shot · LiDAR calibrated",
@@ -128,7 +135,6 @@
       "precisePrereqUse": "Use this mode for final measurements and QA records."
     },
     "modeSingle": "Single",
-    "modeBatch": "Batch",
     "shutter": "Capture",
     "analyzing": "Analyzing…",
     "saving": "Saving…",
@@ -139,8 +145,6 @@
     "startCapture": "Start capture",
     "selectVariety": "Select a variety",
     "varietyPlaceholder": "Choose a variety…",
-    "selectBatch": "Select a batch (optional)",
-    "batchPlaceholder": "Choose a batch…",
     "selectCalibration": "Select calibration",
     "notesLabel": "Notes",
     "notesOptional": "optional",
@@ -198,6 +202,8 @@
       "alignMarker": "Align the ArUco card to lock calibration",
       "lockRequiredTitle": "Calibration lock required",
       "lockRequiredBody": "Keep the 5 cm ArUco card visible until Calibration locked appears, then capture.",
+      "defaultFallbackTitle": "Using default scale",
+      "defaultFallbackBody": "No live calibration was available for this capture. Measurements may be less accurate; keep the device parallel to the tray and include the ArUco card when possible.",
       "unavailableTitle": "Calibration unavailable",
       "unavailableHint": "Measurements may be approximate",
       "recalibrate": "Recalibrate"

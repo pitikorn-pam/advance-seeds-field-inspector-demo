@@ -227,6 +227,7 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
       frameHeight: srcH,
       pxPerMm: options.pxPerMm,
       roi: options.roi ?? null,
+      gradingConfig: options.gradingConfig ?? null,
     });
 
     const totalMs = Date.now() - startedAt;

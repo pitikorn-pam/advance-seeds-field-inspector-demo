@@ -18,6 +18,20 @@ export type SeedGrade = "A" | "B" | "C" | "reject";
 
 // ----- Reference data ----------------------------------------------------
 
+export type GradeCriteriaGrade = Extract<SeedGrade, "A" | "B" | "C">;
+
+export interface GradeDimensionRange {
+  min: number | null;
+  max: number | null;
+}
+
+export interface GradeCriteriaRule {
+  length_mm: GradeDimensionRange;
+  width_mm: GradeDimensionRange;
+}
+
+export type VarietyGradeCriteria = Partial<Record<GradeCriteriaGrade, GradeCriteriaRule>>;
+
 export interface Variety {
   id: string;
   name: string;
@@ -45,6 +59,11 @@ export interface Variety {
   ref_length_mm: number | null;
   /** Reference short-axis dimension in mm, used for grading. */
   ref_width_mm: number | null;
+  /**
+   * Optional A/B/C grading criteria. When present, analyzers evaluate these
+   * ranges before falling back to the legacy reference dimensions.
+   */
+  grade_criteria: VarietyGradeCriteria | null;
   /** Hidden from new capture setup usage when false; historical records keep referencing it. */
   is_active: boolean;
   created_by: string;

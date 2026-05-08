@@ -233,7 +233,7 @@ function HistoryRow({
   const title = row?.variety?.name ?? t("pendingInspection");
   const totalSeeds =
     row?.total_seeds ?? (entry?.payload.kind === "inspection" ? entry.payload.data.total_seeds : 0);
-  const body = `${formatRelative(capturedAt)}${row?.batch?.code ? ` · ${row.batch.code}` : ""}`;
+  const body = formatRelative(capturedAt);
   const content = (
     <View
       className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${

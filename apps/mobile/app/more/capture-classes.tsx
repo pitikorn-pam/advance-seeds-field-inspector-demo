@@ -149,7 +149,9 @@ export default function CaptureClassesScreen() {
                         variety.is_active ? "varieties:status.active" : "varieties:status.inactive",
                       )}
                     />
-                    {variety.ref_length_mm && variety.ref_width_mm ? (
+                    {hasGradeCriteria(variety.grade_criteria) ? (
+                      <Pill tone="neutral" label={t("more:masterData.gradeCriteriaSet")} />
+                    ) : variety.ref_length_mm && variety.ref_width_mm ? (
                       <Pill
                         tone="neutral"
                         label={t("more:masterData.refDims", {
@@ -177,4 +179,8 @@ export default function CaptureClassesScreen() {
 function labelForCocoId(id: number | null | undefined): string | null {
   if (id === null || id === undefined) return null;
   return DEFAULT_CAPTURE_CLASSES.find((c) => c.cocoClassId === id)?.name ?? `class ${id}`;
+}
+
+function hasGradeCriteria(criteria: unknown): boolean {
+  return Boolean(criteria && typeof criteria === "object" && Object.keys(criteria).length > 0);
 }

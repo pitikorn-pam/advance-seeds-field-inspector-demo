@@ -4,9 +4,6 @@ export interface AccessPolicy {
   canCreateVariety(): boolean;
   canEditVariety(): boolean;
   canDeleteVariety(): boolean;
-  canCreateBatch(): boolean;
-  canEditBatch(): boolean;
-  canDeleteBatch(): boolean;
   canViewAllInspections(): boolean;
   canFilterByInspector(): boolean;
   canEditInspection(i: Inspection): boolean;
@@ -30,15 +27,6 @@ class Policy implements AccessPolicy {
   canDeleteVariety() {
     return this.isAdmin();
   }
-  canCreateBatch() {
-    return this.isAdmin();
-  }
-  canEditBatch() {
-    return this.isAdmin();
-  }
-  canDeleteBatch() {
-    return this.isAdmin();
-  }
   canViewAllInspections() {
     return this.isAdmin();
   }
@@ -57,9 +45,6 @@ const denyAll: AccessPolicy = {
   canCreateVariety: () => false,
   canEditVariety: () => false,
   canDeleteVariety: () => false,
-  canCreateBatch: () => false,
-  canEditBatch: () => false,
-  canDeleteBatch: () => false,
   canViewAllInspections: () => false,
   canFilterByInspector: () => false,
   canEditInspection: () => false,

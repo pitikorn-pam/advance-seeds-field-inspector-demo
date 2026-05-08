@@ -3,8 +3,16 @@ import NetInfo from "@react-native-community/netinfo";
 import { useEffect, useState } from "react";
 import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
 import { installCandidate, loadCandidatesFromIndex } from "./modelRegistry";
-import { activateInstalledModel } from "./modelStore";
+import { activateInstalledModel, readActiveModel, readInstalledModels } from "./modelStore";
 import { listDeployedModelsUrl } from "./registryService";
+import { pickFirstLaunchDefaultCandidate } from "./bootstrapPolicy";
+import {
+  beginBackgroundModelInstall,
+  completeBackgroundModelInstall,
+  failBackgroundModelInstall,
+  updateBackgroundModelInstall,
+} from "./installProgressStore";
+import type { InstalledModelRecord } from "./types";
 import type { ModelUpdateAvailable } from "./updateStore";
 
 const PREF_KEY = "as.mobile.models.autoInstallOnWifi";
@@ -76,6 +84,55 @@ export function useAutoInstallOnWifi(): [boolean, (next: boolean) => void] {
 }
 
 let inflightVersionId: string | null = null;
+let firstLaunchInstallInflight = false;
+
+/**
+ * First-run bootstrap: when the app has no installed model at all, install
+ * and activate the production default if the registry exposes one for this
+ * platform. This is intentionally separate from the opt-in update auto-install
+ * policy above: first launch needs a usable seed-trained model without making
+ * the operator discover the Model Registry screen first.
+ */
+export async function runFirstLaunchDefaultInstallIfNeeded(): Promise<InstalledModelRecord | null> {
+  if (firstLaunchInstallInflight) return null;
+  firstLaunchInstallInflight = true;
+  try {
+    const [active, installed] = await Promise.all([readActiveModel(), readInstalledModels()]);
+    if (active || installed.length > 0) return null;
+
+    const indexUrl = listDeployedModelsUrl({ channel: "production", readyOnly: true });
+    if (!indexUrl) return null;
+    const candidates = await loadCandidatesFromIndex(indexUrl);
+    const candidate = pickFirstLaunchDefaultCandidate(candidates);
+    if (!candidate) return null;
+
+    const reg = candidate.metadata?.registry as { version_id?: string } | undefined;
+    const runId = beginBackgroundModelInstall({
+      kind: "firstLaunchDefault",
+      candidateId: candidate.id,
+      displayName: candidate.displayName,
+      versionId: reg?.version_id ?? null,
+    });
+    try {
+      const record = await installCandidate(candidate, (progress) => {
+        updateBackgroundModelInstall(runId, progress);
+      });
+      await activateInstalledModel(record);
+      resetSharedTfliteModel();
+      completeBackgroundModelInstall(runId);
+      console.info("[registry] installed production default model %s on first launch", record.id);
+      return record;
+    } catch (e) {
+      failBackgroundModelInstall(runId, e);
+      throw e;
+    }
+  } catch (e) {
+    console.warn("[registry] first-launch default model install failed", e);
+    return null;
+  } finally {
+    firstLaunchInstallInflight = false;
+  }
+}
 
 export async function runAutoInstallIfEligible(update: ModelUpdateAvailable): Promise<void> {
   if (inflightVersionId === update.version_id) return;

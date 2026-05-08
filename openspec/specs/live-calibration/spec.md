@@ -23,26 +23,26 @@ The mobile app SHALL expose a `LiveCalibrator` interface that observes camera fr
 On iOS devices with a LiDAR sensor, the mobile app SHALL provide a `LidarCalibrator` that derives `pxPerMm` from depth + camera intrinsics. LiDAR readings stream **continuously** at 10 Hz with EMA smoothing — operators move the device freely and `pxPerMm` updates per frame, recomputing seed measurements without a stand-still lock phase.
 
 #### Scenario: LiDAR streams updated readings as the operator moves
-- **GIVEN** the user is in live or precise mode on an iPhone Air / iPad Pro / iPhone 12+ Pro
+- **GIVEN** the user is in capture on an iPhone Air / iPad Pro / iPhone 12+ Pro
 - **WHEN** they shift the camera from 30 cm to 18 cm above a tray over 2 s
 - **THEN** the calibration banner pxPerMm + distance label update smoothly across the move
 - **AND** the live overlay's seed-size measurements track the new working distance without an explicit re-calibrate gesture
 - **AND** EMA smoothing absorbs single-frame depth noise without freezing the value
 
 #### Scenario: First confident reading dismisses the calibration overlay
-- **GIVEN** the user opens Live or Precise capture on a LiDAR device
+- **GIVEN** the user opens capture on a LiDAR device
 - **WHEN** the first reading at confidence ≥ 0.6 lands
 - **THEN** the calibrating-depth onboarding overlay dismisses
 - **AND** subsequent live LiDAR readings flow into the bottom calibration banner without re-entering the overlay within the same session
 
 #### Scenario: LiDAR unsupported — ArUco fallback is selected automatically
 - **GIVEN** a device without a LiDAR sensor (iPhone < 12 Pro, all Android)
-- **WHEN** the user opens Live or Precise capture
+- **WHEN** the user opens capture
 - **THEN** `LidarCalibrator` is NOT registered
 - **AND** the capture screen falls back to ArUco marker calibration without requiring a setup selection
 
 #### Scenario: LiDAR cannot lock on a supported iOS device
-- **GIVEN** the user is in precise mode on an iOS device with LiDAR
+- **GIVEN** the user is in capture on an iOS device with LiDAR
 - **WHEN** ARKit scene depth is unavailable or confidence is below 0.6
 - **THEN** the shutter remains gated by automatic calibration
 - **AND** the capture screen falls back to ArUco if LiDAR cannot start
@@ -55,6 +55,12 @@ The mobile app SHALL provide an `ArucoCalibrator` that detects a 5 cm × 5 cm Ar
 - **WHEN** the ArUco calibrator observes the frame
 - **THEN** the marker is detected and `pxPerMm` is computed from its pixel diagonal
 - **AND** the calibration pill shows "ArUco locked"
+
+#### Scenario: Marker reacquisition adapts calibration dynamically
+- **GIVEN** ArUco calibration has locked once and the marker leaves the frame
+- **WHEN** the marker becomes visible again at a different working distance
+- **THEN** the calibrator continues scanning and publishes an updated rolling-median `pxPerMm`
+- **AND** the live detector uses the updated reading without a manual re-calibrate action
 
 #### Scenario: Android live ArUco detection stays within native memory limits
 - **GIVEN** Android live or precise capture is observing camera frames for ArUco calibration
@@ -80,17 +86,17 @@ The mobile app SHALL NOT require inspectors to select a calibration profile duri
 #### Scenario: New inspection setup has no calibration selector
 - **GIVEN** the user opens New inspection
 - **WHEN** setup fields are rendered
-- **THEN** the form asks for variety, optional batch, notes, and location tagging
+- **THEN** the form asks for variety, notes, and location tagging
 - **AND** no "Select calibration" control is shown
 
 #### Scenario: Supported LiDAR device auto-selects LiDAR
-- **GIVEN** the user opens Live or Precise capture on an iOS device with LiDAR
+- **GIVEN** the user opens capture on an iOS device with LiDAR
 - **WHEN** LiDAR produces a confidence ≥ 0.6 reading
 - **THEN** the app stores a calibration reading with source "lidar"
 - **AND** the user can capture without placing an ArUco marker in frame
 
 #### Scenario: Non-LiDAR device auto-selects ArUco
-- **GIVEN** the user opens Live or Precise capture on a device without LiDAR
+- **GIVEN** the user opens capture on a device without LiDAR
 - **WHEN** the bundled ArUco marker is visible and confidence is ≥ 0.6
 - **THEN** the app stores a calibration reading with source "aruco"
 - **AND** the user can capture without choosing a calibration profile

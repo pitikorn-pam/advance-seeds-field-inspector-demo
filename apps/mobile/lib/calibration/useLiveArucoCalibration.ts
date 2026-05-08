@@ -11,20 +11,14 @@ interface LiveArucoState {
   frameProcessor: ReadonlyFrameProcessor | undefined;
 }
 
-// Phase-2 calibration: hysteresis + temporal smoothing.
-//   - LOCK_CONFIDENCE: required to *enter* a locked state
-//   - HOLD_CONFIDENCE: required to *maintain* it (looser, fights flicker
-//     when the marker partially occludes for one frame)
-//   - SMOOTHING_WINDOW: rolling median of px/mm — kills 1-frame outliers
-//     from motion blur, lighting flicker, marker corner ambiguity
-//   - GRACE_MS: how long we keep showing a locked reading after the marker
-//     drops out of frame; prevents the calibration pill from flashing every
-//     time the user briefly tilts the device
+// Adaptive ArUco calibration: keep scanning after the first lock. When the
+// marker is visible again, the rolling median updates px/mm dynamically; when
+// it disappears, the last reading is held briefly to avoid UI flicker.
 const LOCK_CONFIDENCE = 0.6;
 const HOLD_CONFIDENCE = 0.45;
 const SMOOTHING_WINDOW = 5;
 const GRACE_MS = 1500;
-const DETECTION_TARGET_FPS = 1;
+const DETECTION_TARGET_FPS = 5;
 
 interface SmoothedReading {
   pxPerMm: number;

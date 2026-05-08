@@ -13,12 +13,12 @@ The mobile app SHALL show a 1.5-second splash screen on every launch with the br
 - **AND** then routes to the welcome screen on first launch or to the auth gate on subsequent launches
 
 ### Requirement: Welcome onboarding on first launch
-The mobile app SHALL show a 3-card welcome carousel on the user's first launch only.
+The mobile app SHALL show a 3-card welcome screen on the user's first launch only, reflecting the current unified capture, adaptive calibration, configured grading, and model-sync behavior.
 
 #### Scenario: First launch shows welcome
 - **GIVEN** AsyncStorage key `as.mobile.onboarded` is unset
 - **WHEN** the splash screen finishes
-- **THEN** the welcome screen renders with three cards (Camera, Target, Sync) explaining the product
+- **THEN** the welcome screen renders with three cards (Camera, Target, Sync) explaining sampled YOLO26 inference, adaptive LiDAR/ArUco calibration, and cloud sync
 - **AND** a "Continue" button on the third card sets `as.mobile.onboarded = true` and routes to permission requests
 
 #### Scenario: Subsequent launches skip welcome

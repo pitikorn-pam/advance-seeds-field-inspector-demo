@@ -15,7 +15,7 @@ import type { SupportedLocale } from "@advance-seeds/i18n";
 
 /**
  * App-level settings only — appearance, language, and build info. The previous
- * everything-bag (Profile / Calibration / Library / Batches / Reports /
+ * everything-bag (Profile / Calibration / Library / Reports /
  * Sign out) moved to /more in the prototype-fidelity-pass tab restructure.
  */
 export default function SettingsScreen() {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Alert, Linking, ActivityIndicator, Pressable, Platform } from "react-native";
+import { View, Text, Alert, Linking, ActivityIndicator, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -21,11 +21,13 @@ import { useLiveDetections } from "@/lib/analyzer/useLiveDetections";
 import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { DetectionOverlay } from "@/components/camera/DetectionOverlay";
 import { useVarieties } from "@/lib/queries";
-import { useCaptureSession } from "@/lib/capture/session";
+import { captureFrameMetadataFromPhoto, useCaptureSession } from "@/lib/capture/session";
 import { useRecordingState } from "@/lib/capture/recording";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
+import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useNotify } from "@/lib/notifications";
+import { useBackgroundModelInstall } from "@/lib/models/installProgressStore";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
 import type { CalibrationReading } from "@advance-seeds/types";
 
@@ -75,7 +77,13 @@ export default function CaptureScan() {
   const liveAruco = useLiveArucoCalibration(
     cameraActive && position === "back" && liveLidar.supported === false,
   );
-  const automaticCalibration = liveLidar.result?.reading ?? liveAruco.result?.reading ?? null;
+  const manualCalibration = useCalibrator();
+  const backgroundModelInstall = useBackgroundModelInstall();
+  const modelInstallInProgress = backgroundModelInstall.status === "installing";
+  const automaticCalibration =
+    liveLidar.result?.reading ?? liveAruco.result?.reading ?? manualCalibration.reading;
+  const automaticCalibrationProfileName =
+    automaticCalibration?.source === "manual" ? manualCalibration.profileName : null;
   // Show the calibration onboarding overlay only until the FIRST
   // confident LiDAR reading lands. After that, live values flow into
   // the bottom banner — no need to occlude the camera again.
@@ -85,7 +93,8 @@ export default function CaptureScan() {
 
   // YOLO detector runs whenever we have any calibration source —
   // continuous LiDAR keeps it running through device movement.
-  const calibrationLocked = liveLidar.locked || liveAruco.locked;
+  const calibrationLocked =
+    liveLidar.locked || liveAruco.locked || manualCalibration.reading !== null;
   const varieties = useVarieties();
   const activeVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId),
@@ -106,38 +115,41 @@ export default function CaptureScan() {
     [activeVariety?.name],
   );
   const liveModelClassAliases = activeVariety?.model_class_aliases ?? null;
+  const gradingConfig = useMemo(
+    () =>
+      activeVariety
+        ? {
+            criteria: activeVariety.grade_criteria,
+            targetLengthMm: activeVariety.ref_length_mm,
+            targetWidthMm: activeVariety.ref_width_mm,
+          }
+        : null,
+    [activeVariety],
+  );
   const liveDetections = useLiveDetections({
-    enabled: cameraActive && calibrationLocked && !busy,
+    enabled: cameraActive && calibrationLocked && !busy && !modelInstallInProgress,
     pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
     classFilter: liveClassFilter,
     varietyNames: liveVarietyNames,
     modelClassAliases: liveModelClassAliases,
     roi: session.mode === "live" ? session.roi : null,
+    gradingConfig,
   });
-  const activeFrameProcessor = busy
-    ? undefined
-    : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
+  const activeFrameProcessor =
+    busy || modelInstallInProgress
+      ? undefined
+      : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
   const androidFrameProcessorActive =
-    Platform.OS === "android" && !busy && activeFrameProcessor !== undefined;
+    Platform.OS === "android" &&
+    !busy &&
+    !modelInstallInProgress &&
+    activeFrameProcessor !== undefined;
   const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
   const toggleFlip = () => setPosition((p) => (p === "back" ? "front" : "back"));
   const toggleGrid = () => setShowGrid((g) => !g);
-  // Recalibrate is a no-op in continuous mode — pxPerMm tracks the
-  // operator's pose in real time. Kept as a stub so the existing UI
-  // button still wires up; toggling the camera off/on briefly forces
-  // a fresh LiDAR session if the operator wants to "reset."
-  const recalibrateLidar = () => {
-    if (recording.isRecording) return;
-    setCameraActive(false);
-    setTorch("off");
-    setFirstLidarReadingSeen(false);
-    recordingCalibrationRef.current = null;
-    setTimeout(() => setCameraActive(true), 80);
-  };
-
   useFocusEffect(
     useCallback(() => {
       setBusy(false);
@@ -183,13 +195,15 @@ export default function CaptureScan() {
         uploadedVideoUrl: null,
         analysisResult: null,
         capturedLiveFrameResult: liveDetections.detections,
+        capturedFrameMetadata: null,
+        analysisDiagnostics: null,
         recordingDurationMs: Math.max(0, Math.round(durationMs)),
         recordingId: null,
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
         capturedCalibrationReading: recordingCalibrationRef.current ?? automaticCalibration,
-        capturedCalibrationProfileName: null,
+        capturedCalibrationProfileName: automaticCalibrationProfileName,
       });
       setCameraActive(false);
       setTimeout(() => router.push("/capture/processing"), 60);
@@ -234,7 +248,7 @@ export default function CaptureScan() {
   };
 
   const ensureCalibrationLock = () => {
-    if (liveLidar.result || (liveAruco.locked && liveAruco.result)) {
+    if (liveLidar.result || (liveAruco.locked && liveAruco.result) || manualCalibration.reading) {
       return true;
     }
     Alert.alert(
@@ -297,13 +311,15 @@ export default function CaptureScan() {
         uploadedVideoUrl: null,
         analysisResult: null,
         capturedLiveFrameResult: liveDetections.detections,
+        capturedFrameMetadata: captureFrameMetadataFromPhoto(photo),
+        analysisDiagnostics: null,
         recordingDurationMs: null,
         recordingId: null,
         cameraPosition: position,
         flashMode,
         capturedAt: new Date().toISOString(),
         capturedCalibrationReading: automaticCalibration,
-        capturedCalibrationProfileName: null,
+        capturedCalibrationProfileName: automaticCalibrationProfileName,
       });
 
       // Deactivate the camera, then wait a frame before navigating so Android
@@ -464,7 +480,12 @@ export default function CaptureScan() {
                     ? t("inspections:capture.calibration.lockedHintBare", {
                         pxPerMm: liveAruco.result?.reading.pxPerMm.toFixed(1),
                       })
-                    : t("inspections:capture.calibration.alignMarker")}
+                    : manualCalibration.reading
+                      ? t("inspections:capture.calibration.lockedHintWithProfile", {
+                          pxPerMm: manualCalibration.reading.pxPerMm.toFixed(1),
+                          profile: manualCalibration.profileName ?? "Manual",
+                        })
+                      : t("inspections:capture.calibration.alignMarker")}
               </Text>
             </View>
           ) : (

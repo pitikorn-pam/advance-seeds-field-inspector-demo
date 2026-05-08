@@ -38,6 +38,16 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
           const { publishResolveResult } = await import("@/lib/models/updateStore");
           const active = await readActiveModel();
           if (cancelled) return;
+          if (!active) {
+            const { runFirstLaunchDefaultInstallIfNeeded } =
+              await import("@/lib/models/autoInstall");
+            const installed = await runFirstLaunchDefaultInstallIfNeeded();
+            if (cancelled) return;
+            if (installed) {
+              setAnalyzer(await selectAnalyzer());
+              return;
+            }
+          }
           const res = await resolveDefaultModel({
             channel: "production",
             currentVersion: active?.manifest?.display_name ?? "",

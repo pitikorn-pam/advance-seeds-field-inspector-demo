@@ -4,11 +4,11 @@
 TBD - created by archiving change seed-inspector-demo-foundation. Update Purpose after archive.
 ## Requirements
 ### Requirement: Postgres schema
-The backend SHALL provide tables `profiles`, `varieties`, `batches`, `calibration_profiles`, `inspections`, and `seeds` with foreign keys and enum types as defined in design.md §4.2–4.7.
+The backend SHALL provide tables `profiles`, `varieties`, `calibration_profiles`, `inspections`, and `seeds` with foreign keys and enum types as defined in design.md §4.2–4.7. `varieties` SHALL include nullable `grade_criteria jsonb` for A/B/C measurement ranges. Existing nullable `inspections.batch_id` data may remain for historical compatibility, but new mobile inspections do not set it.
 
 #### Scenario: Schema applied cleanly
 - **WHEN** an operator applies the `supabase/migrations/` directory to a fresh Supabase project
-- **THEN** all six tables exist with their columns, foreign keys, and enums
+- **THEN** the active inspection tables exist with their columns, foreign keys, and enums
 - **AND** RLS is enabled on every table
 
 ### Requirement: Role-based row-level security
@@ -30,7 +30,7 @@ The backend SHALL enforce that an authenticated user with role `inspector` canno
 - **THEN** the delete is denied by RLS
 
 ### Requirement: Seeded reference data and demo users
-The backend SHALL be seeded with two demo users (`jane@advanceseeds.com` inspector, `alex@advanceseeds.com` admin), 6 varieties, 4 batches, 2 calibration profiles, and at least 7 inspections with child seeds rows, after running the seed scripts.
+The backend SHALL be seeded with two demo users (`jane@advanceseeds.com` inspector, `alex@advanceseeds.com` admin), 6 varieties, 2 calibration profiles, and at least 7 inspections with child seeds rows, after running the seed scripts.
 
 #### Scenario: Seed script idempotency
 - **WHEN** the seed script runs twice
@@ -53,4 +53,3 @@ The backend SHALL expose generated TypeScript types in `packages/types/src/supab
 #### Scenario: Types regenerate after schema change
 - **WHEN** a column is added to `inspections` and `pnpm supabase:types` runs
 - **THEN** the regenerated file includes the new column on the `inspections` row type
-

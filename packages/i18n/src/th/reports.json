@@ -25,8 +25,6 @@
     "inspector_email": "อีเมลผู้ตรวจ",
     "inspector_name": "ชื่อผู้ตรวจ",
     "variety": "พันธุ์",
-    "batch_code": "รหัสล็อต",
-    "batch_location": "สถานที่ล็อต",
     "calibration_source": "แหล่งการสอบเทียบ",
     "calibration_px_per_mm": "การสอบเทียบ (พิกเซล/มม.)",
     "total_seeds": "จำนวนเมล็ด",

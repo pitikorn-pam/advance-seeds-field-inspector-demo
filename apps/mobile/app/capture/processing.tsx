@@ -6,7 +6,7 @@ import { useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { Check } from "lucide-react-native";
-import type { AnalysisFrameResult, AnalysisResult, AnalyzedSeed } from "@advance-seeds/types";
+import type { AnalysisResult } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
@@ -14,6 +14,7 @@ import { useCaptureSession } from "@/lib/capture/session";
 import { getCurrentLocation } from "@/lib/capture/location";
 import { exportAnnotatedVideo } from "@/lib/capture/annotatedVideo";
 import { optimizeImageForUpload } from "@/lib/capture/imageOptimization";
+import { liveFrameFallbackResult } from "@/lib/capture/liveFrameFallback";
 import { detectArucoCalibration } from "@/lib/calibration/ArucoCalibrator";
 import { useCreateRecording, useVarieties } from "@/lib/queries";
 import { addQueueEntry } from "@/lib/sync/store";
@@ -41,102 +42,14 @@ async function monitorPilotStage<T>(stage: string, work: () => Promise<T>): Prom
   }
 }
 
-async function liveFrameFallbackResult(
-  frameResult: AnalysisFrameResult | null,
-  imageUri: string,
-): Promise<AnalysisResult | null> {
-  if (!frameResult || frameResult.seeds.length === 0) return null;
-  const frameWidth = frameResult.frameWidth ?? 0;
-  const frameHeight = frameResult.frameHeight ?? 0;
-  if (frameWidth <= 0 || frameHeight <= 0) return null;
-  const image = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+function getImageDimensions(uri: string): Promise<{ width: number | null; height: number | null }> {
+  return new Promise((resolve, reject) => {
     Image.getSize(
-      imageUri,
+      uri,
       (width, height) => resolve({ width, height }),
       (err) => reject(err),
     );
   });
-  const oriented = orientLiveSeeds(frameResult.seeds, {
-    frameWidth,
-    frameHeight,
-    imageWidth: image.width,
-    imageHeight: image.height,
-    orientation: frameResult.frameOrientation ?? "up",
-  });
-  return {
-    analyzerId: `${frameResult.analyzerId}+shutter-fallback`,
-    durationMs: 0,
-    seeds: oriented,
-    summary: frameResult.summary,
-  };
-}
-
-function orientLiveSeeds(
-  seeds: readonly AnalyzedSeed[],
-  dims: {
-    frameWidth: number;
-    frameHeight: number;
-    imageWidth: number;
-    imageHeight: number;
-    orientation: string;
-  },
-): AnalyzedSeed[] {
-  const { frameWidth, frameHeight, imageWidth, imageHeight, orientation } = dims;
-  const rotates =
-    orientation === "left" ||
-    orientation === "right" ||
-    orientation === "left-mirrored" ||
-    orientation === "right-mirrored";
-  const orientedWidth = rotates ? frameHeight : frameWidth;
-  const orientedHeight = rotates ? frameWidth : frameHeight;
-  const scaleX = imageWidth / orientedWidth;
-  const scaleY = imageHeight / orientedHeight;
-  return seeds.map((seed, index) => {
-    const box = rotateLiveBox(seed.bbox, frameWidth, frameHeight, orientation);
-    return {
-      ...seed,
-      index: index + 1,
-      bbox: {
-        x: Math.round(box.x * scaleX),
-        y: Math.round(box.y * scaleY),
-        width: Math.round(box.width * scaleX),
-        height: Math.round(box.height * scaleY),
-      },
-    };
-  });
-}
-
-function rotateLiveBox(
-  box: AnalyzedSeed["bbox"],
-  frameWidth: number,
-  frameHeight: number,
-  orientation: string,
-): AnalyzedSeed["bbox"] {
-  if (orientation === "right" || orientation === "right-mirrored") {
-    return {
-      x: frameHeight - box.y - box.height,
-      y: box.x,
-      width: box.height,
-      height: box.width,
-    };
-  }
-  if (orientation === "left" || orientation === "left-mirrored") {
-    return {
-      x: box.y,
-      y: frameWidth - box.x - box.width,
-      width: box.height,
-      height: box.width,
-    };
-  }
-  if (orientation === "down" || orientation === "down-mirrored") {
-    return {
-      x: frameWidth - box.x - box.width,
-      y: frameHeight - box.y - box.height,
-      width: box.width,
-      height: box.height,
-    };
-  }
-  return box;
 }
 
 /**
@@ -222,8 +135,15 @@ export default function CaptureProcessing() {
     void (async () => {
       try {
         if (session.capturedMediaKind === "video") {
+          const liveFrame = session.capturedLiveFrameResult;
           const uploadUri = await monitorPilotStage("video.export", () =>
-            exportAnnotatedVideo(sourceUri, session.mode === "live" ? session.roi : null),
+            exportAnnotatedVideo(sourceUri, {
+              roi: session.mode === "live" ? session.roi : null,
+              seeds: liveFrame?.seeds ?? null,
+              frameWidth: liveFrame?.frameWidth ?? null,
+              frameHeight: liveFrame?.frameHeight ?? null,
+              frameOrientation: liveFrame?.frameOrientation ?? null,
+            }),
           );
           const info = await FileSystem.getInfoAsync(uploadUri);
           const bytes = info.exists && "size" in info ? (info.size as number) : 0;
@@ -427,7 +347,7 @@ export default function CaptureProcessing() {
           const { data: urlData } = supabase.storage.from("inspection-images").getPublicUrl(path);
           if (cancelledRef.current) return;
           if (uploadErr) console.warn("[processing] photo upload queued", uploadErr);
-          session.set({ uploadedImageUrl: uploadErr ? sourceUri : urlData.publicUrl });
+          session.set({ uploadedImageUrl: uploadErr ? photoAnalyzerUri : urlData.publicUrl });
         }
         if (cancelledRef.current) return;
 
@@ -465,6 +385,13 @@ export default function CaptureProcessing() {
         // indices via mapClassFilterForModel.
         const varietyNames = activeVariety?.name ? [activeVariety.name] : null;
         const modelClassAliases = activeVariety?.model_class_aliases ?? null;
+        const gradingConfig = activeVariety
+          ? {
+              criteria: activeVariety.grade_criteria,
+              targetLengthMm: activeVariety.ref_length_mm,
+              targetWidthMm: activeVariety.ref_width_mm,
+            }
+          : null;
         // For video captures we run the analyzer on the same representative
         // still that became the inspection's image_url (extracted above when
         // the video branch ran). Keeps the displayed crops consistent with
@@ -490,7 +417,23 @@ export default function CaptureProcessing() {
             console.warn("[processing] aruco on video thumbnail failed", err);
           }
         }
+        const calibrationFallbackUsed = !calibrationReading;
         const effectivePxPerMm = calibrationReading?.pxPerMm ?? 38.4;
+        if (calibrationFallbackUsed) {
+          notify({
+            kind: "warning",
+            title: t("inspections:capture.calibration.defaultFallbackTitle"),
+            body: t("inspections:capture.calibration.defaultFallbackBody"),
+          });
+          console.warn(
+            "[processing] using default calibration fallback pxPerMm=%d",
+            effectivePxPerMm,
+          );
+        }
+        const analyzedImage = await getImageDimensions(analyzerImageUri).catch(() => ({
+          width: null,
+          height: null,
+        }));
         let result: AnalysisResult =
           analyzerImageUri === sourceUri && session.capturedMediaKind === "video"
             ? // Thumbnail extraction failed — fall back to empty result so the
@@ -515,6 +458,7 @@ export default function CaptureProcessing() {
                     varietyNames,
                     modelClassAliases,
                     roi: session.mode === "live" ? session.roi : null,
+                    gradingConfig,
                   },
                 ),
               );
@@ -534,6 +478,7 @@ export default function CaptureProcessing() {
             result = fallback;
           }
         }
+        const usedLiveFrameFallback = result.analyzerId.endsWith("+shutter-fallback");
         if (cancelledRef.current) return;
 
         // No-detection inspections are saved with an empty seed list rather
@@ -553,7 +498,34 @@ export default function CaptureProcessing() {
         setDetectedCount(result.summary.total_seeds);
         markStep("detected");
 
-        session.set({ analysisResult: result });
+        const liveFrame = session.capturedLiveFrameResult;
+        const diagnostics = {
+          live_seed_count: liveFrame?.summary.total_seeds ?? liveFrame?.seeds.length ?? null,
+          analyze_seed_count: result.summary.total_seeds,
+          live_frame_width: liveFrame?.frameWidth ?? null,
+          live_frame_height: liveFrame?.frameHeight ?? null,
+          live_frame_orientation: liveFrame?.frameOrientation ?? null,
+          analyzed_image_width: analyzedImage.width,
+          analyzed_image_height: analyzedImage.height,
+          captured_image_orientation: session.capturedFrameMetadata?.orientation ?? null,
+          analyzed_image_orientation: "up",
+          used_live_frame_fallback: usedLiveFrameFallback,
+          calibration_fallback_used: calibrationFallbackUsed,
+          calibration_source_used: calibrationReading?.source ?? "default",
+        };
+        console.info(
+          "[capture-qa] live=%s analyze=%d liveOrientation=%s image=%sx%s fallback=%s calibration=%s pxPerMm=%d",
+          diagnostics.live_seed_count ?? "n/a",
+          diagnostics.analyze_seed_count,
+          diagnostics.live_frame_orientation ?? "unknown",
+          diagnostics.analyzed_image_width ?? "?",
+          diagnostics.analyzed_image_height ?? "?",
+          diagnostics.used_live_frame_fallback ? "yes" : "no",
+          diagnostics.calibration_source_used,
+          effectivePxPerMm,
+        );
+
+        session.set({ analysisResult: result, analysisDiagnostics: diagnostics });
 
         setTimeout(() => {
           if (cancelledRef.current) return;

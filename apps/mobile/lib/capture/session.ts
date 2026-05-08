@@ -22,6 +22,36 @@ export type CaptureMediaKind = "photo" | "video";
 export type CaptureCameraPosition = "back" | "front";
 export type CaptureFlashMode = "off" | "auto" | "on";
 
+export interface CaptureFrameMetadata {
+  width: number | null;
+  height: number | null;
+  orientation: string | null;
+}
+
+export interface CaptureAnalysisDiagnostics {
+  live_seed_count: number | null;
+  analyze_seed_count: number;
+  live_frame_width: number | null;
+  live_frame_height: number | null;
+  live_frame_orientation: string | null;
+  analyzed_image_width: number | null;
+  analyzed_image_height: number | null;
+  captured_image_orientation: string | null;
+  analyzed_image_orientation: string | null;
+  used_live_frame_fallback: boolean;
+  calibration_fallback_used: boolean;
+  calibration_source_used: string;
+}
+
+export function captureFrameMetadataFromPhoto(photo: unknown): CaptureFrameMetadata {
+  const row = photo && typeof photo === "object" ? (photo as Record<string, unknown>) : {};
+  return {
+    width: typeof row.width === "number" ? row.width : null,
+    height: typeof row.height === "number" ? row.height : null,
+    orientation: typeof row.orientation === "string" ? row.orientation : null,
+  };
+}
+
 interface CaptureSessionState {
   varietyId: string | null;
   batchId: string | null;
@@ -50,6 +80,10 @@ interface CaptureSessionState {
   capturedCalibrationReading: CalibrationReading | null;
   /** Selected profile name at capture time; persisted with calibration metadata. */
   capturedCalibrationProfileName: string | null;
+  /** Native camera photo dimensions/orientation at shutter time. */
+  capturedFrameMetadata: CaptureFrameMetadata | null;
+  /** QA diagnostics emitted by the processing route for cross-device comparison. */
+  analysisDiagnostics: CaptureAnalysisDiagnostics | null;
   /** Recording duration for video captures. */
   recordingDurationMs: number | null;
   /** Linked recordings row once video upload completes. */
@@ -105,6 +139,8 @@ const initial: CaptureSessionState = {
   capturedAt: null,
   capturedCalibrationReading: null,
   capturedCalibrationProfileName: null,
+  capturedFrameMetadata: null,
+  analysisDiagnostics: null,
   recordingDurationMs: null,
   recordingId: null,
   uploadedImageUrl: null,

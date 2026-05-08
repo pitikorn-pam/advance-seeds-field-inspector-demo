@@ -1,7 +1,7 @@
 # mobile-navigation Specification
 
 ## Purpose
-Define the bottom tab bar layout, capture entry points, three-step capture journey, and list virtualization conventions for the mobile app.
+Define the bottom tab bar layout, capture entry points, unified capture journey, and list virtualization conventions for the mobile app.
 
 ## Requirements
 ### Requirement: Bottom tab bar with four destinations
@@ -23,18 +23,12 @@ the More tab uses an overflow / horizontal-dots icon.
 - **AND** the app does not show a native view reparenting error during the
   transition
 
-#### Scenario: Capture prerequisites uses back navigation
-- **GIVEN** Jane opens Capture prerequisites from the capture mode picker
-- **WHEN** the screen renders
-- **THEN** the top-left navigation action uses a back chevron
-- **AND** tapping it returns to the previous capture screen
-
 ### Requirement: More menu groups secondary destinations
 The /more screen SHALL render four sections — Manage, Reference, Insights, App — each with list rows that route to existing screens.
 
 #### Scenario: More renders sectioned menu
 - **WHEN** Jane taps the More tab
-- **THEN** four sections render in order: Manage (Profile, Recordings, Sign out), Reference (Batches, Calibration), Insights (History, Reports), App (Settings, About)
+- **THEN** four sections render in order: Manage (Profile, Recordings, Sign out), Reference (Varieties, Calibration), Insights (History, Reports), App (Settings, About)
 - **AND** every row except Sign out has a chevron affordance
 
 #### Scenario: More row routes correctly
@@ -54,40 +48,25 @@ The mobile app SHALL provide two entry points to the capture flow: the Inspect t
 - **WHEN** Jane taps either the Home "+ New inspection" CTA or the Inspect tab
 - **THEN** she lands on /capture/setup with the same initial state
 
-### Requirement: Three-step capture flow
-The capture flow SHALL be three screens: setup (variety + batch + notes + location toggle), mode (Live vs Precise), then the chosen capture screen (scan or precise).
+### Requirement: Unified capture flow
+The capture flow SHALL be two screens before processing: setup (variety + notes + location toggle), then the adaptive scan camera. The app SHALL NOT show a Live/Precise capture-mode picker.
 
-#### Scenario: Setup → Mode → Scan
+#### Scenario: Setup → Scan
 - **GIVEN** Jane is on /capture/setup with all required fields filled
 - **WHEN** she taps Continue
-- **THEN** she lands on /capture/mode
-- **WHEN** she taps Live scan
 - **THEN** she lands on /capture/scan with mode=live on the session
-
-#### Scenario: Setup → Mode → Precise
-- **WHEN** Jane is on /capture/mode and taps Precise capture
-- **THEN** she lands on /capture/precise with mode=precise on the session
 
 #### Scenario: Setup blocks Continue without variety
 - **GIVEN** Jane is on /capture/setup with no variety chosen
 - **WHEN** she taps Continue
 - **THEN** the button is disabled and she does not navigate
 
-### Requirement: Variety selection via Library
-The /capture/setup screen's variety selector SHALL open the Library in selection mode; choosing a variety dismisses Library back to /capture/setup with the choice persisted on the capture session.
-
-#### Scenario: Variety selector opens Library
-- **WHEN** Jane taps the variety field on /capture/setup
-- **THEN** /(tabs)/varieties opens with `?select=variety` and shows the same family-segmented sections
-- **WHEN** she taps a variety row
-- **THEN** Library dismisses and /capture/setup shows the chosen variety in the selector with name and reference dimensions
-
 ### Requirement: Home dashboard composition
 The Home screen SHALL show, in vertical order: a greeting line, a hero card with today's KPIs and a sparkline, a primary "+ New inspection" CTA, a Recent section with up to three inspections and a "View all" link, and a sync status banner.
 
 #### Scenario: Home renders all sections
 - **WHEN** Jane lands on Home with at least one inspection from today
-- **THEN** the hero card shows total seeds, % Grade A, and batch count for today
+- **THEN** the hero card shows runs, total seeds, average length, and last run for the selected date range
 - **AND** the recent list shows up to 3 most recent inspections with variety-tinted thumbs
 - **AND** the sync banner reads "All inspections synced · Last sync {{relative}}"
 
@@ -104,7 +83,7 @@ virtualized list primitives so offscreen rows are mounted lazily instead of
 eagerly mounted inside a `ScrollView`.
 
 #### Scenario: Reference and activity lists lazy-mount rows
-- **WHEN** Jane opens Recordings, History, Varieties, or Batches
+- **WHEN** Jane opens Recordings, History, or Varieties
 - **THEN** the primary row collection uses a virtualized list
 - **AND** filter/search controls render as list header content on the same
   scroll surface

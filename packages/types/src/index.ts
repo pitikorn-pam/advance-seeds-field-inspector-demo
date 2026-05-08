@@ -1,3 +1,3 @@
 export * from "./domain.js";
 export * from "./analyzer.js";
-export type { Database } from "./supabase.gen.js";
+export type { Database, Json } from "./supabase.gen.js";
