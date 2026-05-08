@@ -22,7 +22,7 @@ export async function selectAnalyzer(): Promise<SeedAnalyzer> {
         const active = await readActiveModel();
         if (active)
           console.info(`[analyzer] coreml active model=${active.id} status=${active.status}`);
-      } catch (e) {
+      } catch {
         // ignore logging errors
       }
       return coreml;
@@ -38,7 +38,7 @@ export async function selectAnalyzer(): Promise<SeedAnalyzer> {
       const active = await readActiveModel();
       if (active)
         console.info(`[analyzer] tflite active model=${active.id} status=${active.status}`);
-    } catch (e) {
+    } catch {
       // ignore logging errors
     }
     return tflite;

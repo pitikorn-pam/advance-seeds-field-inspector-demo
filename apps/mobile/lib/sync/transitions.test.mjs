@@ -142,7 +142,12 @@ test("applyRetryAllFailed promotes failed AND syncing back to pending", () => {
 
 test("applyMarkFailed bumps attempts and records the error", () => {
   const { next: seeded } = applyAdd([], makePayload(), fakeClock());
-  const failed = applyMarkFailed(seeded, seeded[0].id, new Error("upload failed"), fakeClock(LATER));
+  const failed = applyMarkFailed(
+    seeded,
+    seeded[0].id,
+    new Error("upload failed"),
+    fakeClock(LATER),
+  );
   assert.equal(failed[0].status, "failed");
   assert.equal(failed[0].attempts, 1);
   assert.equal(failed[0].lastError, "upload failed");
@@ -168,7 +173,12 @@ test("syncErrorMessage extracts useful messages from common shapes", () => {
 
 test("transition output is JSON-roundtrippable so persistence stays lossless", () => {
   const { next } = applyAdd([], makePayload(), fakeClock());
-  const updated = applyUpdate(next, next[0].id, { status: "synced", remoteId: "r-1" }, fakeClock(LATER));
+  const updated = applyUpdate(
+    next,
+    next[0].id,
+    { status: "synced", remoteId: "r-1" },
+    fakeClock(LATER),
+  );
   const json = JSON.stringify(updated);
   const parsed = JSON.parse(json);
   assert.equal(parsed[0].status, "synced");

@@ -26,9 +26,7 @@ export function applyAdd(current, payload, clock = defaultClock) {
 
 export function applyUpdate(current, id, patch, clock = defaultClock) {
   const now = clock.now();
-  return current.map((entry) =>
-    entry.id === id ? { ...entry, ...patch, updatedAt: now } : entry,
-  );
+  return current.map((entry) => (entry.id === id ? { ...entry, ...patch, updatedAt: now } : entry));
 }
 
 export function applyRemove(current, id) {

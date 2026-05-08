@@ -21,7 +21,10 @@ test("gradeSeedByConfig grades from configured A/B/C criteria first", () => {
   assert.equal(gradeSeedByConfig(1.1, 0.9, { criteria, targetLengthMm: 2, targetWidthMm: 2 }), "A");
   assert.equal(gradeSeedByConfig(0.9, 0.9, { criteria, targetLengthMm: 2, targetWidthMm: 2 }), "B");
   assert.equal(gradeSeedByConfig(0.7, 0.7, { criteria, targetLengthMm: 2, targetWidthMm: 2 }), "C");
-  assert.equal(gradeSeedByConfig(1.4, 0.9, { criteria, targetLengthMm: 2, targetWidthMm: 2 }), "reject");
+  assert.equal(
+    gradeSeedByConfig(1.4, 0.9, { criteria, targetLengthMm: 2, targetWidthMm: 2 }),
+    "reject",
+  );
 });
 
 test("gradeSeedByConfig allows partial criteria dimensions", () => {

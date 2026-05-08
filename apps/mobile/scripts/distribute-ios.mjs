@@ -28,9 +28,7 @@ if (!APP_ID) {
 }
 
 const requestedIpaPath = process.env.FIREBASE_IPA_PATH;
-const { ipaPath, releaseNotes } = requestedIpaPath
-  ? localIpa(requestedIpaPath)
-  : latestEasIpa();
+const { ipaPath, releaseNotes } = requestedIpaPath ? localIpa(requestedIpaPath) : latestEasIpa();
 
 const groups = process.env.FIREBASE_GROUPS || "pilot";
 console.info(`-> uploading to Firebase App Distribution (group: ${groups})`);

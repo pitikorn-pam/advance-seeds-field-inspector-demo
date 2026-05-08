@@ -15,9 +15,16 @@ test("segmentation model class filters do not pass through COCO ids", () => {
   assert.match(source, /COCO_TO_MODEL_NAMES/);
 });
 
-test("iOS live fallback keeps bundled model filters in bundled class space", () => {
-  assert.match(liveSource, /setActiveModel\(source\.modelPath \? active : null\)/);
-  assert.doesNotMatch(liveSource, /void readActiveModel\(\)\.then\(\(rec\) => \{\s*if \(!cancelled\) setActiveModel\(rec\);/);
+test("iOS live detection waits for a verified active model path", () => {
+  assert.match(liveSource, /if \(!modelPath\) return;/);
+  assert.match(
+    liveSource,
+    /frameProcessor: enabled && plugin && modelReady \? frameProcessor : undefined/,
+  );
+  assert.doesNotMatch(
+    liveSource,
+    /void readActiveModel\(\)\.then\(\(rec\) => \{\s*if \(!cancelled\) setActiveModel\(rec\);/,
+  );
 });
 
 test("YOLO26 segmentation compatibility accepts non-nano variants", () => {

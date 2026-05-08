@@ -170,7 +170,8 @@ function pointInPolygon(p, points) {
     const pi = points[i];
     const pj = points[j];
     const denom = pj.y - pi.y || 1e-9;
-    const intersect = pi.y > p.y !== pj.y > p.y && p.x < ((pj.x - pi.x) * (p.y - pi.y)) / denom + pi.x;
+    const intersect =
+      pi.y > p.y !== pj.y > p.y && p.x < ((pj.x - pi.x) * (p.y - pi.y)) / denom + pi.x;
     if (intersect) inside = !inside;
   }
   return inside;

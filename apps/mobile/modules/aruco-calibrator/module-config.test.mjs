@@ -25,7 +25,10 @@ test("ArUco calibrator Expo module is registered for Android", () => {
   );
   assert.equal(
     existsSync(
-      join(root, "android/src/main/java/com/advanceseeds/aruco/AdvanceSeedsArucoFrameProcessorPlugin.kt"),
+      join(
+        root,
+        "android/src/main/java/com/advanceseeds/aruco/AdvanceSeedsArucoFrameProcessorPlugin.kt",
+      ),
     ),
     true,
   );

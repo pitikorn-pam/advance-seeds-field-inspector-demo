@@ -116,14 +116,8 @@ test("pointInPolygon: rejects polygons with fewer than 3 vertices", () => {
 // ---- pointInRoi ---------------------------------------------------------
 
 test("pointInRoi dispatches by kind", () => {
-  assert.equal(
-    pointInRoi({ x: 0.5, y: 0.5 }, { kind: "rect", x: 0, y: 0, w: 1, h: 1 }),
-    true,
-  );
-  assert.equal(
-    pointInRoi({ x: 0.5, y: 0.5 }, { kind: "circle", cx: 0.5, cy: 0.5, r: 0.1 }),
-    true,
-  );
+  assert.equal(pointInRoi({ x: 0.5, y: 0.5 }, { kind: "rect", x: 0, y: 0, w: 1, h: 1 }), true);
+  assert.equal(pointInRoi({ x: 0.5, y: 0.5 }, { kind: "circle", cx: 0.5, cy: 0.5, r: 0.1 }), true);
   assert.equal(
     pointInRoi(
       { x: 0.5, y: 0.5 },

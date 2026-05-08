@@ -47,9 +47,7 @@ if (!APP_ID) {
 }
 
 const requestedApkPath = process.env.FIREBASE_APK_PATH;
-const { apkPath, releaseNotes } = requestedApkPath
-  ? localApk(requestedApkPath)
-  : latestEasApk();
+const { apkPath, releaseNotes } = requestedApkPath ? localApk(requestedApkPath) : latestEasApk();
 
 const groups = process.env.FIREBASE_GROUPS || "internal";
 console.log(`→ uploading to Firebase App Distribution (group: ${groups})`);
@@ -73,15 +71,11 @@ try {
   // (the release was created) but the named tester group doesn't exist on
   // the project. Surface a clearer hint than the raw HTTP error.
   console.error("");
-  console.error(
-    `✗ Firebase distribute failed. Most common cause: tester group "${groups}"`,
-  );
+  console.error(`✗ Firebase distribute failed. Most common cause: tester group "${groups}"`);
   console.error(
     "  doesn't exist in Firebase. Create it under App Distribution → Testers & groups,",
   );
-  console.error(
-    "  add testers, then retry. The APK upload itself succeeded — re-running this",
-  );
+  console.error("  add testers, then retry. The APK upload itself succeeded — re-running this");
   console.error("  script will reuse the same release without re-uploading.");
   throw err;
 }

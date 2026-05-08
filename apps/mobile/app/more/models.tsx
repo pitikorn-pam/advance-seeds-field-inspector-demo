@@ -42,11 +42,8 @@ import {
   Inbox,
   Package,
   RefreshCw,
-  RotateCcw,
   Sliders,
-  Trash2,
   X,
-  Zap,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -646,7 +643,7 @@ function ModelRow({
   onCancel: () => void;
 }) {
   const { t } = useTranslation(["common", "more"]);
-  const { candidate, installedRecord, isActive, isPreviousActive, status } = row;
+  const { candidate, installedRecord, isPreviousActive, status } = row;
   const sizeMb = candidateSizeMb(candidate, installedRecord);
   const platformLabel = candidate.platform === "android" ? "TFLite" : "Core ML";
   const installing = busy === `install:${candidate.id}`;

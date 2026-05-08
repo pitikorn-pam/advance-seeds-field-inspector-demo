@@ -58,6 +58,11 @@ type DeployedModel = {
   metadata?: DeploymentMetadata | null;
 };
 
+type CancelableDownload = {
+  cancel?: () => void;
+  pauseAsync?: () => Promise<unknown>;
+};
+
 export function defaultDeploymentIndexUrl(channel: DeploymentChannel = "staging"): string {
   const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   if (!baseUrl) return "";
@@ -304,9 +309,11 @@ export async function installCandidate(
           downloadedBytes: event.totalBytesWritten,
           totalBytes: total,
         });
-      } catch {}
+      } catch (err) {
+        console.warn("[model-registry] progress callback failed", err);
+      }
     });
-    downloadMap.set(candidate.id, resumable as any);
+    downloadMap.set(candidate.id, resumable as CancelableDownload);
     try {
       await resumable.downloadAsync();
     } finally {
@@ -364,16 +371,20 @@ export async function installCandidate(
 
 // Expose download control for UI: start/cancel handled inside installCandidate,
 // but provide a cancel helper the UI can call while an install is in progress.
-const downloadMap = new Map<string, any>();
+const downloadMap = new Map<string, CancelableDownload>();
 
 export function cancelArtifactDownload(id: string): void {
   const r = downloadMap.get(id);
   if (r && typeof r.cancel === "function") {
     try {
       r.cancel();
-    } catch (e) {
-      // swallow
+    } catch (err) {
+      console.warn("[model-registry] cancel download failed", err);
     }
+  } else if (r && typeof r.pauseAsync === "function") {
+    void r.pauseAsync().catch((err) => {
+      console.warn("[model-registry] pause download failed", err);
+    });
   }
   downloadMap.delete(id);
 }
@@ -397,14 +408,6 @@ function registryHeaders(url: string): Record<string, string> | undefined {
 function stripShaPrefix(value: string | null | undefined): string | null {
   if (!value) return null;
   return value.replace(/^sha256:/i, "").toLowerCase();
-}
-
-async function copyOrDownload(from: string, to: string): Promise<void> {
-  if (from.startsWith("file://")) {
-    await FileSystem.copyAsync({ from, to });
-    return;
-  }
-  await FileSystem.downloadAsync(from, to);
 }
 
 async function extractMlpackageZip(zipUri: string, destinationDir: string): Promise<void> {
