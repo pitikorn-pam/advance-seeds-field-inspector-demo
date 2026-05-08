@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Pill } from "@/components/ui/Pill";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
+import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FAEEDA", fg: "#854F0B" },
@@ -40,6 +41,7 @@ export default function VarietyDetail() {
   const session = useCaptureSession();
   const { profile } = useAuth();
   const policy = policyFor(profile);
+  const modelInstallGate = useModelInstallInspectionGate();
 
   const varieties = useVarieties();
   const inspections = useInspections();
@@ -64,6 +66,7 @@ export default function VarietyDetail() {
   const tint = VARIETY_TINTS[variety.color_key ?? ""] ?? VARIETY_TINTS.rice;
 
   const onStartInspection = () => {
+    if (modelInstallGate.showBlockedMessage()) return;
     // Explicit "Start inspection" from a variety detail is a fresh-start
     // gesture: previous calibration / notes / ROI / location-tag
     // intent shouldn't latch onto the new attempt. Reset first, then

@@ -17,6 +17,7 @@ import { useCaptureSession } from "@/lib/capture/session";
 import { readActiveModel } from "@/lib/models/modelStore";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { effectiveModelAliases } from "@/lib/analyzer/captureClasses";
+import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FAEEDA", fg: "#854F0B" },
@@ -37,9 +38,10 @@ const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
  * GPS capture is wired by the upcoming expo-location commit.
  */
 export default function CaptureSetup() {
-  const { t } = useTranslation(["common", "inspections"]);
+  const { t } = useTranslation(["common", "inspections", "more"]);
   const router = useRouter();
   const session = useCaptureSession();
+  const modelInstallGate = useModelInstallInspectionGate();
 
   const varieties = useVarieties();
 
@@ -92,7 +94,7 @@ export default function CaptureSetup() {
     return <LoadingState />;
   }
 
-  const canContinue = !!session.varietyId;
+  const canContinue = !!session.varietyId && !modelInstallGate.blocked;
   const liveAliases = effectiveModelAliases(
     selectedVariety?.model_class_aliases,
     activeModelClassNames,
@@ -123,6 +125,7 @@ export default function CaptureSetup() {
   };
 
   const onContinue = async () => {
+    if (modelInstallGate.showBlockedMessage()) return;
     if (!canContinue) return;
     if (needsBinding && selectedVariety) {
       const modelName = activeModel?.displayName ?? "";
@@ -161,6 +164,22 @@ export default function CaptureSetup() {
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
+        {modelInstallGate.blocked ? (
+          <Card className="gap-xs border border-warning-text/30 bg-warning-bg">
+            <Text className="text-title text-fg-primary font-medium">
+              {modelInstallGate.installing
+                ? t("inspections:capture.modelInstallBlockedTitle")
+                : t("inspections:capture.modelRequiredTitle")}
+            </Text>
+            <Text className="text-body text-fg-secondary">
+              {modelInstallGate.installing
+                ? t("inspections:capture.modelInstallBlockedBody", {
+                    name: modelInstallGate.install.displayName ?? t("more:models.defaultPill"),
+                  })
+                : t("inspections:capture.modelRequiredBody")}
+            </Text>
+          </Card>
+        ) : null}
         <Text className="text-body text-fg-secondary px-xs">
           {t("inspections:capture.setupSubtitle")}
         </Text>

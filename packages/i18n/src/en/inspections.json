@@ -155,6 +155,10 @@
     "bindRequiredBody": "\"{{variety}}\" is not bound to any class in the active model ({{model}}). Bind at least one model class before starting an inspection.",
     "bindRequiredAction": "Bind classes",
     "bindRequiredHint": "Not bound to any class in the active model. Tap Continue to bind.",
+    "modelInstallBlockedTitle": "Model setup in progress",
+    "modelInstallBlockedBody": "{{name}} is still downloading and activating in the background. Please wait until model setup is complete before starting an inspection.",
+    "modelRequiredTitle": "Model setup required",
+    "modelRequiredBody": "Live inspection needs an installed and active model for this device. Please wait for automatic setup to finish, or install the default model from Models.",
     "location": {
       "deniedTitle": "Location access is off",
       "deniedBody": "Inspections will save without GPS coordinates. Open Settings to enable location access for Advance Seeds."

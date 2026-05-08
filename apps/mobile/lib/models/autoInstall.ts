@@ -156,9 +156,23 @@ export async function runAutoInstallIfEligible(update: ModelUpdateAvailable): Pr
       return reg?.version_id === update.version_id;
     });
     if (!candidate) return;
-    const record = await installCandidate(candidate);
-    await activateInstalledModel(record);
-    resetSharedTfliteModel();
+    const runId = beginBackgroundModelInstall({
+      kind: "autoUpdate",
+      candidateId: candidate.id,
+      displayName: candidate.displayName,
+      versionId: update.version_id,
+    });
+    try {
+      const record = await installCandidate(candidate, (progress) => {
+        updateBackgroundModelInstall(runId, progress);
+      });
+      await activateInstalledModel(record);
+      resetSharedTfliteModel();
+      completeBackgroundModelInstall(runId);
+    } catch (e) {
+      failBackgroundModelInstall(runId, e);
+      throw e;
+    }
   } catch (e) {
     console.warn("[registry] auto-install failed", e);
   } finally {

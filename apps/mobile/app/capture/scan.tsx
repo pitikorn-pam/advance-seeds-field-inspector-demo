@@ -27,7 +27,7 @@ import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibrati
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
 import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useNotify } from "@/lib/notifications";
-import { useBackgroundModelInstall } from "@/lib/models/installProgressStore";
+import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
 import type { CalibrationReading } from "@advance-seeds/types";
 
@@ -50,7 +50,7 @@ import type { CalibrationReading } from "@advance-seeds/types";
  * The KPI strip's data shape (`AnalysisFrameResult`) stays the same.
  */
 export default function CaptureScan() {
-  const { t } = useTranslation(["common", "inspections", "notifications"]);
+  const { t } = useTranslation(["common", "inspections", "more", "notifications"]);
   const router = useRouter();
   const session = useCaptureSession();
   const notify = useNotify();
@@ -78,8 +78,8 @@ export default function CaptureScan() {
     cameraActive && position === "back" && liveLidar.supported === false,
   );
   const manualCalibration = useCalibrator();
-  const backgroundModelInstall = useBackgroundModelInstall();
-  const modelInstallInProgress = backgroundModelInstall.status === "installing";
+  const modelInstallGate = useModelInstallInspectionGate();
+  const modelInstallInProgress = modelInstallGate.blocked;
   const automaticCalibration =
     liveLidar.result?.reading ?? liveAruco.result?.reading ?? manualCalibration.reading;
   const automaticCalibrationProfileName =
@@ -395,6 +395,39 @@ export default function CaptureScan() {
       console.error("[scan] snapshot failed", err);
     }
   };
+
+  if (modelInstallGate.blocked) {
+    const title = modelInstallGate.installing
+      ? t("inspections:capture.modelInstallBlockedTitle")
+      : t("inspections:capture.modelRequiredTitle");
+    const body = modelInstallGate.installing
+      ? t("inspections:capture.modelInstallBlockedBody", {
+          name: modelInstallGate.install.displayName ?? t("more:models.defaultPill"),
+        })
+      : t("inspections:capture.modelRequiredBody");
+    return (
+      <View className="flex-1 bg-black">
+        <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
+          <GlassTopBar
+            centerLabel={title}
+            centerDotColor="#FAC775"
+            flashMode={flashMode}
+            onFlashPress={cycleFlash}
+            onBackPress={leaveCamera}
+          />
+          <View className="flex-1 items-center justify-center px-xl">
+            <ActivityIndicator color="#FFFFFF" />
+            <Text className="mt-lg text-center text-white font-medium" style={{ fontSize: 18 }}>
+              {title}
+            </Text>
+            <Text className="mt-xs text-center text-white/65" style={{ fontSize: 13 }}>
+              {body}
+            </Text>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   if (lidarGateActive) {
     return (

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   VisionCameraProxy,
   runAsync,
@@ -7,9 +8,7 @@ import {
   useFrameProcessor,
 } from "react-native-vision-camera";
 import type { ReadonlyFrameProcessor } from "react-native-vision-camera";
-import { useResizePlugin } from "vision-camera-resize-plugin";
 import { Worklets } from "react-native-worklets-core";
-import type { TfliteModel } from "react-native-fast-tflite";
 import type { AnalysisFrameResult, AnalysisRoi, SeedGradingConfig } from "@advance-seeds/types";
 import {
   YOLO_INPUT_SIZE,
@@ -21,15 +20,9 @@ import {
   nonMaxSuppression,
   summarizeSeeds,
 } from "./yolo";
-import {
-  loadSharedTfliteModel,
-  type TfliteDelegate,
-  type TfliteOutputKind,
-} from "./TfliteSeedAnalyzer";
 import { useHyperParams } from "./hyperparams";
 import { resolvePreprocessProfile } from "./preprocess";
 import { recordInference, type InferenceSource } from "./inferenceStats";
-import { resolveCoreMLModelSource } from "./CoreMLSeedAnalyzer";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
 import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
@@ -147,6 +140,7 @@ function useLiveDetectionsCoreML(options: Options): State {
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   const [modelPath, setModelPath] = useState<string | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
+  const modelReady = Boolean(modelPath && activeModel);
   const lastSetAtRef = useRef(0);
   const RENDER_THROTTLE_MS = 33;
   const mountedRef = useRef(true);
@@ -165,7 +159,7 @@ function useLiveDetectionsCoreML(options: Options): State {
   useEffect(() => {
     enabledRef.current = enabled;
     if (!enabled) setDetections(null);
-  }, [enabled]);
+  }, []);
 
   // Initialised once. Vision Camera proxies the native plugin lookup
   // through JSI; the resulting object is worklet-shareable.
@@ -176,15 +170,36 @@ function useLiveDetectionsCoreML(options: Options): State {
 
   useEffect(() => {
     let cancelled = false;
-    resolveCoreMLModelSource()
-      .then(async (source) => {
-        const active = await readActiveModel();
+    readActiveModel()
+      .then(async (active) => {
         if (cancelled) return;
-        setModelPath(source.modelPath ?? null);
-        setActiveModel(source.modelPath ? active : null);
+        const compiledUri = active?.compiledArtifactUri ?? null;
+        const compiledExists = compiledUri
+          ? (await FileSystem.getInfoAsync(compiledUri).catch(() => ({ exists: false }))).exists
+          : false;
+        if (
+          active?.platform === "ios" &&
+          active.status === "active" &&
+          compiledUri &&
+          compiledExists &&
+          (await quickVerifyArtifact(active))
+        ) {
+          if (!cancelled) {
+            setModelPath(compiledUri);
+            setActiveModel(active);
+          }
+          return;
+        }
+        if (!cancelled) {
+          setModelPath(null);
+          setActiveModel(null);
+        }
       })
       .catch((err) => {
-        console.warn("[live-detections coreml] active model unavailable; using bundle", err);
+        console.warn(
+          "[live-detections coreml] active model unavailable; live inference disabled",
+          err,
+        );
         if (!cancelled) {
           setModelPath(null);
           setActiveModel(null);
@@ -193,7 +208,7 @@ function useLiveDetectionsCoreML(options: Options): State {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   // Translate COCO/variety class filter into the active model's class
   // index space *before* the worklet runs — worklets can't read JS
@@ -208,7 +223,7 @@ function useLiveDetectionsCoreML(options: Options): State {
   useEffect(() => {
     console.info(
       "[live-detections coreml] model=%s mappedFilter=%o",
-      activeModel?.id ?? "bundled",
+      activeModel?.id ?? "none",
       mappedClassFilter,
     );
   }, [activeModel, mappedClassFilter]);
@@ -330,6 +345,7 @@ function useLiveDetectionsCoreML(options: Options): State {
     (frame) => {
       "worklet";
       if (!enabled || !plugin) return;
+      if (!modelPath) return;
       runAtTargetFps(targetFps, () => {
         "worklet";
         try {
@@ -339,7 +355,7 @@ function useLiveDetectionsCoreML(options: Options): State {
           const startedAt = Date.now();
           const result = plugin.call(frame, {
             assetName: COREML_ASSET,
-            modelPath: modelPath ?? "",
+            modelPath,
             preprocessProfile,
           });
           const inferElapsedMs = Date.now() - startedAt;
@@ -372,10 +388,10 @@ function useLiveDetectionsCoreML(options: Options): State {
   return useMemo(
     () => ({
       detections,
-      ready: plugin !== null,
-      frameProcessor: enabled && plugin ? frameProcessor : undefined,
+      ready: plugin !== null && modelReady,
+      frameProcessor: enabled && plugin && modelReady ? frameProcessor : undefined,
     }),
-    [detections, enabled, frameProcessor, plugin],
+    [detections, enabled, frameProcessor, modelReady, plugin],
   );
 }
 
@@ -457,7 +473,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     const mapped = mapClassFilterForModel(
@@ -468,7 +484,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     );
     console.info(
       "[live-detections tflite] model=%s preprocess=%s mappedFilter=%o",
-      activeModel?.id ?? "bundled",
+      activeModel?.id ?? "none",
       preprocessProfile,
       mapped,
     );
@@ -601,6 +617,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     (frame) => {
       "worklet";
       if (!enabled || !plugin) return;
+      if (!activeModel) return;
       runAtTargetFps(targetFps, () => {
         "worklet";
         runAsync(frame, () => {
@@ -622,7 +639,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             const startedAt = Date.now();
             const result = plugin.call(frame, {
               assetName: "yolo11n-seeds.tflite",
-              modelPath: activeModel?.artifactUri ?? "",
+              modelPath: activeModel.artifactUri,
               cropX,
               cropY,
               cropSize,
@@ -662,9 +679,9 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   return useMemo(
     () => ({
       detections,
-      ready: plugin !== null,
-      frameProcessor: enabled && plugin ? frameProcessor : undefined,
+      ready: plugin !== null && activeModel !== null,
+      frameProcessor: enabled && plugin && activeModel ? frameProcessor : undefined,
     }),
-    [detections, enabled, frameProcessor, plugin],
+    [activeModel, detections, enabled, frameProcessor, plugin],
   );
 }

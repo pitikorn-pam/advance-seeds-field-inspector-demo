@@ -34,6 +34,7 @@ import { SyncBanner } from "@/components/home/SyncBanner";
 import { ModelUpdateBanner } from "@/components/home/ModelUpdateBanner";
 import { ModelUpdateNotifier } from "@/components/home/ModelUpdateNotifier";
 import { NotificationBell } from "@/components/home/NotificationBell";
+import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 type HomeRangePreset = "today" | "last7" | "last30" | "custom";
 
@@ -54,6 +55,7 @@ export default function HomeScreen() {
   const { resolved } = useTheme();
   const router = useRouter();
   const session = useCaptureSession();
+  const modelInstallGate = useModelInstallInspectionGate();
   const { data, isLoading, isError, refetch, isRefetching } = useInspections();
   const [rangePreset, setRangePreset] = useState<HomeRangePreset>("today");
   const [dateRange, setDateRange] = useState<DateRange>(() => presetToRange("today"));
@@ -110,9 +112,10 @@ export default function HomeScreen() {
   const COMMIT_DX = 100;
 
   const startCapture = useCallback(() => {
+    if (modelInstallGate.showBlockedMessage()) return;
     session.reset();
     router.push("/capture/setup");
-  }, [router, session]);
+  }, [modelInstallGate, router, session]);
 
   // Tracks the home content's horizontal offset during the drag. Reset
   // to 0 on snap-back; reset to 0 (after a brief fade) on commit so the

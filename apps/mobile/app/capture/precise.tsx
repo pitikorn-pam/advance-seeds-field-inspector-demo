@@ -18,7 +18,7 @@ import { useVarieties } from "@/lib/queries";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
 import { useCalibrator } from "@/lib/calibration/useCalibrator";
-import { useBackgroundModelInstall } from "@/lib/models/installProgressStore";
+import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 /**
  * Precise capture mode.
@@ -35,7 +35,7 @@ import { useBackgroundModelInstall } from "@/lib/models/installProgressStore";
  * state — there's no value carrying them across modes.
  */
 export default function CapturePrecise() {
-  const { t } = useTranslation(["common", "inspections"]);
+  const { t } = useTranslation(["common", "inspections", "more"]);
   const router = useRouter();
   const session = useCaptureSession();
   const cameraRef = useRef<VCCamera>(null);
@@ -51,8 +51,8 @@ export default function CapturePrecise() {
     cameraActive && position === "back" && liveLidar.supported === false,
   );
   const manualCalibration = useCalibrator();
-  const backgroundModelInstall = useBackgroundModelInstall();
-  const modelInstallInProgress = backgroundModelInstall.status === "installing";
+  const modelInstallGate = useModelInstallInspectionGate();
+  const modelInstallInProgress = modelInstallGate.blocked;
   const automaticCalibration =
     liveLidar.result?.reading ?? liveAruco.result?.reading ?? manualCalibration.reading;
   const automaticCalibrationProfileName =
@@ -217,6 +217,39 @@ export default function CapturePrecise() {
       if (wantFlash) setTorch("off");
     }
   };
+
+  if (modelInstallGate.blocked) {
+    const title = modelInstallGate.installing
+      ? t("inspections:capture.modelInstallBlockedTitle")
+      : t("inspections:capture.modelRequiredTitle");
+    const body = modelInstallGate.installing
+      ? t("inspections:capture.modelInstallBlockedBody", {
+          name: modelInstallGate.install.displayName ?? t("more:models.defaultPill"),
+        })
+      : t("inspections:capture.modelRequiredBody");
+    return (
+      <View className="flex-1 bg-black">
+        <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
+          <GlassTopBar
+            centerLabel={title}
+            centerDotColor="#FAC775"
+            flashMode={flashMode}
+            onFlashPress={cycleFlash}
+            onBackPress={leaveCamera}
+          />
+          <View className="flex-1 items-center justify-center px-xl">
+            <ActivityIndicator color="#FFFFFF" />
+            <Text className="mt-lg text-center text-white font-medium" style={{ fontSize: 18 }}>
+              {title}
+            </Text>
+            <Text className="mt-xs text-center text-white/65" style={{ fontSize: 13 }}>
+              {body}
+            </Text>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   if (lidarGateActive) {
     return (
