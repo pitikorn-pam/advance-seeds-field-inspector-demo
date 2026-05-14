@@ -9,9 +9,19 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 import type { DesignTokensJson } from "./types.js";
 import { mapColorsForTailwind } from "./mapping.js";
+
+// Prettier is workspace-hoisted (public-hoist-pattern[]=*prettier* in .npmrc).
+// We resolve it via createRequire so this stays a build-time dependency that
+// the tokens package doesn't have to declare — and so CI's `pnpm install`
+// (which triggers `prepare → pnpm build`) emits already-formatted CSS that
+// passes `prettier --check`. Without this, every fresh install produces a
+// raw-uppercase-hex global.css that fails the format gate.
+const require = createRequire(import.meta.url);
+const prettier = require("prettier") as typeof import("prettier");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "../../..");
@@ -264,7 +274,7 @@ writeFileSync(resolve(distDir, "css-vars.css"), cssOutput);
 // only shows up after a hand-paste — exactly the bug that took out the
 // first device build on the Field Inspector redesign.
 const mobileGlobalCssPath = resolve(repoRoot, "apps/mobile/global.css");
-const mobileGlobalCss = `@tailwind base;
+const mobileGlobalCssRaw = `@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -287,6 +297,14 @@ ${darkVars.join("\n")}
   }
 }
 `;
+// Pipe through prettier so CI's `pnpm install` (which runs `prepare`) emits
+// a file that already passes `prettier --check .`. Resolves the workspace's
+// .prettierrc.json automatically because the target path is inside the repo.
+const mobileGlobalCss = await prettier.format(mobileGlobalCssRaw, {
+  ...(await prettier.resolveConfig(mobileGlobalCssPath)),
+  parser: "css",
+  filepath: mobileGlobalCssPath,
+});
 writeFileSync(mobileGlobalCssPath, mobileGlobalCss);
 
 // ----- 3. tokens.ts (runtime TS) ----------------------------------------
