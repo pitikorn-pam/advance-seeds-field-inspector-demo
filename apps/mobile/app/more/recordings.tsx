@@ -332,42 +332,46 @@ function PendingRecordingRow({
         ? labels.syncing
         : labels.pending;
   return (
-    <View className={`gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}>
-      <View className="aspect-[4/3] overflow-hidden rounded-lg bg-black">
+    <View
+      className={`flex-row gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
+    >
+      <View className="h-[88px] w-[88px] overflow-hidden rounded-lg bg-black">
         {previewUri ? <CaptureMediaPreview uri={previewUri} kind="video" /> : null}
-      </View>
-      <View className="flex-row items-center gap-md">
-        <View className="flex-1 gap-xs">
-          <View className="flex-row items-center gap-sm">
-            <Text className="text-title text-fg-primary font-medium">
-              {formatDuration(data.duration_ms)}
-            </Text>
-            <Pill tone={tone} dot label={label} />
-          </View>
-          <Text className="text-caption text-fg-secondary">{captionDate}</Text>
-          {entry.lastError ? (
-            <Text className="text-caption text-danger-text" numberOfLines={2}>
-              {entry.lastError}
-            </Text>
-          ) : null}
+        <View className="absolute bottom-xs right-xs rounded-sm bg-black/70 px-xs">
+          <Text className="text-[10px] font-semibold text-white">
+            {formatDuration(data.duration_ms)}
+          </Text>
         </View>
-        <Button
-          size="icon"
-          variant="tinted"
-          accessibilityLabel={labels.retry}
-          onPress={() => void onRetry()}
-          disabled={entry.status === "syncing"}
-        >
-          <RefreshCw color="#171717" size={16} />
-        </Button>
-        <Button
-          size="icon"
-          variant="danger"
-          accessibilityLabel={labels.discard}
-          onPress={() => void onDiscard()}
-        >
-          <Trash2 color="#8A1F1B" size={16} />
-        </Button>
+      </View>
+      <View className="flex-1 gap-xs">
+        <View className="flex-row items-center gap-sm">
+          <Pill tone={tone} dot label={label} />
+        </View>
+        <Text className="text-caption text-fg-secondary">{captionDate}</Text>
+        {entry.lastError ? (
+          <Text className="text-caption text-danger-text" numberOfLines={2}>
+            {entry.lastError}
+          </Text>
+        ) : null}
+        <View className="flex-row gap-xs mt-auto pt-xs">
+          <Button
+            size="icon"
+            variant="tinted"
+            accessibilityLabel={labels.retry}
+            onPress={() => void onRetry()}
+            disabled={entry.status === "syncing"}
+          >
+            <RefreshCw color="#171717" size={16} />
+          </Button>
+          <Button
+            size="icon"
+            variant="danger"
+            accessibilityLabel={labels.discard}
+            onPress={() => void onDiscard()}
+          >
+            <Trash2 color="#8A1F1B" size={16} />
+          </Button>
+        </View>
       </View>
     </View>
   );
@@ -401,27 +405,37 @@ function RecordingRow({
     minute: "2-digit",
   });
   return (
-    <View className="gap-md p-md mb-md rounded-lg bg-bg-primary">
-      <View className="aspect-[4/3] overflow-hidden rounded-lg bg-black">
+    <Card className="p-md flex-row gap-md">
+      <View className="h-[88px] w-[88px] overflow-hidden rounded-lg bg-black">
         <CaptureMediaPreview uri={recording.video_url} kind="video" />
-      </View>
-      <View className="flex-row items-center gap-md">
-        <View className="flex-1">
-          <Text className="text-title text-fg-primary font-medium">
+        <View className="absolute bottom-xs right-xs rounded-sm bg-black/70 px-xs">
+          <Text className="text-[10px] font-semibold text-white">
             {formatDuration(recording.duration_ms)}
           </Text>
-          <Text className="text-caption text-fg-secondary">{captionDate}</Text>
         </View>
-        <Button size="icon" variant="tinted" accessibilityLabel={labels.share} onPress={onShare}>
-          <Share2 color="#171717" size={16} />
-        </Button>
-        <Button size="icon" variant="tinted" accessibilityLabel={labels.save} onPress={onSave}>
-          <Download color="#171717" size={16} />
-        </Button>
-        <Button size="icon" variant="danger" accessibilityLabel={labels.delete} onPress={onDelete}>
-          <Trash2 color="#8A1F1B" size={16} />
-        </Button>
       </View>
-    </View>
+      <View className="flex-1 gap-xs">
+        <Text className="text-title text-fg-primary font-medium" numberOfLines={1}>
+          {formatDuration(recording.duration_ms)}
+        </Text>
+        <Text className="text-caption text-fg-secondary">{captionDate}</Text>
+        <View className="flex-row gap-xs mt-auto pt-xs">
+          <Button size="icon" variant="tinted" accessibilityLabel={labels.share} onPress={onShare}>
+            <Share2 color="#171717" size={16} />
+          </Button>
+          <Button size="icon" variant="tinted" accessibilityLabel={labels.save} onPress={onSave}>
+            <Download color="#171717" size={16} />
+          </Button>
+          <Button
+            size="icon"
+            variant="danger"
+            accessibilityLabel={labels.delete}
+            onPress={onDelete}
+          >
+            <Trash2 color="#8A1F1B" size={16} />
+          </Button>
+        </View>
+      </View>
+    </Card>
   );
 }

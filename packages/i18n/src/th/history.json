@@ -33,5 +33,8 @@
     "pending": "รอซิงค์",
     "failed": "ไม่สำเร็จ"
   },
-  "pendingInspection": "การตรวจสอบที่รอซิงค์"
+  "pendingInspection": "การตรวจสอบที่รอซิงค์",
+  "row": {
+    "seedsSuffix": "{{count}} เมล็ด"
+  }
 }

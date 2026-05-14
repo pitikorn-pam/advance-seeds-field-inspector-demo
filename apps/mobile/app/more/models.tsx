@@ -651,20 +651,64 @@ function ModelRow({
   const metadata = installedRecord?.metadata ?? candidate.metadata ?? null;
   const headlineMap = metadata ? pickHeadlineMap(metadata.metrics) : null;
 
+  const downloading = progress?.phase === "downloading";
+  const percent =
+    downloading && progress?.totalBytes
+      ? Math.min(
+          100,
+          Math.max(0, Math.round(((progress.downloadedBytes ?? 0) / progress.totalBytes) * 100)),
+        )
+      : null;
+
   return (
     <View
-      className={`gap-sm rounded-lg ${
-        status === "active" ? "bg-brand-soft/40 -mx-xs px-xs py-md" : ""
-      } ${isLast ? "" : "border-b border-line-tertiary pb-md"}`}
+      className={`gap-md rounded-lg ${
+        status === "active" ? "bg-card-lavender -mx-xs px-md py-md" : "py-xs"
+      } ${status === "unsupported" ? "opacity-70" : ""} ${
+        isLast ? "" : "border-b border-line-tertiary pb-md"
+      }`}
     >
-      <View className="flex-row items-center gap-sm">
-        <Text className="shrink text-title font-medium text-fg-primary" numberOfLines={1}>
-          {cleanDisplayName(candidate.displayName)}
-        </Text>
-        {status === "active" ? (
-          <Pill tone="success" dot label={t("more:models.activePill")} />
-        ) : null}
-        <View className="flex-1" />
+      <View className="flex-row items-start gap-md">
+        <View className="h-10 w-10 items-center justify-center rounded-lg bg-card-lavender">
+          <Cpu color="#6E40E0" size={20} />
+        </View>
+        <View className="flex-1 gap-xs">
+          <View className="flex-row items-center gap-xs flex-wrap">
+            <Text className="shrink text-title font-medium text-fg-primary" numberOfLines={1}>
+              {cleanDisplayName(candidate.displayName)}
+            </Text>
+            {status === "active" ? (
+              <Pill tone="success" dot label={t("more:models.activePill")} />
+            ) : null}
+            {candidate.channel ? (
+              <Pill
+                tone={candidate.channel === "production" ? "success" : "warning"}
+                label={t(`more:models.${candidate.channel}`)}
+              />
+            ) : null}
+            {candidate.isDefault ? (
+              <Pill tone="brand" label={t("more:models.defaultPill")} />
+            ) : null}
+            {isPreviousActive ? (
+              <Pill tone="neutral" label={t("more:models.previousPill")} />
+            ) : null}
+          </View>
+          <View className="flex-row flex-wrap items-center gap-xs">
+            <Text className="text-caption text-fg-secondary">
+              {platformLabel}
+              {sizeMb ? ` · ${sizeMb} MB` : ""}
+              {` · ${candidate.quantization}`}
+            </Text>
+            {headlineMap !== null ? (
+              <Pill tone="info" label={`mAP@50 ${headlineMap.toFixed(2)}`} />
+            ) : null}
+          </View>
+          {status === "unsupported" ? (
+            <Text className="text-caption text-warning-text mt-xs">
+              {candidate.unsupportedReason}
+            </Text>
+          ) : null}
+        </View>
         {metadata ? (
           <Pressable
             accessibilityRole="button"
@@ -685,69 +729,54 @@ function ModelRow({
         ) : null}
       </View>
 
-      <View className="flex-row flex-wrap items-center gap-xs">
-        <Text className="text-caption text-fg-secondary">
-          {platformLabel}
-          {sizeMb ? ` · ${sizeMb} MB` : ""}
-          {` · ${candidate.quantization}`}
-        </Text>
-        {headlineMap !== null ? (
-          <Pill tone="info" label={`mAP@50 ${headlineMap.toFixed(2)}`} />
-        ) : null}
-        {candidate.channel ? (
-          <Pill
-            tone={candidate.channel === "production" ? "success" : "warning"}
-            label={t(`more:models.${candidate.channel}`)}
-          />
-        ) : null}
-        {candidate.isDefault ? <Pill tone="brand" label={t("more:models.defaultPill")} /> : null}
-        {isPreviousActive ? <Pill tone="neutral" label={t("more:models.previousPill")} /> : null}
-      </View>
-
-      {status === "unsupported" ? (
-        <Text className="text-caption text-warning-text">{candidate.unsupportedReason}</Text>
-      ) : progress ? (
-        <View className="flex-row items-center gap-sm">
-          <View className="flex-1">
-            <PhaseLabel progress={progress} />
-          </View>
-          {progress.phase === "downloading" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              label={t("common:actions.cancel")}
-              onPress={onCancel}
-            />
+      {progress ? (
+        <View className="gap-xs">
+          {downloading ? (
+            <View className="h-1.5 w-full overflow-hidden rounded-full bg-line-tertiary">
+              <View
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${percent ?? 0}%` }}
+              />
+            </View>
           ) : null}
+          <View className="flex-row items-center justify-between gap-sm">
+            <View className="flex-1">
+              <PhaseLabel progress={progress} />
+            </View>
+            {downloading ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                label={t("common:actions.cancel")}
+                onPress={onCancel}
+              />
+            ) : null}
+          </View>
         </View>
       ) : status === "active" ? null : status === "installed" ? (
         <View className="flex-row justify-end gap-sm">
-          <Pressable
-            accessibilityRole="button"
-            className="h-9 items-center justify-center rounded-md bg-brand px-md"
-            disabled={busy !== null}
-            onPress={onActivate}
-          >
-            <Text className="text-title font-medium text-brand-on">
-              {busy === `activate:${candidate.id}`
+          <Button
+            variant="secondary"
+            size="sm"
+            label={
+              busy === `activate:${candidate.id}`
                 ? t("common:states.loading")
                 : isPreviousActive
                   ? t("more:models.restore")
-                  : t("more:models.activate")}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            className="h-9 items-center justify-center rounded-md bg-danger-bg px-md"
+                  : t("more:models.activate")
+            }
+            disabled={busy !== null}
+            onPress={onActivate}
+          />
+          <Button
+            variant="danger"
+            size="sm"
+            label={t("common:actions.delete")}
             disabled={busy !== null}
             onPress={onDelete}
-          >
-            <Text className="text-title font-medium text-danger-text">
-              {t("common:actions.delete")}
-            </Text>
-          </Pressable>
+          />
         </View>
-      ) : (
+      ) : status === "available" ? (
         <Button
           size="sm"
           label={installing ? t("common:states.loading") : t("more:models.download")}
@@ -755,7 +784,7 @@ function ModelRow({
           onPress={onInstall}
           disabled={busy !== null}
         />
-      )}
+      ) : null}
 
       {expanded && metadata ? (
         <ModelDetails metadata={metadata} record={installedRecord} candidate={candidate} />

@@ -8,7 +8,7 @@ import { useInspectionsPaged } from "@/lib/queries";
 import type { InspectionRow } from "@/lib/queries";
 import { useSyncQueueEntries } from "@/lib/sync/store";
 import type { SyncQueueEntry } from "@/lib/sync/types";
-import { Pill } from "@/components/ui/Pill";
+import { SyncPill } from "@/components/ui/SyncPill";
 import { Segmented } from "@/components/ui/Segmented";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import {
@@ -66,15 +66,10 @@ export default function HistoryScreen() {
   const [filter, setFilter] = useState<Filter>("all");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
-  const segmentOptions: Array<{ value: Filter; label: string }> = [
-    { value: "all", label: t("history:segments.all") },
-    { value: "today", label: t("history:segments.today") },
-    { value: "synced", label: t("history:segments.synced") },
-    { value: "pending", label: t("history:segments.pending") },
-    { value: "failed", label: t("history:segments.failed") },
-  ];
-
-  const grouped = useMemo(() => {
+  // Combine remote rows + still-pending local queue entries into a single
+  // pool *before* the segment filter, so the segment chips can show accurate
+  // per-filter counts (e.g. "Pending · 4") like the prototype.
+  const allItems = useMemo<HistoryItem[]>(() => {
     const local = queueEntries
       .filter((entry) => entry.payload.kind === "inspection")
       .filter(
@@ -87,11 +82,36 @@ export default function HistoryScreen() {
         syncState: entry.status === "failed" ? "failed" : "pending",
       }));
     const remote = data.map<HistoryItem>((row) => ({ kind: "remote", row, syncState: "synced" }));
+    return [...local, ...remote];
+  }, [data, queueEntries]);
+
+  // Counts per filter, evaluated against the date-range slice so chips reflect
+  // what the user will actually see when they switch tabs.
+  const counts = useMemo(() => {
+    const dateScoped = applyDateRange(allItems, dateRange);
+    return {
+      all: dateScoped.length,
+      today: dateScoped.filter((r) => new Date(itemDate(r)) >= startOfToday()).length,
+      synced: dateScoped.filter((r) => r.syncState === "synced").length,
+      pending: dateScoped.filter((r) => r.syncState === "pending").length,
+      failed: dateScoped.filter((r) => r.syncState === "failed").length,
+    };
+  }, [allItems, dateRange]);
+
+  const segmentOptions: Array<{ value: Filter; label: string }> = [
+    { value: "all", label: `${t("history:segments.all")} · ${counts.all}` },
+    { value: "today", label: `${t("history:segments.today")} · ${counts.today}` },
+    { value: "synced", label: `${t("history:segments.synced")} · ${counts.synced}` },
+    { value: "pending", label: `${t("history:segments.pending")} · ${counts.pending}` },
+    { value: "failed", label: `${t("history:segments.failed")} · ${counts.failed}` },
+  ];
+
+  const grouped = useMemo(() => {
     // Local queue entries are not constrained by the server-side date range,
     // so honour it client-side here too. Sync-state filter stays client-side.
-    const filtered = applyFilter([...local, ...remote], filter, dateRange);
+    const filtered = applyFilter(allItems, filter, dateRange);
     return groupByDate(filtered);
-  }, [data, queueEntries, filter, dateRange]);
+  }, [allItems, filter, dateRange]);
 
   const totalShown = grouped.reduce((s, g) => s + g.items.length, 0);
   const listData = useMemo<HistoryListEntry[]>(
@@ -186,9 +206,15 @@ export default function HistoryScreen() {
         }
         renderItem={({ item }) =>
           item.kind === "section" ? (
-            <Text className="text-caption text-fg-secondary px-xs mt-md mb-xs">
-              {t(`history:groups.${item.groupKey}`, { count: item.count })}
-            </Text>
+            <View className="flex-row items-baseline justify-between px-xs mt-lg mb-xs">
+              <Text
+                className="text-label uppercase text-fg-secondary"
+                style={{ letterSpacing: 0.4 }}
+              >
+                {t(`history:groups.${item.groupKey}`, { count: item.count })}
+              </Text>
+              <Text className="text-caption text-fg-tertiary">{item.count}</Text>
+            </View>
           ) : (
             <HistoryRow item={item.item} isFirst={item.isFirst} isLast={item.isLast} />
           )
@@ -233,7 +259,7 @@ function HistoryRow({
   const title = row?.variety?.name ?? t("pendingInspection");
   const totalSeeds =
     row?.total_seeds ?? (entry?.payload.kind === "inspection" ? entry.payload.data.total_seeds : 0);
-  const body = formatRelative(capturedAt);
+  const subtitle = `${formatRelative(capturedAt)} · ${t("row.seedsSuffix", { count: totalSeeds ?? 0 })}`;
   const content = (
     <View
       className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${
@@ -243,22 +269,25 @@ function HistoryRow({
       <View
         className="items-center justify-center"
         style={{
-          width: 44,
-          height: 44,
-          borderRadius: 12,
+          width: 40,
+          height: 40,
+          borderRadius: 10,
           backgroundColor: tint.bg,
         }}
       >
-        <Text className="font-medium" style={{ color: tint.fg, fontSize: 14 }}>
+        <Text className="font-semibold" style={{ color: tint.fg, fontSize: 13 }}>
           {totalSeeds ?? 0}
         </Text>
       </View>
       <View className="flex-1">
-        <Text className="text-title text-fg-primary font-medium" numberOfLines={1}>
-          {title}
-        </Text>
+        <View className="flex-row items-center gap-xs">
+          <Text className="text-title text-fg-primary font-medium flex-shrink" numberOfLines={1}>
+            {title}
+          </Text>
+          {syncState !== "synced" ? <SyncPill state={syncState} /> : null}
+        </View>
         <Text className="text-caption text-fg-secondary mt-xs" numberOfLines={1}>
-          {body}
+          {subtitle}
         </Text>
         {entry?.lastError ? (
           <Text className="text-caption text-danger-text mt-xs" numberOfLines={1}>
@@ -266,11 +295,6 @@ function HistoryRow({
           </Text>
         ) : null}
       </View>
-      <Pill
-        tone={syncState === "synced" ? "success" : syncState === "failed" ? "danger" : "warning"}
-        dot
-        label={t(`syncStatus.${syncState}`)}
-      />
       {row ? <ChevronRight color="#8C8C87" size={16} /> : null}
     </View>
   );
@@ -280,6 +304,15 @@ function HistoryRow({
       <Pressable>{content}</Pressable>
     </Link>
   );
+}
+
+function applyDateRange(rows: HistoryItem[], dateRange: DateRange): HistoryItem[] {
+  if (!dateRange.start) return rows;
+  const end = dateRange.end ?? dateRange.start;
+  return rows.filter((r) => {
+    const key = toDateKey(new Date(itemDate(r)));
+    return key >= dateRange.start! && key <= end;
+  });
 }
 
 function applyFilter(rows: HistoryItem[], filter: Filter, dateRange: DateRange): HistoryItem[] {
@@ -297,12 +330,7 @@ function applyFilter(rows: HistoryItem[], filter: Filter, dateRange: DateRange):
         return rows.filter((r) => r.syncState === filter);
     }
   })();
-  if (!dateRange.start) return filtered;
-  const end = dateRange.end ?? dateRange.start;
-  return filtered.filter((r) => {
-    const key = toDateKey(new Date(itemDate(r)));
-    return key >= dateRange.start! && key <= end;
-  });
+  return applyDateRange(filtered, dateRange);
 }
 
 function groupByDate(rows: HistoryItem[]): Array<{ groupKey: GroupKey; items: HistoryItem[] }> {

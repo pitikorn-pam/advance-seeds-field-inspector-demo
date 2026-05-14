@@ -33,5 +33,8 @@
     "pending": "Pending",
     "failed": "Failed"
   },
-  "pendingInspection": "Pending inspection"
+  "pendingInspection": "Pending inspection",
+  "row": {
+    "seedsSuffix": "{{count}} seeds"
+  }
 }

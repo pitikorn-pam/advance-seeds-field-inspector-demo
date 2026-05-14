@@ -44,6 +44,10 @@ export default function HyperParamsScreen() {
     ]);
   };
 
+  const scoreDirty = Math.abs(hp.scoreThreshold - DEFAULT_HYPERPARAMS.scoreThreshold) > 1e-6;
+  const iouDirty = Math.abs(hp.iouThreshold - DEFAULT_HYPERPARAMS.iouThreshold) > 1e-6;
+  const fpsDirty = hp.targetFps !== DEFAULT_HYPERPARAMS.targetFps;
+
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar
@@ -54,31 +58,35 @@ export default function HyperParamsScreen() {
           onPress: () => router.back(),
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-md">
-        <ParamCard
+      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
+        <PresetGroup
           label={t("more:hyperparams.scoreThreshold")}
           hint={t("more:hyperparams.scoreThresholdHint")}
           value={hp.scoreThreshold}
           presets={SCORE_PRESETS}
           format={(v) => v.toFixed(2)}
+          dirty={scoreDirty}
           onPick={(v) => void setHyperParams({ scoreThreshold: v })}
         />
 
-        <ParamCard
+        <PresetGroup
           label={t("more:hyperparams.iouThreshold")}
           hint={t("more:hyperparams.iouThresholdHint")}
           value={hp.iouThreshold}
           presets={IOU_PRESETS}
           format={(v) => v.toFixed(2)}
+          dirty={iouDirty}
           onPick={(v) => void setHyperParams({ iouThreshold: v })}
         />
 
-        <ParamCard
+        <PresetGroup
           label={t("more:hyperparams.targetFps")}
           hint={t("more:hyperparams.targetFpsHint")}
           value={hp.targetFps}
           presets={FPS_PRESETS}
-          format={(v) => `${v} fps`}
+          format={(v) => `${v}`}
+          unit="fps"
+          dirty={fpsDirty}
           onPick={(v) => void setHyperParams({ targetFps: v })}
         />
 
@@ -95,38 +103,44 @@ export default function HyperParamsScreen() {
         />
 
         {stats.length > 0 ? (
-          <Card>
-            <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-xs">
+          <View>
+            <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-sm px-xs">
               {t("more:hyperparams.inferenceStats")}
             </Text>
-            <Text className="text-caption text-fg-tertiary mb-md">
-              {t("more:hyperparams.inferenceStatsHint")}
-            </Text>
-            <View className="gap-md">
-              {stats.map((s) => (
-                <InferenceStatRow key={s.source} stat={s} />
-              ))}
-            </View>
-          </Card>
+            <Card>
+              <Text className="text-caption text-fg-tertiary mb-md">
+                {t("more:hyperparams.inferenceStatsHint")}
+              </Text>
+              <View className="gap-lg">
+                {stats.map((s) => (
+                  <InferenceStatRow key={s.source} stat={s} />
+                ))}
+              </View>
+            </Card>
+          </View>
         ) : null}
 
-        <Card>
-          <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-xs">
+        <View>
+          <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-sm px-xs">
             {t("more:hyperparams.defaults")}
           </Text>
-          <Text className="text-caption text-fg-tertiary">
-            score {DEFAULT_HYPERPARAMS.scoreThreshold} · iou {DEFAULT_HYPERPARAMS.iouThreshold} ·{" "}
-            {DEFAULT_HYPERPARAMS.targetFps} fps ·{" "}
-            {t(`more:hyperparams.preprocessProfileValue.${DEFAULT_HYPERPARAMS.preprocessProfile}`)}
-          </Text>
-          <Button
-            className="mt-md"
-            variant="outline"
-            label={t("more:hyperparams.reset")}
-            renderLeadingIcon={() => <RotateCcw color="#171717" size={14} />}
-            onPress={onReset}
-          />
-        </Card>
+          <Card>
+            <Text className="text-caption text-fg-tertiary">
+              score {DEFAULT_HYPERPARAMS.scoreThreshold} · iou {DEFAULT_HYPERPARAMS.iouThreshold} ·{" "}
+              {DEFAULT_HYPERPARAMS.targetFps} fps ·{" "}
+              {t(
+                `more:hyperparams.preprocessProfileValue.${DEFAULT_HYPERPARAMS.preprocessProfile}`,
+              )}
+            </Text>
+            <Button
+              className="mt-md"
+              variant="outline"
+              label={t("more:hyperparams.reset")}
+              renderLeadingIcon={() => <RotateCcw color="#171717" size={14} />}
+              onPress={onReset}
+            />
+          </Card>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -149,7 +163,7 @@ function FeatureToggleCard({
     <Card>
       <View className="flex-row items-center justify-between gap-md">
         <View className="flex-1">
-          <Text className="text-caption uppercase tracking-wide text-fg-secondary">{label}</Text>
+          <Text className="text-body font-medium text-fg-primary">{label}</Text>
           <Text className="text-caption text-fg-tertiary mt-xs">{hint}</Text>
         </View>
         <Toggle value={enabled} onValueChange={onToggle} accessibilityLabel={accessibilityLabel} />
@@ -158,12 +172,14 @@ function FeatureToggleCard({
   );
 }
 
-function ParamCard({
+function PresetGroup({
   label,
   hint,
   value,
   presets,
   format,
+  unit,
+  dirty,
   onPick,
 }: {
   label: string;
@@ -171,18 +187,28 @@ function ParamCard({
   value: number;
   presets: number[];
   format: (v: number) => string;
+  unit?: string;
+  dirty: boolean;
   onPick: (v: number) => void;
 }) {
   return (
-    <Card>
-      <View className="flex-row items-baseline justify-between">
+    <View>
+      <View className="flex-row items-baseline justify-between px-xs mb-xs">
         <Text className="text-caption uppercase tracking-wide text-fg-secondary">{label}</Text>
-        <Text className="text-title font-medium text-fg-primary">{format(value)}</Text>
+        <View className="flex-row items-baseline gap-[3px]">
+          <Text
+            className={`text-title font-medium ${dirty ? "text-warning-text" : "text-fg-primary"}`}
+          >
+            {format(value)}
+          </Text>
+          {unit ? <Text className="text-caption text-fg-tertiary">{unit}</Text> : null}
+          {dirty ? <Text className="text-caption text-warning-text"> ·</Text> : null}
+        </View>
       </View>
-      <Text className="text-caption text-fg-tertiary mt-xs mb-md">{hint}</Text>
-      <View className="flex-row flex-wrap gap-sm">
+      <Text className="text-caption text-fg-tertiary px-xs mb-sm">{hint}</Text>
+      <View className="flex-row gap-xs">
         {presets.map((p) => (
-          <Chip
+          <PresetButton
             key={p}
             label={format(p)}
             active={Math.abs(value - p) < 1e-6}
@@ -190,19 +216,30 @@ function ParamCard({
           />
         ))}
       </View>
-    </Card>
+    </View>
   );
 }
 
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function PresetButton({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
       onPress={onPress}
-      className={`rounded-full px-md py-sm ${active ? "bg-brand active:opacity-90" : "bg-bg-primary border border-line-tertiary"}`}
+      className={`flex-1 py-md items-center rounded-md border-2 ${
+        active ? "border-brand bg-bg-primary" : "border-line-tertiary bg-bg-primary"
+      }`}
     >
-      <Text className={`text-caption font-medium ${active ? "text-brand-on" : "text-fg-primary"}`}>
+      <Text className={`text-body font-medium ${active ? "text-brand-deep" : "text-fg-primary"}`}>
         {label}
       </Text>
     </Pressable>
@@ -219,28 +256,46 @@ function InferenceStatRow({ stat }: { stat: InferenceStat }) {
           n={stat.count} (total {stat.total})
         </Text>
       </View>
-      <Text className="text-caption text-fg-secondary mt-[2px]">
-        p50 {stat.p50}ms · p95 {stat.p95}ms · p99 {stat.p99}ms
-      </Text>
-      <View className="mt-sm flex-row items-end gap-[3px] h-[36px]">
+      <View className="flex-row gap-xl mt-sm">
+        <TimingStat label="p50" value={stat.p50} />
+        <TimingStat label="p95" value={stat.p95} />
+        <TimingStat label="p99" value={stat.p99} />
+      </View>
+      <View className="mt-md flex-row items-end gap-[2px] h-[64px]">
         {stat.buckets.map((count, i) => {
           const heightPct = count === 0 ? 4 : 4 + (count / maxBucket) * 96;
-          const edge = stat.bucketEdgesMs[i];
-          const label = i === stat.buckets.length - 1 ? "≥" : `<${edge}`;
+          const hot = i >= stat.buckets.length - 4 && count > 0;
           return (
-            <View key={i} className="flex-1 items-center">
-              <View
-                style={{
-                  height: `${heightPct}%`,
-                  width: "100%",
-                  backgroundColor: count > 0 ? "#6E40E0" : "#E0E0DC",
-                  borderRadius: 2,
-                }}
-              />
-              <Text style={{ fontSize: 9, color: "#8C8C87", marginTop: 2 }}>{label}</Text>
-            </View>
+            <View
+              key={i}
+              className={`flex-1 rounded-sm ${
+                count === 0 ? "bg-line-tertiary" : hot ? "bg-warning" : "bg-brand opacity-60"
+              }`}
+              style={{ height: `${heightPct}%` }}
+            />
           );
         })}
+      </View>
+      <View className="flex-row justify-between mt-xs">
+        <Text className="text-caption text-fg-tertiary">{`<${stat.bucketEdgesMs[0]}ms`}</Text>
+        <Text className="text-caption text-fg-tertiary">
+          {`<${stat.bucketEdgesMs[Math.floor(stat.bucketEdgesMs.length / 2)]}`}
+        </Text>
+        <Text className="text-caption text-fg-tertiary">
+          {`≥${stat.bucketEdgesMs[stat.bucketEdgesMs.length - 1]}`}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function TimingStat({ label, value }: { label: string; value: number }) {
+  return (
+    <View>
+      <Text className="text-caption uppercase tracking-wide text-fg-tertiary">{label}</Text>
+      <View className="flex-row items-baseline gap-[3px] mt-[2px]">
+        <Text className="text-xl font-medium text-fg-primary">{value}</Text>
+        <Text className="text-caption text-fg-tertiary">ms</Text>
       </View>
     </View>
   );
