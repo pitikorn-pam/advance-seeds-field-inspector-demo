@@ -1,20 +1,22 @@
 import { useEffect } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ScanLine, Sprout } from "lucide-react-native";
 
 /**
- * First-launch splash. The native splash screen is hidden once i18n boots;
- * this is the JS-side ceremony that opens the welcome flow. Auto-routes to
- * /welcome after 1.5 s, or immediately on tap of the "Get started" CTA.
+ * First-launch splash, ported 1:1 from `auth.jsx > SplashScreen`:
+ * white background, centered 64px purple AS brand mark with the app
+ * name and "Field Inspector" subline; a thin progress bar + status
+ * label + version caption pinned near the bottom.
  *
- * Subsequent launches skip this entirely — the StartupGate in the root
- * layout reads the onboarded flag and goes straight to /login or /(tabs).
+ * The native splash hides after i18n boots; this is the JS-side
+ * ceremony that routes to /welcome after a brief delay. The StartupGate
+ * in the root layout reads the onboarded flag and bypasses this on
+ * subsequent launches.
  */
 export default function Splash() {
-  const { t } = useTranslation(["common", "onboarding"]);
+  const { t } = useTranslation(["onboarding"]);
   const router = useRouter();
 
   useEffect(() => {
@@ -25,43 +27,28 @@ export default function Splash() {
   }, [router]);
 
   return (
-    <SafeAreaView className="flex-1 bg-brand-navy" edges={["top", "bottom"]}>
-      <View className="flex-1 items-center justify-center px-xl">
-        <View
-          className="mb-2xl items-center justify-center rounded-md bg-card-yellow-bold"
-          style={{ width: 78, height: 78 }}
+    <SafeAreaView className="flex-1 bg-bg-primary" edges={["top", "bottom"]}>
+      <View className="flex-1 items-center justify-center px-2xl">
+        <BrandMark />
+        <Text
+          className="mt-md font-semibold text-fg-primary text-center"
+          style={{ fontSize: 22, letterSpacing: -0.4 }}
         >
-          <Sprout color="#0D1028" size={34} strokeWidth={1.7} />
-          <View className="absolute -right-2 -top-2 rounded-md bg-primary p-xs">
-            <ScanLine color="#FFFFFF" size={14} strokeWidth={2} />
-          </View>
-        </View>
-        <Text className="font-semibold text-fg-on-dark" style={{ fontSize: 34 }}>
-          {t("common:appName")}
+          Advance Seeds
         </Text>
-        <Text className="mt-xs text-center text-body text-fg-on-dark-muted">
-          {t("onboarding:splash.tagline")}
-        </Text>
-
-        {/* Three progress dots — purely cosmetic, mirrors the prototype. */}
-        <View className="flex-row items-center gap-[6px] mt-3xl">
-          <Dot opacity={0.4} />
-          <Dot opacity={0.7} />
-          <Dot opacity={1} />
-        </View>
+        <Text className="mt-[2px] text-caption text-fg-secondary text-center">Field Inspector</Text>
       </View>
-
-      <View className="px-xl pb-xl">
-        <Pressable
-          accessibilityRole="button"
-          className="h-11 items-center justify-center rounded-md bg-primary active:bg-primary-pressed"
-          onPress={() => router.replace("/welcome")}
+      <View className="items-center pb-3xl gap-sm">
+        <View
+          className="overflow-hidden bg-line-tertiary"
+          style={{ width: 140, height: 3, borderRadius: 9999 }}
         >
-          <Text className="font-medium text-primary-on" style={{ fontSize: 14 }}>
-            {t("onboarding:splash.getStarted")}
-          </Text>
-        </Pressable>
-        <Text className="mt-sm text-center text-caption text-fg-on-dark-muted">
+          <View className="h-full bg-primary" style={{ width: "62%", borderRadius: 9999 }} />
+        </View>
+        <Text className="text-caption text-fg-tertiary">
+          {t("onboarding:splash.checking", { defaultValue: "Checking session…" })}
+        </Text>
+        <Text className="text-[11px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
           {t("onboarding:splash.version")}
         </Text>
       </View>
@@ -69,16 +56,30 @@ export default function Splash() {
   );
 }
 
-function Dot({ opacity }: { opacity: number }) {
+/**
+ * 64px purple square with white "AS" — matches the prototype's BrandMark
+ * default size. Inlined here (and in login/welcome) so the mark renders
+ * identically without an extra import.
+ */
+function BrandMark() {
   return (
     <View
+      className="items-center justify-center rounded-lg bg-primary"
       style={{
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: "#FFD84D",
-        opacity,
+        width: 64,
+        height: 64,
+        shadowColor: "#6E40E0",
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
       }}
-    />
+    >
+      <Text
+        className="text-primary-on"
+        style={{ fontSize: 24, fontWeight: "700", letterSpacing: -1 }}
+      >
+        AS
+      </Text>
+    </View>
   );
 }

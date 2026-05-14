@@ -2,20 +2,24 @@
   "splash": {
     "tagline": "A field QA workspace for seed lots",
     "getStarted": "Get started",
-    "version": "Version 1.0.0"
+    "checking": "Checking session…",
+    "version": "v0.3.0 · build 142"
   },
   "welcome": {
     "heroLabel": "Field QA workspace",
+    "titleLine1": "Built for the",
+    "titleLine2": "seed inspector's",
+    "titleAccent": "field bench.",
     "title": "Meet your field QA workspace",
-    "body": "Pick a variety, open the adaptive camera, and turn a tray of seeds into counts, measurements, grade criteria, and synced records.",
+    "body": "A focused workspace for live capture, per-seed measurement, and grading. Designed for repeated, fast use.",
     "cardCameraTitle": "Live inspection board",
-    "cardCameraBody": "YOLO26 segmentation samples the tray while the preview stays smooth",
+    "cardCameraBody": "Stream the viewfinder; tag detected seeds in real time.",
     "cardTargetTitle": "Calibration stays attached",
-    "cardTargetBody": "LiDAR streams continuously; ArUco relocks when the card is visible",
+    "cardTargetBody": "Every record knows its pixels-per-mm source.",
     "cardSyncTitle": "Synced records",
-    "cardSyncBody": "Inspections, media, and metadata stay recoverable for R&D review",
+    "cardSyncBody": "Capture offline; reconcile when you reach signal.",
     "cardWorkspaceTitle": "Grade criteria",
-    "cardWorkspaceBody": "Variety-owned A/B/C ranges keep field decisions consistent",
+    "cardWorkspaceBody": "A / B / C thresholds set per variety, applied per seed.",
     "continue": "Continue",
     "skip": "Skip for now"
   }
