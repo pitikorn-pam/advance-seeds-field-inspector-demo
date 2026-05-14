@@ -179,6 +179,15 @@ for (const [name, val] of Object.entries(tokens.color.variety)) {
   lightVars.push(`  --as-${name}-text: ${val.text};`);
 }
 
+// grade chips — flat literal pairs, same convention as variety. No dark
+// variant: a graded seed's color must stay constant across themes (the chip
+// reads like a label, not a surface).
+for (const [name, val] of Object.entries(tokens.color.grade ?? {})) {
+  if (typeof val === "string") continue;
+  lightVars.push(`  --as-grade-${name}-bg: ${val.bg};`);
+  lightVars.push(`  --as-grade-${name}-ink: ${val.ink};`);
+}
+
 // glass — viewfinder chrome over live camera preview. No dark variant on
 // purpose: the substrate is the camera image, not a theme surface, so a
 // dark-mode shift would just darken an already-darkening overlay.

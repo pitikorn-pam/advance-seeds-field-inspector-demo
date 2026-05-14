@@ -47,6 +47,8 @@ export interface DesignTokensJson {
     };
     variety: Record<string, VarietyPair | string>;
     glass: Record<string, GlassPair | string>;
+    /** Grade A/B/C/reject ink + tint pairings. Same shape as variety: literal hex strings, no theme variant. */
+    grade?: Record<string, { bg: string; ink: string } | string>;
   };
   typography: {
     fontFamily: { sans: { value: string }; mono: { value: string } };

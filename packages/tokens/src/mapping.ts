@@ -82,6 +82,19 @@ export function mapColorsForTailwind(
         .map(([name]) => [name, { bg: `var(--as-${name}-bg)`, text: `var(--as-${name}-text)` }]),
     ),
 
+    // Grade chips — `bg-grade-a`, `text-grade-a-ink`, etc. Reject lives at the
+    // `grade-reject` key (Tailwind handles dashes fine; downstream consumers
+    // should reach for these instead of the generic semantic palette so intent
+    // ("this is a grade") survives in the class name.
+    grade: Object.fromEntries(
+      Object.entries(color.grade ?? {})
+        .filter(([, v]) => typeof v !== "string")
+        .flatMap(([name]) => [
+          [name, `var(--as-grade-${name}-bg)`],
+          [`${name}-ink`, `var(--as-grade-${name}-ink)`],
+        ]),
+    ) as Record<string, string>,
+
     // Glass — viewfinder chrome over the live camera preview. Single flat
     // group (no light/dark) so `bg-glass-surface` resolves to the same alpha
     // black on both themes.

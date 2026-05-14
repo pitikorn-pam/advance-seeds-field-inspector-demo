@@ -2,12 +2,12 @@
 /* Run `pnpm -F @advance-seeds/tokens build` to regenerate. */
 
 :root {
-  --as-primary: #6C47FF;
-  --as-primary-pressed: #5936D8;
-  --as-primary-deep: #3F249B;
+  --as-primary: #6E40E0;
+  --as-primary-pressed: #5A2EC8;
+  --as-primary-deep: #4B22A8;
   --as-primary-on: #FFFFFF;
-  --as-brand: #6C47FF;
-  --as-brand-soft: #EEE9FF;
+  --as-brand: #6E40E0;
+  --as-brand-soft: #E8E0F4;
   --as-brand-deep: #2D205E;
   --as-brand-on: #FFFFFF;
   --as-brand-navy: #0D1028;
@@ -21,15 +21,15 @@
   --as-brand-teal: #11A78B;
   --as-brand-yellow: #F2C94C;
   --as-brand-brown: #8C5E3C;
-  --as-card-peach: #FFE8D6;
-  --as-card-rose: #FFE2EC;
-  --as-card-mint: #DFF6EC;
-  --as-card-lavender: #EEE9FF;
-  --as-card-sky: #E2F0FF;
-  --as-card-yellow: #FFF1B8;
-  --as-card-yellow-bold: #FFD84D;
-  --as-card-cream: #FFF8E8;
-  --as-card-gray: #F5F5F2;
+  --as-card-peach: #FBEBD9;
+  --as-card-rose: #FBE0E2;
+  --as-card-mint: #DEEDD7;
+  --as-card-lavender: #E8E0F4;
+  --as-card-sky: #DAE9F2;
+  --as-card-yellow: #FAEFC8;
+  --as-card-yellow-bold: #FFE082;
+  --as-card-cream: #FAF6EC;
+  --as-card-gray: #EFEEEA;
   --as-bg-primary: #FFFFFF;
   --as-bg-secondary: #F7F6F2;
   --as-bg-tertiary: #FBFAF7;
@@ -57,6 +57,14 @@
   --as-legume-text: #3F249B;
   --as-mungbean-bg: #FFE8D6;
   --as-mungbean-text: #8C3C12;
+  --as-grade-a-bg: #DEEDD7;
+  --as-grade-a-ink: #2D6E3F;
+  --as-grade-b-bg: #FAEFC8;
+  --as-grade-b-ink: #7A5A12;
+  --as-grade-c-bg: #FBEBD9;
+  --as-grade-c-ink: #B85518;
+  --as-grade-reject-bg: #FBE0E2;
+  --as-grade-reject-ink: #A02828;
   --as-glass-chip: rgba(7, 9, 26, 0.42);
   --as-glass-soft: rgba(7, 9, 26, 0.52);
   --as-glass-surface: rgba(7, 9, 26, 0.64);
@@ -192,59 +200,4 @@
       --as-info-bg: #122A44;
       --as-info-text: #B5D4F4;
   }
-}
-
-/* =========================================================================
-   Optional base utility classes for non-NativeWind consumers. Tokens above
-   remain the source of truth; app code should prefer generated utilities.
-   ========================================================================= */
-
-.as-btn {
-  min-height: 44px;
-  border-radius: var(--as-radius-md);
-  padding: 0 var(--as-space-xl);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: var(--as-font-sans);
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--as-space-sm);
-}
-.as-btn-primary {
-  background: var(--as-primary);
-  color: var(--as-primary-on);
-}
-.as-btn-secondary {
-  background: var(--as-bg-primary);
-  color: var(--as-text-primary);
-  border: 1px solid var(--as-border-secondary);
-}
-.as-card {
-  background: var(--as-bg-primary);
-  border: 1px solid var(--as-border-tertiary);
-  border-radius: var(--as-radius-lg);
-  padding: var(--as-space-lg) var(--as-space-xl);
-}
-.as-card-yellow {
-  background: var(--as-card-yellow-bold);
-}
-.as-card-navy {
-  background: var(--as-brand-navy);
-  color: var(--as-text-on-dark);
-}
-.as-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  padding: 0 10px;
-  border-radius: var(--as-radius-full);
-  font-size: 12px;
-  font-weight: 600;
-}
-.as-pill-brand {
-  background: var(--as-brand-soft);
-  color: var(--as-brand-deep);
 }
