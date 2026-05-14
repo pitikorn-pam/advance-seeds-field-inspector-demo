@@ -20,5 +20,15 @@
     "errorTitle": "Marker unavailable",
     "errorBody": "The calibration marker image could not be prepared. Try again."
   },
-  "honestFallback": "Calibration unavailable. Measurements may be inaccurate."
+  "honestFallback": "Calibration unavailable. Measurements may be inaccurate.",
+  "active": {
+    "label": "Active",
+    "sectionTitle": "Active profile"
+  },
+  "other": {
+    "sectionTitle": "Other profiles"
+  },
+  "units": {
+    "pxPerMm": "px / mm"
+  }
 }

@@ -16,9 +16,19 @@
   "kpis": {
     "inspections": "Inspections",
     "totalSeeds": "Seeds analyzed",
-    "meanLength": "Avg length (mm)",
-    "meanArea": "Avg area (mm²)"
+    "meanLength": "Avg length",
+    "meanArea": "Avg area"
   },
+  "byVariety": {
+    "title": "By variety",
+    "runs_one": "{{count}} run",
+    "runs_other": "{{count}} runs"
+  },
+  "empty": {
+    "title": "No data in this range",
+    "hint": "Expand the date range or change the variety filter."
+  },
+  "exportMeta": "Localized headers · {{count}} rows",
   "csvHeaders": {
     "id": "ID",
     "captured_at": "Captured at",

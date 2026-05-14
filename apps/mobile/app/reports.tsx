@@ -10,7 +10,7 @@ import { Calendar, ChevronLeft, Download, X } from "lucide-react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { useInspections, useVarieties } from "@/lib/queries";
-import { Card, StatTile } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -24,6 +24,13 @@ import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
 const ALL = "__all";
 type Preset = "last7" | "last30" | "last90" | "custom";
+
+const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
+  corn: { bg: "#FFF1B8", fg: "#704B00" },
+  rice: { bg: "#DFF6EC", fg: "#0F6E56" },
+  legume: { bg: "#EEE9FF", fg: "#4B22A8" },
+  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
+};
 
 function withinRange(date: Date, preset: Preset, range: DateRange): boolean {
   if (preset === "custom") {
@@ -69,6 +76,30 @@ export default function ReportsRoute() {
     filtered.length === 0
       ? 0
       : filtered.reduce((a, b) => a + Number(b.mean_area_mm2 ?? 0), 0) / filtered.length;
+
+  // By-variety breakdown: aggregate run counts to power the horizontal
+  // bar chart in the prototype. Bars are normalized against the top
+  // variety in-range so the leader fills 100%.
+  const byVariety = useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; name: string; colorKey: string | null; runs: number }
+    >();
+    for (const row of filtered) {
+      const id = row.variety?.id ?? row.variety_id ?? "—";
+      const name = row.variety?.name ?? "—";
+      const colorKey = row.variety?.color_key ?? null;
+      const entry = map.get(id) ?? { id, name, colorKey, runs: 0 };
+      entry.runs += 1;
+      map.set(id, entry);
+    }
+    const list = [...map.values()].sort((a, b) => b.runs - a.runs);
+    const top = list[0]?.runs ?? 0;
+    return list.slice(0, 5).map((v) => ({
+      ...v,
+      pct: top === 0 ? 0 : Math.round((v.runs / top) * 100),
+    }));
+  }, [filtered]);
 
   const headerKey = (k: string) => t(`reports:csvHeaders.${k}`);
 
@@ -146,11 +177,12 @@ export default function ReportsRoute() {
           onPress: () => router.back(),
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-xl">
-        <Text className="text-h1 font-medium text-fg-primary">{t("reports:summaryTitle")}</Text>
-
-        <Card>
-          <Text className="text-caption uppercase text-fg-secondary mb-sm">
+      <ScrollView contentContainerClassName="px-xl py-md gap-lg pb-2xl">
+        {/* Date range chip row — mirrors the prototype's pill-tab row at
+            the very top of Reports. Keeps the existing Segmented + custom
+            preset wiring so the date picker behavior is unchanged. */}
+        <View className="gap-sm">
+          <Text className="text-caption uppercase text-fg-secondary">
             {t("reports:filters.dateRange")}
           </Text>
           <Segmented<Preset>
@@ -164,7 +196,7 @@ export default function ReportsRoute() {
             scrollable
           />
           {preset === "custom" ? (
-            <View className="mt-md flex-row items-center gap-xs">
+            <View className="flex-row items-center gap-xs">
               <Button
                 className="flex-1"
                 size="sm"
@@ -185,7 +217,7 @@ export default function ReportsRoute() {
               ) : null}
             </View>
           ) : null}
-          <Text className="text-caption uppercase text-fg-secondary mb-sm mt-md">
+          <Text className="text-caption uppercase text-fg-secondary mt-xs">
             {t("reports:filters.variety")}
           </Text>
           <Segmented
@@ -195,34 +227,111 @@ export default function ReportsRoute() {
             variant="tag"
             scrollable
           />
-        </Card>
+        </View>
 
         {isLoading ? (
           <LoadingState />
         ) : isError ? (
           <ErrorState onRetry={() => void refetch()} />
         ) : filtered.length === 0 ? (
-          <EmptyState />
+          <EmptyState title={t("reports:empty.title")} hint={t("reports:empty.hint")} />
         ) : (
           <>
+            {/* KPI grid (2x2) — tinted Cards echo the prototype's KPI
+                hierarchy. Tones map to the data role: sky=count,
+                mint=volume/total, lavender=length, peach=area. */}
             <View className="flex-row gap-sm">
-              <StatTile value={filtered.length} label={t("reports:kpis.inspections")} />
-              <StatTile value={totalSeeds} label={t("reports:kpis.totalSeeds")} />
+              <KpiTile
+                tone="sky"
+                value={String(filtered.length)}
+                label={t("reports:kpis.inspections")}
+              />
+              <KpiTile
+                tone="mint"
+                value={totalSeeds.toLocaleString()}
+                label={t("reports:kpis.totalSeeds")}
+              />
             </View>
             <View className="flex-row gap-sm">
-              <StatTile value={meanLen.toFixed(2)} label={t("reports:kpis.meanLength")} />
-              <StatTile value={meanArea.toFixed(2)} label={t("reports:kpis.meanArea")} />
+              <KpiTile
+                tone="lavender"
+                value={meanLen.toFixed(2)}
+                unit="mm"
+                label={t("reports:kpis.meanLength")}
+              />
+              <KpiTile
+                tone="peach"
+                value={meanArea.toFixed(2)}
+                unit="mm²"
+                label={t("reports:kpis.meanArea")}
+              />
             </View>
+
+            {byVariety.length > 0 ? (
+              <View className="gap-sm">
+                <Text className="text-title font-medium text-fg-primary">
+                  {t("reports:byVariety.title")}
+                </Text>
+                <Card className="p-0">
+                  {byVariety.map((v, i) => {
+                    const tint = VARIETY_TINTS[v.colorKey ?? ""] ?? VARIETY_TINTS.rice;
+                    return (
+                      <View
+                        key={v.id}
+                        className={`flex-row items-center gap-md px-lg py-md ${
+                          i > 0 ? "border-t border-line-tertiary" : ""
+                        }`}
+                      >
+                        <View
+                          className="items-center justify-center"
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            backgroundColor: tint.bg,
+                          }}
+                        >
+                          <Text className="font-medium" style={{ color: tint.fg, fontSize: 12 }}>
+                            {v.runs}
+                          </Text>
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-body text-fg-primary font-medium" numberOfLines={1}>
+                            {v.name}
+                          </Text>
+                          <Text className="text-caption text-fg-secondary mt-[1px]">
+                            {t("reports:byVariety.runs", { count: v.runs })}
+                          </Text>
+                        </View>
+                        <View
+                          className="overflow-hidden rounded-full bg-line-tertiary"
+                          style={{ width: 80, height: 6 }}
+                        >
+                          <View className="h-full bg-success-text" style={{ width: `${v.pct}%` }} />
+                        </View>
+                      </View>
+                    );
+                  })}
+                </Card>
+              </View>
+            ) : null}
           </>
         )}
 
-        <Button
-          className="w-full"
-          label={t("common:actions.exportCsv")}
-          renderLeadingIcon={() => <Download color="#FFFFFF" size={16} />}
-          disabled={filtered.length === 0}
-          onPress={exportCsv}
-        />
+        <View className="gap-xs">
+          <Button
+            className="w-full"
+            label={t("common:actions.exportCsv")}
+            renderLeadingIcon={() => <Download color="#FFFFFF" size={16} />}
+            disabled={filtered.length === 0}
+            onPress={exportCsv}
+          />
+          {filtered.length > 0 ? (
+            <Text className="text-caption text-fg-secondary text-center">
+              {t("reports:exportMeta", { count: filtered.length })}
+            </Text>
+          ) : null}
+        </View>
       </ScrollView>
       <DateRangePicker
         visible={datePickerOpen}
@@ -233,5 +342,35 @@ export default function ReportsRoute() {
         onChange={setDateRange}
       />
     </SafeAreaView>
+  );
+}
+
+/**
+ * Tinted KPI tile — bigger numeric than the legacy StatTile, with an
+ * optional unit suffix and a card tone. Reads from the same Card tones
+ * used elsewhere in the redesign (welcome, capture/setup) so visual
+ * language stays consistent.
+ */
+function KpiTile({
+  tone,
+  value,
+  unit,
+  label,
+}: {
+  tone: "sky" | "mint" | "lavender" | "peach";
+  value: string;
+  unit?: string;
+  label: string;
+}) {
+  return (
+    <Card tone={tone} className="flex-1">
+      <Text className="text-caption uppercase text-fg-secondary">{label}</Text>
+      <View className="flex-row items-baseline gap-xs mt-xs">
+        <Text className="text-fg-primary font-medium" style={{ fontSize: 22, letterSpacing: -0.4 }}>
+          {value}
+        </Text>
+        {unit ? <Text className="text-caption text-fg-secondary">{unit}</Text> : null}
+      </View>
+    </Card>
   );
 }

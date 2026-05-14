@@ -406,11 +406,20 @@ function ClassChip({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ selected: active }}
       accessibilityLabel={label}
       onPress={onPress}
-      className={`rounded-full px-md py-sm ${active ? "bg-brand active:opacity-90" : "bg-bg-primary border border-line-tertiary"}`}
+      className={`rounded-full px-md py-sm ${
+        active
+          ? "bg-primary active:opacity-90"
+          : "bg-bg-primary border border-line-secondary active:bg-bg-secondary"
+      }`}
     >
-      <Text className={`text-caption font-medium ${active ? "text-brand-on" : "text-fg-primary"}`}>
+      <Text
+        className={`text-caption ${
+          active ? "font-semibold text-primary-on" : "font-medium text-fg-primary"
+        }`}
+      >
         {label}
       </Text>
     </Pressable>

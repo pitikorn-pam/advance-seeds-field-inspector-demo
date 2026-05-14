@@ -32,6 +32,14 @@
     "classRow": "{{klass}} · COCO #{{id}}",
     "unmapped": "No detector class assigned",
     "unmappedShort": "Unmapped",
+    "filters": {
+      "all": "All",
+      "mapped": "Mapped",
+      "unmapped": "Unmapped"
+    },
+    "filterWithCount": "{{label}} · {{count}}",
+    "mappedPill": "Mapped",
+    "unmappedPill": "Unmapped",
     "refDims": "{{l}} × {{w}} mm",
     "noRefDims": "No reference",
     "refLengthMm": "Reference length (mm)",
