@@ -29,6 +29,22 @@
     "gradeAPct": "เกรด A {{percent}}%",
     "inspectionsCount": "{{count}} ครั้ง · {{seeds}} เมล็ด",
     "startInspection": "เริ่มตรวจสอบ",
-    "inactiveUsage": "พันธุ์นี้ไม่ใช้งานและไม่สามารถใช้สำหรับการตรวจใหม่ได้"
+    "inactiveUsage": "พันธุ์นี้ไม่ใช้งานและไม่สามารถใช้สำหรับการตรวจใหม่ได้",
+    "gradeThresholdsTitle": "เกณฑ์เกรด",
+    "lengthRange": "ความยาว",
+    "widthRange": "ความกว้าง",
+    "last7Days": "7 วันล่าสุด",
+    "runs": "ครั้ง",
+    "gradeARatio": "เกรด A",
+    "referenceShort": "อ้างอิง",
+    "seedsTotal": "{{count}} เมล็ด",
+    "editVariety": "แก้ไขพันธุ์",
+    "captureClasses": "คลาสการถ่าย"
+  },
+  "family": {
+    "rice": "ข้าว",
+    "corn": "ข้าวโพด",
+    "legume": "ถั่ว",
+    "mungbean": "ถั่วเขียว"
   }
 }

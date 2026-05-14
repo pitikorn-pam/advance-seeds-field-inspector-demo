@@ -15,5 +15,12 @@
     "mungbean": "พันธุ์ถั่วเขียว"
   },
   "dimensionsObserved": "{{l}} × {{w}} mm · ค่าวัดจริง",
-  "dimensionsPending": "ยังไม่มีขนาดอ้างอิง"
+  "dimensionsPending": "ยังไม่มีขนาดอ้างอิง",
+  "row": {
+    "refDims": "อ้างอิง {{l}}×{{w}} มม.",
+    "refPending": "ยังไม่มีค่าอ้างอิง",
+    "sevenDay": "7วัน"
+  },
+  "sectionCount_one": "{{count}} พันธุ์",
+  "sectionCount_other": "{{count}} พันธุ์"
 }

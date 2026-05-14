@@ -29,6 +29,22 @@
     "gradeAPct": "{{percent}}% Grade A",
     "inspectionsCount": "{{count}} inspections · {{seeds}} seeds",
     "startInspection": "Start inspection",
-    "inactiveUsage": "This variety is inactive and cannot be used for new inspections."
+    "inactiveUsage": "This variety is inactive and cannot be used for new inspections.",
+    "gradeThresholdsTitle": "Grade thresholds",
+    "lengthRange": "Length",
+    "widthRange": "Width",
+    "last7Days": "Last 7 days",
+    "runs": "runs",
+    "gradeARatio": "Grade A",
+    "referenceShort": "Reference",
+    "seedsTotal": "{{count}} seeds",
+    "editVariety": "Edit variety",
+    "captureClasses": "Capture classes"
+  },
+  "family": {
+    "rice": "Rice",
+    "corn": "Corn",
+    "legume": "Legume",
+    "mungbean": "Mungbean"
   }
 }

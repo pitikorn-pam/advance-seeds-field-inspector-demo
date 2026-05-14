@@ -15,5 +15,12 @@
     "mungbean": "Mungbean varieties"
   },
   "dimensionsObserved": "{{l}} × {{w}} mm · observed",
-  "dimensionsPending": "Reference dimensions not yet measured"
+  "dimensionsPending": "Reference dimensions not yet measured",
+  "row": {
+    "refDims": "ref {{l}}×{{w}} mm",
+    "refPending": "ref pending",
+    "sevenDay": "7d"
+  },
+  "sectionCount_one": "{{count}} variety",
+  "sectionCount_other": "{{count}} varieties"
 }

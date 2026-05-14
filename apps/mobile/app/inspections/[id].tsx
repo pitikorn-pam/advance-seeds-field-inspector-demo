@@ -23,21 +23,31 @@ import {
 } from "@/lib/inspections/metadata";
 import { StatTile } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
+import { GradeChip } from "@/components/ui/GradeChip";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 
-const gradeToTone: Record<Seed["grade"], "success" | "info" | "warning" | "danger"> = {
-  A: "success",
-  B: "info",
-  C: "warning",
-  reject: "danger",
-};
-
 type GradeFilter = "all" | Seed["grade"];
 
 const gradeFilters: GradeFilter[] = ["all", "A", "B", "C", "reject"];
+
+// Seed-card body tint per grade — mirrors the prototype's 4-up grid where the
+// card surface itself carries the grade colour rather than a sub-badge.
+const seedCardTone: Record<Seed["grade"], string> = {
+  A: "bg-grade-a",
+  B: "bg-grade-b",
+  C: "bg-grade-c",
+  reject: "bg-grade-reject",
+};
+
+const seedCardInk: Record<Seed["grade"], string> = {
+  A: "text-grade-a-ink",
+  B: "text-grade-b-ink",
+  C: "text-grade-c-ink",
+  reject: "text-grade-reject-ink",
+};
 
 /**
  * Read the captured ROI off of `inspection.metadata.roi`. Returns the
@@ -127,6 +137,12 @@ export default function InspectionDetail() {
       gradeFilter === "all" ? allSeeds : allSeeds.filter((seed) => seed.grade === gradeFilter),
     [gradeFilter, allSeeds],
   );
+  // Counts shown next to each filter chip (prototype shows "All 18 · A 14 …").
+  const gradeCounts = useMemo(() => {
+    const counts: Record<Seed["grade"], number> = { A: 0, B: 0, C: 0, reject: 0 };
+    for (const s of allSeeds) counts[s.grade] += 1;
+    return counts;
+  }, [allSeeds]);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
     dateStyle: "medium",
@@ -191,34 +207,37 @@ export default function InspectionDetail() {
       <FlatList
         data={filteredSeeds}
         keyExtractor={(seed) => seed.id}
-        numColumns={3}
+        numColumns={4}
         contentContainerClassName="px-xl py-md gap-xl"
-        columnWrapperStyle={{ gap: 8 }}
-        initialNumToRender={12}
-        maxToRenderPerBatch={12}
+        columnWrapperStyle={{ gap: 6 }}
+        initialNumToRender={16}
+        maxToRenderPerBatch={16}
         windowSize={7}
         removeClippedSubviews
         extraData={gradeFilter}
         ListHeaderComponent={
           <View className="gap-xl">
-            <View>
-              <Text className="text-h1 font-medium text-fg-primary">
-                {inspection.variety?.name ?? "—"}
+            <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
+              <View className="flex-row flex-wrap items-center gap-sm">
+                {inspection.variety?.name ? (
+                  <Pill tone="brand" label={inspection.variety.name} />
+                ) : null}
+                {roiLabel ? (
+                  <Pill
+                    tone="info"
+                    label={t(`inspections:detail.roiBadge.${roiLabel.kind}`, {
+                      vertices: roiLabel.vertices ?? 0,
+                    })}
+                  />
+                ) : null}
+              </View>
+              <Text className="mt-sm text-h2 font-medium text-fg-primary">
+                {t("inspections:detail.summary.totalSeeds")} · {inspection.total_seeds}
               </Text>
               <Text className="text-caption text-fg-secondary mt-xs">
                 {dateFmt.format(new Date(inspection.captured_at))} ·{" "}
                 {inspection.inspector?.full_name ?? inspection.inspector?.email}
               </Text>
-              {roiLabel ? (
-                <View className="mt-sm flex-row">
-                  <Pill
-                    tone="brand"
-                    label={t(`inspections:detail.roiBadge.${roiLabel.kind}`, {
-                      vertices: roiLabel.vertices ?? 0,
-                    })}
-                  />
-                </View>
-              ) : null}
             </View>
 
             <View className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
@@ -584,18 +603,23 @@ export default function InspectionDetail() {
                 </View>
               </View>
               <View className="flex-row flex-wrap gap-sm">
-                {gradeFilters.map((filter) => (
-                  <GradeFilterChip
-                    key={filter}
-                    label={
-                      filter === "all"
-                        ? t("inspections:detail.gradeFilterAll")
-                        : t(`inspections:seedGrade.${filter}`)
-                    }
-                    selected={gradeFilter === filter}
-                    onPress={() => setGradeFilter(filter)}
-                  />
-                ))}
+                {gradeFilters.map((filter) => {
+                  const count =
+                    filter === "all" ? allSeeds.length : gradeCounts[filter as Seed["grade"]];
+                  return (
+                    <GradeFilterChip
+                      key={filter}
+                      label={
+                        filter === "all"
+                          ? t("inspections:detail.gradeFilterAll")
+                          : t(`inspections:seedGrade.${filter}`)
+                      }
+                      count={count}
+                      selected={gradeFilter === filter}
+                      onPress={() => setGradeFilter(filter)}
+                    />
+                  );
+                })}
               </View>
             </View>
           </View>
@@ -604,7 +628,6 @@ export default function InspectionDetail() {
           <SeedCard
             seed={item}
             onPress={() => router.push(`/seed/${inspection.id}/${item.index}`)}
-            gradeLabel={t(`inspections:seedGrade.${item.grade}`)}
           />
         )}
         ListFooterComponent={
@@ -646,36 +669,42 @@ function MetadataDivider() {
   return <View className="h-[0.5px] bg-line-tertiary my-xs" />;
 }
 
-function SeedCard({
-  seed,
-  gradeLabel,
-  onPress,
-}: {
-  seed: Seed;
-  gradeLabel: string;
-  onPress: () => void;
-}) {
+function SeedCard({ seed, onPress }: { seed: Seed; onPress: () => void }) {
+  // Grade tint covers the whole tile (prototype's 4-up grid). Index + measurements
+  // sit on the tinted surface; the GradeChip pins the bottom-right corner so the
+  // grade is still scannable when seeds of the same grade cluster together.
   return (
     <Pressable
       onPress={onPress}
-      className="items-center gap-xs rounded-lg bg-bg-primary border border-line-tertiary px-sm py-md"
+      className={`aspect-square rounded-lg border border-line-tertiary px-sm py-sm ${seedCardTone[seed.grade]}`}
       style={{ flex: 1 }}
     >
-      <Text className="text-h2 font-medium text-fg-primary">{seed.index}</Text>
-      <Pill tone={gradeToTone[seed.grade]} label={gradeLabel} />
-      <Text className="text-caption text-fg-secondary text-center">
-        {Number(seed.length_mm).toFixed(1)} × {Number(seed.width_mm).toFixed(1)} mm
-      </Text>
+      <View className="flex-row items-start justify-between">
+        <Text className={`text-caption font-semibold ${seedCardInk[seed.grade]}`}>
+          #{seed.index}
+        </Text>
+        <GradeChip grade={seed.grade} size="sm" />
+      </View>
+      <View className="flex-1 items-center justify-center">
+        <Text className={`text-body font-medium ${seedCardInk[seed.grade]}`}>
+          {Number(seed.length_mm).toFixed(1)}
+        </Text>
+        <Text className={`text-[10px] ${seedCardInk[seed.grade]} opacity-80`}>
+          × {Number(seed.width_mm).toFixed(1)} mm
+        </Text>
+      </View>
     </Pressable>
   );
 }
 
 function GradeFilterChip({
   label,
+  count,
   selected,
   onPress,
 }: {
   label: string;
+  count: number;
   selected: boolean;
   onPress: () => void;
 }) {
@@ -684,15 +713,19 @@ function GradeFilterChip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      className={`rounded-full border px-md py-xs ${
-        selected ? "border-brand bg-brand" : "border-line-tertiary bg-bg-primary"
+      className={`flex-row items-center gap-xs rounded-full border px-md py-xs ${
+        selected ? "border-primary bg-primary" : "border-line-tertiary bg-bg-primary"
       }`}
     >
       <Text
-        className="text-caption font-medium"
-        style={{ color: selected ? "#FFFFFF" : "#171717" }}
+        className={`text-caption font-medium ${selected ? "text-primary-on" : "text-fg-primary"}`}
       >
         {label}
+      </Text>
+      <Text
+        className={`text-caption ${selected ? "text-primary-on opacity-80" : "text-fg-tertiary"}`}
+      >
+        {count}
       </Text>
     </Pressable>
   );

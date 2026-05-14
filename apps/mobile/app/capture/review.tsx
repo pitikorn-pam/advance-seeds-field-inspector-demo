@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { ChevronLeft, Share2, ChevronRight, Check } from "lucide-react-native";
 import type { AnalyzedSeed, SeedGrade } from "@advance-seeds/types";
+import { GradeChip } from "@/components/ui/GradeChip";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useCaptureSession } from "@/lib/capture/session";
@@ -527,13 +528,13 @@ export default function CaptureReview() {
       <FlatList
         data={seeds}
         keyExtractor={(seed) => String(seed.index)}
-        contentContainerClassName="px-xl pb-2xl gap-lg"
+        contentContainerClassName="px-xl pb-2xl"
         initialNumToRender={12}
         maxToRenderPerBatch={12}
         windowSize={7}
         removeClippedSubviews
         ListHeaderComponent={
-          <View className="gap-lg">
+          <View className="gap-lg pb-md">
             <View
               className="rounded-lg overflow-hidden"
               style={{ height: 200, backgroundColor: "#1a1816" }}
@@ -799,44 +800,81 @@ export default function CaptureReview() {
               </View>
             </View>
 
-            <View className="flex-row items-center gap-lg">
+            <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md flex-row items-center gap-lg">
               <GradeRing
                 percent={gradeAPct}
                 sublabel={t("inspections:seedGrade.A")
                   .replace(/^Grade\s+/, "")
                   .trim()}
               />
-              <View className="flex-1 gap-md">
-                <View>
-                  <Text className="text-caption text-fg-secondary">
-                    {t("inspections:detail.summary.totalSeeds")}
-                  </Text>
-                  <Text
-                    className="text-fg-primary font-medium"
-                    style={{ fontSize: 22, letterSpacing: -0.4 }}
-                  >
-                    {result.summary.total_seeds}
-                  </Text>
-                </View>
-                <View>
-                  <Text className="text-caption text-fg-secondary">
-                    {t("inspections:detail.summary.meanLength")}
-                  </Text>
-                  <Text className="text-fg-primary font-medium" style={{ fontSize: 16 }}>
-                    {avgLen.toFixed(1)} × {avgWid.toFixed(1)} mm
-                  </Text>
-                </View>
+              <View className="flex-1 gap-xs">
+                <Text className="text-label uppercase tracking-[0.4px] text-fg-secondary">
+                  {t("inspections:detail.summary.totalSeeds")}
+                </Text>
+                <Text
+                  className="text-fg-primary font-semibold"
+                  style={{ fontSize: 22, letterSpacing: -0.4 }}
+                >
+                  {result.summary.total_seeds}
+                </Text>
+                <Text className="text-caption text-fg-secondary mt-xs">
+                  {t("inspections:detail.summary.meanLength")} · {avgLen.toFixed(1)} ×{" "}
+                  {avgWid.toFixed(1)} mm
+                </Text>
               </View>
             </View>
 
+            <View className="flex-row gap-sm">
+              {(["A", "B", "C", "reject"] as SeedGrade[]).map((g) => {
+                const count = seeds.filter((s) => s.grade === g).length;
+                const tileBg: Record<SeedGrade, string> = {
+                  A: "bg-grade-a",
+                  B: "bg-grade-b",
+                  C: "bg-grade-c",
+                  reject: "bg-grade-reject",
+                };
+                const tileInk: Record<SeedGrade, string> = {
+                  A: "text-grade-a-ink",
+                  B: "text-grade-b-ink",
+                  C: "text-grade-c-ink",
+                  reject: "text-grade-reject-ink",
+                };
+                const label =
+                  g === "reject"
+                    ? t("inspections:seedGrade.reject")
+                        .replace(/^Grade\s+/, "")
+                        .trim()
+                    : g;
+                return (
+                  <View key={g} className={`flex-1 rounded-md py-md items-center ${tileBg[g]}`}>
+                    <Text className={`font-semibold ${tileInk[g]}`} style={{ fontSize: 18 }}>
+                      {count}
+                    </Text>
+                    <Text
+                      className={`text-label uppercase mt-[1px] ${tileInk[g]}`}
+                      style={{ letterSpacing: 0.4 }}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
             <View className="flex-row items-center justify-between mt-sm">
-              <Text className="text-title text-fg-primary font-medium">
+              <Text className="text-h3 text-fg-primary font-semibold">
                 {t("inspections:capture.review.perSeedTitle")}
               </Text>
-              <Pressable accessibilityRole="button" onPress={openSort}>
-                <Text className="text-brand text-caption font-medium">
+              <Pressable
+                accessibilityRole="button"
+                onPress={openSort}
+                className="rounded-md border border-line-tertiary bg-bg-primary px-md py-xs"
+              >
+                <Text className="text-caption font-medium text-fg-secondary">
                   {t("inspections:capture.review.sort")} ·{" "}
-                  {t(`inspections:capture.review.${sortModeLabelKey(sortMode)}`)}
+                  <Text className="text-fg-primary">
+                    {t(`inspections:capture.review.${sortModeLabelKey(sortMode)}`)}
+                  </Text>
                 </Text>
               </Pressable>
             </View>
@@ -845,15 +883,15 @@ export default function CaptureReview() {
         renderItem={({ item, index }) => (
           <SeedRow
             seed={item}
+            isFirst={index === 0}
             isLast={index === seeds.length - 1}
             onPress={() => router.push(`/capture/seed/${item.index}` as never)}
           />
         )}
       />
 
-      <View className="flex-row gap-md px-xl pb-xl pt-sm">
+      <View className="flex-row gap-md border-t border-line-tertiary bg-bg-primary px-xl pb-xl pt-md">
         <Button
-          className="flex-1"
           variant="outline"
           label={t("common:actions.cancel")}
           disabled={saving}
@@ -890,19 +928,6 @@ function formatCalibrationValue(pxPerMm: number, t: ReturnType<typeof useTransla
   });
 }
 
-const GRADE_BG: Record<SeedGrade, string> = {
-  A: "#DFF6EC",
-  B: "#FFF1B8",
-  C: "#FFE2E0",
-  reject: "#FFE2E0",
-};
-const GRADE_FG: Record<SeedGrade, string> = {
-  A: "#6E40E0",
-  B: "#704B00",
-  C: "#8A1F1B",
-  reject: "#8A1F1B",
-};
-
 function sortModeLabelKey(mode: SortMode) {
   switch (mode) {
     case "grade":
@@ -916,37 +941,73 @@ function sortModeLabelKey(mode: SortMode) {
 
 function SeedRow({
   seed,
+  isFirst,
   isLast,
   onPress,
 }: {
   seed: AnalyzedSeed;
+  isFirst: boolean;
   isLast: boolean;
   onPress?: () => void;
 }) {
+  // Single seed list is rendered as one continuous card; the first row gets
+  // top corners, the last row gets bottom corners + no divider, in between
+  // rows draw a hairline divider.
+  const corners = `${isFirst ? "rounded-t-lg" : ""} ${isLast ? "rounded-b-lg" : ""}`.trim();
+  const border = `border-x border-line-tertiary ${isFirst ? "border-t" : ""} ${
+    isLast ? "border-b" : "border-b border-line-tertiary"
+  }`;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Seed #${seed.index}`}
       onPress={onPress}
-      className={`flex-row items-center gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
+      className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${border} ${corners}`}
     >
-      <View
-        className="h-[26px] w-[26px] items-center justify-center rounded-full"
-        style={{ backgroundColor: GRADE_BG[seed.grade] }}
-      >
-        <Text className="font-medium" style={{ fontSize: 11, color: GRADE_FG[seed.grade] }}>
-          {seed.grade === "reject" ? "R" : seed.grade}
+      <View className="w-[36px]">
+        <Text
+          className="text-fg-tertiary font-medium"
+          style={{ fontSize: 11, fontVariant: ["tabular-nums"] }}
+        >
+          #{String(seed.index).padStart(2, "0")}
         </Text>
       </View>
-      <View className="flex-1">
-        <Text className="text-fg-primary font-medium" style={{ fontSize: 14 }}>
-          Seed #{seed.index}
-        </Text>
-        <Text className="text-fg-secondary" style={{ fontSize: 12 }}>
-          {seed.length_mm.toFixed(1)} × {seed.width_mm.toFixed(1)} mm · area{" "}
-          {seed.area_mm2.toFixed(1)} mm²
-        </Text>
+      <View className="flex-1 flex-row gap-lg">
+        <View>
+          <Text className="text-label uppercase text-fg-tertiary" style={{ letterSpacing: 0.4 }}>
+            L
+          </Text>
+          <Text
+            className="text-fg-primary font-medium"
+            style={{ fontSize: 13, fontVariant: ["tabular-nums"] }}
+          >
+            {seed.length_mm.toFixed(2)}
+          </Text>
+        </View>
+        <View>
+          <Text className="text-label uppercase text-fg-tertiary" style={{ letterSpacing: 0.4 }}>
+            W
+          </Text>
+          <Text
+            className="text-fg-primary font-medium"
+            style={{ fontSize: 13, fontVariant: ["tabular-nums"] }}
+          >
+            {seed.width_mm.toFixed(2)}
+          </Text>
+        </View>
+        <View>
+          <Text className="text-label uppercase text-fg-tertiary" style={{ letterSpacing: 0.4 }}>
+            A
+          </Text>
+          <Text
+            className="text-fg-primary font-medium"
+            style={{ fontSize: 13, fontVariant: ["tabular-nums"] }}
+          >
+            {seed.area_mm2.toFixed(1)}
+          </Text>
+        </View>
       </View>
+      <GradeChip grade={seed.grade} size="sm" />
       <ChevronRight color="#8C8C87" size={16} />
     </Pressable>
   );

@@ -301,7 +301,13 @@
       "reject": "Reject"
     },
     "editGradeBody": "Current grade: {{current}}. Pick a new grade.",
-    "rejectConfirm": "Mark this seed as rejected? You can change it back from Edit grade."
+    "rejectConfirm": "Mark this seed as rejected? You can change it back from Edit grade.",
+    "detectedGrade": "Detected grade",
+    "measurementsTitle": "Measurements",
+    "overrideTitle": "Override grade",
+    "overrideHint": "Overrides are logged in metadata. Auto-grade thresholds are set in variety editor.",
+    "gradeChangedTo": "Grade changed to {{grade}}",
+    "undo": "Undo"
   },
   "pending": {
     "title": "Pending inspection",
