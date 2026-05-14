@@ -1,15 +1,17 @@
 import { View, Text, Pressable } from "react-native";
+import Svg, { Ellipse } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 import { Link, useRouter } from "expo-router";
-import { ChevronRight, ListChecks } from "lucide-react-native";
 import type { InspectionRow } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
+import { GradeChip } from "@/components/ui/GradeChip";
+import type { SeedGrade } from "@advance-seeds/types";
 
-const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FFF1B8", fg: "#704B00" },
-  rice: { bg: "#DFF6EC", fg: "#0F6E56" },
-  legume: { bg: "#EEE9FF", fg: "#4B22A8" },
-  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
+const TINT_CLASSES: Record<string, string> = {
+  corn: "bg-card-yellow",
+  rice: "bg-card-mint",
+  legume: "bg-card-lavender",
+  mungbean: "bg-card-peach",
 };
 
 interface Props {
@@ -18,43 +20,31 @@ interface Props {
 }
 
 /**
- * Recent inspections card on Home. Mirrors the prototype's `.list-row`
- * pattern: a variety-tinted thumb showing the seed count, name + meta
- * line, chevron. Tapping a row routes to the inspection detail.
+ * Recent inspections section on Home. Prototype layout:
+ *   - "Recent" h4 + "View all" link as a plain header ROW outside the card.
+ *   - Card containing rows: 44x44 tinted seed-tray thumb (with subtle seed
+ *     dots), name + meta subline, grade chip on the right.
  *
- * Variety tint comes from `color_key` (corn/rice/legume/mungbean) — the
- * same tokens used by the varieties tab. Defaulting to the rice tint when
- * `color_key` is unset keeps the row readable on imported data.
- *
- * The "View all" link lives here (not separately) because it's logically
- * tied to the recent list — user clicks it to "see more of these."
+ * Variety tint comes from `color_key` (corn/rice/legume/mungbean), defaulting
+ * to mint when missing so imported data still reads cleanly.
  */
 export function RecentInspections({ rows }: Props) {
   const { t } = useTranslation(["home", "inspections"]);
   const router = useRouter();
 
   return (
-    <View className="gap-md">
-      <View className="rounded-lg bg-card-yellow-bold px-lg py-md">
-        <View className="flex-row items-center justify-between gap-md">
-          <View className="flex-row items-center gap-sm">
-            <View className="h-8 w-8 items-center justify-center rounded-md bg-bg-primary/70">
-              <ListChecks color="#0D1028" size={16} />
-            </View>
-            <View>
-              <Text className="text-title font-medium text-brand-navy">{t("home:recent")}</Text>
-              <Text className="text-caption text-warning-text">{t("home:recentSubhead")}</Text>
-            </View>
-          </View>
-          <Pressable onPress={() => router.push("/more/history" as never)}>
-            <Text className="text-caption font-medium text-brand-navy">{t("home:viewAll")}</Text>
-          </Pressable>
-        </View>
+    <View className="gap-sm">
+      <View className="flex-row items-baseline justify-between px-[4px]">
+        <Text className="text-body font-medium text-fg-primary">{t("home:recentHeader")}</Text>
+        <Pressable onPress={() => router.push("/more/history" as never)}>
+          <Text className="text-caption font-medium text-primary">{t("home:viewAll")}</Text>
+        </Pressable>
       </View>
 
       <Card className="p-0" tone="base">
         {rows.map((row, idx) => {
-          const tint = VARIETY_TINTS[row.variety?.color_key ?? ""] ?? VARIETY_TINTS.rice;
+          const tintClass = TINT_CLASSES[row.variety?.color_key ?? ""] ?? "bg-card-mint";
+          const grade = inferGrade(row.mean_length_mm);
           return (
             <Link key={row.id} href={`/inspections/${row.id}`} asChild>
               <Pressable
@@ -63,33 +53,24 @@ export function RecentInspections({ rows }: Props) {
                 }`}
               >
                 <View
-                  className="items-center justify-center"
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 8,
-                    backgroundColor: tint.bg,
-                  }}
+                  className={`items-center justify-center overflow-hidden ${tintClass}`}
+                  style={{ width: 44, height: 44, borderRadius: 8 }}
                 >
-                  <Text
-                    className="font-medium"
-                    style={{ color: tint.fg, fontSize: 14, letterSpacing: -0.2 }}
-                  >
-                    {row.total_seeds ?? 0}
-                  </Text>
+                  <SeedDots />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-title text-fg-primary font-medium" numberOfLines={1}>
+                  <Text className="text-body text-fg-primary font-medium" numberOfLines={1}>
                     {row.variety?.name ?? "—"}
                   </Text>
-                  <Text className="text-caption text-fg-secondary mt-xs" numberOfLines={1}>
+                  <Text className="text-caption text-fg-secondary mt-[2px]" numberOfLines={1}>
                     {formatRelative(row.captured_at)}
+                    {row.total_seeds != null ? ` · ${row.total_seeds} seeds` : ""}
                     {row.mean_length_mm !== null
-                      ? ` · ${Number(row.mean_length_mm).toFixed(1)} mm avg`
+                      ? ` · ${Number(row.mean_length_mm).toFixed(1)} mm`
                       : ""}
                   </Text>
                 </View>
-                <ChevronRight color="#8C8C87" size={16} />
+                {grade ? <GradeChip grade={grade} size="sm" /> : null}
               </Pressable>
             </Link>
           );
@@ -100,13 +81,45 @@ export function RecentInspections({ rows }: Props) {
 }
 
 /**
+ * Subtle 5-seed pattern matching the prototype's `<svg viewBox="0 0 44 44">`
+ * with 5 rotated ellipses at fixed coords. Pure decoration — communicates
+ * "this row is a seed tray" without depending on real thumbnail capture.
+ */
+function SeedDots() {
+  const dots: Array<[number, number]> = [
+    [10, 12],
+    [24, 16],
+    [18, 28],
+    [32, 30],
+    [14, 34],
+  ];
+  return (
+    <Svg viewBox="0 0 44 44" width={44} height={44}>
+      {dots.map(([x, y], i) => (
+        <Ellipse
+          key={i}
+          cx={x}
+          cy={y}
+          rx={3.2}
+          ry={2}
+          fill="rgba(55,53,47,0.35)"
+          transform={`rotate(${i * 22} ${x} ${y})`}
+        />
+      ))}
+    </Svg>
+  );
+}
+
+function inferGrade(meanLengthMm: number | null): SeedGrade | null {
+  if (meanLengthMm === null || !Number.isFinite(meanLengthMm)) return null;
+  if (meanLengthMm >= 7.0) return "A";
+  if (meanLengthMm >= 5.5) return "B";
+  return "C";
+}
+
+/**
  * Manual relative-time formatter — Hermes' default ICU subset doesn't
- * include `Intl.RelativeTimeFormat`, so we string-build instead. Matches
- * the same pattern used in `more/history.tsx` and `SyncBanner.tsx`.
- *
- * Loses proper Thai localization (always English output) — acceptable
- * for v0.2; a follow-up can add @formatjs/intl-relativetimeformat
- * polyfill or translate units via i18n keys when localization matters.
+ * include `Intl.RelativeTimeFormat`. Matches the pattern used elsewhere.
  */
 function formatRelative(iso: string): string {
   const diffMin = Math.round((new Date(iso).getTime() - Date.now()) / 60_000);

@@ -1,5 +1,7 @@
 {
   "greeting": "สวัสดี {{name}}",
+  "goodMorning": "สวัสดีตอนเช้า",
+  "recentHeader": "ล่าสุด",
   "heroLabel": "วันนี้",
   "dashboardTitle": "ชีพจรการตรวจสอบ",
   "heroSubtitle": "ตรวจแล้ว {{seeds}} เมล็ด",

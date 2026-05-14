@@ -223,20 +223,21 @@ export default function HomeScreen() {
               <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
             }
           >
-            {/* Greeting row — prototype: 40x40 lavender avatar with initials,
-                two-line text column (date small + "Good morning, X" with
-                inline role pill), notification bell on the right. */}
+            {/* Greeting row — prototype: 36x36 lavender avatar with initials,
+                "Good morning" caption above the name, RolePill inline next to
+                the name, notification bell on the right. The date is NOT in
+                this row — it's implicit via the filter pills below. */}
             <View className="flex-row items-center gap-md">
               <Avatar name={profile?.full_name ?? profile?.email ?? "?"} />
               <View className="flex-1">
-                <Text className="text-caption text-fg-tertiary">{dateLabel}</Text>
-                <View className="flex-row items-center gap-xs mt-[2px]">
+                <Text className="text-caption text-fg-tertiary">{t("home:goodMorning")}</Text>
+                <View className="flex-row items-center gap-xs mt-[1px]">
                   <Text
                     className="text-fg-primary font-semibold"
                     style={{ fontSize: 19, letterSpacing: -0.3 }}
                     numberOfLines={1}
                   >
-                    {firstName ? t("home:greeting", { name: firstName }) : t("common:appName")}
+                    {firstName || t("common:appName")}
                   </Text>
                   {profile?.role ? (
                     <RolePill role={(profile.role === "admin" ? "Admin" : "Inspector") as Role} />
@@ -350,7 +351,7 @@ function Avatar({ name }: { name: string }) {
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
   return (
-    <View className="h-[40px] w-[40px] items-center justify-center rounded-full bg-card-lavender">
+    <View className="h-[36px] w-[36px] items-center justify-center rounded-full bg-card-lavender">
       <Text className="text-[13px] font-semibold text-primary-deep">{initials || "·"}</Text>
     </View>
   );
