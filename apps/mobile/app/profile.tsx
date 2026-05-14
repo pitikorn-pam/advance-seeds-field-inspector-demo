@@ -69,28 +69,31 @@ export default function ProfileScreen() {
         }}
       />
       <ScrollView contentContainerClassName="px-xl pt-lg pb-xl gap-lg">
-        {/* Hero card — centered avatar + name + email + role pill */}
+        {/* Hero card — centered 96x96 lavender avatar + h2 name + email + role
+            pill. Prototype values, NOT a small profile chip. */}
         <Card className="p-xl items-center">
           <View
             className="items-center justify-center rounded-full bg-card-lavender"
-            style={{ height: 80, width: 80 }}
+            style={{ height: 96, width: 96 }}
           >
             <Text
-              className="font-medium text-primary-deep"
-              style={{ fontSize: 26, letterSpacing: -0.5 }}
+              className="font-semibold text-primary-deep"
+              style={{ fontSize: 32, letterSpacing: -0.6 }}
             >
               {initials}
             </Text>
           </View>
           <Text
-            className="text-fg-primary font-medium mt-md"
-            style={{ fontSize: 17, letterSpacing: -0.2 }}
+            className="text-fg-primary font-semibold mt-md text-center"
+            style={{ fontSize: 20, letterSpacing: -0.3 }}
             numberOfLines={1}
           >
             {profile?.full_name ?? "—"}
           </Text>
           {profile?.email ? (
-            <Text className="text-caption text-fg-secondary mt-xs">{profile.email}</Text>
+            <Text className="text-body text-fg-secondary mt-[2px] text-center">
+              {profile.email}
+            </Text>
           ) : null}
           {role ? (
             <View className="mt-sm">
@@ -140,13 +143,15 @@ export default function ProfileScreen() {
 }
 
 function StatTile3({ value, label }: { value: string; label: string }) {
+  // Prototype: big 28px semibold value with UPPERCASE caption below in
+  // small-caps steel — same KPI grammar used on Home/Reports.
   return (
     <Card className="p-md items-center flex-1">
-      <Text className="text-fg-primary font-medium" style={{ fontSize: 20, letterSpacing: -0.3 }}>
+      <Text className="text-fg-primary font-semibold" style={{ fontSize: 28, letterSpacing: -0.5 }}>
         {value}
       </Text>
       <Text
-        className="mt-xs text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary text-center"
+        className="mt-[6px] text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary text-center"
         numberOfLines={1}
       >
         {label}

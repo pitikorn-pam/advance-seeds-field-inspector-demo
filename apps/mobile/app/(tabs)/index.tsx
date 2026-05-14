@@ -77,7 +77,10 @@ export default function HomeScreen() {
 
   const firstName = (profile?.full_name ?? profile?.email ?? "").split(/\s+|@/)[0];
 
-  const dateLabel = useMemo(
+  // Kept underscored — current Home layout shows greeting via the segmented
+  // chip row's "Today" instead of a date salutation, but the formatter is
+  // useful for the custom-range button label and any future re-use.
+  const _dateLabel = useMemo(
     () =>
       new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
         weekday: "long",

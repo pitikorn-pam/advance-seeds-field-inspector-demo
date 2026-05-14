@@ -64,7 +64,9 @@ export function RecentInspections({ rows }: Props) {
                   </Text>
                   <Text className="text-caption text-fg-secondary mt-[2px]" numberOfLines={1}>
                     {formatRelative(row.captured_at)}
-                    {row.total_seeds != null ? ` · ${row.total_seeds} seeds` : ""}
+                    {row.total_seeds !== null && row.total_seeds !== undefined
+                      ? ` · ${row.total_seeds} seeds`
+                      : ""}
                     {row.mean_length_mm !== null
                       ? ` · ${Number(row.mean_length_mm).toFixed(1)} mm`
                       : ""}

@@ -66,8 +66,10 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      {/* Prototype shows no title in the nav bar — just the back chevron sits
+          under the iOS notch. Match by passing an empty title slot. */}
       <AppTopBar
-        title={t("settings:title")}
+        title=""
         left={{
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <ChevronLeft color="#171717" size={20} />,
