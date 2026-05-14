@@ -162,6 +162,35 @@
     "modelInactiveBody": "A model is installed on this device but is not active yet. Open Models and tap Activate before starting an inspection.",
     "modelRequiredTitle": "Model readiness required",
     "modelRequiredBody": "Live inspection needs an installed and active model for this device. Please wait for automatic setup to finish, or install the default model from Models.",
+    "preflight": {
+      "singleTitle": "Fix this before capture",
+      "multiTitle": "Fix {{count}} items to continue",
+      "installingTitle": "Model is still installing",
+      "subtitle": "Capture won't start until these are resolved.",
+      "installingSubtitle": "Capture is gated on the active model finishing install.",
+      "passedCollapsed": "{{count}} other checks passed",
+      "checks": {
+        "modelLabel": "Active model",
+        "modelMissingDesc": "No active detector model. Install one to continue.",
+        "modelInactiveDesc": "A model is installed but not activated yet.",
+        "modelInstallingDesc": "{{name}} · {{percent}}% installed",
+        "bindingLabel": "Class alias",
+        "bindingMissingDesc": "\"{{variety}}\" is not mapped to any class in the active model.",
+        "cameraLabel": "Camera & microphone",
+        "cameraDeniedDesc": "Permission denied · enable in iOS Settings",
+        "passedModel": "Active model · {{name}}",
+        "passedBinding": "Class alias · mapped",
+        "passedCamera": "Camera & microphone"
+      },
+      "actions": {
+        "openVarietyEditor": "Open variety editor",
+        "openModels": "Open Models",
+        "openSettings": "Open iOS Settings",
+        "waitAndContinue": "Wait & continue",
+        "cancel": "Cancel",
+        "pickDifferent": "Pick a different variety"
+      }
+    },
     "location": {
       "deniedTitle": "Location access is off",
       "deniedBody": "Inspections will save without GPS coordinates. Open Settings to enable location access for Advance Seeds."

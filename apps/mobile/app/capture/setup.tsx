@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, View, Text, Pressable, TextInput } from "react-native";
+import { Linking, ScrollView, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft, MapPin, Sparkles } from "lucide-react-native";
+import { ChevronLeft, MapPin } from "lucide-react-native";
 import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { useVarieties } from "@/lib/queries";
@@ -13,6 +13,7 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState } from "@/components/ui/States";
 import { DropdownSearch } from "@/components/ui/DropdownSearch";
 import type { DropdownItem } from "@/components/ui/DropdownSearch";
+import { PreflightGateSheet, type PreflightCheck } from "@/components/capture/PreflightGateSheet";
 import { useCaptureSession } from "@/lib/capture/session";
 import { readActiveModel } from "@/lib/models/modelStore";
 import type { InstalledModelRecord } from "@/lib/models/types";
@@ -20,22 +21,23 @@ import { effectiveModelAliases } from "@/lib/analyzer/captureClasses";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FFF1B8", fg: "#704B00" },
-  rice: { bg: "#DFF6EC", fg: "#0F6E56" },
-  legume: { bg: "#EEE9FF", fg: "#3F249B" },
-  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
+  corn: { bg: "#FAEFC8", fg: "#704B00" },
+  rice: { bg: "#DEEDD7", fg: "#0F6E56" },
+  legume: { bg: "#E8E0F4", fg: "#3F249B" },
+  mungbean: { bg: "#FBEBD9", fg: "#8C3C12" },
 };
+
+type CameraPermissionState = "unknown" | "granted" | "blocked";
 
 /**
  * /capture/setup — metadata step before opening the unified capture camera.
  *
- * Variety is mandatory and notes/location tagging are optional. Continue
- * requests camera/media permissions and routes directly to live capture;
- * the older Live/Precise mode picker and batch selection are intentionally
- * removed from the new inspection journey.
- *
- * Auto-tag location toggle records intent in capture session; actual
- * GPS capture is wired by the upcoming expo-location commit.
+ * Variety is mandatory; notes/location tagging are optional. Continue runs
+ * a pre-flight pass over the four checks the redesign cares about (active
+ * model, class-alias binding, camera/microphone permission, model install
+ * progress) and surfaces blockers in a bottom-sheet gate rather than as
+ * inline banners or Alert dialogs. When everything's green, Continue
+ * proceeds straight into live capture.
  */
 export default function CaptureSetup() {
   const { t } = useTranslation(["common", "inspections", "more"]);
@@ -60,6 +62,16 @@ export default function CaptureSetup() {
     return Array.isArray(names) ? names : [];
   }, [activeModel]);
 
+  // Track camera permission so the gate can surface "denied" without a
+  // second tap. `unknown` keeps it out of the checks (user hasn't been
+  // prompted yet — we still ask on Continue).
+  const [cameraPerm, setCameraPerm] = useState<CameraPermissionState>(() => {
+    const s = VCCamera.getCameraPermissionStatus();
+    if (s === "granted") return "granted";
+    if (s === "denied" || s === "restricted") return "blocked";
+    return "unknown";
+  });
+
   useEffect(() => {
     if (session.calibrationId) {
       session.set({ calibrationId: null });
@@ -79,7 +91,7 @@ export default function CaptureSetup() {
           leading: tint ? (
             <VarietyThumb letter={v.name.charAt(0)} tint={tint} />
           ) : (
-            <VarietyThumb letter={v.name.charAt(0)} tint={{ bg: "#F5F5F2", fg: "#5F5F5B" }} />
+            <VarietyThumb letter={v.name.charAt(0)} tint={{ bg: "#EFEEEA", fg: "#5F5F5B" }} />
           ),
         };
       });
@@ -90,20 +102,143 @@ export default function CaptureSetup() {
     [varieties.data, session.varietyId],
   );
 
+  const liveAliases = useMemo(
+    () => effectiveModelAliases(selectedVariety?.model_class_aliases, activeModelClassNames),
+    [selectedVariety, activeModelClassNames],
+  );
+  const modelExposesClassNames = activeModelClassNames.length > 0;
+  const needsBinding = !!selectedVariety && modelExposesClassNames && liveAliases.length === 0;
+
+  // Build the gate inputs from real device state. A check is "blocking"
+  // when it would prevent capture from starting; the gate sheet renders
+  // those rows prominently and collapses the passed labels underneath.
+  const { checks, passedLabels } = useMemo(() => {
+    const blocking: PreflightCheck[] = [];
+    const passed: string[] = [];
+    const modelName = activeModel?.displayName ?? t("more:models.defaultPill", "model");
+
+    // Model readiness
+    if (modelInstallGate.installing) {
+      const prog = modelInstallGate.install.progress;
+      const downloaded = prog?.downloadedBytes ?? 0;
+      const total = prog?.totalBytes ?? 0;
+      const percent = total > 0 ? Math.round((downloaded / total) * 100) : 0;
+      blocking.push({
+        id: "model-installing",
+        state: "busy",
+        label: t("inspections:capture.preflight.checks.modelLabel"),
+        description: t("inspections:capture.preflight.checks.modelInstallingDesc", {
+          name: modelInstallGate.install.displayName ?? modelName,
+          percent,
+        }),
+        progress: percent,
+      });
+    } else if (modelInstallGate.modelStatus === "missing") {
+      blocking.push({
+        id: "model-missing",
+        state: "fail",
+        label: t("inspections:capture.preflight.checks.modelLabel"),
+        description: t("inspections:capture.preflight.checks.modelMissingDesc"),
+        fixLabel: t("inspections:capture.preflight.actions.openModels"),
+        onFix: () => {
+          setGateOpen(false);
+          router.push("/more/models" as never);
+        },
+      });
+    } else if (modelInstallGate.modelStatus === "inactive") {
+      blocking.push({
+        id: "model-inactive",
+        state: "warn",
+        label: t("inspections:capture.preflight.checks.modelLabel"),
+        description: t("inspections:capture.preflight.checks.modelInactiveDesc"),
+        fixLabel: t("inspections:capture.preflight.actions.openModels"),
+        onFix: () => {
+          setGateOpen(false);
+          router.push("/more/models" as never);
+        },
+      });
+    } else if (modelInstallGate.modelStatus === "ready") {
+      passed.push(t("inspections:capture.preflight.checks.passedModel", { name: modelName }));
+    }
+
+    // Class-alias binding (only checkable once a variety is picked AND the
+    // model advertises a class list)
+    if (needsBinding && selectedVariety) {
+      blocking.push({
+        id: "binding-missing",
+        state: "fail",
+        label: t("inspections:capture.preflight.checks.bindingLabel"),
+        description: t("inspections:capture.preflight.checks.bindingMissingDesc", {
+          variety: selectedVariety.name,
+        }),
+        fixLabel: t("inspections:capture.preflight.actions.openVarietyEditor"),
+        onFix: () => {
+          setGateOpen(false);
+          router.push(`/more/capture-classes/${selectedVariety.id}` as never);
+        },
+      });
+    } else if (selectedVariety && modelExposesClassNames) {
+      passed.push(t("inspections:capture.preflight.checks.passedBinding"));
+    }
+
+    // Camera permission
+    if (cameraPerm === "blocked") {
+      blocking.push({
+        id: "camera-denied",
+        state: "fail",
+        label: t("inspections:capture.preflight.checks.cameraLabel"),
+        description: t("inspections:capture.preflight.checks.cameraDeniedDesc"),
+        fixLabel: t("inspections:capture.preflight.actions.openSettings"),
+        onFix: () => {
+          setGateOpen(false);
+          void Linking.openSettings();
+        },
+      });
+    } else if (cameraPerm === "granted") {
+      passed.push(t("inspections:capture.preflight.checks.passedCamera"));
+    }
+
+    return { checks: blocking, passedLabels: passed };
+  }, [
+    activeModel,
+    modelInstallGate.installing,
+    modelInstallGate.modelStatus,
+    modelInstallGate.install,
+    needsBinding,
+    selectedVariety,
+    modelExposesClassNames,
+    cameraPerm,
+    router,
+    t,
+  ]);
+
+  const [gateOpen, setGateOpen] = useState(false);
+
+  const gateTitle = useMemo(() => {
+    if (checks.some((c) => c.state === "busy")) {
+      return t("inspections:capture.preflight.installingTitle");
+    }
+    if (checks.length > 1) {
+      return t("inspections:capture.preflight.multiTitle", { count: checks.length });
+    }
+    return t("inspections:capture.preflight.singleTitle");
+  }, [checks, t]);
+
+  const gateSubtitle = useMemo(
+    () =>
+      checks.some((c) => c.state === "busy")
+        ? t("inspections:capture.preflight.installingSubtitle")
+        : t("inspections:capture.preflight.subtitle"),
+    [checks, t],
+  );
+
+  const gateBusy = checks.length > 0 && checks.every((c) => c.state === "busy");
+
   if (varieties.isLoading) {
     return <LoadingState />;
   }
 
-  const canContinue = !!session.varietyId && !modelInstallGate.blocked;
-  const liveAliases = effectiveModelAliases(
-    selectedVariety?.model_class_aliases,
-    activeModelClassNames,
-  );
-  // Only enforce alias binding when the active model actually advertises a
-  // class list. Some installed models do not, in which case detection falls
-  // through to coco_class_id / name match.
-  const modelExposesClassNames = activeModelClassNames.length > 0;
-  const needsBinding = !!selectedVariety && modelExposesClassNames && liveAliases.length === 0;
+  const canTapContinue = !!session.varietyId;
 
   const ensurePhotosPermission = async () => {
     const current = await MediaLibrary.getPermissionsAsync();
@@ -112,39 +247,32 @@ export default function CaptureSetup() {
   };
 
   const ensureCapturePermission = async () => {
-    const camera = await VCCamera.getCameraPermissionStatus();
+    const camera = VCCamera.getCameraPermissionStatus();
     if (camera === "not-determined") {
-      await VCCamera.requestCameraPermission();
+      const next = await VCCamera.requestCameraPermission();
+      setCameraPerm(next === "granted" ? "granted" : "blocked");
+      if (next !== "granted") return false;
+    } else if (camera !== "granted") {
+      setCameraPerm("blocked");
+      return false;
     }
-    const microphone = await VCCamera.getMicrophonePermissionStatus();
+    const microphone = VCCamera.getMicrophonePermissionStatus();
     if (microphone === "not-determined") {
       await VCCamera.requestMicrophonePermission();
     }
+    return true;
   };
 
   const onContinue = async () => {
-    if (modelInstallGate.showBlockedMessage()) return;
-    if (!canContinue) return;
-    if (needsBinding && selectedVariety) {
-      const modelName = activeModel?.displayName ?? "";
-      Alert.alert(
-        t("inspections:capture.bindRequiredTitle"),
-        t("inspections:capture.bindRequiredBody", {
-          variety: selectedVariety.name,
-          model: modelName,
-        }),
-        [
-          { text: t("common:actions.cancel"), style: "cancel" },
-          {
-            text: t("inspections:capture.bindRequiredAction"),
-            onPress: () => router.push(`/more/capture-classes/${selectedVariety.id}` as never),
-          },
-        ],
-      );
+    if (!canTapContinue) return;
+    // Permission may still be "unknown" if the user has never been prompted;
+    // ask now so the camera check reflects reality before we open the gate.
+    const cameraOk = await ensureCapturePermission();
+    if (!cameraOk || checks.length > 0) {
+      setGateOpen(true);
       return;
     }
     await ensurePhotosPermission();
-    await ensureCapturePermission();
     session.set({ mode: "live", batchId: null });
     router.push("/capture/scan" as never);
   };
@@ -166,34 +294,6 @@ export default function CaptureSetup() {
           {t("inspections:capture.setupSubtitle")}
         </Text>
 
-        {modelInstallGate.blocked ? (
-          <Card tone="yellowBold" className="gap-xs border border-warning-text/30">
-            <View className="flex-row items-center gap-sm">
-              <View className="h-8 w-8 items-center justify-center rounded-md bg-bg-primary/70">
-                <Sparkles color="#704B00" size={16} />
-              </View>
-              <Text className="text-caption font-medium uppercase text-warning-text">
-                {t("inspections:capture.modelReadiness")}
-              </Text>
-            </View>
-            <Text className="text-title text-fg-primary font-medium">
-              {modelInstallGate.installing
-                ? t("inspections:capture.modelInstallBlockedTitle")
-                : modelInstallGate.modelStatus === "inactive"
-                  ? t("inspections:capture.modelInactiveTitle")
-                  : t("inspections:capture.modelRequiredTitle")}
-            </Text>
-            <Text className="text-body text-fg-secondary">
-              {modelInstallGate.installing
-                ? t("inspections:capture.modelInstallBlockedBody", {
-                    name: modelInstallGate.install.displayName ?? t("more:models.defaultPill"),
-                  })
-                : modelInstallGate.modelStatus === "inactive"
-                  ? t("inspections:capture.modelInactiveBody")
-                  : t("inspections:capture.modelRequiredBody")}
-            </Text>
-          </Card>
-        ) : null}
         {/* Variety — mandatory dropdown with search. */}
         <View className="gap-xs">
           <Text className="text-caption uppercase text-fg-secondary px-xs">
@@ -207,11 +307,6 @@ export default function CaptureSetup() {
             placeholder={t("inspections:capture.varietyPlaceholder")}
             invalid={!session.varietyId}
           />
-          {needsBinding ? (
-            <Text className="text-caption text-warning-text px-xs mt-xs">
-              {t("inspections:capture.bindRequiredHint")}
-            </Text>
-          ) : null}
         </View>
 
         {/* Notes textarea. */}
@@ -259,8 +354,38 @@ export default function CaptureSetup() {
       </ScrollView>
 
       <View className="px-xl pb-xl pt-sm">
-        <Button label={t("common:actions.continue")} disabled={!canContinue} onPress={onContinue} />
+        <Button
+          label={t("common:actions.continue")}
+          disabled={!canTapContinue}
+          onPress={onContinue}
+        />
       </View>
+
+      <PreflightGateSheet
+        visible={gateOpen}
+        title={gateTitle}
+        description={gateSubtitle}
+        checks={checks}
+        passedLabels={passedLabels}
+        primaryLabel={
+          gateBusy
+            ? t("inspections:capture.preflight.actions.waitAndContinue")
+            : (checks[0]?.fixLabel ?? t("inspections:capture.preflight.actions.cancel"))
+        }
+        onPrimary={() => {
+          if (gateBusy) {
+            // Busy means a model install is in-flight; close the sheet and
+            // let the user wait. Continue will re-evaluate next tap.
+            setGateOpen(false);
+            return;
+          }
+          checks[0]?.onFix?.();
+        }}
+        secondaryLabel={t("inspections:capture.preflight.actions.cancel")}
+        onSecondary={() => setGateOpen(false)}
+        busy={gateBusy}
+        onRequestClose={() => setGateOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -284,13 +409,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
       onPress={() => onChange(!value)}
-      style={{
-        width: 50,
-        height: 30,
-        borderRadius: 999,
-        padding: 3,
-        backgroundColor: value ? "#6C47FF" : "rgba(23,23,23,0.16)",
-      }}
+      className={`h-[30px] w-[50px] rounded-full p-[3px] ${value ? "bg-primary" : "bg-line-secondary"}`}
     >
       <View
         style={{
