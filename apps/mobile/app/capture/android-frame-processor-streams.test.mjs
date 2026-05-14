@@ -22,9 +22,15 @@ for (const file of ["scan.tsx", "precise.tsx"]) {
     const source = readFileSync(join(root, file), "utf8");
 
     assert.match(source, /const LIDAR_ARUCO_FALLBACK_DELAY_MS = 1600;/);
-    assert.match(source, /const \[lidarArucoFallbackReady, setLidarArucoFallbackReady\] = useState\(false\);/);
+    assert.match(
+      source,
+      /const \[lidarArucoFallbackReady, setLidarArucoFallbackReady\] = useState\(false\);/,
+    );
     assert.match(source, /liveLidar\.supported === false \|\| lidarArucoFallbackReady/);
     assert.match(source, /!lidarArucoFallbackReady/);
-    assert.match(source, /setTimeout\(\s*\(\) => setLidarArucoFallbackReady\(true\),\s*LIDAR_ARUCO_FALLBACK_DELAY_MS,\s*\)/s);
+    assert.match(
+      source,
+      /setTimeout\(\s*\(\) => setLidarArucoFallbackReady\(true\),\s*LIDAR_ARUCO_FALLBACK_DELAY_MS,\s*\)/s,
+    );
   });
 }
