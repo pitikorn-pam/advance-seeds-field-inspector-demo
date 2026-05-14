@@ -253,6 +253,42 @@ ${indent(darkVars.join("\n"), 2)}
 
 writeFileSync(resolve(distDir, "css-vars.css"), cssOutput);
 
+// ----- 2b. apps/mobile/global.css ---------------------------------------
+//
+// NativeWind reads CSS variables from the mobile app's own entry stylesheet
+// (it does NOT auto-pick up packages/tokens/dist/css-vars.css). Write the
+// same vars there too, in NativeWind's expected shape: wrapped in
+// `@layer base` and using the `.dark` class selector (instead of the web
+// dashboard's `[data-theme="dark"]`). Without this step, NativeWind bakes
+// stale hex values into the JS bundle at transform time and a token edit
+// only shows up after a hand-paste — exactly the bug that took out the
+// first device build on the Field Inspector redesign.
+const mobileGlobalCssPath = resolve(repoRoot, "apps/mobile/global.css");
+const mobileGlobalCss = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Tokens preset emits Tailwind utilities that resolve to var(--as-*).
+  Browsers handle CSS variables natively; NativeWind 4 needs them defined
+  in this file to translate them at bundle time. AUTO-GENERATED from
+  docs/handoff/design-tokens.json — do not edit by hand.
+  Run \`pnpm -F @advance-seeds/tokens build\` to regenerate.
+*/
+@layer base {
+  :root {
+${lightVars.join("\n")}
+  }
+
+  :root.dark,
+  .dark:root,
+  .dark {
+${darkVars.join("\n")}
+  }
+}
+`;
+writeFileSync(mobileGlobalCssPath, mobileGlobalCss);
+
 // ----- 3. tokens.ts (runtime TS) ----------------------------------------
 
 // Flatten glass into a top-level constant so callers can write

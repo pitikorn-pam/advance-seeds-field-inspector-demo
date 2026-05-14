@@ -5,18 +5,18 @@
 /*
   Tokens preset emits Tailwind utilities that resolve to var(--as-*).
   Browsers handle CSS variables natively; NativeWind 4 needs them defined
-  in this file to translate them at bundle time. Mirrors
-  packages/tokens/dist/css-vars.css with NativeWind's .dark selector
-  (the web dashboard uses [data-theme="dark"]).
+  in this file to translate them at bundle time. AUTO-GENERATED from
+  docs/handoff/design-tokens.json — do not edit by hand.
+  Run `pnpm -F @advance-seeds/tokens build` to regenerate.
 */
 @layer base {
   :root {
-    --as-primary: #6c47ff;
-    --as-primary-pressed: #5936d8;
-    --as-primary-deep: #3f249b;
+    --as-primary: #6e40e0;
+    --as-primary-pressed: #5a2ec8;
+    --as-primary-deep: #4b22a8;
     --as-primary-on: #ffffff;
-    --as-brand: #6c47ff;
-    --as-brand-soft: #eee9ff;
+    --as-brand: #6e40e0;
+    --as-brand-soft: #e8e0f4;
     --as-brand-deep: #2d205e;
     --as-brand-on: #ffffff;
     --as-brand-navy: #0d1028;
@@ -30,15 +30,15 @@
     --as-brand-teal: #11a78b;
     --as-brand-yellow: #f2c94c;
     --as-brand-brown: #8c5e3c;
-    --as-card-peach: #ffe8d6;
-    --as-card-rose: #ffe2ec;
-    --as-card-mint: #dff6ec;
-    --as-card-lavender: #eee9ff;
-    --as-card-sky: #e2f0ff;
-    --as-card-yellow: #fff1b8;
-    --as-card-yellow-bold: #ffd84d;
-    --as-card-cream: #fff8e8;
-    --as-card-gray: #f5f5f2;
+    --as-card-peach: #fbebd9;
+    --as-card-rose: #fbe0e2;
+    --as-card-mint: #deedd7;
+    --as-card-lavender: #e8e0f4;
+    --as-card-sky: #dae9f2;
+    --as-card-yellow: #faefc8;
+    --as-card-yellow-bold: #ffe082;
+    --as-card-cream: #faf6ec;
+    --as-card-gray: #efeeea;
     --as-bg-primary: #ffffff;
     --as-bg-secondary: #f7f6f2;
     --as-bg-tertiary: #fbfaf7;
@@ -66,6 +66,14 @@
     --as-legume-text: #3f249b;
     --as-mungbean-bg: #ffe8d6;
     --as-mungbean-text: #8c3c12;
+    --as-grade-a-bg: #deedd7;
+    --as-grade-a-ink: #2d6e3f;
+    --as-grade-b-bg: #faefc8;
+    --as-grade-b-ink: #7a5a12;
+    --as-grade-c-bg: #fbebd9;
+    --as-grade-c-ink: #b85518;
+    --as-grade-reject-bg: #fbe0e2;
+    --as-grade-reject-ink: #a02828;
     --as-glass-chip: rgba(7, 9, 26, 0.42);
     --as-glass-soft: rgba(7, 9, 26, 0.52);
     --as-glass-surface: rgba(7, 9, 26, 0.64);
