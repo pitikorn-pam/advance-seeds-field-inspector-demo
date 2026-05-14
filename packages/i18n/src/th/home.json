@@ -6,8 +6,10 @@
   "heroSubtitleEmpty": "ยังไม่มีการตรวจสอบวันนี้",
   "metricInspections": "รอบตรวจ",
   "metricSeeds": "เมล็ด",
-  "metricAvgLength": "มม. เฉลี่ย",
+  "metricAvgLength": "ความยาวเฉลี่ย",
   "metricLastRun": "รอบล่าสุด",
+  "metricGradeA": "เกรด A %",
+  "trendTitle": "7 วันล่าสุด",
   "datePresets": {
     "today": "วันนี้",
     "last7": "7 วัน",

@@ -1,9 +1,19 @@
 {
   "title": "Profile",
+  "statsHeading": "This account",
   "stats": {
     "thisMonth": "This month",
     "dayStreak": "Day streak",
-    "avgA": "Avg A"
+    "avgA": "Avg A",
+    "inspections": "Inspections",
+    "seeds": "Seeds",
+    "syncRate": "Sync rate"
+  },
+  "meta": {
+    "heading": "Account",
+    "email": "Email",
+    "device": "Device",
+    "appVersion": "App version"
   },
   "menu": {
     "settings": "Settings",

@@ -4,7 +4,15 @@
     "account": "บัญชี",
     "captureAssets": "ความพร้อมโมเดล",
     "reference": "ข้อมูลอ้างอิง",
-    "insights": "ข้อมูลเชิงลึก"
+    "insights": "ข้อมูลเชิงลึก",
+    "inspectionTools": "เครื่องมือตรวจสอบ",
+    "referenceData": "ข้อมูลอ้างอิง",
+    "calibration": "การสอบเทียบ",
+    "modelTuning": "โมเดลและการปรับแต่ง"
+  },
+  "footer": {
+    "appName": "Advance Seeds Field Inspector",
+    "version": "v{{version}} · build {{build}}"
   },
   "menu": {
     "profile": "โปรไฟล์",

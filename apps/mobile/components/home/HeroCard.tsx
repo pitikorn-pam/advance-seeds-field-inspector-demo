@@ -1,9 +1,9 @@
 import { View, Text } from "react-native";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Clock3, Layers3, Ruler } from "lucide-react-native";
+import { Activity, Award, Clock3, Ruler } from "lucide-react-native";
 import type { InspectionRow } from "@/lib/queries";
-import { useTheme } from "@/lib/theme";
+import { Card } from "@/components/ui/Card";
 
 interface Props {
   /** Inspections already filtered by the selected Home dashboard date range. */
@@ -12,14 +12,28 @@ interface Props {
 }
 
 /**
- * Compact operations dashboard for Home. This is intentionally not a capture
- * CTA; Home summarizes field progress while the Inspect tab / edge gesture own
- * starting a new capture.
+ * Home dashboard summary block, redesigned per the Field Inspector prototype:
+ * a 4-tile KPI grid, a 7-day inspection mini bar chart, and a horizontal
+ * stacked-bar variety mix. KPIs are derived from the same `inspections` array
+ * the screen already supplies — no new data wiring.
+ *
+ * KPI #4 ("Grade A %") uses `mean_length_mm >= GRADE_A_LENGTH_MM` as a
+ * lightweight proxy because the list projection does not include per-seed
+ * grades. This is fine for an at-a-glance dashboard signal; precise grading
+ * still lives on the detail screen.
  */
+const GRADE_A_LENGTH_MM = 7.0;
+
+const VARIETY_COLORS = [
+  "bg-card-lavender",
+  "bg-card-mint",
+  "bg-card-sky",
+  "bg-card-peach",
+  "bg-card-rose",
+];
+
 export function HeroCard({ inspections, dateLabel }: Props) {
   const { t } = useTranslation("home");
-  const { resolved } = useTheme();
-  const palette = resolved === "dark" ? darkPalette : lightPalette;
 
   const totalSeeds = inspections.reduce((s, r) => s + (r.total_seeds ?? 0), 0);
   const weightedLength = weightedMean(
@@ -28,211 +42,153 @@ export function HeroCard({ inspections, dateLabel }: Props) {
       weight: row.total_seeds ?? 0,
     })),
   );
-  const lastCapture = inspections[0]?.captured_at ?? null;
+  const gradeAPct = computeGradeAPct(inspections);
   const buckets = buildSevenDayBuckets(inspections);
   const maxBucket = Math.max(1, ...buckets.map((b) => b.count));
   const varieties = topVarieties(inspections, t("unassigned"));
+  const totalVarietySeeds = varieties.reduce((s, v) => s + v.seeds, 0);
 
   return (
-    <View className="overflow-hidden rounded-lg" style={{ backgroundColor: palette.card }}>
-      <View className="px-xl pt-xl pb-lg">
-        <View className="flex-row items-center justify-between gap-md">
-          <View className="flex-1">
-            <Text
-              className="text-caption uppercase"
-              style={{ color: palette.caption, letterSpacing: 0.4 }}
-            >
-              {t("heroLabel")}
-            </Text>
-            <Text className="font-medium mt-xs" style={{ color: palette.text, fontSize: 24 }}>
-              {t("dashboardTitle")}
-            </Text>
-            <Text className="text-caption mt-[2px]" style={{ color: palette.caption }}>
-              {dateLabel}
-            </Text>
-          </View>
-          <View className="rounded-md px-md py-sm" style={{ backgroundColor: palette.tile }}>
-            <Text className="text-caption" style={{ color: palette.caption }}>
-              {t("lastCapture")}
-            </Text>
-            <Text className="text-caption font-medium mt-[2px]" style={{ color: palette.text }}>
-              {lastCapture ? formatRelative(lastCapture, t) : t("noneYet")}
-            </Text>
-          </View>
-        </View>
-
-        <View className="flex-row gap-sm mt-lg">
-          <MetricTile
-            icon={<Activity color={palette.iconPrimary} size={16} />}
-            iconBg={palette.iconPrimaryBg}
-            value={inspections.length.toLocaleString()}
-            label={t("metricInspections")}
-            palette={palette}
-          />
-          <MetricTile
-            icon={<Layers3 color={palette.iconWarning} size={16} />}
-            iconBg={palette.iconWarningBg}
-            value={totalSeeds.toLocaleString()}
-            label={t("metricSeeds")}
-            palette={palette}
-          />
-        </View>
-
-        <View className="flex-row gap-sm mt-sm">
-          <MetricTile
-            icon={<Ruler color={palette.iconInfo} size={16} />}
-            iconBg={palette.iconInfoBg}
-            value={weightedLength === null ? "--" : weightedLength.toFixed(1)}
-            label={t("metricAvgLength")}
-            palette={palette}
-          />
-          <MetricTile
-            icon={<Clock3 color={palette.iconNeutral} size={16} />}
-            iconBg={palette.iconNeutralBg}
-            value={lastCapture ? formatRelative(lastCapture, t) : "--"}
-            label={t("metricLastRun")}
-            palette={palette}
-          />
-        </View>
+    <View className="gap-sm">
+      {/* KPI grid */}
+      <View className="flex-row gap-sm">
+        <KpiTile
+          tone="lavender"
+          icon={<Activity color="#4B22A8" size={14} />}
+          value={inspections.length.toLocaleString()}
+          label={t("metricInspections")}
+        />
+        <KpiTile
+          tone="mint"
+          icon={<Award color="#0F6E56" size={14} />}
+          value={totalSeeds.toLocaleString()}
+          label={t("metricSeeds")}
+        />
+      </View>
+      <View className="flex-row gap-sm">
+        <KpiTile
+          tone="sky"
+          icon={<Ruler color="#0E5A8A" size={14} />}
+          value={weightedLength === null ? "--" : weightedLength.toFixed(1)}
+          unit="mm"
+          label={t("metricAvgLength")}
+        />
+        <KpiTile
+          tone="peach"
+          icon={<Clock3 color="#8C3C12" size={14} />}
+          value={gradeAPct === null ? "--" : `${gradeAPct}`}
+          unit={gradeAPct === null ? "" : "%"}
+          label={t("metricGradeA")}
+        />
       </View>
 
-      <View className="px-xl py-md" style={{ backgroundColor: palette.band }}>
-        <View className="flex-row items-end gap-xs" style={{ height: 42 }}>
+      {/* Inspections trend — last 7 days */}
+      <Card className="px-lg py-md">
+        <View className="flex-row items-baseline justify-between">
+          <Text className="text-body font-medium text-fg-primary">{t("trendTitle")}</Text>
+          <Text className="text-caption text-fg-secondary">{dateLabel}</Text>
+        </View>
+        <View className="flex-row items-end gap-xs mt-md" style={{ height: 56 }}>
           {buckets.map((bucket) => (
             <View key={bucket.key} className="flex-1 items-center justify-end gap-xs">
               <View
-                className="w-full rounded-sm"
+                className={`w-full rounded-sm ${bucket.isAnchor ? "bg-primary" : "bg-primary/40"}`}
                 style={{
                   minHeight: 4,
-                  height: Math.max(4, Math.round((bucket.count / maxBucket) * 30)),
-                  backgroundColor: bucket.isAnchor ? palette.accent : palette.bar,
+                  height: Math.max(4, Math.round((bucket.count / maxBucket) * 44)),
                 }}
               />
-              <Text className="text-[10px]" style={{ color: palette.caption }}>
-                {bucket.label}
-              </Text>
+              <Text className="text-[10px] text-fg-secondary">{bucket.label}</Text>
             </View>
           ))}
         </View>
-      </View>
+      </Card>
 
-      <View className="px-xl py-md">
-        <Text
-          className="text-caption uppercase"
-          style={{ color: palette.caption, letterSpacing: 0.4 }}
-        >
-          {t("varietyMix")}
-        </Text>
-        <View className="flex-row flex-wrap gap-sm mt-sm">
-          {varieties.length > 0 ? (
-            varieties.map((item) => (
-              <View
-                key={item.name}
-                className="rounded-md px-md py-sm"
-                style={{ backgroundColor: palette.tile }}
-              >
-                <Text className="text-caption font-medium" style={{ color: palette.text }}>
-                  {item.name}
-                </Text>
-                <Text className="text-[11px] mt-[2px]" style={{ color: palette.caption }}>
-                  {t("varietySeedCount", { count: item.seeds })}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text className="text-caption" style={{ color: palette.caption }}>
-              {t("heroSubtitleEmpty")}
-            </Text>
-          )}
-        </View>
-      </View>
+      {/* Variety mix — horizontal stacked bar + legend */}
+      <Card className="px-lg py-md">
+        <Text className="text-body font-medium text-fg-primary">{t("varietyMix")}</Text>
+        {varieties.length > 0 && totalVarietySeeds > 0 ? (
+          <>
+            <View
+              className="flex-row mt-md overflow-hidden rounded-sm bg-line-tertiary"
+              style={{ height: 8 }}
+            >
+              {varieties.map((v, i) => {
+                const pct = (v.seeds / totalVarietySeeds) * 100;
+                if (pct <= 0) return null;
+                return (
+                  <View
+                    key={v.name}
+                    className={VARIETY_COLORS[i % VARIETY_COLORS.length]}
+                    style={{ width: `${pct}%`, height: "100%" }}
+                  />
+                );
+              })}
+            </View>
+            <View className="mt-sm gap-xs">
+              {varieties.map((v, i) => {
+                const pct = Math.round((v.seeds / totalVarietySeeds) * 100);
+                return (
+                  <View key={v.name} className="flex-row items-center gap-sm">
+                    <View
+                      className={`h-2 w-2 rounded-sm ${VARIETY_COLORS[i % VARIETY_COLORS.length]}`}
+                    />
+                    <Text className="flex-1 text-caption text-fg-primary" numberOfLines={1}>
+                      {v.name}
+                    </Text>
+                    <Text className="text-caption text-fg-secondary">{pct}%</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        ) : (
+          <Text className="text-caption text-fg-secondary mt-sm">{t("heroSubtitleEmpty")}</Text>
+        )}
+      </Card>
     </View>
   );
 }
 
-interface DashboardPalette {
-  card: string;
-  tile: string;
-  band: string;
-  text: string;
-  caption: string;
-  accent: string;
-  bar: string;
-  iconPrimary: string;
-  iconWarning: string;
-  iconInfo: string;
-  iconNeutral: string;
-  iconPrimaryBg: string;
-  iconWarningBg: string;
-  iconInfoBg: string;
-  iconNeutralBg: string;
-}
+type KpiTone = "lavender" | "mint" | "sky" | "peach" | "rose";
 
-const lightPalette: DashboardPalette = {
-  card: "#FFFFFF",
-  tile: "#F5F5F2",
-  band: "#FFF1B8",
-  text: "#171717",
-  caption: "#5F5F5B",
-  accent: "#6E40E0",
-  bar: "rgba(23,23,23,0.12)",
-  iconPrimary: "#6E40E0",
-  iconWarning: "#704B00",
-  iconInfo: "#0F6E56",
-  iconNeutral: "#8C3C12",
-  iconPrimaryBg: "#EEE9FF",
-  iconWarningBg: "#FFF1B8",
-  iconInfoBg: "#DFF6EC",
-  iconNeutralBg: "#FFE8D6",
+const KPI_TONE_BG: Record<KpiTone, string> = {
+  lavender: "bg-card-lavender",
+  mint: "bg-card-mint",
+  sky: "bg-card-sky",
+  peach: "bg-card-peach",
+  rose: "bg-card-rose",
 };
 
-const darkPalette: DashboardPalette = {
-  card: "#07091A",
-  tile: "rgba(255,255,255,0.1)",
-  band: "rgba(255,255,255,0.06)",
-  text: "#F7F7F5",
-  caption: "rgba(255,255,255,0.68)",
-  accent: "#F4C430",
-  bar: "rgba(255,255,255,0.3)",
-  iconPrimary: "#A492FF",
-  iconWarning: "#FFE08A",
-  iconInfo: "#7DD3C7",
-  iconNeutral: "#FDBA74",
-  iconPrimaryBg: "rgba(164,146,255,0.16)",
-  iconWarningBg: "rgba(255,224,138,0.14)",
-  iconInfoBg: "rgba(125,211,199,0.14)",
-  iconNeutralBg: "rgba(253,186,116,0.14)",
-};
-
-function MetricTile({
+function KpiTile({
+  tone,
   icon,
-  iconBg,
   value,
+  unit,
   label,
-  palette,
 }: {
+  tone: KpiTone;
   icon: ReactNode;
-  iconBg: string;
   value: string;
+  unit?: string;
   label: string;
-  palette: DashboardPalette;
 }) {
   return (
-    <View className="flex-1 rounded-lg px-md py-md" style={{ backgroundColor: palette.tile }}>
+    <View
+      className={`flex-1 rounded-lg border border-line-tertiary px-md py-md ${KPI_TONE_BG[tone]}`}
+    >
       <View className="flex-row items-center justify-between">
-        <View
-          className="h-7 w-7 items-center justify-center rounded-md"
-          style={{ backgroundColor: iconBg }}
-        >
+        <View className="h-6 w-6 items-center justify-center rounded-md bg-bg-primary/60">
           {icon}
         </View>
-        <Text className="text-[10px] uppercase" style={{ color: palette.caption }}>
-          {label}
-        </Text>
+        <Text className="text-[10px] uppercase text-fg-secondary">{label}</Text>
       </View>
-      <Text className="font-medium mt-sm" style={{ color: palette.text, fontSize: 24 }}>
-        {value}
-      </Text>
+      <View className="mt-sm flex-row items-baseline">
+        <Text className="font-medium text-fg-primary" style={{ fontSize: 24, letterSpacing: -0.4 }}>
+          {value}
+        </Text>
+        {unit ? <Text className="ml-[2px] text-caption text-fg-secondary">{unit}</Text> : null}
+      </View>
     </View>
   );
 }
@@ -246,6 +202,15 @@ function weightedMean(rows: { value: number | null; weight: number }[]): number 
     weight += row.weight;
   }
   return weight > 0 ? total / weight : null;
+}
+
+function computeGradeAPct(rows: InspectionRow[]): number | null {
+  const measured = rows.filter(
+    (r) => r.mean_length_mm !== null && Number.isFinite(r.mean_length_mm),
+  );
+  if (measured.length === 0) return null;
+  const aGrade = measured.filter((r) => (r.mean_length_mm ?? 0) >= GRADE_A_LENGTH_MM).length;
+  return Math.round((aGrade / measured.length) * 100);
 }
 
 function buildSevenDayBuckets(inspections: InspectionRow[]) {
@@ -278,14 +243,5 @@ function topVarieties(rows: InspectionRow[], fallbackName: string) {
   return Array.from(byName.entries())
     .map(([name, seeds]) => ({ name, seeds }))
     .sort((a, b) => b.seeds - a.seeds)
-    .slice(0, 3);
-}
-
-function formatRelative(iso: string, t: ReturnType<typeof useTranslation>["t"]): string {
-  const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (diffMin < 1) return t("now");
-  if (diffMin < 60) return t("minutesAgo", { count: diffMin });
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return t("hoursAgo", { count: diffHr });
-  return new Date(iso).toLocaleDateString();
+    .slice(0, 4);
 }

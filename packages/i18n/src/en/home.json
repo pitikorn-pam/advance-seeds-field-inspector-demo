@@ -6,8 +6,10 @@
   "heroSubtitleEmpty": "No inspections logged today.",
   "metricInspections": "Runs",
   "metricSeeds": "Seeds",
-  "metricAvgLength": "Avg mm",
+  "metricAvgLength": "Avg length",
   "metricLastRun": "Last run",
+  "metricGradeA": "Grade A %",
+  "trendTitle": "Last 7 days",
   "datePresets": {
     "today": "Today",
     "last7": "7D",

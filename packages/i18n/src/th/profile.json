@@ -1,9 +1,19 @@
 {
   "title": "โปรไฟล์",
+  "statsHeading": "บัญชีนี้",
   "stats": {
     "thisMonth": "เดือนนี้",
     "dayStreak": "สตรีค",
-    "avgA": "เกรด A เฉลี่ย"
+    "avgA": "เกรด A เฉลี่ย",
+    "inspections": "การตรวจสอบ",
+    "seeds": "เมล็ด",
+    "syncRate": "อัตราการซิงค์"
+  },
+  "meta": {
+    "heading": "บัญชี",
+    "email": "อีเมล",
+    "device": "อุปกรณ์",
+    "appVersion": "เวอร์ชันแอป"
   },
   "menu": {
     "settings": "การตั้งค่า",

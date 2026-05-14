@@ -4,7 +4,15 @@
     "account": "Account",
     "captureAssets": "Model readiness",
     "reference": "Reference",
-    "insights": "Insights"
+    "insights": "Insights",
+    "inspectionTools": "Inspection tools",
+    "referenceData": "Reference data",
+    "calibration": "Calibration",
+    "modelTuning": "Model & tuning"
+  },
+  "footer": {
+    "appName": "Advance Seeds Field Inspector",
+    "version": "v{{version}} · build {{build}}"
   },
   "menu": {
     "profile": "Profile",

@@ -10,13 +10,18 @@ import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
+import { Segmented } from "@/components/ui/Segmented";
 import type { Theme } from "@advance-seeds/types";
 import type { SupportedLocale } from "@advance-seeds/i18n";
 
 /**
- * App-level settings only — appearance, language, and build info. The previous
- * everything-bag (Profile / Calibration / Library / Reports /
- * Sign out) moved to /more in the prototype-fidelity-pass tab restructure.
+ * App-level settings — appearance, language, sync maintenance, and build info.
+ *
+ * Visual treatment matches the prototype's `SettingsScreen`: section captions
+ * sit above grouped Cards (`p-0`) whose rows share dividers. Each row is a
+ * label + value/control pair so the screen reads as a tidy list rather than
+ * a stack of free-form cards. Data wiring (theme, locale, sync queue) is
+ * unchanged from the previous revision.
  */
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation(["common", "settings"]);
@@ -25,12 +30,14 @@ export default function SettingsScreen() {
   const syncQueue = useSyncQueue();
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
+  const activeLocale: SupportedLocale = i18n.language.startsWith("th") ? "th" : "en";
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "—";
   const buildNumber =
     Constants.nativeBuildVersion ??
     Constants.expoConfig?.ios?.buildNumber ??
     Constants.expoConfig?.android?.versionCode?.toString() ??
     "—";
+  const lastError = syncQueue.entries.find((entry) => entry.lastError)?.lastError;
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -42,140 +49,172 @@ export default function SettingsScreen() {
           onPress: () => router.back(),
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-xl">
-        <View className="gap-md">
-          <Text className="text-caption uppercase text-fg-secondary">
-            {t("settings:sections.appearance")}
-          </Text>
-          <Card>
-            <Text className="text-body text-fg-secondary mb-md">
-              {t("settings:appearanceHint")}
-            </Text>
-            <View className="flex-row gap-sm">
-              {themeOpts.map((t2) => (
-                <Button
-                  key={t2}
-                  className="flex-1"
-                  size="sm"
-                  variant={theme === t2 ? "primary" : "outline"}
-                  label={t(`common:themes.${t2}`)}
-                  onPress={() => setTheme(t2)}
+      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
+        <Section title={t("settings:sections.appearance")}>
+          <Card className="p-0">
+            <Row
+              label={t("settings:rows.theme")}
+              control={
+                <Segmented<Theme>
+                  value={theme}
+                  onChange={setTheme}
+                  options={themeOpts.map((value) => ({
+                    value,
+                    label: t(`common:themes.${value}`),
+                  }))}
+                  variant="tag"
                 />
-              ))}
-            </View>
+              }
+              hint={t("settings:appearanceHint")}
+            />
           </Card>
-        </View>
+        </Section>
 
-        <View className="gap-md">
-          <Text className="text-caption uppercase text-fg-secondary">
-            {t("settings:sections.language")}
-          </Text>
-          <Card>
-            <View className="flex-row gap-sm">
-              {localeOpts.map((lng) => (
-                <Button
-                  key={lng}
-                  className="flex-1"
-                  size="sm"
-                  variant={i18n.language.startsWith(lng) ? "primary" : "outline"}
-                  label={t(`common:languages.${lng}`)}
-                  onPress={() => void i18n.changeLanguage(lng)}
+        <Section title={t("settings:sections.language")}>
+          <Card className="p-0">
+            <Row
+              label={t("settings:rows.language")}
+              control={
+                <Segmented<SupportedLocale>
+                  value={activeLocale}
+                  onChange={(next) => void i18n.changeLanguage(next)}
+                  options={localeOpts.map((value) => ({
+                    value,
+                    label: t(`common:languages.${value}`),
+                  }))}
+                  variant="tag"
                 />
-              ))}
-            </View>
+              }
+            />
           </Card>
-        </View>
+        </Section>
 
-        <View className="gap-md">
-          <Text className="text-caption uppercase text-fg-secondary">
-            {t("settings:sections.sync")}
-          </Text>
-          <Card>
-            <View className="gap-md">
-              <InfoRow
-                label={t("settings:sync.status")}
-                value={
-                  <Pill
-                    tone={
-                      syncQueue.counts.failed > 0
-                        ? "danger"
-                        : syncQueue.counts.pending > 0
-                          ? "warning"
-                          : "success"
-                    }
-                    dot
-                    label={
-                      syncQueue.counts.failed > 0
-                        ? t("settings:sync.failed", { count: syncQueue.counts.failed })
-                        : syncQueue.counts.pending > 0
-                          ? t("settings:sync.pending", { count: syncQueue.counts.pending })
-                          : t("settings:sync.upToDate")
-                    }
-                  />
-                }
-              />
-              <InfoRow
-                label={t("settings:sync.pendingCount")}
-                value={String(syncQueue.counts.pending)}
-              />
-              <InfoRow
-                label={t("settings:sync.failedCount")}
-                value={String(syncQueue.counts.failed)}
-              />
-              {syncQueue.entries.find((entry) => entry.lastError) ? (
-                <Text className="text-caption text-danger-text" numberOfLines={2}>
-                  {syncQueue.entries.find((entry) => entry.lastError)?.lastError}
-                </Text>
-              ) : null}
-              <View className="flex-row gap-sm">
-                <Button
-                  className="flex-1"
-                  size="sm"
-                  variant="outline"
-                  label={t("settings:sync.retryAll")}
-                  disabled={syncQueue.counts.pending + syncQueue.counts.failed === 0}
-                  onPress={() => void syncQueue.retryAll()}
+        <Section title={t("settings:sections.sync")}>
+          <Card className="p-0">
+            <Row
+              label={t("settings:sync.status")}
+              value={
+                <Pill
+                  tone={
+                    syncQueue.counts.failed > 0
+                      ? "danger"
+                      : syncQueue.counts.pending > 0
+                        ? "warning"
+                        : "success"
+                  }
+                  dot
+                  label={
+                    syncQueue.counts.failed > 0
+                      ? t("settings:sync.failed", { count: syncQueue.counts.failed })
+                      : syncQueue.counts.pending > 0
+                        ? t("settings:sync.pending", { count: syncQueue.counts.pending })
+                        : t("settings:sync.upToDate")
+                  }
                 />
-                <Button
-                  className="flex-1"
-                  size="sm"
-                  variant="ghost"
-                  label={t("settings:sync.clearFailed")}
-                  disabled={syncQueue.counts.failed === 0}
-                  onPress={() => void syncQueue.clearFailed()}
+              }
+            />
+            <Divider />
+            <Row
+              label={t("settings:sync.pendingCount")}
+              value={<NumericValue text={String(syncQueue.counts.pending)} />}
+            />
+            <Divider />
+            <Row
+              label={t("settings:sync.failedCount")}
+              value={
+                <NumericValue
+                  text={String(syncQueue.counts.failed)}
+                  tone={syncQueue.counts.failed > 0 ? "danger" : "default"}
                 />
-              </View>
+              }
+            />
+            {lastError ? (
+              <>
+                <Divider />
+                <View className="px-lg py-md">
+                  <Text className="text-caption text-danger-text" numberOfLines={2}>
+                    {lastError}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+            <Divider />
+            <View className="flex-row gap-sm px-lg py-md">
+              <Button
+                className="flex-1"
+                size="sm"
+                variant="outline"
+                label={t("settings:sync.retryAll")}
+                disabled={syncQueue.counts.pending + syncQueue.counts.failed === 0}
+                onPress={() => void syncQueue.retryAll()}
+              />
+              <Button
+                className="flex-1"
+                size="sm"
+                variant="ghost"
+                label={t("settings:sync.clearFailed")}
+                disabled={syncQueue.counts.failed === 0}
+                onPress={() => void syncQueue.clearFailed()}
+              />
             </View>
           </Card>
-        </View>
+        </Section>
 
-        <View className="gap-md">
-          <Text className="text-caption uppercase text-fg-secondary">
-            {t("settings:sections.app")}
-          </Text>
-          <Card>
-            <View className="gap-sm">
-              <InfoRow label={t("settings:version")} value={appVersion} />
-              <InfoRow label={t("settings:build")} value={buildNumber} />
-            </View>
+        <Section title={t("settings:sections.app")}>
+          <Card className="p-0">
+            <Row label={t("settings:version")} value={<NumericValue text={appVersion} />} />
+            <Divider />
+            <Row label={t("settings:build")} value={<NumericValue text={buildNumber} />} />
           </Card>
-        </View>
+        </Section>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View className="flex-row items-center justify-between gap-md">
-      <Text className="text-body text-fg-secondary">{label}</Text>
-      {typeof value === "string" ? (
-        <Text className="text-title text-fg-primary" numberOfLines={1}>
-          {value}
-        </Text>
-      ) : (
-        value
-      )}
+    <View className="gap-sm">
+      <Text className="text-caption font-medium uppercase text-fg-secondary px-xs">{title}</Text>
+      {children}
     </View>
   );
+}
+
+function Row({
+  label,
+  value,
+  control,
+  hint,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  control?: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <View className="px-lg py-md gap-sm">
+      <View className="flex-row items-center justify-between gap-md">
+        <Text className="text-body text-fg-primary flex-1">{label}</Text>
+        {value}
+      </View>
+      {control ? <View>{control}</View> : null}
+      {hint ? <Text className="text-caption text-fg-secondary">{hint}</Text> : null}
+    </View>
+  );
+}
+
+function NumericValue({ text, tone = "default" }: { text: string; tone?: "default" | "danger" }) {
+  return (
+    <Text
+      className={`text-title ${tone === "danger" ? "text-danger-text" : "text-fg-primary"}`}
+      numberOfLines={1}
+    >
+      {text}
+    </Text>
+  );
+}
+
+function Divider() {
+  return <View className="h-[0.5px] bg-line-tertiary mx-lg" />;
 }
