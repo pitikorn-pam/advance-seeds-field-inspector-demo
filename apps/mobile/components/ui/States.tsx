@@ -81,11 +81,11 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  const { resolved } = useTheme();
   // If a custom action is passed we can't fold it into StateCard's
   // primaryLabel/onPrimary — fall back to the legacy layout so consumers
   // keep working without an API change.
   if (action) {
-    const { resolved } = useTheme();
     const iconColor = resolved === "dark" ? "rgba(255,255,255,0.56)" : "rgba(13,16,40,0.62)";
     return (
       <View className="items-center justify-center gap-md rounded-lg border border-line-tertiary bg-card-cream py-3xl px-xl">
