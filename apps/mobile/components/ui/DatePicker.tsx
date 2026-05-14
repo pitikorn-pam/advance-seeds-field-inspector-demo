@@ -48,7 +48,7 @@ export function DatePicker({ visible, value, locale, title, onClose, onClear, on
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View className="flex-1 justify-center bg-black/30 px-lg">
-        <View className="rounded-xl bg-bg-primary px-lg py-lg">
+        <View className="rounded-lg bg-bg-primary px-lg py-lg">
           {title ? (
             <Text className="text-title font-medium text-fg-primary mb-md">{title}</Text>
           ) : null}
@@ -60,7 +60,7 @@ export function DatePicker({ visible, value, locale, title, onClose, onClear, on
               className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary"
               onPress={() => shiftMonth(-1)}
             >
-              <ChevronLeft color="#1A1A1A" size={18} />
+              <ChevronLeft color="#171717" size={18} />
             </Pressable>
             <Text className="text-title font-medium text-fg-primary">{monthLabel}</Text>
             <Pressable
@@ -69,7 +69,7 @@ export function DatePicker({ visible, value, locale, title, onClose, onClear, on
               className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary"
               onPress={() => shiftMonth(1)}
             >
-              <ChevronRight color="#1A1A1A" size={18} />
+              <ChevronRight color="#171717" size={18} />
             </Pressable>
           </View>
 

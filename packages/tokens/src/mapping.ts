@@ -14,13 +14,41 @@ export function mapColorsForTailwind(
   color: DesignTokensJson["color"],
 ): Record<string, string | Record<string, string>> {
   return {
-    // Brand — DEFAULT enables `bg-brand` shorthand
+    // Primary / brand — DEFAULT enables `bg-brand` shorthand for legacy app code,
+    // while `bg-primary` expresses the new DESIGN.md language directly.
+    primary: {
+      DEFAULT: "var(--as-primary)",
+      pressed: "var(--as-primary-pressed)",
+      deep: "var(--as-primary-deep)",
+      on: "var(--as-primary-on)",
+    },
     brand: {
       DEFAULT: "var(--as-brand)",
       soft: "var(--as-brand-soft)",
       deep: "var(--as-brand-deep)",
       on: "var(--as-brand-on)",
+      navy: "var(--as-brand-navy)",
+      "navy-deep": "var(--as-brand-navy-deep)",
+      "navy-mid": "var(--as-brand-navy-mid)",
+      green: "var(--as-brand-green)",
+      teal: "var(--as-brand-teal)",
+      yellow: "var(--as-brand-yellow)",
+      orange: "var(--as-brand-orange)",
+      pink: "var(--as-brand-pink)",
+      brown: "var(--as-brand-brown)",
     },
+
+    link: {
+      DEFAULT: "var(--as-link-blue)",
+      pressed: "var(--as-link-blue-pressed)",
+    },
+
+    card: Object.fromEntries(
+      Object.entries(color.cardTint ?? {}).map(([name]) => [
+        name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`),
+        `var(--as-card-${name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)})`,
+      ]),
+    ) as Record<string, string>,
 
     // Surfaces, text, borders — three-stop ramps mirroring the JSON
     bg: {
@@ -32,6 +60,8 @@ export function mapColorsForTailwind(
       primary: "var(--as-text-primary)",
       secondary: "var(--as-text-secondary)",
       tertiary: "var(--as-text-tertiary)",
+      "on-dark": "var(--as-text-on-dark)",
+      "on-dark-muted": "var(--as-text-on-dark-muted)",
     },
     line: {
       primary: "var(--as-border-primary)",
@@ -58,7 +88,10 @@ export function mapColorsForTailwind(
     glass: Object.fromEntries(
       Object.entries(color.glass)
         .filter(([, v]) => typeof v !== "string")
-        .map(([name]) => [name, `var(--as-glass-${name})`]),
+        .map(([name]) => [
+          name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`),
+          `var(--as-glass-${name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)})`,
+        ]),
     ) as Record<string, string>,
   };
 }

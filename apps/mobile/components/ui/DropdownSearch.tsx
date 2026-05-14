@@ -78,7 +78,7 @@ export function DropdownSearch({
   const sheetTopGap = insets.top + 10;
   const sheetHeight = WINDOW_HEIGHT - sheetTopGap;
   const swipeDismissThreshold = sheetHeight * 0.2;
-  const closeIconColor = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
+  const closeIconColor = resolved === "dark" ? "#F7F7F5" : "#171717";
   const [open, setOpen] = useState(false);
   // `mounted` keeps the Modal in the tree while the close animation plays.
   // Without it, setting `open=false` would unmount the Modal mid-tween and
@@ -178,7 +178,7 @@ export function DropdownSearch({
       <Pressable
         accessibilityRole="button"
         onPress={() => setOpen(true)}
-        className={`flex-row items-center gap-md rounded-xl bg-bg-primary border px-md py-md ${
+        className={`flex-row items-center gap-md rounded-lg bg-bg-primary border px-md py-md ${
           invalid ? "border-danger-text" : "border-line-tertiary"
         }`}
       >
@@ -209,10 +209,10 @@ export function DropdownSearch({
               onChange(null);
             }}
           >
-            <X color="#6B6B68" size={14} />
+            <X color="#5F5F5B" size={14} />
           </Pressable>
         ) : (
-          <ChevronDown color="#9D9D9A" size={16} />
+          <ChevronDown color="#8C8C87" size={16} />
         )}
       </Pressable>
 
@@ -262,12 +262,12 @@ export function DropdownSearch({
                   >
                     <X color={closeIconColor} size={18} />
                   </Pressable>
-                  <View className="flex-1 flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
-                    <Search color="#9D9D9A" size={16} />
+                  <View className="flex-1 flex-row items-center gap-sm rounded-lg bg-bg-primary border border-line-tertiary px-md py-sm">
+                    <Search color="#8C8C87" size={16} />
                     <TextInput
                       autoFocus
                       placeholder={placeholder}
-                      placeholderTextColor="#9D9D9A"
+                      placeholderTextColor="#8C8C87"
                       value={query}
                       onChangeText={setQuery}
                       className="flex-1 text-body text-fg-primary"
@@ -277,7 +277,7 @@ export function DropdownSearch({
                         onPress={() => setQuery("")}
                         accessibilityLabel={t("actions.cancel")}
                       >
-                        <X color="#9D9D9A" size={16} />
+                        <X color="#8C8C87" size={16} />
                       </Pressable>
                     ) : null}
                   </View>
@@ -309,7 +309,7 @@ export function DropdownSearch({
                           </Text>
                         ) : null}
                       </View>
-                      {item.id === value ? <Check color="#0F6E56" size={18} /> : null}
+                      {item.id === value ? <Check color="#6C47FF" size={18} /> : null}
                     </Pressable>
                   )}
                   ListEmptyComponent={

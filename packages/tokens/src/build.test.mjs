@@ -54,12 +54,12 @@ test("every handoff token is present in generated CSS with the same value", () =
   );
 });
 
-test("dark theme block exists and uses the JSON darkValue for brand", () => {
+test("dark theme block exists and uses the JSON darkValue for primary", () => {
   // Generated CSS uses [data-theme="dark"] for explicit override.
   assert.match(generatedCss, /\[data-theme="dark"\]\s*\{/);
-  // The dark brand value from the JSON should appear inside the dark block.
+  // The dark primary value from the JSON should appear inside the dark block.
   const darkBlock = generatedCss.split('[data-theme="dark"]')[1] ?? "";
-  assert.match(darkBlock, /--as-brand:\s*#5DCAA5/i);
+  assert.match(darkBlock, /--as-brand:\s*#8F75FF/i);
 });
 
 test("tailwind preset references CSS vars (not hex) for brand", () => {

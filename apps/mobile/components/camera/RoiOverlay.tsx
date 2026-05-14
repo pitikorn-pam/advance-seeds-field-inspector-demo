@@ -15,8 +15,8 @@ interface Props {
   onRoi: (roi: Roi | null) => void;
 }
 
-const STROKE = "#5DCAA5";
-const FILL = "rgba(93, 202, 165, 0.18)";
+const STROKE = "#7DD3C7";
+const FILL = "rgba(125, 211, 199, 0.18)";
 const STROKE_WIDTH = 2;
 
 /**

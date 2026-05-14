@@ -49,8 +49,8 @@ async function imageSize(uri: string): Promise<{ width: number; height: number }
 
 function roiSvg(roi: Roi | null, width: number, height: number) {
   if (!roi) return "";
-  const stroke = "#5DCAA5";
-  const fill = "rgba(93, 202, 165, 0.18)";
+  const stroke = "#7DD3C7";
+  const fill = "rgba(125, 211, 199, 0.18)";
   if (roi.kind === "rect") {
     return `<rect x="${roi.x * width}" y="${roi.y * height}" width="${roi.w * width}" height="${roi.h * height}" fill="${fill}" stroke="${stroke}" stroke-width="6" />`;
   }

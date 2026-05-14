@@ -16,10 +16,10 @@ import { LoadingState, ErrorState } from "@/components/ui/States";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FAEEDA", fg: "#854F0B" },
-  rice: { bg: "#EAF3DE", fg: "#3B6D11" },
-  legume: { bg: "#E1F5EE", fg: "#0F6E56" },
-  mungbean: { bg: "#FAECE7", fg: "#993C1D" },
+  corn: { bg: "#FFF1B8", fg: "#704B00" },
+  rice: { bg: "#DFF6EC", fg: "#6C47FF" },
+  legume: { bg: "#EEE9FF", fg: "#3F249B" },
+  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
 };
 
 /**
@@ -81,14 +81,14 @@ export default function VarietyDetail() {
         title={variety.name}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
         right={
           policy.canEditVariety()
             ? {
                 accessibilityLabel: t("common:actions.edit"),
-                renderIcon: () => <Pencil color="#1A1A1A" size={18} />,
+                renderIcon: () => <Pencil color="#171717" size={18} />,
                 onPress: () => router.push(`/more/capture-classes/${variety.id}` as never),
               }
             : undefined

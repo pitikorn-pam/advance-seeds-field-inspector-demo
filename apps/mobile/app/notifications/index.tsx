@@ -18,10 +18,10 @@ import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 const PAGE_SIZE = 10;
 
 const KIND_VISUAL: Record<NotificationKind, { icon: typeof Info; color: string; bg: string }> = {
-  success: { icon: CheckCircle2, color: "#27500A", bg: "#EAF3DE" },
-  info: { icon: Info, color: "#0C447C", bg: "#E6F1FB" },
-  warning: { icon: AlertTriangle, color: "#633806", bg: "#FAEEDA" },
-  error: { icon: AlertCircle, color: "#791F1F", bg: "#FCEBEB" },
+  success: { icon: CheckCircle2, color: "#285B12", bg: "#DFF6EC" },
+  info: { icon: Info, color: "#1957A4", bg: "#E2F0FF" },
+  warning: { icon: AlertTriangle, color: "#704B00", bg: "#FFF1B8" },
+  error: { icon: AlertCircle, color: "#8A1F1B", bg: "#FFE2E0" },
 };
 
 /**
@@ -80,14 +80,14 @@ export default function NotificationsModal() {
         title={t("notifications:title")}
         left={{
           accessibilityLabel: t("common:actions.close"),
-          renderIcon: () => <X color="#1A1A1A" size={18} />,
+          renderIcon: () => <X color="#171717" size={18} />,
           onPress: () => router.back(),
         }}
         right={
           unreadCount > 0 && profile
             ? {
                 accessibilityLabel: t("notifications:markAllRead"),
-                renderIcon: () => <CheckCheck color="#0F6E56" size={18} />,
+                renderIcon: () => <CheckCheck color="#6C47FF" size={18} />,
                 onPress: () => markAllRead.mutate(profile.id),
               }
             : undefined
@@ -103,9 +103,7 @@ export default function NotificationsModal() {
           data={visible}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
-            <Text className="mb-md text-body text-fg-secondary px-xs">
-              {t("notifications:subtitle")}
-            </Text>
+            <Text className="mb-md text-body text-fg-secondary">{t("notifications:subtitle")}</Text>
           }
           renderItem={({ item, index }) => (
             <NotificationRow
@@ -122,7 +120,7 @@ export default function NotificationsModal() {
           ListFooterComponent={
             hasMore ? (
               <View className="py-md items-center">
-                <ActivityIndicator size="small" color="#0F6E56" />
+                <ActivityIndicator size="small" color="#6C47FF" />
               </View>
             ) : null
           }
@@ -154,7 +152,7 @@ function NotificationRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      className={`flex-row items-start gap-md rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg ${isLast ? "" : "mb-md"}`}
+      className={`flex-row items-start gap-md rounded-lg border border-line-tertiary bg-bg-primary px-xl py-lg ${isLast ? "" : "mb-md"}`}
     >
       <View
         className="items-center justify-center"
@@ -171,7 +169,7 @@ function NotificationRow({
             {copy.title}
           </Text>
           {unread ? (
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#0F6E56" }} />
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#6C47FF" }} />
           ) : null}
         </View>
         {copy.body ? (

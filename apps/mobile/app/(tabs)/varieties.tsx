@@ -16,10 +16,10 @@ type VarietyListEntry =
   | { kind: "item"; key: string; variety: Variety; isFirst: boolean; isLast: boolean };
 
 const FAMILY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FAEEDA", fg: "#854F0B" },
-  rice: { bg: "#EAF3DE", fg: "#3B6D11" },
-  legume: { bg: "#E1F5EE", fg: "#0F6E56" },
-  mungbean: { bg: "#FAECE7", fg: "#993C1D" },
+  corn: { bg: "#FFF1B8", fg: "#704B00" },
+  rice: { bg: "#DFF6EC", fg: "#0F6E56" },
+  legume: { bg: "#EEE9FF", fg: "#3F249B" },
+  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
 };
 
 /**
@@ -111,11 +111,11 @@ export default function LibraryTab() {
           <View className="gap-md mb-md">
             <Text className="text-h1 font-medium text-fg-primary">{t("varieties:title")}</Text>
 
-            <View className="flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
-              <Search color="#9D9D9A" size={16} />
+            <View className="flex-row items-center gap-sm rounded-lg bg-bg-primary border border-line-tertiary px-md py-sm">
+              <Search color="#8C8C87" size={16} />
               <TextInput
                 placeholder={t("library:searchPlaceholder")}
-                placeholderTextColor="#9D9D9A"
+                placeholderTextColor="#8C8C87"
                 value={query}
                 onChangeText={setQuery}
                 className="flex-1 text-body text-fg-primary"
@@ -127,7 +127,7 @@ export default function LibraryTab() {
                   accessibilityLabel={t("common:actions.cancel")}
                   onPress={() => setQuery("")}
                 >
-                  <X color="#9D9D9A" size={16} />
+                  <X color="#8C8C87" size={16} />
                 </Pressable>
               ) : null}
             </View>
@@ -194,8 +194,8 @@ function VarietyRow({ variety, isFirst, isLast, observed, onPress }: RowProps) {
       accessibilityLabel={variety.name}
       onPress={onPress}
       className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${
-        isFirst ? "rounded-t-2xl" : ""
-      } ${isLast ? "rounded-b-2xl" : "border-b border-line-tertiary"}`}
+        isFirst ? "rounded-t-lg" : ""
+      } ${isLast ? "rounded-b-lg" : "border-b border-line-tertiary"}`}
     >
       <View
         className="items-center justify-center"
@@ -218,7 +218,7 @@ function VarietyRow({ variety, isFirst, isLast, observed, onPress }: RowProps) {
           {dims}
         </Text>
       </View>
-      <ChevronRight color="#9D9D9A" size={16} />
+      <ChevronRight color="#8C8C87" size={16} />
     </Pressable>
   );
 }

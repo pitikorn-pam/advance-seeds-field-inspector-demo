@@ -42,6 +42,7 @@
     "plugins": [
       "expo-router",
       "expo-localization",
+      "./plugins/with-ios-xcode26-rn-source-fix",
       [
         "react-native-vision-camera",
         {

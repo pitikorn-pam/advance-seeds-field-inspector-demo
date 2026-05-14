@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Advance Seeds · Varieties Redesign V2</title>
+    <style>
+      :root {
+        --canvas: #f7f7f5;
+        --surface: #ffffff;
+        --soft: #f0f0ed;
+        --ink: #171717;
+        --charcoal: #2b2a27;
+        --slate: #696864;
+        --stone: #8c8c87;
+        --line: #e6e4df;
+        --line-strong: #d2cec6;
+        --primary: #6c47ff;
+        --navy: #0d1028;
+        --yellow: #ffd84d;
+        --yellow-soft: #fff1b8;
+        --mint: #dff6ec;
+        --mint-text: #0f6e56;
+        --lavender: #eee9ff;
+        --lavender-text: #3f249b;
+        --peach: #ffe8d6;
+        --peach-text: #8c3c12;
+        --sky: #e2f0ff;
+        --sky-text: #1957a4;
+        --rose: #ffe2e0;
+        --rose-text: #8a1f1b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(180deg, #fbfbfa 0%, var(--canvas) 100%);
+        color: var(--ink);
+        font-family:
+          "Notion Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      .stage {
+        width: min(1120px, calc(100vw - 28px));
+        margin: 0 auto;
+        padding: 28px 0 40px;
+      }
+
+      .title {
+        margin: 0 0 22px;
+      }
+
+      .title h1 {
+        margin: 0;
+        font-size: clamp(32px, 4.5vw, 54px);
+        line-height: 1.04;
+        letter-spacing: -0.9px;
+      }
+
+      .title p {
+        margin: 8px 0 0;
+        color: var(--slate);
+        line-height: 1.5;
+      }
+
+      .phones {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(320px, 390px));
+        gap: 30px;
+        justify-content: center;
+        align-items: start;
+      }
+
+      .phone-shell {
+        border-radius: 34px;
+        padding: 10px;
+        background: #101010;
+        box-shadow: 0 26px 66px -36px rgba(7, 9, 26, 0.62);
+      }
+
+      .phone {
+        height: 844px;
+        overflow: hidden;
+        border-radius: 26px;
+        background: var(--canvas);
+        position: relative;
+      }
+
+      .status {
+        height: 34px;
+        padding: 10px 22px 0;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .screen {
+        height: calc(100% - 34px);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .topbar {
+        min-height: 62px;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .topbar h2 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: -0.4px;
+        line-height: 1.05;
+      }
+
+      .topbar.compact h2 {
+        font-size: 20px;
+      }
+
+      .icon-btn {
+        width: 40px;
+        height: 40px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--ink);
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+      }
+
+      .icon-btn.primary {
+        border-color: var(--primary);
+        background: var(--primary);
+        color: #fff;
+      }
+
+      .content {
+        flex: 1;
+        overflow: auto;
+        padding: 0 20px 92px;
+        scrollbar-width: none;
+      }
+
+      .content::-webkit-scrollbar {
+        display: none;
+      }
+
+      .catalog-band {
+        border-radius: 12px;
+        background: var(--navy);
+        color: #fff;
+        padding: 15px;
+        margin: 4px 0 14px;
+      }
+
+      .band-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .kicker {
+        color: rgba(255, 255, 255, 0.68);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .band-head strong {
+        display: block;
+        margin-top: 3px;
+        font-size: 22px;
+        letter-spacing: -0.3px;
+      }
+
+      .sync {
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 6px 9px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.72);
+        white-space: nowrap;
+      }
+
+      .band-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 13px;
+      }
+
+      .band-metric {
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 10px;
+      }
+
+      .band-metric span {
+        display: block;
+        color: rgba(255, 255, 255, 0.62);
+        font-size: 11px;
+      }
+
+      .band-metric b {
+        display: block;
+        margin-top: 7px;
+        font-size: 20px;
+      }
+
+      .tools {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: linear-gradient(180deg, var(--canvas) 82%, rgba(247, 247, 245, 0));
+        padding-bottom: 8px;
+      }
+
+      .search {
+        height: 44px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px;
+      }
+
+      .search input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--ink);
+      }
+
+      .segments {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 10px 0 0;
+        scrollbar-width: none;
+      }
+
+      .segments::-webkit-scrollbar {
+        display: none;
+      }
+
+      .segment {
+        height: 32px;
+        padding: 0 13px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--slate);
+        font-size: 13px;
+        font-weight: 650;
+        white-space: nowrap;
+      }
+
+      .segment.active {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+      }
+
+      .section-title {
+        padding: 14px 2px 7px;
+        color: var(--stone);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .list {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .row {
+        width: 100%;
+        border: 0;
+        background: var(--surface);
+        display: grid;
+        grid-template-columns: 42px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 13px 14px;
+        text-align: left;
+        color: var(--ink);
+      }
+
+      .row + .row {
+        border-top: 1px solid var(--line);
+      }
+
+      .row:hover {
+        background: #fbfbfa;
+      }
+
+      .swatch {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .rice {
+        background: var(--mint);
+        color: var(--mint-text);
+      }
+
+      .corn {
+        background: var(--yellow-soft);
+        color: #704b00;
+      }
+
+      .mungbean {
+        background: var(--peach);
+        color: var(--peach-text);
+      }
+
+      .legume {
+        background: var(--lavender);
+        color: var(--lavender-text);
+      }
+
+      .sunflower {
+        background: var(--sky);
+        color: var(--sky-text);
+      }
+
+      .row-main {
+        min-width: 0;
+      }
+
+      .row-title {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+      }
+
+      .row-title strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 15px;
+        letter-spacing: -0.1px;
+      }
+
+      .tag {
+        border-radius: 6px;
+        padding: 3px 7px;
+        background: var(--lavender);
+        color: var(--lavender-text);
+        font-size: 10px;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .row-sub {
+        margin-top: 4px;
+        color: var(--slate);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .arrow {
+        color: var(--stone);
+        font-size: 22px;
+      }
+
+      .detail-band {
+        border-radius: 12px;
+        background: var(--navy);
+        color: #fff;
+        padding: 15px;
+        margin: 4px 0 12px;
+      }
+
+      .detail-head {
+        display: grid;
+        grid-template-columns: 62px 1fr;
+        gap: 13px;
+        align-items: center;
+      }
+
+      .detail-head .swatch {
+        width: 62px;
+        height: 62px;
+        border-radius: 12px;
+        font-size: 22px;
+      }
+
+      .detail-head h3 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 1.08;
+        letter-spacing: -0.3px;
+      }
+
+      .detail-head p {
+        margin: 5px 0 0;
+        color: rgba(255, 255, 255, 0.68);
+        font-size: 12px;
+      }
+
+      .primary-cta {
+        width: 100%;
+        height: 44px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--primary);
+        color: #fff;
+        font-weight: 700;
+        margin-top: 15px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .card + .card,
+      .card + .yellow-card,
+      .yellow-card + .card {
+        margin-top: 12px;
+      }
+
+      .card-title {
+        padding: 13px 14px;
+        border-bottom: 1px solid var(--line);
+        font-weight: 750;
+      }
+
+      .fact-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 13px 14px;
+        font-size: 14px;
+      }
+
+      .fact-row + .fact-row {
+        border-top: 1px solid var(--line);
+      }
+
+      .fact-row span {
+        color: var(--slate);
+      }
+
+      .yellow-card {
+        border: 1px solid #efd36a;
+        border-radius: 12px;
+        background: var(--yellow-soft);
+        padding: 14px;
+      }
+
+      .yellow-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .yellow-head strong {
+        color: var(--charcoal);
+      }
+
+      .yellow-head span {
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: rgba(255, 255, 255, 0.52);
+        color: #704b00;
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .grade-row {
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 0;
+        border-top: 1px solid rgba(112, 75, 0, 0.12);
+        font-size: 13px;
+      }
+
+      .grade-row:first-of-type {
+        border-top: 0;
+      }
+
+      .grade-letter {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+      }
+
+      .recent {
+        display: grid;
+        grid-template-columns: 36px 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 13px 14px;
+      }
+
+      .recent + .recent {
+        border-top: 1px solid var(--line);
+      }
+
+      .mini-board {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background:
+          radial-gradient(circle at 32% 32%, var(--primary) 0 3px, transparent 4px),
+          radial-gradient(circle at 68% 38%, var(--yellow) 0 3px, transparent 4px),
+          radial-gradient(circle at 50% 72%, var(--mint-text) 0 3px, transparent 4px),
+          var(--soft);
+      }
+
+      .recent strong {
+        display: block;
+        font-size: 13px;
+      }
+
+      .recent span {
+        display: block;
+        margin-top: 2px;
+        color: var(--slate);
+        font-size: 12px;
+      }
+
+      .grade-pill {
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: var(--mint);
+        color: var(--mint-text);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .tabbar {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        height: 62px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.94);
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        padding: 6px;
+      }
+
+      .tab {
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        color: var(--stone);
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .tab.active {
+        background: var(--lavender);
+        color: var(--primary);
+      }
+
+      @media (max-width: 820px) {
+        .phones {
+          grid-template-columns: minmax(320px, 390px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <header class="title">
+        <h1>Varieties Redesign V2</h1>
+        <p>Same content density, cleaner layout and smoother browse-to-detail journey.</p>
+      </header>
+
+      <section class="phones">
+        <article class="phone-shell">
+          <div class="phone">
+            <div class="status"><span>9:41</span><span>●●●</span></div>
+            <div class="screen">
+              <div class="topbar">
+                <h2>Varieties</h2>
+                <button class="icon-btn primary" aria-label="New variety">+</button>
+              </div>
+
+              <div class="content">
+                <section class="catalog-band">
+                  <div class="band-head">
+                    <div>
+                      <div class="kicker">Reference catalog</div>
+                      <strong>Field-ready records</strong>
+                    </div>
+                    <div class="sync">Synced</div>
+                  </div>
+                  <div class="band-grid">
+                    <div class="band-metric"><span>Active</span><b>18</b></div>
+                    <div class="band-metric"><span>Mapped</span><b>14</b></div>
+                    <div class="band-metric"><span>Criteria</span><b>11</b></div>
+                  </div>
+                </section>
+
+                <div class="tools">
+                  <label class="search">
+                    <span>⌕</span>
+                    <input id="search" placeholder="Search name, scientific name, or class" />
+                  </label>
+                  <nav class="segments">
+                    <button class="segment active" data-filter="all">All</button>
+                    <button class="segment" data-filter="rice">Rice</button>
+                    <button class="segment" data-filter="corn">Corn</button>
+                    <button class="segment" data-filter="legume">Legumes</button>
+                    <button class="segment" data-filter="mungbean">Mungbean</button>
+                  </nav>
+                </div>
+
+                <div class="section-title">Rice varieties</div>
+                <div class="list">
+                  <button class="row" data-family="rice" data-name="Rice Hom Mali Oryza A B C">
+                    <span class="swatch rice">R</span>
+                    <span class="row-main">
+                      <span class="row-title"><strong>Rice — Hom Mali</strong><span class="tag">A/B/C</span></span>
+                      <span class="row-sub">Oryza sativa · 7.2 × 2.3 mm · 24 inspections</span>
+                    </span>
+                    <span class="arrow">›</span>
+                  </button>
+                  <button class="row" data-family="rice" data-name="Rice Riceberry Oryza mapped">
+                    <span class="swatch rice">R</span>
+                    <span class="row-main">
+                      <span class="row-title"><strong>Rice — Riceberry</strong><span class="tag">Mapped</span></span>
+                      <span class="row-sub">Oryza sativa · 6.8 × 2.1 mm · 18 inspections</span>
+                    </span>
+                    <span class="arrow">›</span>
+                  </button>
+                </div>
+
+                <div class="section-title">Mungbean varieties</div>
+                <div class="list">
+                  <button class="row" data-family="mungbean" data-name="Mung bean KU2 Vigna A B C">
+                    <span class="swatch mungbean">M</span>
+                    <span class="row-main">
+                      <span class="row-title"><strong>Mung bean — KU#2</strong><span class="tag">A/B/C</span></span>
+                      <span class="row-sub">Vigna radiata · 4.9 × 3.8 mm · 12 inspections</span>
+                    </span>
+                    <span class="arrow">›</span>
+                  </button>
+                </div>
+
+                <div class="section-title">Legume varieties</div>
+                <div class="list">
+                  <button class="row" data-family="legume" data-name="Soybean Chiang Mai 60 Glycine">
+                    <span class="swatch legume">S</span>
+                    <span class="row-main">
+                      <span class="row-title"><strong>Soybean — Chiang Mai 60</strong></span>
+                      <span class="row-sub">Glycine max · 6.1 × 4.5 mm · 16 inspections</span>
+                    </span>
+                    <span class="arrow">›</span>
+                  </button>
+                </div>
+
+                <div class="section-title">Corn varieties</div>
+                <div class="list">
+                  <button class="row" data-family="corn" data-name="Corn Sweet Hybrid mapped">
+                    <span class="swatch corn">C</span>
+                    <span class="row-main">
+                      <span class="row-title"><strong>Corn — Sweet Hybrid</strong><span class="tag">Mapped</span></span>
+                      <span class="row-sub">Zea mays · 9.5 × 6.3 mm · 9 inspections</span>
+                    </span>
+                    <span class="arrow">›</span>
+                  </button>
+                  <button class="row" data-family="corn" data-name="Sunflower Pacific 88">
+                    <span class="swatch sunflower">S</span>
+                    <span class="row-main">
+                      <span class="row-title"><strong>Sunflower — Pacific 88</strong></span>
+                      <span class="row-sub">Helianthus annuus · reference pending</span>
+                    </span>
+                    <span class="arrow">›</span>
+                  </button>
+                </div>
+              </div>
+
+              <nav class="tabbar">
+                <div class="tab">Home</div>
+                <div class="tab">Inspect</div>
+                <div class="tab active">Varieties</div>
+                <div class="tab">More</div>
+              </nav>
+            </div>
+          </div>
+        </article>
+
+        <article class="phone-shell">
+          <div class="phone">
+            <div class="status"><span>9:41</span><span>●●●</span></div>
+            <div class="screen">
+              <div class="topbar compact">
+                <button class="icon-btn" aria-label="Back">‹</button>
+                <h2>Rice — Hom Mali</h2>
+                <button class="icon-btn" aria-label="Edit">✎</button>
+              </div>
+
+              <div class="content">
+                <section class="detail-band">
+                  <div class="detail-head">
+                    <span class="swatch rice">R</span>
+                    <div>
+                      <h3>Rice — Hom Mali</h3>
+                      <p>Oryza sativa · Active</p>
+                    </div>
+                  </div>
+                  <button class="primary-cta">Start inspection</button>
+                </section>
+
+                <section class="card">
+                  <div class="card-title">Reference dimensions</div>
+                  <div class="fact-row"><span>Length</span><strong>7.2 mm</strong></div>
+                  <div class="fact-row"><span>Width</span><strong>2.3 mm</strong></div>
+                  <div class="fact-row"><span>Detector class</span><strong>rice_seed</strong></div>
+                </section>
+
+                <section class="yellow-card">
+                  <div class="yellow-head">
+                    <strong>Grade criteria</strong>
+                    <span>Enabled</span>
+                  </div>
+                  <div class="grade-row">
+                    <span class="grade-letter">A</span>
+                    <span>7.0–7.6 mm · width 2.1–2.5</span>
+                    <strong>92%</strong>
+                  </div>
+                  <div class="grade-row">
+                    <span class="grade-letter">B</span>
+                    <span>6.6–6.9 mm · width 1.9–2.0</span>
+                    <strong>6%</strong>
+                  </div>
+                  <div class="grade-row">
+                    <span class="grade-letter">C</span>
+                    <span>6.2–6.5 mm · width 1.7–1.8</span>
+                    <strong>2%</strong>
+                  </div>
+                </section>
+
+                <section class="card">
+                  <div class="card-title">Recent inspections</div>
+                  <div class="recent">
+                    <span class="mini-board"></span>
+                    <span><strong>Tray QA · Lot HM-26-0514</strong><span>24 seeds · 7.21 mm mean</span></span>
+                    <span class="grade-pill">A</span>
+                  </div>
+                  <div class="recent">
+                    <span class="mini-board"></span>
+                    <span><strong>Field check · North plot</strong><span>18 seeds · 7.18 mm mean</span></span>
+                    <span class="grade-pill">A</span>
+                  </div>
+                  <div class="recent">
+                    <span class="mini-board"></span>
+                    <span><strong>R&D review sample</strong><span>22 seeds · 6.94 mm mean</span></span>
+                    <span class="grade-pill" style="background: var(--yellow-soft); color: #704b00">B</span>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const search = document.querySelector("#search");
+      const segments = [...document.querySelectorAll(".segment")];
+      const rows = [...document.querySelectorAll(".row")];
+      const lists = [...document.querySelectorAll(".list")];
+      const titles = [...document.querySelectorAll(".section-title")];
+
+      function filterRows() {
+        const active = document.querySelector(".segment.active").dataset.filter;
+        const query = search.value.trim().toLowerCase();
+        rows.forEach((row) => {
+          const familyOk = active === "all" || row.dataset.family === active;
+          const textOk = !query || row.dataset.name.toLowerCase().includes(query);
+          row.hidden = !(familyOk && textOk);
+        });
+        lists.forEach((list, index) => {
+          const visible = [...list.querySelectorAll(".row")].some((row) => !row.hidden);
+          list.hidden = !visible;
+          titles[index].hidden = !visible;
+        });
+      }
+
+      segments.forEach((segment) => {
+        segment.addEventListener("click", () => {
+          segments.forEach((item) => item.classList.remove("active"));
+          segment.classList.add("active");
+          filterRows();
+        });
+      });
+
+      search.addEventListener("input", filterRows);
+    </script>
+  </body>
+</html>

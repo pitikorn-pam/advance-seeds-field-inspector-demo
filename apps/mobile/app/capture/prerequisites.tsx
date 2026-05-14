@@ -15,7 +15,7 @@ export default function CapturePrerequisites() {
         title={t("inspections:capture.modePicker.infoTitle")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -52,7 +52,7 @@ export default function CapturePrerequisites() {
 
 function PrerequisiteBlock({ title, items }: { title: string; items: string[] }) {
   return (
-    <View className="rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg">
+    <View className="rounded-lg border border-line-tertiary bg-bg-primary px-xl py-lg">
       <Text className="text-title font-medium text-fg-primary">{title}</Text>
       <View className="mt-md gap-sm">
         {items.map((item) => (

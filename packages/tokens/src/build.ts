@@ -100,11 +100,47 @@ const pushColor = (name: string, light: string, dark?: string) => {
 };
 
 // brand
+pushColor("primary", tokens.color.brand.primary.value, tokens.color.brand.primary.darkValue);
+pushColor(
+  "primary-pressed",
+  tokens.color.brand.primaryPressed?.value ?? tokens.color.brand.primary.value,
+  tokens.color.brand.primaryPressed?.darkValue ?? tokens.color.brand.primary.darkValue,
+);
+pushColor(
+  "primary-deep",
+  tokens.color.brand.primaryDeep?.value ?? tokens.color.brand.deep.value,
+  tokens.color.brand.primaryDeep?.darkValue ?? tokens.color.brand.deep.darkValue,
+);
+lightVars.push(`  --as-primary-on: #FFFFFF;`);
+darkVars.push(`    --as-primary-on: #FFFFFF;`);
 pushColor("brand", tokens.color.brand.primary.value, tokens.color.brand.primary.darkValue);
 pushColor("brand-soft", tokens.color.brand.soft.value, tokens.color.brand.soft.darkValue);
 pushColor("brand-deep", tokens.color.brand.deep.value, tokens.color.brand.deep.darkValue);
 lightVars.push(`  --as-brand-on: #FFFFFF;`);
-darkVars.push(`    --as-brand-on: #04342C;`);
+darkVars.push(`    --as-brand-on: #FFFFFF;`);
+
+const optionalBrandColors = {
+  "brand-navy": tokens.color.brand.navy,
+  "brand-navy-deep": tokens.color.brand.navyDeep,
+  "brand-navy-mid": tokens.color.brand.navyMid,
+  "link-blue": tokens.color.brand.linkBlue,
+  "link-blue-pressed": tokens.color.brand.linkBluePressed,
+  "brand-green": tokens.color.brand.seedGreen,
+  "brand-pink": tokens.color.brand.pink,
+  "brand-orange": tokens.color.brand.orange,
+  "brand-teal": tokens.color.brand.teal,
+  "brand-yellow": tokens.color.brand.yellow,
+  "brand-brown": tokens.color.brand.brown,
+} as const;
+for (const [name, token] of Object.entries(optionalBrandColors)) {
+  if (!token) continue;
+  pushColor(name, token.value, token.darkValue);
+}
+
+for (const [name, token] of Object.entries(tokens.color.cardTint ?? {})) {
+  const cssName = name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+  pushColor(`card-${cssName}`, token.value, token.darkValue);
+}
 
 // surfaces
 for (const k of ["primary", "secondary", "tertiary"] as const) {
@@ -113,22 +149,27 @@ for (const k of ["primary", "secondary", "tertiary"] as const) {
 for (const k of ["primary", "secondary", "tertiary"] as const) {
   pushColor(`text-${k}`, tokens.color.text[k].value, tokens.color.text[k].darkValue);
 }
+if (tokens.color.text.onDark) {
+  pushColor("text-on-dark", tokens.color.text.onDark.value, tokens.color.text.onDark.darkValue);
+}
+if (tokens.color.text.onDarkMuted) {
+  pushColor(
+    "text-on-dark-muted",
+    tokens.color.text.onDarkMuted.value,
+    tokens.color.text.onDarkMuted.darkValue,
+  );
+}
 for (const k of ["primary", "secondary", "tertiary"] as const) {
   pushColor(`border-${k}`, tokens.color.border[k].value, tokens.color.border[k].darkValue);
 }
 
-// semantic — both bg and text; light only in JSON, dark values are pinned in source CSS,
-// so we mirror them here as a deliberate runtime override matching docs/handoff/design-tokens.css.
-const semanticDark = {
-  success: { bg: "#173404", text: "#C0DD97" },
-  warning: { bg: "#412402", text: "#FAC775" },
-  danger: { bg: "#501313", text: "#F7C1C1" },
-  info: { bg: "#042C53", text: "#B5D4F4" },
-} as const;
-
 for (const k of ["success", "warning", "danger", "info"] as const) {
-  pushColor(`${k}-bg`, tokens.color.semantic[k].bg.value, semanticDark[k].bg);
-  pushColor(`${k}-text`, tokens.color.semantic[k].text.value, semanticDark[k].text);
+  pushColor(`${k}-bg`, tokens.color.semantic[k].bg.value, tokens.color.semantic[k].bg.darkValue);
+  pushColor(
+    `${k}-text`,
+    tokens.color.semantic[k].text.value,
+    tokens.color.semantic[k].text.darkValue,
+  );
 }
 
 // variety thumbs
@@ -143,7 +184,8 @@ for (const [name, val] of Object.entries(tokens.color.variety)) {
 // dark-mode shift would just darken an already-darkening overlay.
 for (const [name, val] of Object.entries(tokens.color.glass)) {
   if (typeof val === "string") continue;
-  lightVars.push(`  --as-glass-${name}: ${val.value};`);
+  const cssName = name.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+  lightVars.push(`  --as-glass-${cssName}: ${val.value};`);
 }
 
 // fonts — handoff CSS quotes family names with double quotes; JSON uses

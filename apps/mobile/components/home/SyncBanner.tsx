@@ -32,14 +32,14 @@ export function SyncBanner() {
         }
       : {
           bg: state === "failed" ? "#FBEAE8" : "#F4F4F1",
-          icon: state === "failed" ? "#B42318" : state === "pending" ? "#854F0B" : "#27500A",
-          title: "#1A1A1A",
+          icon: state === "failed" ? "#B42318" : state === "pending" ? "#854F0B" : "#285B12",
+          title: "#171717",
           caption: "#6B6B68",
         };
 
   return (
     <View
-      className="flex-row items-center gap-md rounded-2xl px-lg py-md"
+      className="flex-row items-center gap-md rounded-lg px-lg py-md"
       style={{ backgroundColor: colors.bg }}
     >
       <Icon color={colors.icon} size={18} />

@@ -4,8 +4,8 @@ import type { LayoutChangeEvent } from "react-native";
 import Svg, { Circle as SvgCircle, Polygon, Polyline, Rect } from "react-native-svg";
 import type { Roi } from "@/lib/capture/roi";
 
-const STROKE = "#5DCAA5";
-const FILL = "rgba(93, 202, 165, 0.18)";
+const STROKE = "#7DD3C7";
+const FILL = "rgba(125, 211, 199, 0.18)";
 const STROKE_WIDTH = 2;
 
 export function RoiPreviewOverlay({ roi }: { roi: Roi | null }) {

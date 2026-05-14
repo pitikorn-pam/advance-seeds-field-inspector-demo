@@ -122,7 +122,7 @@ export function DetectionOverlay({
   return (
     <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
       {projected.map((p) => {
-        const color = PALETTE[p.className] ?? "#22C55E";
+        const color = PALETTE[p.className] ?? "#7DD3C7";
         const boxStyle = {
           position: "absolute" as const,
           left: p.projX,

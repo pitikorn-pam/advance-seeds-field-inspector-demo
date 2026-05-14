@@ -34,8 +34,8 @@ export function HeroCard({ inspections, dateLabel }: Props) {
   const varieties = topVarieties(inspections, t("unassigned"));
 
   return (
-    <View className="rounded-2xl overflow-hidden" style={{ backgroundColor: palette.card }}>
-      <View className="px-xl pt-lg pb-md">
+    <View className="overflow-hidden rounded-lg" style={{ backgroundColor: palette.card }}>
+      <View className="px-xl pt-xl pb-lg">
         <View className="flex-row items-center justify-between gap-md">
           <View className="flex-1">
             <Text
@@ -51,7 +51,7 @@ export function HeroCard({ inspections, dateLabel }: Props) {
               {dateLabel}
             </Text>
           </View>
-          <View className="rounded-lg px-md py-sm" style={{ backgroundColor: palette.tile }}>
+          <View className="rounded-md px-md py-sm" style={{ backgroundColor: palette.tile }}>
             <Text className="text-caption" style={{ color: palette.caption }}>
               {t("lastCapture")}
             </Text>
@@ -169,39 +169,39 @@ interface DashboardPalette {
 }
 
 const lightPalette: DashboardPalette = {
-  card: "#F7F4EA",
-  tile: "rgba(15,110,86,0.09)",
-  band: "rgba(15,110,86,0.08)",
-  text: "#16352E",
-  caption: "#66736D",
-  accent: "#0F6E56",
-  bar: "rgba(15,110,86,0.22)",
-  iconPrimary: "#087257",
-  iconWarning: "#9E5A00",
-  iconInfo: "#2662A6",
-  iconNeutral: "#7C3B73",
-  iconPrimaryBg: "#DDF4E9",
-  iconWarningBg: "#FFE6B8",
-  iconInfoBg: "#DDEBFF",
-  iconNeutralBg: "#F2DDF0",
+  card: "#FFFFFF",
+  tile: "#F5F5F2",
+  band: "#FFF1B8",
+  text: "#171717",
+  caption: "#5F5F5B",
+  accent: "#6C47FF",
+  bar: "rgba(23,23,23,0.12)",
+  iconPrimary: "#6C47FF",
+  iconWarning: "#704B00",
+  iconInfo: "#0F6E56",
+  iconNeutral: "#8C3C12",
+  iconPrimaryBg: "#EEE9FF",
+  iconWarningBg: "#FFF1B8",
+  iconInfoBg: "#DFF6EC",
+  iconNeutralBg: "#FFE8D6",
 };
 
 const darkPalette: DashboardPalette = {
-  card: "#082F29",
+  card: "#07091A",
   tile: "rgba(255,255,255,0.1)",
-  band: "rgba(0,0,0,0.16)",
-  text: "#F5F5F4",
-  caption: "rgba(245,245,244,0.64)",
-  accent: "#9DDBC9",
-  bar: "rgba(255,255,255,0.34)",
-  iconPrimary: "#9DDBC9",
-  iconWarning: "#F4C46E",
-  iconInfo: "#BFD8FF",
-  iconNeutral: "#D9D3C7",
-  iconPrimaryBg: "rgba(157,219,201,0.12)",
-  iconWarningBg: "rgba(244,196,110,0.12)",
-  iconInfoBg: "rgba(191,216,255,0.12)",
-  iconNeutralBg: "rgba(217,211,199,0.12)",
+  band: "rgba(255,255,255,0.06)",
+  text: "#F7F7F5",
+  caption: "rgba(255,255,255,0.68)",
+  accent: "#F4C430",
+  bar: "rgba(255,255,255,0.3)",
+  iconPrimary: "#A492FF",
+  iconWarning: "#FFE08A",
+  iconInfo: "#7DD3C7",
+  iconNeutral: "#FDBA74",
+  iconPrimaryBg: "rgba(164,146,255,0.16)",
+  iconWarningBg: "rgba(255,224,138,0.14)",
+  iconInfoBg: "rgba(125,211,199,0.14)",
+  iconNeutralBg: "rgba(253,186,116,0.14)",
 };
 
 function MetricTile({

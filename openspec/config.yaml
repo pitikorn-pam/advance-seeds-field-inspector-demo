@@ -13,7 +13,8 @@ context: |
   - Backend: Supabase (Postgres + Auth + Storage + RLS)
 
   DESIGN SYSTEM
-  Source of truth: docs/handoff/design-tokens.json. Tokens flow into:
+  Human source of truth: DESIGN.md. Machine-readable token source:
+  docs/handoff/design-tokens.json. Tokens flow into:
     - apps/mobile via NativeWind (Tailwind for RN)
     - packages/tokens generates the TS export from the JSON
   Reference platform stubs (docs/handoff/DesignTokens.swift, Theme.kt) preserved for
@@ -61,10 +62,11 @@ context: |
 
   REPO LAYOUT (pnpm monorepo)
     apps/mobile             → Expo app
+    DESIGN.md               → current design DNA
     packages/tokens         → TS tokens generated from design-tokens.json
     packages/types          → Supabase generated types
     supabase/               → migrations, seed.sql, RLS policies, types codegen
-    docs/handoff/           → original design system handoff (preserved)
+    docs/handoff/           → token handoff + original references
     openspec/               → spec-driven dev artifacts
     .github/workflows/      → CI
 

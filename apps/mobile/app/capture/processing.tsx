@@ -573,7 +573,7 @@ export default function CaptureProcessing() {
 
   if (error) {
     return (
-      <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <SafeAreaView className="flex-1 bg-card-cream" edges={["top", "bottom"]}>
         <View className="flex-1 items-center justify-center gap-md px-xl">
           <Text className="text-h1 text-fg-primary font-medium">{t("common:states.error")}</Text>
           <Text className="text-body text-fg-secondary text-center">{error}</Text>
@@ -587,7 +587,7 @@ export default function CaptureProcessing() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-card-cream" edges={["top", "bottom"]}>
       <View className="flex-1 items-center px-xl pt-3xl">
         <View className="mt-3xl mb-xl">
           <ProcessingOrb />
@@ -644,13 +644,13 @@ function Step({
   return (
     <View className="flex-row items-center gap-md">
       {done ? (
-        <Check color="#0F6E56" size={16} />
+        <Check color="#6C47FF" size={16} />
       ) : spinning ? (
-        <ActivityIndicator color="#0F6E56" size="small" />
+        <ActivityIndicator color="#6C47FF" size="small" />
       ) : (
         <View
           className="h-4 w-4 rounded-full"
-          style={{ borderWidth: 1.5, borderColor: "rgba(0,0,0,0.12)" }}
+          style={{ borderWidth: 1.5, borderColor: "rgba(23,23,23,0.14)" }}
         />
       )}
       <Text className={done ? "text-fg-primary" : "text-fg-secondary"} style={{ fontSize: 13 }}>

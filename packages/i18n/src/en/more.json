@@ -2,7 +2,7 @@
   "title": "More",
   "sections": {
     "account": "Account",
-    "captureAssets": "Capture assets",
+    "captureAssets": "Model readiness",
     "reference": "Reference",
     "insights": "Insights"
   },
@@ -21,7 +21,6 @@
   },
   "masterData": {
     "varieties": "Varieties",
-    "varietiesIntro": "The full variety record — public profile, detector mapping, and A/B/C grade criteria used for inspection.",
     "searchPlaceholder": "Search name, scientific name, or class",
     "newTitle": "New variety",
     "editTitle": "Edit variety",
@@ -54,7 +53,6 @@
   },
   "hyperparams": {
     "title": "Model hyperparameters",
-    "intro": "Tune the live + single-shot inference thresholds and live inference fps for QA. Settings persist across reloads; tap Reset to revert to defaults.",
     "scoreThreshold": "Confidence threshold",
     "scoreThresholdHint": "Drop detections below this score before NMS. Higher = fewer false positives.",
     "iouThreshold": "NMS IoU threshold",
@@ -81,7 +79,6 @@
   },
   "models": {
     "title": "Model registry",
-    "intro": "Browse deployed registry models, install validated Android TFLite or iOS Core ML artifacts, activate a model, or roll back to the previous active model. Bundled weights remain the fallback.",
     "indexUrl": "Model index URL",
     "staging": "Staging",
     "production": "Production",

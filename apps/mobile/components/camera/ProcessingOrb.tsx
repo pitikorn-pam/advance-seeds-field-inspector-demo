@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Animated, Easing } from "react-native";
 
 /**
- * Spinning brand-colored ring — the "we're analyzing" hero element on the
+ * Spinning primary-colored ring — the "we're analyzing" hero element on the
  * processing screen. Matches the prototype's `.processing-orb` (a 120px
  * circle with a 4px brand border, top-edge transparent, rotating linearly
  * over 1.4 s).
@@ -35,9 +35,9 @@ export function ProcessingOrb({ size = 120 }: { size?: number }) {
         height: size,
         borderRadius: size / 2,
         borderWidth: 4,
-        borderColor: "#0F6E56",
+        borderColor: "#6C47FF",
         borderTopColor: "transparent",
-        backgroundColor: "#E1F5EE",
+        backgroundColor: "#EEE9FF",
         transform: [{ rotate: spin }],
       }}
     />

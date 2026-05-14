@@ -1,29 +1,43 @@
 import { Pressable, Text } from "react-native";
 import type { PressableProps } from "react-native";
 
-type Variant = "primary" | "outline" | "tinted" | "ghost" | "danger";
+type Variant =
+  | "primary"
+  | "secondary"
+  | "outline"
+  | "tinted"
+  | "ghost"
+  | "danger"
+  | "onDark"
+  | "yellowFeature";
 type Size = "md" | "sm" | "icon";
 
 const variantClass: Record<Variant, string> = {
-  primary: "bg-brand active:opacity-90",
+  primary: "bg-primary active:bg-primary-pressed",
+  secondary: "bg-bg-primary border border-line-secondary active:bg-bg-secondary",
   outline: "bg-transparent border border-line-secondary active:bg-bg-secondary",
   tinted: "bg-bg-secondary active:bg-bg-tertiary",
   ghost: "bg-transparent active:bg-bg-secondary",
   danger: "bg-danger-bg active:opacity-90",
+  onDark: "bg-fg-on-dark active:opacity-90",
+  yellowFeature: "bg-card-yellow-bold active:opacity-90",
 };
 
 const variantText: Record<Variant, string> = {
-  primary: "text-brand-on",
+  primary: "text-primary-on",
+  secondary: "text-fg-primary",
   outline: "text-fg-primary",
   tinted: "text-fg-primary",
   ghost: "text-fg-primary",
   danger: "text-danger-text",
+  onDark: "text-brand-navy",
+  yellowFeature: "text-fg-primary",
 };
 
 const sizeClass: Record<Size, string> = {
-  md: "h-12 px-xl rounded-lg",
+  md: "h-11 px-xl rounded-md",
   sm: "h-9 px-md rounded-md",
-  icon: "h-10 w-10 rounded-full items-center justify-center",
+  icon: "h-10 w-10 rounded-md items-center justify-center",
 };
 
 interface Props extends Omit<PressableProps, "children"> {

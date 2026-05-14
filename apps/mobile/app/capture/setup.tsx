@@ -3,7 +3,7 @@ import { Alert, ScrollView, View, Text, Pressable, TextInput } from "react-nativ
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft, MapPin } from "lucide-react-native";
+import { ChevronLeft, MapPin, Sparkles } from "lucide-react-native";
 import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { useVarieties } from "@/lib/queries";
@@ -20,10 +20,10 @@ import { effectiveModelAliases } from "@/lib/analyzer/captureClasses";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FAEEDA", fg: "#854F0B" },
-  rice: { bg: "#EAF3DE", fg: "#3B6D11" },
-  legume: { bg: "#E1F5EE", fg: "#0F6E56" },
-  mungbean: { bg: "#FAECE7", fg: "#993C1D" },
+  corn: { bg: "#FFF1B8", fg: "#704B00" },
+  rice: { bg: "#DFF6EC", fg: "#0F6E56" },
+  legume: { bg: "#EEE9FF", fg: "#3F249B" },
+  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
 };
 
 /**
@@ -79,7 +79,7 @@ export default function CaptureSetup() {
           leading: tint ? (
             <VarietyThumb letter={v.name.charAt(0)} tint={tint} />
           ) : (
-            <VarietyThumb letter={v.name.charAt(0)} tint={{ bg: "#F4F4F1", fg: "#6B6B68" }} />
+            <VarietyThumb letter={v.name.charAt(0)} tint={{ bg: "#F5F5F2", fg: "#5F5F5B" }} />
           ),
         };
       });
@@ -157,13 +157,25 @@ export default function CaptureSetup() {
         title={t("common:actions.newInspection")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: onBack,
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
+        <Text className="text-body text-fg-secondary px-xs">
+          {t("inspections:capture.setupSubtitle")}
+        </Text>
+
         {modelInstallGate.blocked ? (
-          <Card className="gap-xs border border-warning-text/30 bg-warning-bg">
+          <Card tone="yellowBold" className="gap-xs border border-warning-text/30">
+            <View className="flex-row items-center gap-sm">
+              <View className="h-8 w-8 items-center justify-center rounded-md bg-bg-primary/70">
+                <Sparkles color="#704B00" size={16} />
+              </View>
+              <Text className="text-caption font-medium uppercase text-warning-text">
+                {t("inspections:capture.modelReadiness")}
+              </Text>
+            </View>
             <Text className="text-title text-fg-primary font-medium">
               {modelInstallGate.installing
                 ? t("inspections:capture.modelInstallBlockedTitle")
@@ -182,10 +194,6 @@ export default function CaptureSetup() {
             </Text>
           </Card>
         ) : null}
-        <Text className="text-body text-fg-secondary px-xs">
-          {t("inspections:capture.setupSubtitle")}
-        </Text>
-
         {/* Variety — mandatory dropdown with search. */}
         <View className="gap-xs">
           <Text className="text-caption uppercase text-fg-secondary px-xs">
@@ -216,24 +224,24 @@ export default function CaptureSetup() {
           </Text>
           <TextInput
             placeholder={t("inspections:capture.notesPlaceholder")}
-            placeholderTextColor="#9D9D9A"
+            placeholderTextColor="#8C8C87"
             value={session.notes}
             onChangeText={(notes) => session.set({ notes })}
             multiline
             textAlignVertical="top"
-            className="rounded-xl bg-bg-primary border border-line-tertiary px-md py-md text-body text-fg-primary"
+            className="rounded-lg bg-bg-primary border border-line-tertiary px-md py-md text-body text-fg-primary"
             style={{ minHeight: 96 }}
           />
         </View>
 
         {/* Auto-tag location toggle — actual GPS capture wired in upcoming
             expo-location commit; today we record intent only. */}
-        <Card className="flex-row items-center gap-md">
+        <Card tone="mint" className="flex-row items-center gap-md">
           <View
-            className="items-center justify-center bg-brand-soft"
-            style={{ width: 32, height: 32, borderRadius: 10 }}
+            className="items-center justify-center rounded-md bg-bg-primary/70"
+            style={{ width: 32, height: 32 }}
           >
-            <MapPin color="#0F6E56" size={16} />
+            <MapPin color="#11A78B" size={16} />
           </View>
           <View className="flex-1">
             <Text className="text-title text-fg-primary font-medium">
@@ -279,9 +287,9 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
       style={{
         width: 50,
         height: 30,
-        borderRadius: 15,
+        borderRadius: 999,
         padding: 3,
-        backgroundColor: value ? "#0F6E56" : "rgba(0,0,0,0.16)",
+        backgroundColor: value ? "#6C47FF" : "rgba(23,23,23,0.16)",
       }}
     >
       <View

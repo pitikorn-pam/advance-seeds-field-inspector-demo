@@ -62,19 +62,19 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.account")}>
           <MenuRow
-            renderIcon={() => <User color="#1A1A1A" size={16} />}
+            renderIcon={() => <User color="#171717" size={16} />}
             label={t("more:menu.profile")}
             onPress={() => router.push("/profile")}
           />
           <Divider />
           <MenuRow
-            renderIcon={() => <SettingsIcon color="#1A1A1A" size={16} />}
+            renderIcon={() => <SettingsIcon color="#171717" size={16} />}
             label={t("more:menu.settings")}
             onPress={() => router.push("/settings")}
           />
           <Divider />
           <MenuRow
-            renderIcon={() => <LogOut color="#791F1F" size={16} />}
+            renderIcon={() => <LogOut color="#8A1F1B" size={16} />}
             label={t("more:menu.signOut")}
             destructive
             onPress={onSignOut}
@@ -83,13 +83,13 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.captureAssets")}>
           <MenuRow
-            renderIcon={() => <Video color="#1A1A1A" size={16} />}
+            renderIcon={() => <Video color="#171717" size={16} />}
             label={t("more:menu.recordings")}
             onPress={() => router.push("/more/recordings" as never)}
           />
           <Divider />
           <MenuRow
-            renderIcon={() => <ListChecks color="#1A1A1A" size={16} />}
+            renderIcon={() => <ListChecks color="#171717" size={16} />}
             label={t("more:menu.history")}
             onPress={() => router.push("/more/history" as never)}
           />
@@ -97,24 +97,24 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.reference")}>
           <MenuRow
-            renderIcon={() => <Sprout color="#1A1A1A" size={16} />}
+            renderIcon={() => <Sprout color="#171717" size={16} />}
             label={t("more:menu.varieties")}
             onPress={() => router.push("/more/capture-classes" as never)}
           />
           <MenuRow
-            renderIcon={() => <Target color="#1A1A1A" size={16} />}
+            renderIcon={() => <Target color="#171717" size={16} />}
             label={t("more:menu.calibration")}
             onPress={() => router.push("/calibration")}
           />
           <Divider />
           <MenuRow
-            renderIcon={() => <Sliders color="#1A1A1A" size={16} />}
+            renderIcon={() => <Sliders color="#171717" size={16} />}
             label={t("more:menu.hyperparams")}
             onPress={() => router.push("/more/hyperparams" as never)}
           />
           <Divider />
           <MenuRow
-            renderIcon={() => <PackageOpen color="#1A1A1A" size={16} />}
+            renderIcon={() => <PackageOpen color="#171717" size={16} />}
             label={t("more:menu.models")}
             onPress={() => router.push("/more/models" as never)}
           />
@@ -122,7 +122,7 @@ export default function MoreScreen() {
 
         <Section title={t("more:sections.insights")}>
           <MenuRow
-            renderIcon={() => <BarChart3 color="#1A1A1A" size={16} />}
+            renderIcon={() => <BarChart3 color="#171717" size={16} />}
             label={t("more:menu.reports")}
             onPress={() => router.push("/reports")}
           />
@@ -135,7 +135,7 @@ export default function MoreScreen() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="gap-sm">
-      <Text className="text-caption uppercase text-fg-secondary px-xs">{title}</Text>
+      <Text className="text-caption font-medium uppercase text-fg-secondary px-xs">{title}</Text>
       <Card className="p-0">{children}</Card>
     </View>
   );
@@ -160,17 +160,17 @@ function MenuRow({
     >
       <View
         className="items-center justify-center"
-        style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: "#F4F4F1" }}
+        style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "#F5F5F2" }}
       >
         {renderIcon()}
       </View>
       <Text
         className={`flex-1 text-title font-medium ${destructive ? "" : "text-fg-primary"}`}
-        style={destructive ? { color: "#791F1F" } : undefined}
+        style={destructive ? { color: "#8A1F1B" } : undefined}
       >
         {label}
       </Text>
-      {destructive ? null : <ChevronRight color="#9D9D9A" size={16} />}
+      {destructive ? null : <ChevronRight color="#8C8C87" size={16} />}
     </Pressable>
   );
 }

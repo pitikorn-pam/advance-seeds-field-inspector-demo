@@ -18,7 +18,7 @@ export function CalibrationPill({ reading }: Props) {
   const label = locked
     ? t("capture.calibration.lockedTitle")
     : t("capture.calibration.unavailableTitle");
-  const dotColor = locked ? "#5DCAA5" : "#A1A1A0";
+  const dotColor = locked ? "#7DD3C7" : "#B6B6B0";
 
   return (
     <View className="flex-row items-center gap-xs rounded-full bg-glass-soft px-md py-xs">

@@ -2,7 +2,7 @@ import { ScrollView, View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Camera as CameraIcon, Target, RefreshCw } from "lucide-react-native";
+import { Camera as CameraIcon, DatabaseZap, RefreshCw, Target } from "lucide-react-native";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { setOnboarded } from "@/lib/onboarding";
 import { Card } from "@/components/ui/Card";
@@ -38,96 +38,51 @@ export default function Welcome() {
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <ScrollView contentContainerClassName="px-xl pt-md pb-xl gap-md">
-        <View
-          className="items-center justify-center"
-          style={{ height: 200, backgroundColor: "#E1F5EE", borderRadius: 22 }}
-        >
-          <View style={{ position: "relative", width: 130, height: 130 }}>
-            <View
-              style={{
-                position: "absolute",
-                width: 38,
-                height: 24,
-                backgroundColor: "#0F6E56",
-                borderRadius: 12,
-                top: 30,
-                left: 18,
-                transform: [{ rotate: "15deg" }],
-              }}
-            />
-            <View
-              style={{
-                position: "absolute",
-                width: 42,
-                height: 26,
-                backgroundColor: "#0F6E56",
-                borderRadius: 13,
-                top: 56,
-                left: 56,
-                opacity: 0.7,
-                transform: [{ rotate: "-12deg" }],
-              }}
-            />
-            <View
-              style={{
-                position: "absolute",
-                width: 36,
-                height: 22,
-                backgroundColor: "#04342C",
-                borderRadius: 11,
-                top: 84,
-                left: 28,
-                opacity: 0.5,
-                transform: [{ rotate: "20deg" }],
-              }}
-            />
-            <View
-              style={{
-                position: "absolute",
-                width: 60,
-                height: 60,
-                borderWidth: 2,
-                borderColor: "#0F6E56",
-                borderRadius: 30,
-                top: 18,
-                left: 60,
-              }}
-            />
-          </View>
+        <View className="rounded-lg bg-brand-navy px-xl py-xl">
+          <Text className="text-caption font-medium uppercase text-fg-on-dark-muted">
+            {t("onboarding:welcome.heroLabel")}
+          </Text>
+          <Text className="mt-sm text-fg-on-dark font-medium" style={{ fontSize: 34 }}>
+            {t("onboarding:welcome.title")}
+          </Text>
+          <Text className="mt-sm text-body text-fg-on-dark-muted">
+            {t("onboarding:welcome.body")}
+          </Text>
         </View>
 
-        <Text
-          className="text-fg-primary font-medium mt-md"
-          style={{ fontSize: 30, letterSpacing: -0.6 }}
-        >
-          {t("onboarding:welcome.title")}
-        </Text>
-        <Text className="text-body text-fg-secondary">{t("onboarding:welcome.body")}</Text>
-
         <FeatureCard
-          renderIcon={() => <CameraIcon color="#0F6E56" size={16} />}
+          tone="yellowBold"
+          renderIcon={() => <CameraIcon color="#0D1028" size={16} />}
           title={t("onboarding:welcome.cardCameraTitle")}
           body={t("onboarding:welcome.cardCameraBody")}
         />
         <FeatureCard
-          renderIcon={() => <Target color="#0F6E56" size={16} />}
+          tone="mint"
+          renderIcon={() => <Target color="#11A78B" size={16} />}
           title={t("onboarding:welcome.cardTargetTitle")}
           body={t("onboarding:welcome.cardTargetBody")}
         />
         <FeatureCard
-          renderIcon={() => <RefreshCw color="#0F6E56" size={16} />}
+          tone="lavender"
+          renderIcon={() => <RefreshCw color="#6C47FF" size={16} />}
           title={t("onboarding:welcome.cardSyncTitle")}
           body={t("onboarding:welcome.cardSyncBody")}
+        />
+        <FeatureCard
+          tone="sky"
+          renderIcon={() => <DatabaseZap color="#1957A4" size={16} />}
+          title={t("onboarding:welcome.cardWorkspaceTitle")}
+          body={t("onboarding:welcome.cardWorkspaceBody")}
         />
       </ScrollView>
 
       <View className="px-xl pb-xl gap-sm">
         <Pressable
           accessibilityRole="button"
-          className="h-12 items-center justify-center rounded-lg bg-brand active:opacity-90"
+          className="h-11 items-center justify-center rounded-md bg-primary active:bg-primary-pressed"
           onPress={onContinue}
         >
-          <Text className="text-brand-on font-medium" style={{ fontSize: 15 }}>
+          <Text className="text-primary-on font-medium" style={{ fontSize: 14 }}>
             {t("onboarding:welcome.continue")}
           </Text>
         </Pressable>
@@ -162,17 +117,19 @@ function FeatureCard({
   renderIcon,
   title,
   body,
+  tone = "base",
 }: {
   renderIcon: () => React.ReactNode;
   title: string;
   body: string;
+  tone?: React.ComponentProps<typeof Card>["tone"];
 }) {
   return (
-    <Card>
+    <Card tone={tone}>
       <View className="flex-row items-center gap-md">
         <View
-          className="items-center justify-center"
-          style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: "#E1F5EE" }}
+          className="items-center justify-center rounded-md bg-bg-primary/70"
+          style={{ width: 32, height: 32 }}
         >
           {renderIcon()}
         </View>

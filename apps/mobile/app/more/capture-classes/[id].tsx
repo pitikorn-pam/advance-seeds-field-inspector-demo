@@ -318,7 +318,7 @@ export default function VarietyEditor() {
                   variant="danger"
                   label={t("common:actions.delete")}
                   disabled={del.isPending}
-                  renderLeadingIcon={() => <Trash2 color="#791F1F" size={14} />}
+                  renderLeadingIcon={() => <Trash2 color="#8A1F1B" size={14} />}
                   onPress={onDelete}
                 />
               ) : null}
@@ -342,7 +342,7 @@ function backAction(
 ) {
   return {
     accessibilityLabel: t("common:actions.back"),
-    renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+    renderIcon: () => <ChevronLeft color="#171717" size={20} />,
     onPress: () => router.back(),
   };
 }

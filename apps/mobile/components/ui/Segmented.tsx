@@ -51,18 +51,20 @@ export function Segmented<T extends string>({
     <Container {...containerProps}>
       {options.map((opt) => {
         const active = opt.value === value;
+        const activeClass = variant === "tag" ? "bg-fg-primary" : "bg-brand-soft";
         const inactiveClass =
-          variant === "tag" ? "bg-transparent border border-line-secondary" : "bg-bg-secondary";
+          variant === "tag" ? "bg-transparent border border-line-secondary" : "bg-card-gray";
+        const activeTextClass = variant === "tag" ? "text-fg-on-dark" : "text-brand-deep";
         return (
           <Pressable
             key={opt.value}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onChange(opt.value)}
-            className={`px-md py-xs rounded-full ${active ? "bg-brand-soft" : inactiveClass}`}
+            className={`px-md py-xs rounded-full ${active ? activeClass : inactiveClass}`}
           >
             <Text
-              className={`font-medium ${active ? "text-brand-deep" : "text-fg-secondary"}`}
+              className={`font-medium ${active ? activeTextClass : "text-fg-secondary"}`}
               style={{ fontSize: 12 }}
             >
               {opt.label}

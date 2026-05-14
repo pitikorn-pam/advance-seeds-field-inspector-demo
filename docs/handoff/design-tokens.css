@@ -1,191 +1,250 @@
-/* =========================================================================
-   Advance Seeds Field Inspector — Design Tokens
-   v1.0.0
-   Drop-in CSS custom properties. Import once at app root.
-   Auto dark-mode via prefers-color-scheme.
-   ========================================================================= */
+/* AUTO-GENERATED from docs/handoff/design-tokens.json — do not edit by hand. */
+/* Run `pnpm -F @advance-seeds/tokens build` to regenerate. */
 
 :root {
-  /* Brand */
-  --as-brand:       #0F6E56;
-  --as-brand-soft:  #E1F5EE;
-  --as-brand-deep:  #04342C;
-  --as-brand-on:    #FFFFFF;        /* Text on brand surface */
-
-  /* Surfaces */
-  --as-bg-primary:    #FFFFFF;
-  --as-bg-secondary:  #F4F4F1;
-  --as-bg-tertiary:   #FAFAF9;
-
-  /* Text */
-  --as-text-primary:    #1A1A1A;
-  --as-text-secondary:  #6B6B68;
-  --as-text-tertiary:   #9D9D9A;
-
-  /* Borders */
-  --as-border-tertiary:   rgba(0,0,0,0.06);
-  --as-border-secondary:  rgba(0,0,0,0.12);
-  --as-border-primary:    rgba(0,0,0,0.20);
-
-  /* Semantic */
-  --as-success-bg:    #EAF3DE;
-  --as-success-text:  #27500A;
-  --as-warning-bg:    #FAEEDA;
-  --as-warning-text:  #633806;
-  --as-danger-bg:     #FCEBEB;
-  --as-danger-text:   #791F1F;
-  --as-info-bg:       #E6F1FB;
-  --as-info-text:     #0C447C;
-
-  /* Variety thumbs */
-  --as-corn-bg:     #FAEEDA;
-  --as-corn-text:   #854F0B;
-  --as-rice-bg:     #EAF3DE;
-  --as-rice-text:   #3B6D11;
-  --as-legume-bg:   #E1F5EE;
-  --as-legume-text: #0F6E56;
-  --as-mungbean-bg: #FAECE7;
-  --as-mungbean-text: #993C1D;
-
-  /* Typography */
-  --as-font-sans: system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --as-primary: #6C47FF;
+  --as-primary-pressed: #5936D8;
+  --as-primary-deep: #3F249B;
+  --as-primary-on: #FFFFFF;
+  --as-brand: #6C47FF;
+  --as-brand-soft: #EEE9FF;
+  --as-brand-deep: #2D205E;
+  --as-brand-on: #FFFFFF;
+  --as-brand-navy: #0D1028;
+  --as-brand-navy-deep: #07091A;
+  --as-brand-navy-mid: #1C2445;
+  --as-link-blue: #2563EB;
+  --as-link-blue-pressed: #1D4ED8;
+  --as-brand-green: #0F6E56;
+  --as-brand-pink: #E255A1;
+  --as-brand-orange: #F77B23;
+  --as-brand-teal: #11A78B;
+  --as-brand-yellow: #F2C94C;
+  --as-brand-brown: #8C5E3C;
+  --as-card-peach: #FFE8D6;
+  --as-card-rose: #FFE2EC;
+  --as-card-mint: #DFF6EC;
+  --as-card-lavender: #EEE9FF;
+  --as-card-sky: #E2F0FF;
+  --as-card-yellow: #FFF1B8;
+  --as-card-yellow-bold: #FFD84D;
+  --as-card-cream: #FFF8E8;
+  --as-card-gray: #F5F5F2;
+  --as-bg-primary: #FFFFFF;
+  --as-bg-secondary: #F7F6F2;
+  --as-bg-tertiary: #FBFAF7;
+  --as-text-primary: #171717;
+  --as-text-secondary: #5F5F5B;
+  --as-text-tertiary: #8C8C87;
+  --as-text-on-dark: #FFFFFF;
+  --as-text-on-dark-muted: rgba(255,255,255,0.72);
+  --as-border-primary: rgba(23,23,23,0.24);
+  --as-border-secondary: rgba(23,23,23,0.14);
+  --as-border-tertiary: rgba(23,23,23,0.08);
+  --as-success-bg: #E4F4DA;
+  --as-success-text: #285B12;
+  --as-warning-bg: #FFF1B8;
+  --as-warning-text: #704B00;
+  --as-danger-bg: #FFE2E0;
+  --as-danger-text: #8A1F1B;
+  --as-info-bg: #E2F0FF;
+  --as-info-text: #1957A4;
+  --as-corn-bg: #FFF1B8;
+  --as-corn-text: #704B00;
+  --as-rice-bg: #DFF6EC;
+  --as-rice-text: #0F6E56;
+  --as-legume-bg: #EEE9FF;
+  --as-legume-text: #3F249B;
+  --as-mungbean-bg: #FFE8D6;
+  --as-mungbean-text: #8C3C12;
+  --as-glass-chip: rgba(7, 9, 26, 0.42);
+  --as-glass-soft: rgba(7, 9, 26, 0.52);
+  --as-glass-surface: rgba(7, 9, 26, 0.64);
+  --as-glass-strong: rgba(7, 9, 26, 0.78);
+  --as-glass-border: rgba(255, 255, 255, 0.18);
+  --as-glass-text: #FFFFFF;
+  --as-glass-text-muted: rgba(255, 255, 255, 0.72);
+  --as-glass-accent: rgba(255, 216, 77, 0.9);
+  --as-font-sans: "Notion Sans", Inter, -apple-system, system-ui, "Segoe UI", Helvetica, sans-serif;
   --as-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-
-  /* Spacing — multiples of 4 */
-  --as-space-xs:  4px;
-  --as-space-sm:  8px;
-  --as-space-md:  12px;
-  --as-space-lg:  16px;
-  --as-space-xl:  20px;
+  --as-space-xs: 4px;
+  --as-space-sm: 8px;
+  --as-space-md: 12px;
+  --as-space-lg: 16px;
+  --as-space-xl: 20px;
   --as-space-2xl: 24px;
   --as-space-3xl: 32px;
   --as-space-4xl: 40px;
-
-  /* Radii */
-  --as-radius-sm:   6px;
-  --as-radius-md:   10px;
-  --as-radius-lg:   14px;
-  --as-radius-xl:   18px;
-  --as-radius-2xl:  22px;
+  --as-space-section: 64px;
+  --as-space-hero: 96px;
+  --as-radius-xs: 4px;
+  --as-radius-sm: 6px;
+  --as-radius-md: 8px;
+  --as-radius-lg: 12px;
+  --as-radius-xl: 16px;
+  --as-radius-2xl: 20px;
   --as-radius-full: 9999px;
-
-  /* Motion */
-  --as-duration-fast:   120ms;
-  --as-duration-normal: 220ms;
-  --as-duration-slow:   320ms;
+  --as-duration-fast: 120ms;
+  --as-duration-normal: 180ms;
+  --as-duration-slow: 280ms;
   --as-easing-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
-  --as-easing-decel:    cubic-bezier(0.0, 0.0, 0.2, 1);
+  --as-easing-decel: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --as-easing-accel: cubic-bezier(0.4, 0.0, 1, 1);
+}
+
+[data-theme="dark"] {
+    --as-primary: #8F75FF;
+    --as-primary-pressed: #A492FF;
+    --as-primary-deep: #D8D0FF;
+    --as-primary-on: #FFFFFF;
+    --as-brand: #8F75FF;
+    --as-brand-soft: #2A2054;
+    --as-brand-deep: #D8D0FF;
+    --as-brand-on: #FFFFFF;
+    --as-brand-navy: #07091A;
+    --as-brand-navy-deep: #050615;
+    --as-brand-navy-mid: #20294F;
+    --as-link-blue: #93C5FD;
+    --as-link-blue-pressed: #BFDBFE;
+    --as-brand-green: #5DCAA5;
+    --as-brand-pink: #F4A8D2;
+    --as-brand-orange: #FDBA74;
+    --as-brand-teal: #7DD3C7;
+    --as-brand-yellow: #FFE08A;
+    --as-brand-brown: #D6B08C;
+    --as-card-peach: #412314;
+    --as-card-rose: #442033;
+    --as-card-mint: #123A31;
+    --as-card-lavender: #2A2054;
+    --as-card-sky: #122A44;
+    --as-card-yellow: #40350B;
+    --as-card-yellow-bold: #F4C430;
+    --as-card-cream: #2D281C;
+    --as-card-gray: #1F1F22;
+    --as-bg-primary: #111114;
+    --as-bg-secondary: #19191D;
+    --as-bg-tertiary: #222228;
+    --as-text-primary: #F7F7F5;
+    --as-text-secondary: #B6B6B0;
+    --as-text-tertiary: #7E7E78;
+    --as-text-on-dark: #FFFFFF;
+    --as-text-on-dark-muted: rgba(255,255,255,0.72);
+    --as-border-primary: rgba(255,255,255,0.26);
+    --as-border-secondary: rgba(255,255,255,0.16);
+    --as-border-tertiary: rgba(255,255,255,0.08);
+    --as-success-bg: #173404;
+    --as-success-text: #C0DD97;
+    --as-warning-bg: #40350B;
+    --as-warning-text: #FFE08A;
+    --as-danger-bg: #501313;
+    --as-danger-text: #F7C1C1;
+    --as-info-bg: #122A44;
+    --as-info-text: #B5D4F4;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --as-brand:       #5DCAA5;
-    --as-brand-soft:  #04342C;
-    --as-brand-deep:  #9FE1CB;
-    --as-brand-on:    #04342C;
-
-    --as-bg-primary:    #0F0F11;
-    --as-bg-secondary:  #18181B;
-    --as-bg-tertiary:   #1F1F22;
-
-    --as-text-primary:    #F5F5F4;
-    --as-text-secondary:  #A1A1A0;
-    --as-text-tertiary:   #727272;
-
-    --as-border-tertiary:   rgba(255,255,255,0.08);
-    --as-border-secondary:  rgba(255,255,255,0.16);
-    --as-border-primary:    rgba(255,255,255,0.24);
-
-    --as-success-bg:    #173404;
-    --as-success-text:  #C0DD97;
-    --as-warning-bg:    #412402;
-    --as-warning-text:  #FAC775;
-    --as-danger-bg:     #501313;
-    --as-danger-text:   #F7C1C1;
-    --as-info-bg:       #042C53;
-    --as-info-text:     #B5D4F4;
+  :root:not([data-theme="light"]) {
+      --as-primary: #8F75FF;
+      --as-primary-pressed: #A492FF;
+      --as-primary-deep: #D8D0FF;
+      --as-primary-on: #FFFFFF;
+      --as-brand: #8F75FF;
+      --as-brand-soft: #2A2054;
+      --as-brand-deep: #D8D0FF;
+      --as-brand-on: #FFFFFF;
+      --as-brand-navy: #07091A;
+      --as-brand-navy-deep: #050615;
+      --as-brand-navy-mid: #20294F;
+      --as-link-blue: #93C5FD;
+      --as-link-blue-pressed: #BFDBFE;
+      --as-brand-green: #5DCAA5;
+      --as-brand-pink: #F4A8D2;
+      --as-brand-orange: #FDBA74;
+      --as-brand-teal: #7DD3C7;
+      --as-brand-yellow: #FFE08A;
+      --as-brand-brown: #D6B08C;
+      --as-card-peach: #412314;
+      --as-card-rose: #442033;
+      --as-card-mint: #123A31;
+      --as-card-lavender: #2A2054;
+      --as-card-sky: #122A44;
+      --as-card-yellow: #40350B;
+      --as-card-yellow-bold: #F4C430;
+      --as-card-cream: #2D281C;
+      --as-card-gray: #1F1F22;
+      --as-bg-primary: #111114;
+      --as-bg-secondary: #19191D;
+      --as-bg-tertiary: #222228;
+      --as-text-primary: #F7F7F5;
+      --as-text-secondary: #B6B6B0;
+      --as-text-tertiary: #7E7E78;
+      --as-text-on-dark: #FFFFFF;
+      --as-text-on-dark-muted: rgba(255,255,255,0.72);
+      --as-border-primary: rgba(255,255,255,0.26);
+      --as-border-secondary: rgba(255,255,255,0.16);
+      --as-border-tertiary: rgba(255,255,255,0.08);
+      --as-success-bg: #173404;
+      --as-success-text: #C0DD97;
+      --as-warning-bg: #40350B;
+      --as-warning-text: #FFE08A;
+      --as-danger-bg: #501313;
+      --as-danger-text: #F7C1C1;
+      --as-info-bg: #122A44;
+      --as-info-text: #B5D4F4;
   }
 }
 
 /* =========================================================================
-   Base utility classes — optional, tokens above are the source of truth.
+   Optional base utility classes for non-NativeWind consumers. Tokens above
+   remain the source of truth; app code should prefer generated utilities.
    ========================================================================= */
 
 .as-btn {
-  height: 48px;
-  border-radius: var(--as-radius-lg);
+  min-height: 44px;
+  border-radius: var(--as-radius-md);
   padding: 0 var(--as-space-xl);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   font-family: var(--as-font-sans);
   border: none;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--as-space-sm);
-  transition: transform var(--as-duration-fast) var(--as-easing-standard);
 }
-.as-btn:active { transform: scale(0.98); }
-.as-btn-fill    { background: var(--as-brand); color: var(--as-brand-on); }
-.as-btn-outline { background: transparent; border: 0.5px solid var(--as-border-secondary); color: var(--as-text-primary); }
-.as-btn-tinted  { background: var(--as-bg-secondary); color: var(--as-text-primary); }
-
+.as-btn-primary {
+  background: var(--as-primary);
+  color: var(--as-primary-on);
+}
+.as-btn-secondary {
+  background: var(--as-bg-primary);
+  color: var(--as-text-primary);
+  border: 1px solid var(--as-border-secondary);
+}
+.as-card {
+  background: var(--as-bg-primary);
+  border: 1px solid var(--as-border-tertiary);
+  border-radius: var(--as-radius-lg);
+  padding: var(--as-space-lg) var(--as-space-xl);
+}
+.as-card-yellow {
+  background: var(--as-card-yellow-bold);
+}
+.as-card-navy {
+  background: var(--as-brand-navy);
+  color: var(--as-text-on-dark);
+}
 .as-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 24px;
-  padding: 0 11px;
-  border-radius: var(--as-radius-md);
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: var(--as-radius-full);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
 }
-.as-pill .dot { width: 5px; height: 5px; border-radius: 50%; }
-.as-pill-success { background: var(--as-success-bg); color: var(--as-success-text); }
-.as-pill-warning { background: var(--as-warning-bg); color: var(--as-warning-text); }
-.as-pill-danger  { background: var(--as-danger-bg);  color: var(--as-danger-text);  }
-.as-pill-info    { background: var(--as-info-bg);    color: var(--as-info-text);    }
-.as-pill-brand   { background: var(--as-brand-soft); color: var(--as-brand-deep);   }
-
-.as-card {
-  background: var(--as-bg-primary);
-  border: 0.5px solid var(--as-border-tertiary);
-  border-radius: var(--as-radius-xl);
-  padding: var(--as-space-lg) var(--as-space-xl);
-}
-
-.as-input {
-  width: 100%;
-  height: 48px;
-  border: 0.5px solid var(--as-border-secondary);
-  background: var(--as-bg-primary);
-  border-radius: var(--as-radius-lg);
-  padding: 0 var(--as-space-lg);
-  font-size: 15px;
-  font-family: var(--as-font-sans);
-  color: var(--as-text-primary);
-  outline: none;
-}
-.as-input:focus {
-  box-shadow: 0 0 0 2px var(--as-brand-soft);
-  border-color: var(--as-brand);
-}
-
-.as-stat {
-  background: var(--as-bg-secondary);
-  border-radius: var(--as-radius-lg);
-  padding: var(--as-space-lg) var(--as-space-md);
-  text-align: center;
-}
-.as-stat-value {
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
-}
-.as-stat-label {
-  font-size: 11px;
-  color: var(--as-text-secondary);
-  margin-top: 4px;
+.as-pill-brand {
+  background: var(--as-brand-soft);
+  color: var(--as-brand-deep);
 }

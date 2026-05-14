@@ -58,14 +58,16 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary">
+    <SafeAreaView className="flex-1 bg-brand-navy">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1 justify-center px-xl"
       >
-        <View className="rounded-xl bg-bg-primary px-xl py-2xl gap-md">
+        <View className="gap-md rounded-lg border border-line-tertiary bg-bg-primary px-xl py-2xl">
           <View className="flex-row items-center gap-sm">
-            <Sprout color="#0F6E56" size={24} />
+            <View className="rounded-md bg-card-yellow-bold p-xs">
+              <Sprout color="#0D1028" size={20} />
+            </View>
             <Text className="text-h2 font-medium text-fg-primary">{t("common:appName")}</Text>
           </View>
           <Text className="text-display font-medium text-fg-primary mt-md">
@@ -75,14 +77,14 @@ export default function LoginScreen() {
 
           <View className="flex-row gap-sm mt-md">
             <RolePanel
-              icon={<UserRound color={panel === "inspector" ? "#FFFFFF" : "#0F6E56"} size={18} />}
+              icon={<UserRound color={panel === "inspector" ? "#FFFFFF" : "#6C47FF"} size={18} />}
               label={t("auth:login.panel.inspector")}
               hint={t("auth:login.panel.inspectorHint")}
               active={panel === "inspector"}
               onPress={() => switchPanel("inspector")}
             />
             <RolePanel
-              icon={<ShieldCheck color={panel === "admin" ? "#FFFFFF" : "#0F6E56"} size={18} />}
+              icon={<ShieldCheck color={panel === "admin" ? "#FFFFFF" : "#6C47FF"} size={18} />}
               label={t("auth:login.panel.admin")}
               hint={t("auth:login.panel.adminHint")}
               active={panel === "admin"}
@@ -136,18 +138,20 @@ function RolePanel({
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      className={`flex-1 rounded-xl px-md py-md gap-xs ${
-        active ? "bg-brand active:opacity-90" : "bg-bg-secondary border border-line-tertiary"
+      className={`flex-1 rounded-lg px-md py-md gap-xs ${
+        active ? "bg-primary active:bg-primary-pressed" : "bg-card-gray border border-line-tertiary"
       }`}
     >
       <View className="flex-row items-center gap-xs">
         {icon}
-        <Text className={`text-title font-medium ${active ? "text-brand-on" : "text-fg-primary"}`}>
+        <Text
+          className={`text-title font-medium ${active ? "text-primary-on" : "text-fg-primary"}`}
+        >
           {label}
         </Text>
       </View>
       <Text
-        className={`text-caption ${active ? "text-brand-on opacity-85" : "text-fg-secondary"}`}
+        className={`text-caption ${active ? "text-primary-on opacity-85" : "text-fg-secondary"}`}
         numberOfLines={2}
       >
         {hint}

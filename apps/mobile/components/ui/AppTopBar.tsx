@@ -32,9 +32,9 @@ export function AppTopBar({ title, left, right }: Props) {
 function TopBarAction({ action }: { action: AppTopBarAction }) {
   // Lucide icons take a hex `color` prop, which doesn't follow nativewind
   // tokens. Override it from theme so callers can keep passing a fixed
-  // color (e.g. `#1A1A1A`) without it disappearing in dark mode.
+  // color (e.g. `#171717`) without it disappearing in dark mode.
   const { resolved } = useTheme();
-  const tint = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
+  const tint = resolved === "dark" ? "#F7F7F5" : "#171717";
   const icon = action.renderIcon();
   const themedIcon = isValidElement<{ color?: string }>(icon)
     ? cloneElement(icon, { color: tint })
@@ -43,7 +43,7 @@ function TopBarAction({ action }: { action: AppTopBarAction }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={action.accessibilityLabel}
-      className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary active:bg-bg-secondary"
+      className="h-10 w-10 items-center justify-center rounded-md bg-bg-tertiary active:bg-bg-secondary"
       onPress={action.onPress}
     >
       {themedIcon}

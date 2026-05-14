@@ -31,7 +31,7 @@ export default function ProfileScreen() {
         title={t("profile:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -43,13 +43,13 @@ export default function ProfileScreen() {
               style={{
                 width: 72,
                 height: 72,
-                borderRadius: 36,
-                backgroundColor: "#E1F5EE",
+                borderRadius: 12,
+                backgroundColor: "#EEE9FF",
               }}
             >
               <Text
                 className="font-medium"
-                style={{ fontSize: 24, color: "#04342C", letterSpacing: -0.5 }}
+                style={{ fontSize: 24, color: "#3F249B", letterSpacing: -0.5 }}
               >
                 {initials}
               </Text>

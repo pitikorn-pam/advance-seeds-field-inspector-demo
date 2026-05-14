@@ -50,13 +50,11 @@ export default function HyperParamsScreen() {
         title={t("more:hyperparams.title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
-        <Text className="text-caption text-fg-secondary">{t("more:hyperparams.intro")}</Text>
-
         <ParamCard
           label={t("more:hyperparams.scoreThreshold")}
           hint={t("more:hyperparams.scoreThresholdHint")}
@@ -125,7 +123,7 @@ export default function HyperParamsScreen() {
             className="mt-md"
             variant="outline"
             label={t("more:hyperparams.reset")}
-            renderLeadingIcon={() => <RotateCcw color="#1A1A1A" size={14} />}
+            renderLeadingIcon={() => <RotateCcw color="#171717" size={14} />}
             onPress={onReset}
           />
         </Card>
@@ -235,11 +233,11 @@ function InferenceStatRow({ stat }: { stat: InferenceStat }) {
                 style={{
                   height: `${heightPct}%`,
                   width: "100%",
-                  backgroundColor: count > 0 ? "#0F6E56" : "#E0E0DC",
+                  backgroundColor: count > 0 ? "#6C47FF" : "#E0E0DC",
                   borderRadius: 2,
                 }}
               />
-              <Text style={{ fontSize: 9, color: "#9D9D9A", marginTop: 2 }}>{label}</Text>
+              <Text style={{ fontSize: 9, color: "#8C8C87", marginTop: 2 }}>{label}</Text>
             </View>
           );
         })}

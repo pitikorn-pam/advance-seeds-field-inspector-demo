@@ -54,7 +54,7 @@ export default function PendingInspectionDetail() {
           title={t("inspections:pending.title")}
           left={{
             accessibilityLabel: t("common:actions.back"),
-            renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+            renderIcon: () => <ChevronLeft color="#171717" size={20} />,
             onPress: () => router.back(),
           }}
         />
@@ -111,7 +111,7 @@ export default function PendingInspectionDetail() {
         title={t("inspections:pending.title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => {
             if (router.canGoBack()) router.back();
             else router.replace("/");
@@ -120,7 +120,7 @@ export default function PendingInspectionDetail() {
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
         <View className="flex-row items-center gap-sm">
-          <Cloud color="#0F6E56" size={18} />
+          <Cloud color="#6C47FF" size={18} />
           <Pill tone={statusPill.tone} dot label={statusPill.label} />
           <Text className="text-caption text-fg-secondary">
             {t("inspections:pending.queuedAt", { date: dateFmt.format(createdAt) })}
@@ -144,7 +144,7 @@ export default function PendingInspectionDetail() {
         {previewUri ? (
           <View
             className="overflow-hidden"
-            style={{ height: 200, borderRadius: 18, backgroundColor: "#EAF3DE" }}
+            style={{ height: 200, borderRadius: 18, backgroundColor: "#DFF6EC" }}
           >
             <Image
               source={{ uri: previewUri }}
@@ -200,8 +200,8 @@ export default function PendingInspectionDetail() {
             onPress={onCancel}
             className="flex-row items-center justify-center gap-xs py-sm"
           >
-            <Trash2 color="#791F1F" size={16} />
-            <Text className="text-body font-medium" style={{ color: "#791F1F" }}>
+            <Trash2 color="#8A1F1B" size={16} />
+            <Text className="text-body font-medium" style={{ color: "#8A1F1B" }}>
               {t("inspections:pending.cancel")}
             </Text>
           </Pressable>

@@ -102,7 +102,7 @@ export function SeedDetailView({ seed, sourceUri, title, onUpdateGrade, busy }: 
         title={title ?? `Seed #${seed.index}`}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -159,7 +159,7 @@ export function SeedDetailView({ seed, sourceUri, title, onUpdateGrade, busy }: 
             className="flex-1"
             variant="outline"
             label={t("inspections:seed.actions.editGrade")}
-            renderLeadingIcon={() => <Edit3 color="#1A1A1A" size={14} />}
+            renderLeadingIcon={() => <Edit3 color="#171717" size={14} />}
             onPress={onEdit}
             disabled={busy}
           />
@@ -182,7 +182,7 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
     tone === "success"
       ? "#5DCAA5"
       : tone === "info"
-        ? "#0F6E56"
+        ? "#6C47FF"
         : tone === "warning"
           ? "#EF9F27"
           : "#DC2828";

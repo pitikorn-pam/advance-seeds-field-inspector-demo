@@ -11,10 +11,10 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 
 const KIND_VISUAL: Record<NotificationKind, { icon: typeof Info; color: string; bg: string }> = {
-  success: { icon: CheckCircle2, color: "#27500A", bg: "#EAF3DE" },
-  info: { icon: Info, color: "#0C447C", bg: "#E6F1FB" },
-  warning: { icon: AlertTriangle, color: "#633806", bg: "#FAEEDA" },
-  error: { icon: AlertCircle, color: "#791F1F", bg: "#FCEBEB" },
+  success: { icon: CheckCircle2, color: "#285B12", bg: "#DFF6EC" },
+  info: { icon: Info, color: "#1957A4", bg: "#E2F0FF" },
+  warning: { icon: AlertTriangle, color: "#704B00", bg: "#FFF1B8" },
+  error: { icon: AlertCircle, color: "#8A1F1B", bg: "#FFE2E0" },
 };
 
 /**
@@ -45,7 +45,7 @@ export default function NotificationDetail() {
 
   const back = {
     accessibilityLabel: t("common:actions.back"),
-    renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+    renderIcon: () => <ChevronLeft color="#171717" size={20} />,
     onPress: () => router.back(),
   };
 
@@ -80,11 +80,7 @@ export default function NotificationDetail() {
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar title={t("notifications:detailTitle")} left={back} />
       <ScrollView contentContainerClassName="px-xl py-lg gap-md">
-        <Text className="text-body text-fg-secondary px-xs">
-          {t("notifications:detailSubtitle")}
-        </Text>
-
-        <View className="rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg">
+        <View className="rounded-lg border border-line-tertiary bg-bg-primary px-xl py-lg">
           <View className="flex-row items-center gap-md">
             <View
               className="items-center justify-center"
@@ -106,7 +102,7 @@ export default function NotificationDetail() {
         </View>
 
         {notification.route ? (
-          <View className="rounded-xl border border-line-tertiary bg-bg-primary px-xl py-lg gap-sm">
+          <View className="rounded-lg border border-line-tertiary bg-bg-primary px-xl py-lg gap-sm">
             <Text className="text-title font-medium text-fg-primary">
               {t("notifications:relatedContent")}
             </Text>

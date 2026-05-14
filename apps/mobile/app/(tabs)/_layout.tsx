@@ -22,14 +22,14 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: isDark ? "#5DCAA5" : "#0F6E56",
-        tabBarInactiveTintColor: isDark ? "#A1A1A0" : "#6B6B68",
+        tabBarActiveTintColor: isDark ? "#8F75FF" : "#6C47FF",
+        tabBarInactiveTintColor: isDark ? "#B6B6B0" : "#5F5F5B",
         tabBarStyle: {
           // In dark mode RN's default TabBar background is solid black, which
           // makes the bar feel detached from the app surface. Match the
           // `bg-bg-secondary` token used by the rest of the chrome instead.
-          backgroundColor: isDark ? "#18181B" : "#FFFFFF",
-          borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+          backgroundColor: isDark ? "#19191D" : "#FFFFFF",
+          borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(23,23,23,0.08)",
           height: 56 + bottomPadding,
           paddingTop: 8,
           paddingBottom: bottomPadding,

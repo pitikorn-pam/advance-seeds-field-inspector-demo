@@ -51,7 +51,7 @@ export function GlassTopBar({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Back"
-      className="h-9 w-9 items-center justify-center rounded-full bg-glass-soft"
+      className="h-9 w-9 items-center justify-center rounded-md bg-glass-soft"
       onPress={onBackPress ?? (() => router.back())}
     >
       <ArrowLeft color="white" size={18} />
@@ -70,7 +70,7 @@ export function GlassTopBar({
       style={{
         backgroundColor: flashActive ? glass.accent : glass.soft,
       }}
-      className={`h-9 items-center justify-center rounded-full flex-row gap-[3px] ${
+      className={`h-9 items-center justify-center rounded-md flex-row gap-[3px] ${
         flashLabel ? "px-md" : "w-9"
       }`}
       onPress={onFlashPress}
@@ -79,12 +79,12 @@ export function GlassTopBar({
       disabled={!onFlashPress}
     >
       {flashActive ? (
-        <Zap color="#1A1A1A" size={16} fill="#1A1A1A" />
+        <Zap color="#171717" size={16} fill="#171717" />
       ) : (
         <ZapOff color="white" size={18} />
       )}
       {flashLabel ? (
-        <Text style={{ color: "#1A1A1A", fontSize: 10, fontWeight: "600", letterSpacing: 0.4 }}>
+        <Text style={{ color: "#171717", fontSize: 10, fontWeight: "600", letterSpacing: 0.4 }}>
           {flashLabel}
         </Text>
       ) : null}
@@ -104,7 +104,7 @@ export function GlassTopBar({
 
 function defaultPill(label: string, dotColor?: string) {
   return (
-    <View className="flex-row items-center gap-xs rounded-full bg-glass-soft px-md py-xs">
+    <View className="flex-row items-center gap-xs rounded-md bg-glass-soft px-md py-xs">
       {dotColor ? (
         <View className="h-[6px] w-[6px] rounded-full" style={{ backgroundColor: dotColor }} />
       ) : null}

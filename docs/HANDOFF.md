@@ -295,7 +295,7 @@ The mobile app moved from "CRUD over a sample image in Expo Go" to **production-
 
 - **The `SeedAnalyzer` interface** (`packages/types/src/analyzer.ts`) is the seam for real ML. Add `TfliteSeedAnalyzer` (production) or `CoreMLSeedAnalyzer` (Apple Neural Engine) as new implementations; screens never touch a concrete analyzer.
 - **The Supabase schema** is already production-shaped — RLS, FK constraints, JSONB for flexible defects, immutable inspection rows. Adding new fields is a migration; adding new roles is one column + a few policy entries.
-- **The token pipeline** is the source of truth for visual identity. Editing `docs/handoff/design-tokens.json` regenerates all consumers (Tailwind preset, CSS vars, TS export). The Swift/Kotlin stubs in `docs/handoff/` are the contract for the eventual native rebuild.
+- **The design pipeline** has two layers: root `DESIGN.md` is the human-readable design DNA, and `docs/handoff/design-tokens.json` is the machine-readable source that regenerates all consumers (Tailwind preset, CSS vars, TS export). The Swift/Kotlin stubs in `docs/handoff/` are the contract for the eventual native rebuild.
 - **The CSV export column order** is locked in `openspec/specs/reporting-and-export/spec.md` — any change is a new spec, not a silent edit.
 
 ### Current follow-up after v0.4.0

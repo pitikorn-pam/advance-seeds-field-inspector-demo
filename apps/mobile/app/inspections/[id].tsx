@@ -179,12 +179,12 @@ export default function InspectionDetail() {
         title={t("inspections:detail.title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: handleBack,
         }}
         right={{
           accessibilityLabel: t("common:actions.more"),
-          renderIcon: () => <MoreHorizontal color="#1A1A1A" size={20} />,
+          renderIcon: () => <MoreHorizontal color="#171717" size={20} />,
           onPress: openMenu,
         }}
       />
@@ -221,7 +221,7 @@ export default function InspectionDetail() {
               ) : null}
             </View>
 
-            <View className="aspect-[4/3] w-full overflow-hidden rounded-xl bg-black">
+            <View className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
               {mediaUrl ? (
                 <CaptureMediaPreview
                   uri={mediaUrl}
@@ -690,7 +690,7 @@ function GradeFilterChip({
     >
       <Text
         className="text-caption font-medium"
-        style={{ color: selected ? "#FFFFFF" : "#1A1A1A" }}
+        style={{ color: selected ? "#FFFFFF" : "#171717" }}
       >
         {label}
       </Text>

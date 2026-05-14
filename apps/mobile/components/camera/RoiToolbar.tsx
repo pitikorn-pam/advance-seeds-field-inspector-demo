@@ -20,7 +20,7 @@ interface Props {
  *
  * Visual states:
  *   • inactive  — black 55% surface, white icon
- *   • active    — brand-tinted (#5DCAA5 at 25% alpha), brand icon color
+ *   • active    — teal-tinted active tool with white camera glass chrome
  *   • disabled  — opacity 40% (e.g. Clear when no ROI exists)
  *
  * The Close-polygon button only shows when an open polygon with ≥ 3
@@ -36,14 +36,14 @@ export function RoiToolbar({ activeTool, onSelectTool, roi, onClear, onClosePoly
   return (
     <View className="mx-md mb-sm flex-row items-center gap-xs rounded-full bg-glass-soft px-sm py-xs self-center">
       <ToolButton
-        renderIcon={() => <Square color={activeTool === "rect" ? "#5DCAA5" : "white"} size={16} />}
+        renderIcon={() => <Square color={activeTool === "rect" ? "#7DD3C7" : "white"} size={16} />}
         label={t("capture.roi.rect")}
         active={activeTool === "rect"}
         onPress={() => onSelectTool(activeTool === "rect" ? null : "rect")}
       />
       <ToolButton
         renderIcon={() => (
-          <Pentagon color={activeTool === "polygon" ? "#5DCAA5" : "white"} size={16} />
+          <Pentagon color={activeTool === "polygon" ? "#7DD3C7" : "white"} size={16} />
         )}
         label={t("capture.roi.polygon")}
         active={activeTool === "polygon"}
@@ -51,7 +51,7 @@ export function RoiToolbar({ activeTool, onSelectTool, roi, onClear, onClosePoly
       />
       <ToolButton
         renderIcon={() => (
-          <CircleIcon color={activeTool === "circle" ? "#5DCAA5" : "white"} size={16} />
+          <CircleIcon color={activeTool === "circle" ? "#7DD3C7" : "white"} size={16} />
         )}
         label={t("capture.roi.circle")}
         active={activeTool === "circle"}
@@ -88,12 +88,12 @@ function ToolButton({
       accessibilityLabel={label}
       onPress={onPress}
       className={`flex-row items-center gap-xs rounded-full px-md py-xs ${
-        active ? "bg-[#5DCAA5]/25" : ""
+        active ? "bg-[#7DD3C7]/25" : ""
       }`}
     >
       {renderIcon ? renderIcon() : null}
       <Text
-        className={`font-medium ${active ? "text-[#5DCAA5]" : "text-white"}`}
+        className={`font-medium ${active ? "text-[#7DD3C7]" : "text-white"}`}
         style={{ fontSize: 11, letterSpacing: 0.2 }}
       >
         {label}

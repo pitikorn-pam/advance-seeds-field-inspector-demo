@@ -2,134 +2,240 @@
   "$schema": "https://design-tokens.github.io/community-group/format/",
   "metadata": {
     "name": "Advance Seeds Field Inspector",
-    "version": "1.0.0",
-    "description": "Canonical design tokens for the Advance Seeds mobile inspector and web dashboard."
+    "version": "2.0.0",
+    "description": "Canonical Notion-inspired design tokens for the Advance Seeds mobile inspector and companion dashboard."
   },
 
   "color": {
     "brand": {
-      "primary":   { "value": "#0F6E56", "darkValue": "#5DCAA5", "description": "Primary brand color. Use for primary actions, active tabs, key accents." },
-      "soft":      { "value": "#E1F5EE", "darkValue": "#04342C", "description": "Brand-tinted surface. Use for tinted cards, success-on-brand backgrounds." },
-      "deep":      { "value": "#04342C", "darkValue": "#9FE1CB", "description": "Deepest brand stop. Use for hero card backgrounds and brand-tinted text." }
+      "primary": {
+        "value": "#6C47FF",
+        "darkValue": "#8F75FF",
+        "description": "Signature purple primary action. Use for dominant CTAs, active states, and primary progress."
+      },
+      "primaryPressed": {
+        "value": "#5936D8",
+        "darkValue": "#A492FF",
+        "description": "Pressed state for the signature purple action."
+      },
+      "primaryDeep": {
+        "value": "#3F249B",
+        "darkValue": "#D8D0FF",
+        "description": "Deep purple emphasis and high-contrast tag text."
+      },
+      "soft": {
+        "value": "#EEE9FF",
+        "darkValue": "#2A2054",
+        "description": "Soft purple surface for selected tabs and quiet emphasis."
+      },
+      "deep": {
+        "value": "#2D205E",
+        "darkValue": "#D8D0FF",
+        "description": "Deep purple text on purple-tinted surfaces."
+      },
+      "navy": {
+        "value": "#0D1028",
+        "darkValue": "#07091A",
+        "description": "Deep navy hero and empty-state band."
+      },
+      "navyDeep": {
+        "value": "#07091A",
+        "darkValue": "#050615",
+        "description": "Deeper navy for camera and promotional bands."
+      },
+      "navyMid": {
+        "value": "#1C2445",
+        "darkValue": "#20294F",
+        "description": "Mid navy used for panels on dark bands."
+      },
+      "linkBlue": {
+        "value": "#2563EB",
+        "darkValue": "#93C5FD",
+        "description": "Inline link blue. Do not use as the primary CTA."
+      },
+      "linkBluePressed": {
+        "value": "#1D4ED8",
+        "darkValue": "#BFDBFE",
+        "description": "Pressed state for inline links."
+      },
+      "seedGreen": {
+        "value": "#0F6E56",
+        "darkValue": "#5DCAA5",
+        "description": "Advance Seeds domain accent for seed, calibration, and success-adjacent signals."
+      },
+      "pink": { "value": "#E255A1", "darkValue": "#F4A8D2" },
+      "orange": { "value": "#F77B23", "darkValue": "#FDBA74" },
+      "teal": { "value": "#11A78B", "darkValue": "#7DD3C7" },
+      "green": { "value": "#43A047", "darkValue": "#A7D98C" },
+      "yellow": { "value": "#F2C94C", "darkValue": "#FFE08A" },
+      "brown": { "value": "#8C5E3C", "darkValue": "#D6B08C" }
+    },
+    "cardTint": {
+      "peach": { "value": "#FFE8D6", "darkValue": "#412314" },
+      "rose": { "value": "#FFE2EC", "darkValue": "#442033" },
+      "mint": { "value": "#DFF6EC", "darkValue": "#123A31" },
+      "lavender": { "value": "#EEE9FF", "darkValue": "#2A2054" },
+      "sky": { "value": "#E2F0FF", "darkValue": "#122A44" },
+      "yellow": { "value": "#FFF1B8", "darkValue": "#40350B" },
+      "yellowBold": { "value": "#FFD84D", "darkValue": "#F4C430" },
+      "cream": { "value": "#FFF8E8", "darkValue": "#2D281C" },
+      "gray": { "value": "#F5F5F2", "darkValue": "#1F1F22" }
     },
     "background": {
-      "primary":   { "value": "#FFFFFF", "darkValue": "#0F0F11", "description": "Main surface — cards, sheets, screens." },
-      "secondary": { "value": "#F4F4F1", "darkValue": "#18181B", "description": "Page background, stat tiles, segmented control track." },
-      "tertiary":  { "value": "#FAFAF9", "darkValue": "#1F1F22", "description": "Subtle elevation behind cards." }
+      "primary": {
+        "value": "#FFFFFF",
+        "darkValue": "#111114",
+        "description": "Canvas white and primary card surface."
+      },
+      "secondary": {
+        "value": "#F7F6F2",
+        "darkValue": "#19191D",
+        "description": "Notion-like surface for app screens and grouped controls."
+      },
+      "tertiary": {
+        "value": "#FBFAF7",
+        "darkValue": "#222228",
+        "description": "Subtle section background and elevated neutral."
+      }
     },
     "text": {
-      "primary":   { "value": "#1A1A1A", "darkValue": "#F5F5F4", "description": "Body text and UI labels." },
-      "secondary": { "value": "#6B6B68", "darkValue": "#A1A1A0", "description": "Captions, secondary metadata." },
-      "tertiary":  { "value": "#9D9D9A", "darkValue": "#727272", "description": "Hints, placeholder text, inactive items." }
+      "primary": { "value": "#171717", "darkValue": "#F7F7F5" },
+      "secondary": { "value": "#5F5F5B", "darkValue": "#B6B6B0" },
+      "tertiary": { "value": "#8C8C87", "darkValue": "#7E7E78" },
+      "onDark": { "value": "#FFFFFF", "darkValue": "#FFFFFF" },
+      "onDarkMuted": { "value": "rgba(255,255,255,0.72)", "darkValue": "rgba(255,255,255,0.72)" }
     },
     "border": {
-      "tertiary":  { "value": "rgba(0,0,0,0.06)", "darkValue": "rgba(255,255,255,0.08)", "description": "Default 0.5px borders on cards." },
-      "secondary": { "value": "rgba(0,0,0,0.12)", "darkValue": "rgba(255,255,255,0.16)", "description": "Stronger borders for inputs and emphasis." },
-      "primary":   { "value": "rgba(0,0,0,0.20)", "darkValue": "rgba(255,255,255,0.24)", "description": "Highest-contrast borders." }
+      "tertiary": {
+        "value": "rgba(23,23,23,0.08)",
+        "darkValue": "rgba(255,255,255,0.08)"
+      },
+      "secondary": {
+        "value": "rgba(23,23,23,0.14)",
+        "darkValue": "rgba(255,255,255,0.16)"
+      },
+      "primary": {
+        "value": "rgba(23,23,23,0.24)",
+        "darkValue": "rgba(255,255,255,0.26)"
+      }
     },
     "semantic": {
       "success": {
-        "bg":   { "value": "#EAF3DE" },
-        "text": { "value": "#27500A" }
+        "bg": { "value": "#E4F4DA", "darkValue": "#173404" },
+        "text": { "value": "#285B12", "darkValue": "#C0DD97" }
       },
       "warning": {
-        "bg":   { "value": "#FAEEDA" },
-        "text": { "value": "#633806" }
+        "bg": { "value": "#FFF1B8", "darkValue": "#40350B" },
+        "text": { "value": "#704B00", "darkValue": "#FFE08A" }
       },
       "danger": {
-        "bg":   { "value": "#FCEBEB" },
-        "text": { "value": "#791F1F" }
+        "bg": { "value": "#FFE2E0", "darkValue": "#501313" },
+        "text": { "value": "#8A1F1B", "darkValue": "#F7C1C1" }
       },
       "info": {
-        "bg":   { "value": "#E6F1FB" },
-        "text": { "value": "#0C447C" }
+        "bg": { "value": "#E2F0FF", "darkValue": "#122A44" },
+        "text": { "value": "#1957A4", "darkValue": "#B5D4F4" }
       }
     },
     "variety": {
-      "comment": "Used as thumb backgrounds in the variety library — paired text colors are darker stops of the same ramp.",
-      "corn":    { "bg": "#FAEEDA", "text": "#854F0B" },
-      "rice":    { "bg": "#EAF3DE", "text": "#3B6D11" },
-      "legume":  { "bg": "#E1F5EE", "text": "#0F6E56" },
-      "mungbean":{ "bg": "#FAECE7", "text": "#993C1D" }
+      "comment": "Database-style pastel family cards for the variety library and setup picker.",
+      "corn": { "bg": "#FFF1B8", "text": "#704B00" },
+      "rice": { "bg": "#DFF6EC", "text": "#0F6E56" },
+      "legume": { "bg": "#EEE9FF", "text": "#3F249B" },
+      "mungbean": { "bg": "#FFE8D6", "text": "#8C3C12" }
     },
     "glass": {
-      "comment": "Translucent surfaces for camera viewfinder chrome. These sit on top of the live preview so they have no light/dark theme variant — the substrate is the camera image, not a UI surface.",
-      "chip":    { "value": "rgba(0, 0, 0, 0.4)",       "description": "Subtle chip — small icon buttons (grid, flip, snapshot) on the camera HUD." },
-      "soft":    { "value": "rgba(0, 0, 0, 0.5)",       "description": "Light dim — top bar default surface and other persistent chrome." },
-      "surface": { "value": "rgba(0, 0, 0, 0.6)",       "description": "Standard glass — primary HUD elements like detection labels and the recording timer." },
-      "strong":  { "value": "rgba(0, 0, 0, 0.72)",      "description": "Strongest dim — ROI overlay backdrops where readability over busy footage matters." },
-      "text":    { "value": "#FFFFFF",                  "description": "On-glass text and icon color." },
-      "accent":  { "value": "rgba(255, 214, 107, 0.85)","description": "Flash-armed highlight (top bar flash button when active)." }
+      "comment": "Translucent surfaces for camera viewfinder chrome. These sit on top of live preview and do not change by theme.",
+      "chip": { "value": "rgba(7, 9, 26, 0.42)" },
+      "soft": { "value": "rgba(7, 9, 26, 0.52)" },
+      "surface": { "value": "rgba(7, 9, 26, 0.64)" },
+      "strong": { "value": "rgba(7, 9, 26, 0.78)" },
+      "border": { "value": "rgba(255, 255, 255, 0.18)" },
+      "text": { "value": "#FFFFFF" },
+      "textMuted": { "value": "rgba(255, 255, 255, 0.72)" },
+      "accent": { "value": "rgba(255, 216, 77, 0.9)" }
     }
   },
 
   "typography": {
     "fontFamily": {
-      "sans": { "value": "system-ui, -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif" },
+      "sans": {
+        "value": "'Notion Sans', Inter, -apple-system, system-ui, 'Segoe UI', Helvetica, sans-serif"
+      },
       "mono": { "value": "ui-monospace, 'SF Mono', Menlo, Consolas, monospace" }
     },
     "scale": {
-      "display":  { "size": 30, "weight": 500, "lineHeight": 1.15, "letterSpacing": "-0.02em" },
-      "h1":       { "size": 22, "weight": 500, "lineHeight": 1.2,  "letterSpacing": "-0.01em" },
-      "h2":       { "size": 18, "weight": 500, "lineHeight": 1.3,  "letterSpacing": "0" },
-      "title":    { "size": 15, "weight": 500, "lineHeight": 1.35, "letterSpacing": "0" },
-      "body":     { "size": 14, "weight": 400, "lineHeight": 1.5,  "letterSpacing": "0" },
-      "caption":  { "size": 12, "weight": 400, "lineHeight": 1.4,  "letterSpacing": "0" },
-      "label":    { "size": 11, "weight": 500, "lineHeight": 1.3,  "letterSpacing": "0.04em" }
+      "display": { "size": 34, "weight": 600, "lineHeight": 1.08, "letterSpacing": "-0.02em" },
+      "h1": { "size": 24, "weight": 600, "lineHeight": 1.15, "letterSpacing": "-0.01em" },
+      "h2": { "size": 19, "weight": 600, "lineHeight": 1.25, "letterSpacing": "0" },
+      "title": { "size": 15, "weight": 500, "lineHeight": 1.35, "letterSpacing": "0" },
+      "body": { "size": 14, "weight": 400, "lineHeight": 1.55, "letterSpacing": "0" },
+      "caption": { "size": 12, "weight": 400, "lineHeight": 1.4, "letterSpacing": "0" },
+      "label": { "size": 11, "weight": 600, "lineHeight": 1.3, "letterSpacing": "0.04em" }
     }
   },
 
   "spacing": {
-    "xs":  { "value": 4 },
-    "sm":  { "value": 8 },
-    "md":  { "value": 12 },
-    "lg":  { "value": 16 },
-    "xl":  { "value": 20 },
+    "xs": { "value": 4 },
+    "sm": { "value": 8 },
+    "md": { "value": 12 },
+    "lg": { "value": 16 },
+    "xl": { "value": 20 },
     "2xl": { "value": 24 },
     "3xl": { "value": 32 },
-    "4xl": { "value": 40 }
+    "4xl": { "value": 40 },
+    "section": { "value": 64 },
+    "hero": { "value": 96 }
   },
 
   "radius": {
-    "sm":   { "value": 6 },
-    "md":   { "value": 10 },
-    "lg":   { "value": 14 },
-    "xl":   { "value": 18 },
-    "2xl":  { "value": 22 },
+    "xs": { "value": 4 },
+    "sm": { "value": 6 },
+    "md": { "value": 8 },
+    "lg": { "value": 12 },
+    "xl": { "value": 16 },
+    "2xl": { "value": 20 },
     "full": { "value": 9999 }
+  },
+
+  "elevation": {
+    "subtle": { "value": "rgba(15,15,15,0.04) 0px 1px 2px 0px" },
+    "card": { "value": "rgba(15,15,15,0.08) 0px 4px 12px 0px" },
+    "mockup": { "value": "rgba(15,15,15,0.20) 0px 24px 48px -8px" },
+    "modal": { "value": "rgba(15,15,15,0.16) 0px 16px 48px -8px" }
   },
 
   "component": {
     "button": {
-      "height": 48,
-      "radius": 14,
-      "paddingX": 20,
-      "fontSize": 15,
+      "height": 44,
+      "radius": 8,
+      "paddingX": 18,
+      "fontSize": 14,
       "fontWeight": 500
     },
     "input": {
-      "height": 48,
-      "radius": 12,
+      "height": 44,
+      "radius": 8,
       "paddingX": 14,
       "fontSize": 15,
-      "borderWidth": 0.5,
+      "borderWidth": 1,
       "focusRingWidth": 2
     },
     "pill": {
-      "height": 24,
-      "radius": 12,
-      "paddingX": 11,
+      "height": 26,
+      "radius": 9999,
+      "paddingX": 10,
       "fontSize": 12,
-      "fontWeight": 500
+      "fontWeight": 600
     },
     "card": {
-      "radius": 18,
+      "radius": 12,
       "paddingY": 16,
       "paddingX": 18,
-      "borderWidth": 0.5
+      "borderWidth": 1
     },
     "statTile": {
-      "radius": 14,
+      "radius": 12,
       "paddingY": 14,
       "paddingX": 12,
       "valueSize": 22,
@@ -141,8 +247,8 @@
       "labelSize": 10
     },
     "iconButton": {
-      "size": 36,
-      "radius": 9999
+      "size": 40,
+      "radius": 8
     },
     "toggle": {
       "width": 50,
@@ -162,12 +268,12 @@
 
   "motion": {
     "duration": {
-      "fast":   { "value": 120 },
-      "normal": { "value": 220 },
-      "slow":   { "value": 320 }
+      "fast": { "value": 120 },
+      "normal": { "value": 180 },
+      "slow": { "value": 280 }
     },
     "easing": {
-      "standard":   { "value": "cubic-bezier(0.4, 0.0, 0.2, 1)" },
+      "standard": { "value": "cubic-bezier(0.4, 0.0, 0.2, 1)" },
       "decelerate": { "value": "cubic-bezier(0.0, 0.0, 0.2, 1)" },
       "accelerate": { "value": "cubic-bezier(0.4, 0.0, 1, 1)" }
     }

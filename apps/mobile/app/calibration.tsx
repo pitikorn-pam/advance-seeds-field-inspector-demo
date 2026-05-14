@@ -60,7 +60,7 @@ export default function CalibrationRoute() {
         title={t("calibration:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -91,7 +91,7 @@ export default function CalibrationRoute() {
             label={
               sharingMarker ? t("calibration:marker.sharing") : t("calibration:marker.download")
             }
-            renderLeadingIcon={() => <Download color="#1A1A1A" size={18} />}
+            renderLeadingIcon={() => <Download color="#171717" size={18} />}
             disabled={sharingMarker}
             onPress={() => void onShareMarker()}
           />

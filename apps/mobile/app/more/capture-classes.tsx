@@ -59,29 +59,25 @@ export default function CaptureClassesScreen() {
         title={t("more:masterData.varieties")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
         right={
           canCreate
             ? {
                 accessibilityLabel: t("varieties:newVariety"),
-                renderIcon: () => <Plus color="#1A1A1A" size={20} />,
+                renderIcon: () => <Plus color="#171717" size={20} />,
                 onPress: () => router.push("/more/capture-classes/new" as never),
               }
             : undefined
         }
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
-        <Text className="text-caption text-fg-secondary">
-          {t("more:masterData.varietiesIntro")}
-        </Text>
-
-        <View className="flex-row items-center gap-sm rounded-xl bg-bg-primary border border-line-tertiary px-md py-sm">
-          <Search color="#9D9D9A" size={16} />
+        <View className="flex-row items-center gap-sm rounded-lg bg-bg-primary border border-line-tertiary px-md py-sm">
+          <Search color="#8C8C87" size={16} />
           <TextInput
             placeholder={t("more:masterData.searchPlaceholder")}
-            placeholderTextColor="#9D9D9A"
+            placeholderTextColor="#8C8C87"
             value={query}
             onChangeText={setQuery}
             autoCapitalize="none"
@@ -95,7 +91,7 @@ export default function CaptureClassesScreen() {
               accessibilityLabel={t("common:actions.cancel")}
               onPress={() => setQuery("")}
             >
-              <X color="#9D9D9A" size={16} />
+              <X color="#8C8C87" size={16} />
             </Pressable>
           ) : null}
         </View>
@@ -126,10 +122,10 @@ export default function CaptureClassesScreen() {
                       width: 36,
                       height: 36,
                       borderRadius: 10,
-                      backgroundColor: cocoName ? "#E1F5EE" : "#F2F1ED",
+                      backgroundColor: cocoName ? "#DFF6EC" : "#F2F1ED",
                     }}
                   >
-                    <Sparkles color={cocoName ? "#0F6E56" : "#9D9D9A"} size={16} />
+                    <Sparkles color={cocoName ? "#6C47FF" : "#8C8C87"} size={16} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-title text-fg-primary">{variety.name}</Text>
@@ -165,7 +161,7 @@ export default function CaptureClassesScreen() {
                       </Text>
                     )}
                   </View>
-                  {editable ? <ChevronRight color="#9D9D9A" size={16} /> : null}
+                  {editable ? <ChevronRight color="#8C8C87" size={16} /> : null}
                 </Pressable>
               );
             })}

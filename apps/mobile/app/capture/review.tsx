@@ -510,7 +510,7 @@ export default function CaptureReview() {
         title={t("inspections:capture.review.title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: onBack,
         }}
         right={{
@@ -519,7 +519,7 @@ export default function CaptureReview() {
               ? "inspections:capture.review.shareVideo"
               : "inspections:capture.review.shareImage",
           ),
-          renderIcon: () => <Share2 color="#1A1A1A" size={18} />,
+          renderIcon: () => <Share2 color="#171717" size={18} />,
           onPress: onShare,
         }}
       />
@@ -535,7 +535,7 @@ export default function CaptureReview() {
         ListHeaderComponent={
           <View className="gap-lg">
             <View
-              className="rounded-xl overflow-hidden"
+              className="rounded-lg overflow-hidden"
               style={{ height: 200, backgroundColor: "#1a1816" }}
             >
               <CaptureMediaPreview
@@ -891,16 +891,16 @@ function formatCalibrationValue(pxPerMm: number, t: ReturnType<typeof useTransla
 }
 
 const GRADE_BG: Record<SeedGrade, string> = {
-  A: "#EAF3DE",
-  B: "#FAEEDA",
-  C: "#FCEBEB",
-  reject: "#FCEBEB",
+  A: "#DFF6EC",
+  B: "#FFF1B8",
+  C: "#FFE2E0",
+  reject: "#FFE2E0",
 };
 const GRADE_FG: Record<SeedGrade, string> = {
-  A: "#27500A",
-  B: "#633806",
-  C: "#791F1F",
-  reject: "#791F1F",
+  A: "#6C47FF",
+  B: "#704B00",
+  C: "#8A1F1B",
+  reject: "#8A1F1B",
 };
 
 function sortModeLabelKey(mode: SortMode) {
@@ -947,7 +947,7 @@ function SeedRow({
           {seed.area_mm2.toFixed(1)} mm²
         </Text>
       </View>
-      <ChevronRight color="#9D9D9A" size={16} />
+      <ChevronRight color="#8C8C87" size={16} />
     </Pressable>
   );
 }

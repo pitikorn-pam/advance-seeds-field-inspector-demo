@@ -19,7 +19,7 @@ export function NotificationBell() {
   const { data } = useNotifications();
   const unread = (data ?? []).filter((n) => n.read_at === null).length;
   const display = unread > 9 ? "9+" : unread > 0 ? String(unread) : null;
-  const iconColor = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
+  const iconColor = resolved === "dark" ? "#F5F5F4" : "#171717";
 
   return (
     <Pressable

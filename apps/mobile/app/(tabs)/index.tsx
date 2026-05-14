@@ -85,7 +85,7 @@ export default function HomeScreen() {
   );
   const dashboardDateLabel = rangeLabel(dateRange, i18n.language, t);
   const hasCustomDateRange = rangePreset === "custom" && (!!dateRange.start || !!dateRange.end);
-  const iconColor = resolved === "dark" ? "#F5F5F4" : "#1A1A1A";
+  const iconColor = resolved === "dark" ? "#F7F7F5" : "#171717";
   const rangeOptions = useMemo(
     () =>
       (["today", "last7", "last30", "custom"] as HomeRangePreset[]).map((value) => ({
@@ -248,7 +248,7 @@ export default function HomeScreen() {
                         size="sm"
                         variant="outline"
                         label={dashboardDateLabel}
-                        renderLeadingIcon={() => <Calendar color="#0F6E56" size={14} />}
+                        renderLeadingIcon={() => <Calendar color="#6C47FF" size={14} />}
                         onPress={() => setDatePickerOpen(true)}
                       />
                       {hasCustomDateRange ? (
@@ -273,7 +273,7 @@ export default function HomeScreen() {
             ) : recent.length > 0 ? (
               <RecentInspections rows={recent} />
             ) : (
-              <View className="rounded-2xl border border-line-tertiary bg-bg-primary px-lg py-2xl items-center">
+              <View className="items-center rounded-lg border border-line-tertiary bg-card-cream px-lg py-2xl">
                 <Text className="text-body text-fg-secondary text-center">
                   {t("home:recentEmpty")}
                 </Text>

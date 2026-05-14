@@ -16,7 +16,7 @@ export function ModelUpdateBanner() {
   const colors =
     resolved === "dark"
       ? { bg: "#0E2F26", icon: "#7FD1B0", title: "#E7F4EE", caption: "#9EBDB1" }
-      : { bg: "#E6F2EC", icon: "#0F6E56", title: "#0E2F26", caption: "#3F6457" };
+      : { bg: "#E6F2EC", icon: "#6C47FF", title: "#0E2F26", caption: "#3F6457" };
 
   const sizeMb =
     typeof update.size_bytes === "number" && update.size_bytes > 0
@@ -25,7 +25,7 @@ export function ModelUpdateBanner() {
 
   return (
     <View
-      className="flex-row items-center gap-md rounded-2xl px-lg py-md"
+      className="flex-row items-center gap-md rounded-lg px-lg py-md"
       style={{ backgroundColor: colors.bg }}
     >
       <Sparkles color={colors.icon} size={18} />

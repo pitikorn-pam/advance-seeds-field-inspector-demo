@@ -142,14 +142,12 @@ export default function ReportsRoute() {
         title={t("reports:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-xl">
-        <View className="items-center">
-          <Text className="text-h2 font-medium text-fg-primary">{t("reports:summaryTitle")}</Text>
-        </View>
+        <Text className="text-h1 font-medium text-fg-primary">{t("reports:summaryTitle")}</Text>
 
         <Card>
           <Text className="text-caption uppercase text-fg-secondary mb-sm">
@@ -172,7 +170,7 @@ export default function ReportsRoute() {
                 size="sm"
                 variant="outline"
                 label={rangeLabel(dateRange, i18n.language, t)}
-                renderLeadingIcon={() => <Calendar color="#0F6E56" size={14} />}
+                renderLeadingIcon={() => <Calendar color="#6C47FF" size={14} />}
                 onPress={() => setDatePickerOpen(true)}
               />
               {hasDateRange ? (
@@ -182,7 +180,7 @@ export default function ReportsRoute() {
                   accessibilityLabel={t("common:actions.clear")}
                   onPress={() => setDateRange({ start: null, end: null })}
                 >
-                  <X color="#1A1A1A" size={16} />
+                  <X color="#171717" size={16} />
                 </Button>
               ) : null}
             </View>

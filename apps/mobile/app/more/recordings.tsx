@@ -145,7 +145,7 @@ export default function RecordingsScreen() {
         title={t("profile:recordings.title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -188,7 +188,7 @@ export default function RecordingsScreen() {
                 className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
                 onPress={() => setDatePickerOpen(true)}
               >
-                <Calendar color="#0F6E56" size={16} />
+                <Calendar color="#6C47FF" size={16} />
                 <View className="flex-1">
                   <Text className="text-caption text-fg-secondary">
                     {t("profile:recordings.filters.dateRange")}
@@ -205,7 +205,7 @@ export default function RecordingsScreen() {
                   accessibilityLabel={t("common:actions.clear")}
                   onPress={() => setDateRange({ start: null, end: null })}
                 >
-                  <X color="#1A1A1A" size={16} />
+                  <X color="#171717" size={16} />
                 </Button>
               ) : null}
             </View>
@@ -358,7 +358,7 @@ function PendingRecordingRow({
           onPress={() => void onRetry()}
           disabled={entry.status === "syncing"}
         >
-          <RefreshCw color="#1A1A1A" size={16} />
+          <RefreshCw color="#171717" size={16} />
         </Button>
         <Button
           size="icon"
@@ -366,7 +366,7 @@ function PendingRecordingRow({
           accessibilityLabel={labels.discard}
           onPress={() => void onDiscard()}
         >
-          <Trash2 color="#791F1F" size={16} />
+          <Trash2 color="#8A1F1B" size={16} />
         </Button>
       </View>
     </View>
@@ -401,7 +401,7 @@ function RecordingRow({
     minute: "2-digit",
   });
   return (
-    <View className="gap-md p-md mb-md rounded-2xl bg-bg-primary">
+    <View className="gap-md p-md mb-md rounded-lg bg-bg-primary">
       <View className="aspect-[4/3] overflow-hidden rounded-lg bg-black">
         <CaptureMediaPreview uri={recording.video_url} kind="video" />
       </View>
@@ -413,13 +413,13 @@ function RecordingRow({
           <Text className="text-caption text-fg-secondary">{captionDate}</Text>
         </View>
         <Button size="icon" variant="tinted" accessibilityLabel={labels.share} onPress={onShare}>
-          <Share2 color="#1A1A1A" size={16} />
+          <Share2 color="#171717" size={16} />
         </Button>
         <Button size="icon" variant="tinted" accessibilityLabel={labels.save} onPress={onSave}>
-          <Download color="#1A1A1A" size={16} />
+          <Download color="#171717" size={16} />
         </Button>
         <Button size="icon" variant="danger" accessibilityLabel={labels.delete} onPress={onDelete}>
-          <Trash2 color="#791F1F" size={16} />
+          <Trash2 color="#8A1F1B" size={16} />
         </Button>
       </View>
     </View>

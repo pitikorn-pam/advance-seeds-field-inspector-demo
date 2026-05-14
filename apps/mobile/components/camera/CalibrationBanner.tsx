@@ -14,7 +14,7 @@ interface Props {
 /**
  * Bottom-of-stage banner used by precise mode. Two visual states:
  *
- *   • locked    — green (#0F6E56) surface with a check icon. Title:
+ *   • locked    — teal glass surface with a check icon. Title:
  *                 "Calibration locked". Hint:
  *                   "{px/mm} px/mm · {profileName}"  (manual source)
  *                   "{px/mm} px/mm at {distance}"     (lidar / aruco)
@@ -37,8 +37,8 @@ export function CalibrationBanner({ reading, profileName, distanceLabel }: Props
     const hint = formatHint(t, reading.pxPerMm, profileName, distanceLabel);
     return (
       <View
-        className="flex-row items-center gap-sm rounded-xl px-lg py-md"
-        style={{ backgroundColor: "rgba(15, 110, 86, 0.92)" }}
+        className="flex-row items-center gap-sm rounded-lg px-lg py-md"
+        style={{ backgroundColor: "rgba(17, 167, 139, 0.92)" }}
       >
         <Check color="white" size={18} />
         <View className="flex-1">
@@ -58,7 +58,7 @@ export function CalibrationBanner({ reading, profileName, distanceLabel }: Props
     : t("capture.calibration.unavailableHint");
 
   return (
-    <View className="flex-row items-center gap-sm rounded-xl bg-glass-surface px-lg py-md">
+    <View className="flex-row items-center gap-sm rounded-lg bg-glass-surface px-lg py-md">
       <AlertCircle color="white" size={18} />
       <View className="flex-1">
         <Text className="text-white font-medium" style={{ fontSize: 13 }}>

@@ -349,7 +349,7 @@ export default function ModelRegistryScreen() {
         title={t("more:models.title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => {
             if (router.canGoBack()) router.back();
             else router.replace("/(tabs)/more");
@@ -357,8 +357,6 @@ export default function ModelRegistryScreen() {
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <Text className="text-caption text-fg-secondary">{t("more:models.intro")}</Text>
-
         <Card>
           <View className="flex-row items-center gap-md">
             <View className="flex-1">
@@ -457,7 +455,7 @@ export default function ModelRegistryScreen() {
                   effectiveBusy === "refresh" ? "opacity-50" : ""
                 }`}
               >
-                <RefreshCw color="#0F6E56" size={14} />
+                <RefreshCw color="#6C47FF" size={14} />
               </Pressable>
             </View>
           }
@@ -552,7 +550,7 @@ function RefreshingPill() {
   const { t } = useTranslation("more");
   return (
     <View className="flex-row items-center gap-xs self-start rounded-full bg-bg-secondary px-md py-xs">
-      <ActivityIndicator size="small" color="#0F6E56" />
+      <ActivityIndicator size="small" color="#6C47FF" />
       <Text className="text-caption text-fg-secondary">{t("models.refreshing")}</Text>
     </View>
   );
@@ -575,7 +573,7 @@ function StatusBanner({
   return (
     <View
       accessibilityRole="alert"
-      className="flex-row gap-md rounded-2xl border px-md py-md"
+      className="flex-row gap-md rounded-lg border px-md py-md"
       style={{ borderColor: palette.fg, backgroundColor: palette.bg }}
     >
       <Icon color={palette.fg} size={20} />
@@ -603,7 +601,7 @@ function StatusBanner({
 
 const STATUS_PALETTE: Record<StatusTone, { bg: string; fg: string }> = {
   success: { bg: "#E6F4EA", fg: "#1F6E3A" },
-  danger: { bg: "#FBEAE8", fg: "#791F1F" },
+  danger: { bg: "#FBEAE8", fg: "#8A1F1B" },
   info: { bg: "#E5EEF7", fg: "#1F4F8B" },
 };
 
@@ -836,7 +834,7 @@ function ModelDetails({
   const versionId = (metadata.registry as { version_id?: string } | undefined)?.version_id ?? null;
 
   return (
-    <View className="gap-md rounded-xl bg-bg-secondary px-md py-md">
+    <View className="gap-md rounded-lg bg-bg-secondary px-md py-md">
       {performanceRows.length > 0 ? (
         <DetailGroup title={t("models.details.performance")} icon="performance">
           <View className="flex-row flex-wrap gap-x-md gap-y-xs">

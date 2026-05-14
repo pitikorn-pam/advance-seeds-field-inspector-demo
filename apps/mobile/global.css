@@ -6,65 +6,151 @@
   Tokens preset emits Tailwind utilities that resolve to var(--as-*).
   Browsers handle CSS variables natively; NativeWind 4 needs them defined
   in this file to translate them at bundle time. Mirrors
-  packages/tokens/dist/css-vars.css with NativeWind's `.dark` selector
-  (the web dashboard uses `[data-theme="dark"]`).
+  packages/tokens/dist/css-vars.css with NativeWind's .dark selector
+  (the web dashboard uses [data-theme="dark"]).
 */
 @layer base {
   :root {
-    --as-brand: #0f6e56;
-    --as-brand-soft: #e1f5ee;
-    --as-brand-deep: #04342c;
+    --as-primary: #6c47ff;
+    --as-primary-pressed: #5936d8;
+    --as-primary-deep: #3f249b;
+    --as-primary-on: #ffffff;
+    --as-brand: #6c47ff;
+    --as-brand-soft: #eee9ff;
+    --as-brand-deep: #2d205e;
     --as-brand-on: #ffffff;
+    --as-brand-navy: #0d1028;
+    --as-brand-navy-deep: #07091a;
+    --as-brand-navy-mid: #1c2445;
+    --as-link-blue: #2563eb;
+    --as-link-blue-pressed: #1d4ed8;
+    --as-brand-green: #0f6e56;
+    --as-brand-pink: #e255a1;
+    --as-brand-orange: #f77b23;
+    --as-brand-teal: #11a78b;
+    --as-brand-yellow: #f2c94c;
+    --as-brand-brown: #8c5e3c;
+    --as-card-peach: #ffe8d6;
+    --as-card-rose: #ffe2ec;
+    --as-card-mint: #dff6ec;
+    --as-card-lavender: #eee9ff;
+    --as-card-sky: #e2f0ff;
+    --as-card-yellow: #fff1b8;
+    --as-card-yellow-bold: #ffd84d;
+    --as-card-cream: #fff8e8;
+    --as-card-gray: #f5f5f2;
     --as-bg-primary: #ffffff;
-    --as-bg-secondary: #f4f4f1;
-    --as-bg-tertiary: #fafaf9;
-    --as-text-primary: #1a1a1a;
-    --as-text-secondary: #6b6b68;
-    --as-text-tertiary: #9d9d9a;
-    --as-border-primary: rgba(0, 0, 0, 0.2);
-    --as-border-secondary: rgba(0, 0, 0, 0.12);
-    --as-border-tertiary: rgba(0, 0, 0, 0.06);
-    --as-success-bg: #eaf3de;
-    --as-success-text: #27500a;
-    --as-warning-bg: #faeeda;
-    --as-warning-text: #633806;
-    --as-danger-bg: #fcebeb;
-    --as-danger-text: #791f1f;
-    --as-info-bg: #e6f1fb;
-    --as-info-text: #0c447c;
-    --as-corn-bg: #faeeda;
-    --as-corn-text: #854f0b;
-    --as-rice-bg: #eaf3de;
-    --as-rice-text: #3b6d11;
-    --as-legume-bg: #e1f5ee;
-    --as-legume-text: #0f6e56;
-    --as-mungbean-bg: #faece7;
-    --as-mungbean-text: #993c1d;
+    --as-bg-secondary: #f7f6f2;
+    --as-bg-tertiary: #fbfaf7;
+    --as-text-primary: #171717;
+    --as-text-secondary: #5f5f5b;
+    --as-text-tertiary: #8c8c87;
+    --as-text-on-dark: #ffffff;
+    --as-text-on-dark-muted: rgba(255, 255, 255, 0.72);
+    --as-border-primary: rgba(23, 23, 23, 0.24);
+    --as-border-secondary: rgba(23, 23, 23, 0.14);
+    --as-border-tertiary: rgba(23, 23, 23, 0.08);
+    --as-success-bg: #e4f4da;
+    --as-success-text: #285b12;
+    --as-warning-bg: #fff1b8;
+    --as-warning-text: #704b00;
+    --as-danger-bg: #ffe2e0;
+    --as-danger-text: #8a1f1b;
+    --as-info-bg: #e2f0ff;
+    --as-info-text: #1957a4;
+    --as-corn-bg: #fff1b8;
+    --as-corn-text: #704b00;
+    --as-rice-bg: #dff6ec;
+    --as-rice-text: #0f6e56;
+    --as-legume-bg: #eee9ff;
+    --as-legume-text: #3f249b;
+    --as-mungbean-bg: #ffe8d6;
+    --as-mungbean-text: #8c3c12;
+    --as-glass-chip: rgba(7, 9, 26, 0.42);
+    --as-glass-soft: rgba(7, 9, 26, 0.52);
+    --as-glass-surface: rgba(7, 9, 26, 0.64);
+    --as-glass-strong: rgba(7, 9, 26, 0.78);
+    --as-glass-border: rgba(255, 255, 255, 0.18);
+    --as-glass-text: #ffffff;
+    --as-glass-text-muted: rgba(255, 255, 255, 0.72);
+    --as-glass-accent: rgba(255, 216, 77, 0.9);
+    --as-font-sans:
+      "Notion Sans", Inter, -apple-system, system-ui, "Segoe UI", Helvetica, sans-serif;
+    --as-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --as-space-xs: 4px;
+    --as-space-sm: 8px;
+    --as-space-md: 12px;
+    --as-space-lg: 16px;
+    --as-space-xl: 20px;
+    --as-space-2xl: 24px;
+    --as-space-3xl: 32px;
+    --as-space-4xl: 40px;
+    --as-space-section: 64px;
+    --as-space-hero: 96px;
+    --as-radius-xs: 4px;
+    --as-radius-sm: 6px;
+    --as-radius-md: 8px;
+    --as-radius-lg: 12px;
+    --as-radius-xl: 16px;
+    --as-radius-2xl: 20px;
+    --as-radius-full: 9999px;
+    --as-duration-fast: 120ms;
+    --as-duration-normal: 180ms;
+    --as-duration-slow: 280ms;
+    --as-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+    --as-easing-decel: cubic-bezier(0, 0, 0.2, 1);
+    --as-easing-accel: cubic-bezier(0.4, 0, 1, 1);
   }
 
   :root.dark,
   .dark:root,
   .dark {
-    --as-brand: #5dcaa5;
-    --as-brand-soft: #04342c;
-    --as-brand-deep: #9fe1cb;
-    --as-brand-on: #04342c;
-    --as-bg-primary: #0f0f11;
-    --as-bg-secondary: #18181b;
-    --as-bg-tertiary: #1f1f22;
-    --as-text-primary: #f5f5f4;
-    --as-text-secondary: #a1a1a0;
-    --as-text-tertiary: #727272;
-    --as-border-primary: rgba(255, 255, 255, 0.24);
+    --as-primary: #8f75ff;
+    --as-primary-pressed: #a492ff;
+    --as-primary-deep: #d8d0ff;
+    --as-primary-on: #ffffff;
+    --as-brand: #8f75ff;
+    --as-brand-soft: #2a2054;
+    --as-brand-deep: #d8d0ff;
+    --as-brand-on: #ffffff;
+    --as-brand-navy: #07091a;
+    --as-brand-navy-deep: #050615;
+    --as-brand-navy-mid: #20294f;
+    --as-link-blue: #93c5fd;
+    --as-link-blue-pressed: #bfdbfe;
+    --as-brand-green: #5dcaa5;
+    --as-brand-pink: #f4a8d2;
+    --as-brand-orange: #fdba74;
+    --as-brand-teal: #7dd3c7;
+    --as-brand-yellow: #ffe08a;
+    --as-brand-brown: #d6b08c;
+    --as-card-peach: #412314;
+    --as-card-rose: #442033;
+    --as-card-mint: #123a31;
+    --as-card-lavender: #2a2054;
+    --as-card-sky: #122a44;
+    --as-card-yellow: #40350b;
+    --as-card-yellow-bold: #f4c430;
+    --as-card-cream: #2d281c;
+    --as-card-gray: #1f1f22;
+    --as-bg-primary: #111114;
+    --as-bg-secondary: #19191d;
+    --as-bg-tertiary: #222228;
+    --as-text-primary: #f7f7f5;
+    --as-text-secondary: #b6b6b0;
+    --as-text-tertiary: #7e7e78;
+    --as-text-on-dark: #ffffff;
+    --as-text-on-dark-muted: rgba(255, 255, 255, 0.72);
+    --as-border-primary: rgba(255, 255, 255, 0.26);
     --as-border-secondary: rgba(255, 255, 255, 0.16);
     --as-border-tertiary: rgba(255, 255, 255, 0.08);
     --as-success-bg: #173404;
     --as-success-text: #c0dd97;
-    --as-warning-bg: #412402;
-    --as-warning-text: #fac775;
+    --as-warning-bg: #40350b;
+    --as-warning-text: #ffe08a;
     --as-danger-bg: #501313;
     --as-danger-text: #f7c1c1;
-    --as-info-bg: #042c53;
+    --as-info-bg: #122a44;
     --as-info-text: #b5d4f4;
   }
 }

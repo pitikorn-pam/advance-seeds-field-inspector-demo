@@ -460,7 +460,7 @@ export default function CaptureScan() {
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel="LiDAR calibration"
-            centerDotColor="#5DCAA5"
+            centerDotColor="#7DD3C7"
             flashMode={flashMode}
             onFlashPress={cycleFlash}
             onBackPress={leaveCamera}
@@ -518,7 +518,7 @@ export default function CaptureScan() {
         <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
           <GlassTopBar
             centerLabel={`${t("inspections:capture.live.pillLabel")} · ${t("inspections:capture.shutter")}`}
-            centerDotColor="#5DCAA5"
+            centerDotColor="#7DD3C7"
             flashMode={flashMode}
             onFlashPress={cycleFlash}
             onBackPress={leaveCamera}

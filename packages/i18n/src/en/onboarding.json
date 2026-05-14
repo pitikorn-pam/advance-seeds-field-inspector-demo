@@ -1,18 +1,21 @@
 {
   "splash": {
-    "tagline": "Field Inspector for QA technicians",
+    "tagline": "A field QA workspace for seed lots",
     "getStarted": "Get started",
     "version": "Version 1.0.0"
   },
   "welcome": {
-    "title": "Detect, measure, grade",
-    "body": "Choose a variety, open the adaptive camera, and get counts, measurements, ROI overlays, and configured quality grades on-device.",
-    "cardCameraTitle": "On-device inference",
-    "cardCameraBody": "Sampled YOLO26 segmentation with smooth preview",
-    "cardTargetTitle": "Live calibration",
-    "cardTargetBody": "LiDAR streams continuously; ArUco relocks and adapts when visible",
-    "cardSyncTitle": "Cloud sync",
-    "cardSyncBody": "Captures save to Supabase for R&D",
+    "heroLabel": "Field QA workspace",
+    "title": "Meet your field QA workspace",
+    "body": "Pick a variety, open the adaptive camera, and turn a tray of seeds into counts, measurements, grade criteria, and synced records.",
+    "cardCameraTitle": "Live inspection board",
+    "cardCameraBody": "YOLO26 segmentation samples the tray while the preview stays smooth",
+    "cardTargetTitle": "Calibration stays attached",
+    "cardTargetBody": "LiDAR streams continuously; ArUco relocks when the card is visible",
+    "cardSyncTitle": "Synced records",
+    "cardSyncBody": "Inspections, media, and metadata stay recoverable for R&D review",
+    "cardWorkspaceTitle": "Grade criteria",
+    "cardWorkspaceBody": "Variety-owned A/B/C ranges keep field decisions consistent",
     "continue": "Continue",
     "skip": "Skip for now"
   }

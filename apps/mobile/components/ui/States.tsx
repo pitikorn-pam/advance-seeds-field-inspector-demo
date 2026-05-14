@@ -1,6 +1,7 @@
 import { View, Text, ActivityIndicator } from "react-native";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Inbox } from "lucide-react-native";
+import { useTheme } from "@/lib/theme";
 import { Button } from "./Button";
 
 export function LoadingState({ label }: { label?: string }) {
@@ -23,9 +24,11 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   const { t } = useTranslation();
+  const { resolved } = useTheme();
+  const iconColor = resolved === "dark" ? "rgba(255,255,255,0.56)" : "rgba(13,16,40,0.62)";
   return (
-    <View className="items-center justify-center gap-md rounded-xl border border-dashed border-line-tertiary bg-bg-primary py-3xl px-xl">
-      <Inbox color="rgba(0,0,0,0.4)" size={32} />
+    <View className="items-center justify-center gap-md rounded-lg border border-line-tertiary bg-card-cream py-3xl px-xl">
+      <Inbox color={iconColor} size={32} />
       <View className="items-center gap-xs">
         <Text className="text-h2 font-medium text-fg-primary">{title ?? t("states.empty")}</Text>
         {hint ? <Text className="text-body text-fg-secondary text-center">{hint}</Text> : null}
@@ -45,9 +48,11 @@ export function ErrorState({
   onRetry?: () => void;
 }) {
   const { t } = useTranslation();
+  const { resolved } = useTheme();
+  const iconColor = resolved === "dark" ? "#F7C1C1" : "#8A1F1B";
   return (
-    <View className="items-center justify-center gap-md rounded-xl border border-dashed border-danger-text/30 bg-danger-bg/30 py-3xl px-xl">
-      <AlertCircle color="#791F1F" size={32} />
+    <View className="items-center justify-center gap-md rounded-lg border border-danger-text/30 bg-danger-bg/30 py-3xl px-xl">
+      <AlertCircle color={iconColor} size={32} />
       <View className="items-center gap-xs">
         <Text className="text-h2 font-medium text-fg-primary">{title ?? t("states.error")}</Text>
         {hint ? <Text className="text-body text-fg-secondary text-center">{hint}</Text> : null}

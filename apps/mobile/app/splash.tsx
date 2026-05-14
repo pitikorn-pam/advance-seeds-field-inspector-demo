@@ -3,7 +3,7 @@ import { View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Sprout } from "lucide-react-native";
+import { ScanLine, Sprout } from "lucide-react-native";
 
 /**
  * First-launch splash. The native splash screen is hidden once i18n boots;
@@ -25,18 +25,21 @@ export default function Splash() {
   }, [router]);
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-brand-navy" edges={["top", "bottom"]}>
       <View className="flex-1 items-center justify-center px-xl">
         <View
-          className="items-center justify-center mb-2xl"
-          style={{ width: 78, height: 78, borderRadius: 22, backgroundColor: "#0F6E56" }}
+          className="mb-2xl items-center justify-center rounded-md bg-card-yellow-bold"
+          style={{ width: 78, height: 78 }}
         >
-          <Sprout color="white" size={38} strokeWidth={1.6} />
+          <Sprout color="#0D1028" size={34} strokeWidth={1.7} />
+          <View className="absolute -right-2 -top-2 rounded-md bg-primary p-xs">
+            <ScanLine color="#FFFFFF" size={14} strokeWidth={2} />
+          </View>
         </View>
-        <Text className="text-fg-primary font-medium" style={{ fontSize: 30, letterSpacing: -0.6 }}>
+        <Text className="font-semibold text-fg-on-dark" style={{ fontSize: 34 }}>
           {t("common:appName")}
         </Text>
-        <Text className="text-body text-fg-secondary mt-xs text-center">
+        <Text className="mt-xs text-center text-body text-fg-on-dark-muted">
           {t("onboarding:splash.tagline")}
         </Text>
 
@@ -51,14 +54,14 @@ export default function Splash() {
       <View className="px-xl pb-xl">
         <Pressable
           accessibilityRole="button"
-          className="h-12 items-center justify-center rounded-lg bg-brand active:opacity-90"
+          className="h-11 items-center justify-center rounded-md bg-primary active:bg-primary-pressed"
           onPress={() => router.replace("/welcome")}
         >
-          <Text className="text-brand-on font-medium" style={{ fontSize: 15 }}>
+          <Text className="font-medium text-primary-on" style={{ fontSize: 14 }}>
             {t("onboarding:splash.getStarted")}
           </Text>
         </Pressable>
-        <Text className="text-caption text-fg-tertiary text-center mt-sm">
+        <Text className="mt-sm text-center text-caption text-fg-on-dark-muted">
           {t("onboarding:splash.version")}
         </Text>
       </View>
@@ -73,7 +76,7 @@ function Dot({ opacity }: { opacity: number }) {
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: "#0F6E56",
+        backgroundColor: "#FFD84D",
         opacity,
       }}
     />

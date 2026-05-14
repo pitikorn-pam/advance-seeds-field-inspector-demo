@@ -29,10 +29,10 @@ type HistoryListEntry =
   | { kind: "item"; key: string; item: HistoryItem; isFirst: boolean; isLast: boolean };
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FAEEDA", fg: "#854F0B" },
-  rice: { bg: "#EAF3DE", fg: "#3B6D11" },
-  legume: { bg: "#E1F5EE", fg: "#0F6E56" },
-  mungbean: { bg: "#FAECE7", fg: "#993C1D" },
+  corn: { bg: "#FFF1B8", fg: "#704B00" },
+  rice: { bg: "#DFF6EC", fg: "#6C47FF" },
+  legume: { bg: "#EEE9FF", fg: "#3F249B" },
+  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
 };
 
 /**
@@ -117,7 +117,7 @@ export default function HistoryScreen() {
         title={t("history:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#1A1A1A" size={20} />,
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
       />
@@ -140,7 +140,7 @@ export default function HistoryScreen() {
         ListFooterComponent={
           isFetchingNextPage ? (
             <View className="py-md items-center">
-              <ActivityIndicator color="#0F6E56" />
+              <ActivityIndicator color="#6C47FF" />
             </View>
           ) : null
         }
@@ -161,7 +161,7 @@ export default function HistoryScreen() {
                 className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
                 onPress={() => setDatePickerOpen(true)}
               >
-                <Calendar color="#0F6E56" size={16} />
+                <Calendar color="#6C47FF" size={16} />
                 <View className="flex-1">
                   <Text className="text-caption text-fg-secondary">
                     {t("history:filters.dateRange")}
@@ -178,7 +178,7 @@ export default function HistoryScreen() {
                   className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary"
                   onPress={() => setDateRange({ start: null, end: null })}
                 >
-                  <X color="#1A1A1A" size={16} />
+                  <X color="#171717" size={16} />
                 </Pressable>
               ) : null}
             </View>
@@ -271,7 +271,7 @@ function HistoryRow({
         dot
         label={t(`syncStatus.${syncState}`)}
       />
-      {row ? <ChevronRight color="#9D9D9A" size={16} /> : null}
+      {row ? <ChevronRight color="#8C8C87" size={16} /> : null}
     </View>
   );
   if (!row) return content;

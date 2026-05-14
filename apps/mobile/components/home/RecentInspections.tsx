@@ -1,15 +1,15 @@
 import { View, Text, Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Link, useRouter } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight, ListChecks } from "lucide-react-native";
 import type { InspectionRow } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FAEEDA", fg: "#854F0B" },
-  rice: { bg: "#EAF3DE", fg: "#3B6D11" },
-  legume: { bg: "#E1F5EE", fg: "#0F6E56" },
-  mungbean: { bg: "#FAECE7", fg: "#993C1D" },
+  corn: { bg: "#FFF1B8", fg: "#704B00" },
+  rice: { bg: "#DFF6EC", fg: "#0F6E56" },
+  legume: { bg: "#EEE9FF", fg: "#3F249B" },
+  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
 };
 
 interface Props {
@@ -35,14 +35,24 @@ export function RecentInspections({ rows }: Props) {
 
   return (
     <View className="gap-md">
-      <View className="flex-row items-center justify-between">
-        <Text className="text-title font-medium text-fg-primary">{t("home:recent")}</Text>
-        <Pressable onPress={() => router.push("/more/history" as never)}>
-          <Text className="text-brand text-caption font-medium">{t("home:viewAll")}</Text>
-        </Pressable>
+      <View className="rounded-lg bg-card-yellow-bold px-lg py-md">
+        <View className="flex-row items-center justify-between gap-md">
+          <View className="flex-row items-center gap-sm">
+            <View className="h-8 w-8 items-center justify-center rounded-md bg-bg-primary/70">
+              <ListChecks color="#0D1028" size={16} />
+            </View>
+            <View>
+              <Text className="text-title font-medium text-brand-navy">{t("home:recent")}</Text>
+              <Text className="text-caption text-warning-text">{t("home:recentSubhead")}</Text>
+            </View>
+          </View>
+          <Pressable onPress={() => router.push("/more/history" as never)}>
+            <Text className="text-caption font-medium text-brand-navy">{t("home:viewAll")}</Text>
+          </Pressable>
+        </View>
       </View>
 
-      <Card className="p-0">
+      <Card className="p-0" tone="base">
         {rows.map((row, idx) => {
           const tint = VARIETY_TINTS[row.variety?.color_key ?? ""] ?? VARIETY_TINTS.rice;
           return (
@@ -57,7 +67,7 @@ export function RecentInspections({ rows }: Props) {
                   style={{
                     width: 44,
                     height: 44,
-                    borderRadius: 12,
+                    borderRadius: 8,
                     backgroundColor: tint.bg,
                   }}
                 >
@@ -79,7 +89,7 @@ export function RecentInspections({ rows }: Props) {
                       : ""}
                   </Text>
                 </View>
-                <ChevronRight color="#9D9D9A" size={16} />
+                <ChevronRight color="#8C8C87" size={16} />
               </Pressable>
             </Link>
           );

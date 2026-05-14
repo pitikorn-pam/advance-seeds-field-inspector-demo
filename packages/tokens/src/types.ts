@@ -2,16 +2,42 @@
 // Mirrors docs/handoff/design-tokens.json — keep aligned.
 
 export type ColorPair = { value: string; darkValue?: string; description?: string };
-export type SemanticPair = { bg: { value: string }; text: { value: string } };
+export type SemanticPair = { bg: ColorPair; text: ColorPair };
 export type VarietyPair = { bg: string; text: string };
 export type GlassPair = { value: string; description?: string };
+export type ShadowPair = { value: string; description?: string };
 
 export interface DesignTokensJson {
   metadata: { name: string; version: string; description: string };
   color: {
-    brand: { primary: ColorPair; soft: ColorPair; deep: ColorPair };
+    brand: {
+      primary: ColorPair;
+      primaryPressed?: ColorPair;
+      primaryDeep?: ColorPair;
+      soft: ColorPair;
+      deep: ColorPair;
+      navy?: ColorPair;
+      navyDeep?: ColorPair;
+      navyMid?: ColorPair;
+      linkBlue?: ColorPair;
+      linkBluePressed?: ColorPair;
+      seedGreen?: ColorPair;
+      pink?: ColorPair;
+      orange?: ColorPair;
+      teal?: ColorPair;
+      green?: ColorPair;
+      yellow?: ColorPair;
+      brown?: ColorPair;
+    };
+    cardTint?: Record<string, ColorPair>;
     background: { primary: ColorPair; secondary: ColorPair; tertiary: ColorPair };
-    text: { primary: ColorPair; secondary: ColorPair; tertiary: ColorPair };
+    text: {
+      primary: ColorPair;
+      secondary: ColorPair;
+      tertiary: ColorPair;
+      onDark?: ColorPair;
+      onDarkMuted?: ColorPair;
+    };
     border: { tertiary: ColorPair; secondary: ColorPair; primary: ColorPair };
     semantic: {
       success: SemanticPair;
@@ -31,6 +57,7 @@ export interface DesignTokensJson {
   };
   spacing: Record<string, { value: number }>;
   radius: Record<string, { value: number }>;
+  elevation?: Record<string, ShadowPair>;
   component: Record<string, Record<string, number>>;
   motion: {
     duration: Record<string, { value: number }>;

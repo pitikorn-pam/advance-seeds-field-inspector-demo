@@ -15,7 +15,8 @@ packages/tokens         → design tokens generated from docs/handoff/design-tok
 packages/types          → shared TS types incl. SeedAnalyzer interface
 packages/i18n           → en + th translation resources
 supabase/               → migrations, seed scripts, RLS policies
-docs/handoff/           → original design-system handoff (preserved)
+DESIGN.md               → current Advance Seeds design DNA
+docs/handoff/           → machine-readable tokens + original handoff references
 openspec/               → spec-driven dev artifacts
 ```
 
@@ -134,7 +135,7 @@ Inside Claude Code, the `/opsx:propose`, `/opsx:apply`, `/opsx:archive`, and `/o
 - **Conventional commits** enforced via commitlint + Husky (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, …).
 - **Prettier** runs format-on-save in VS Code; `lint-staged` formats on commit.
 - All UI strings via `t()` — no hardcoded English in components.
-- Token names mirror [`docs/handoff/design-tokens.json`](./docs/handoff/design-tokens.json) — no inline hex / px outside the token layer.
+- Root [`DESIGN.md`](./DESIGN.md) defines the current design DNA; token names mirror [`docs/handoff/design-tokens.json`](./docs/handoff/design-tokens.json) — no inline hex / px outside the token layer.
 
 ## Why this stack
 
