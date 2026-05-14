@@ -223,21 +223,26 @@ export default function HomeScreen() {
               <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
             }
           >
-            {/* Greeting + initials chip */}
+            {/* Greeting row — prototype: 40x40 lavender avatar with initials,
+                two-line text column (date small + "Good morning, X" with
+                inline role pill), notification bell on the right. */}
             <View className="flex-row items-center gap-md">
+              <Avatar name={profile?.full_name ?? profile?.email ?? "?"} />
               <View className="flex-1">
-                <Text className="text-caption text-fg-secondary">{dateLabel}</Text>
-                <Text
-                  className="text-fg-primary font-medium mt-xs"
-                  style={{ fontSize: 22, letterSpacing: -0.4 }}
-                >
-                  {firstName ? t("home:greeting", { name: firstName }) : t("common:appName")}
-                </Text>
+                <Text className="text-caption text-fg-tertiary">{dateLabel}</Text>
+                <View className="flex-row items-center gap-xs mt-[2px]">
+                  <Text
+                    className="text-fg-primary font-semibold"
+                    style={{ fontSize: 19, letterSpacing: -0.3 }}
+                    numberOfLines={1}
+                  >
+                    {firstName ? t("home:greeting", { name: firstName }) : t("common:appName")}
+                  </Text>
+                  {profile?.role ? (
+                    <RolePill role={(profile.role === "admin" ? "Admin" : "Inspector") as Role} />
+                  ) : null}
+                </View>
               </View>
-              <SyncPill state={syncState} count={syncCount} />
-              {profile?.role ? (
-                <RolePill role={(profile.role === "admin" ? "Admin" : "Inspector") as Role} />
-              ) : null}
               <NotificationBell />
             </View>
 
@@ -246,13 +251,19 @@ export default function HomeScreen() {
             ) : (
               <>
                 <View className="gap-sm">
-                  <Segmented<HomeRangePreset>
-                    value={rangePreset}
-                    onChange={setPreset}
-                    options={rangeOptions}
-                    variant="tag"
-                    scrollable
-                  />
+                  {/* Segmented + sync state on the right — single row per prototype */}
+                  <View className="flex-row items-center gap-sm">
+                    <View className="flex-1">
+                      <Segmented<HomeRangePreset>
+                        value={rangePreset}
+                        onChange={setPreset}
+                        options={rangeOptions}
+                        variant="tag"
+                        scrollable
+                      />
+                    </View>
+                    <SyncPill state={syncState} count={syncCount} />
+                  </View>
                   {rangePreset === "custom" ? (
                     <View className="flex-row items-center gap-xs">
                       <Button
@@ -321,6 +332,26 @@ export default function HomeScreen() {
         onClear={() => setDateRange({ start: null, end: null })}
         onChange={setDateRange}
       />
+    </View>
+  );
+}
+
+/**
+ * 40x40 lavender circle with the user's initials. Matches the prototype's
+ * "JK" avatar — a lightweight identity anchor for the greeting row.
+ * Local to this file because no other screen renders the same shape yet;
+ * promote to components/ui if a second consumer shows up.
+ */
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+  return (
+    <View className="h-[40px] w-[40px] items-center justify-center rounded-full bg-card-lavender">
+      <Text className="text-[13px] font-semibold text-primary-deep">{initials || "·"}</Text>
     </View>
   );
 }

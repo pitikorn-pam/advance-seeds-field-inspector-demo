@@ -1,7 +1,5 @@
 import { View, Text } from "react-native";
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Award, Clock3, Ruler } from "lucide-react-native";
 import type { InspectionRow } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 
@@ -50,32 +48,20 @@ export function HeroCard({ inspections, dateLabel }: Props) {
 
   return (
     <View className="gap-sm">
-      {/* KPI grid */}
+      {/* KPI grid — prototype is plain white cards with hairlines, no tints.
+          Tints belong on small icon squares and status badges, not full KPI
+          tiles. Layout: UPPERCASE caption, big number, small unit suffix. */}
       <View className="flex-row gap-sm">
-        <KpiTile
-          tone="lavender"
-          icon={<Activity color="#4B22A8" size={14} />}
-          value={inspections.length.toLocaleString()}
-          label={t("metricInspections")}
-        />
-        <KpiTile
-          tone="mint"
-          icon={<Award color="#0F6E56" size={14} />}
-          value={totalSeeds.toLocaleString()}
-          label={t("metricSeeds")}
-        />
+        <KpiTile value={inspections.length.toLocaleString()} label={t("metricInspections")} />
+        <KpiTile value={totalSeeds.toLocaleString()} label={t("metricSeeds")} />
       </View>
       <View className="flex-row gap-sm">
         <KpiTile
-          tone="sky"
-          icon={<Ruler color="#0E5A8A" size={14} />}
           value={weightedLength === null ? "--" : weightedLength.toFixed(1)}
           unit="mm"
           label={t("metricAvgLength")}
         />
         <KpiTile
-          tone="peach"
-          icon={<Clock3 color="#8C3C12" size={14} />}
           value={gradeAPct === null ? "--" : `${gradeAPct}`}
           unit={gradeAPct === null ? "" : "%"}
           label={t("metricGradeA")}
@@ -92,7 +78,7 @@ export function HeroCard({ inspections, dateLabel }: Props) {
           {buckets.map((bucket) => (
             <View key={bucket.key} className="flex-1 items-center justify-end gap-xs">
               <View
-                className={`w-full rounded-sm ${bucket.isAnchor ? "bg-primary" : "bg-primary/40"}`}
+                className={`w-full rounded-sm ${bucket.isAnchor ? "bg-primary" : "bg-primary/60"}`}
                 style={{
                   minHeight: 4,
                   height: Math.max(4, Math.round((bucket.count / maxBucket) * 44)),
@@ -150,44 +136,22 @@ export function HeroCard({ inspections, dateLabel }: Props) {
   );
 }
 
-type KpiTone = "lavender" | "mint" | "sky" | "peach" | "rose";
-
-const KPI_TONE_BG: Record<KpiTone, string> = {
-  lavender: "bg-card-lavender",
-  mint: "bg-card-mint",
-  sky: "bg-card-sky",
-  peach: "bg-card-peach",
-  rose: "bg-card-rose",
-};
-
-function KpiTile({
-  tone,
-  icon,
-  value,
-  unit,
-  label,
-}: {
-  tone: KpiTone;
-  icon: ReactNode;
-  value: string;
-  unit?: string;
-  label: string;
-}) {
+function KpiTile({ value, unit, label }: { value: string; unit?: string; label: string }) {
+  // Plain white card with hairline — matches prototype's RUNS / SEEDS / AVG L
+  // tiles. Caption at top in small-caps + steel ink; big number below.
   return (
-    <View
-      className={`flex-1 rounded-lg border border-line-tertiary px-md py-md ${KPI_TONE_BG[tone]}`}
-    >
-      <View className="flex-row items-center justify-between">
-        <View className="h-6 w-6 items-center justify-center rounded-md bg-bg-primary/60">
-          {icon}
-        </View>
-        <Text className="text-[10px] uppercase text-fg-secondary">{label}</Text>
-      </View>
-      <View className="mt-sm flex-row items-baseline">
-        <Text className="font-medium text-fg-primary" style={{ fontSize: 24, letterSpacing: -0.4 }}>
+    <View className="flex-1 rounded-lg border border-line-tertiary bg-bg-primary px-md py-md">
+      <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary">
+        {label}
+      </Text>
+      <View className="mt-xs flex-row items-baseline">
+        <Text
+          className="font-semibold text-fg-primary"
+          style={{ fontSize: 26, letterSpacing: -0.4 }}
+        >
           {value}
         </Text>
-        {unit ? <Text className="ml-[2px] text-caption text-fg-secondary">{unit}</Text> : null}
+        {unit ? <Text className="ml-[3px] text-caption text-fg-tertiary">{unit}</Text> : null}
       </View>
     </View>
   );
