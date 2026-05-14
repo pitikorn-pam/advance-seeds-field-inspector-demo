@@ -246,6 +246,9 @@
     },
     "processing": {
       "title": "Building inspection record",
+      "failedTitle": "Analysis failed",
+      "analyzingSeeds": "Analyzing {{count}} seeds",
+      "inProgress": "in progress",
       "subtitle": "Detecting seeds, applying calibration, and resolving grade criteria.",
       "stepCaptured": "Frame captured",
       "stepCalibration": "Calibration applied",
