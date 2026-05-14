@@ -897,7 +897,7 @@ const GRADE_BG: Record<SeedGrade, string> = {
   reject: "#FFE2E0",
 };
 const GRADE_FG: Record<SeedGrade, string> = {
-  A: "#6C47FF",
+  A: "#6E40E0",
   B: "#704B00",
   C: "#8A1F1B",
   reject: "#8A1F1B",

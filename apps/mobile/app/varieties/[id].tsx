@@ -17,8 +17,8 @@ import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FFF1B8", fg: "#704B00" },
-  rice: { bg: "#DFF6EC", fg: "#6C47FF" },
-  legume: { bg: "#EEE9FF", fg: "#3F249B" },
+  rice: { bg: "#DFF6EC", fg: "#6E40E0" },
+  legume: { bg: "#EEE9FF", fg: "#4B22A8" },
   mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
 };
 

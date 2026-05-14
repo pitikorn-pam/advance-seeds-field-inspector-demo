@@ -77,14 +77,14 @@ export default function LoginScreen() {
 
           <View className="flex-row gap-sm mt-md">
             <RolePanel
-              icon={<UserRound color={panel === "inspector" ? "#FFFFFF" : "#6C47FF"} size={18} />}
+              icon={<UserRound color={panel === "inspector" ? "#FFFFFF" : "#6E40E0"} size={18} />}
               label={t("auth:login.panel.inspector")}
               hint={t("auth:login.panel.inspectorHint")}
               active={panel === "inspector"}
               onPress={() => switchPanel("inspector")}
             />
             <RolePanel
-              icon={<ShieldCheck color={panel === "admin" ? "#FFFFFF" : "#6C47FF"} size={18} />}
+              icon={<ShieldCheck color={panel === "admin" ? "#FFFFFF" : "#6E40E0"} size={18} />}
               label={t("auth:login.panel.admin")}
               hint={t("auth:login.panel.adminHint")}
               active={panel === "admin"}

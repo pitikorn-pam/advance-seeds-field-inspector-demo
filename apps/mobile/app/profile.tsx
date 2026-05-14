@@ -49,7 +49,7 @@ export default function ProfileScreen() {
             >
               <Text
                 className="font-medium"
-                style={{ fontSize: 24, color: "#3F249B", letterSpacing: -0.5 }}
+                style={{ fontSize: 24, color: "#4B22A8", letterSpacing: -0.5 }}
               >
                 {initials}
               </Text>

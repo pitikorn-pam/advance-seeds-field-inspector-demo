@@ -233,7 +233,7 @@ function InferenceStatRow({ stat }: { stat: InferenceStat }) {
                 style={{
                   height: `${heightPct}%`,
                   width: "100%",
-                  backgroundColor: count > 0 ? "#6C47FF" : "#E0E0DC",
+                  backgroundColor: count > 0 ? "#6E40E0" : "#E0E0DC",
                   borderRadius: 2,
                 }}
               />

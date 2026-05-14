@@ -188,7 +188,7 @@ export default function RecordingsScreen() {
                 className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
                 onPress={() => setDatePickerOpen(true)}
               >
-                <Calendar color="#6C47FF" size={16} />
+                <Calendar color="#6E40E0" size={16} />
                 <View className="flex-1">
                   <Text className="text-caption text-fg-secondary">
                     {t("profile:recordings.filters.dateRange")}

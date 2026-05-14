@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/Card";
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FFF1B8", fg: "#704B00" },
   rice: { bg: "#DFF6EC", fg: "#0F6E56" },
-  legume: { bg: "#EEE9FF", fg: "#3F249B" },
+  legume: { bg: "#EEE9FF", fg: "#4B22A8" },
   mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
 };
 

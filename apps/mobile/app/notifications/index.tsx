@@ -87,7 +87,7 @@ export default function NotificationsModal() {
           unreadCount > 0 && profile
             ? {
                 accessibilityLabel: t("notifications:markAllRead"),
-                renderIcon: () => <CheckCheck color="#6C47FF" size={18} />,
+                renderIcon: () => <CheckCheck color="#6E40E0" size={18} />,
                 onPress: () => markAllRead.mutate(profile.id),
               }
             : undefined
@@ -120,7 +120,7 @@ export default function NotificationsModal() {
           ListFooterComponent={
             hasMore ? (
               <View className="py-md items-center">
-                <ActivityIndicator size="small" color="#6C47FF" />
+                <ActivityIndicator size="small" color="#6E40E0" />
               </View>
             ) : null
           }
@@ -169,7 +169,7 @@ function NotificationRow({
             {copy.title}
           </Text>
           {unread ? (
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#6C47FF" }} />
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#6E40E0" }} />
           ) : null}
         </View>
         {copy.body ? (

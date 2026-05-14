@@ -17,8 +17,10 @@ import { useAuth } from "@/lib/auth";
 import { useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useTheme } from "@/lib/theme";
-import { Pill } from "@/components/ui/Pill";
+import { RolePill, type Role } from "@/components/ui/RolePill";
+import { SyncPill, type SyncState } from "@/components/ui/SyncPill";
 import { Button } from "@/components/ui/Button";
+import { useSyncQueue } from "@/lib/sync/useSyncQueue";
 import { Segmented } from "@/components/ui/Segmented";
 import { ErrorState } from "@/components/ui/States";
 import { Skeleton, SkeletonList } from "@/components/ui/Skeleton";
@@ -56,7 +58,19 @@ export default function HomeScreen() {
   const router = useRouter();
   const session = useCaptureSession();
   const modelInstallGate = useModelInstallInspectionGate();
+  const syncQueue = useSyncQueue();
   const { data, isLoading, isError, refetch, isRefetching } = useInspections();
+
+  // Derive a single sync state from queue counts. Failed beats pending —
+  // a failed entry needs the user's attention more than a still-uploading one.
+  const syncState: SyncState =
+    syncQueue.counts.failed > 0 ? "failed" : syncQueue.counts.pending > 0 ? "pending" : "synced";
+  const syncCount =
+    syncState === "failed"
+      ? syncQueue.counts.failed
+      : syncState === "pending"
+        ? syncQueue.counts.pending
+        : 0;
   const [rangePreset, setRangePreset] = useState<HomeRangePreset>("today");
   const [dateRange, setDateRange] = useState<DateRange>(() => presetToRange("today"));
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -220,11 +234,9 @@ export default function HomeScreen() {
                   {firstName ? t("home:greeting", { name: firstName }) : t("common:appName")}
                 </Text>
               </View>
+              <SyncPill state={syncState} count={syncCount} />
               {profile?.role ? (
-                <Pill
-                  tone={profile.role === "admin" ? "brand" : "info"}
-                  label={t(`common:roles.${profile.role}`)}
-                />
+                <RolePill role={(profile.role === "admin" ? "Admin" : "Inspector") as Role} />
               ) : null}
               <NotificationBell />
             </View>
@@ -248,7 +260,7 @@ export default function HomeScreen() {
                         size="sm"
                         variant="outline"
                         label={dashboardDateLabel}
-                        renderLeadingIcon={() => <Calendar color="#6C47FF" size={14} />}
+                        renderLeadingIcon={() => <Calendar color="#6E40E0" size={14} />}
                         onPress={() => setDatePickerOpen(true)}
                       />
                       {hasCustomDateRange ? (

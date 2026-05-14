@@ -30,8 +30,8 @@ type HistoryListEntry =
 
 const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
   corn: { bg: "#FFF1B8", fg: "#704B00" },
-  rice: { bg: "#DFF6EC", fg: "#6C47FF" },
-  legume: { bg: "#EEE9FF", fg: "#3F249B" },
+  rice: { bg: "#DFF6EC", fg: "#6E40E0" },
+  legume: { bg: "#EEE9FF", fg: "#4B22A8" },
   mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
 };
 
@@ -140,7 +140,7 @@ export default function HistoryScreen() {
         ListFooterComponent={
           isFetchingNextPage ? (
             <View className="py-md items-center">
-              <ActivityIndicator color="#6C47FF" />
+              <ActivityIndicator color="#6E40E0" />
             </View>
           ) : null
         }
@@ -161,7 +161,7 @@ export default function HistoryScreen() {
                 className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
                 onPress={() => setDatePickerOpen(true)}
               >
-                <Calendar color="#6C47FF" size={16} />
+                <Calendar color="#6E40E0" size={16} />
                 <View className="flex-1">
                   <Text className="text-caption text-fg-secondary">
                     {t("history:filters.dateRange")}

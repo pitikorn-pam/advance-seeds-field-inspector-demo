@@ -455,7 +455,7 @@ export default function ModelRegistryScreen() {
                   effectiveBusy === "refresh" ? "opacity-50" : ""
                 }`}
               >
-                <RefreshCw color="#6C47FF" size={14} />
+                <RefreshCw color="#6E40E0" size={14} />
               </Pressable>
             </View>
           }
@@ -550,7 +550,7 @@ function RefreshingPill() {
   const { t } = useTranslation("more");
   return (
     <View className="flex-row items-center gap-xs self-start rounded-full bg-bg-secondary px-md py-xs">
-      <ActivityIndicator size="small" color="#6C47FF" />
+      <ActivityIndicator size="small" color="#6E40E0" />
       <Text className="text-caption text-fg-secondary">{t("models.refreshing")}</Text>
     </View>
   );

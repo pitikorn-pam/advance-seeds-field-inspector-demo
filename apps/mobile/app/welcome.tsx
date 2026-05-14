@@ -64,7 +64,7 @@ export default function Welcome() {
         />
         <FeatureCard
           tone="lavender"
-          renderIcon={() => <RefreshCw color="#6C47FF" size={16} />}
+          renderIcon={() => <RefreshCw color="#6E40E0" size={16} />}
           title={t("onboarding:welcome.cardSyncTitle")}
           body={t("onboarding:welcome.cardSyncBody")}
         />

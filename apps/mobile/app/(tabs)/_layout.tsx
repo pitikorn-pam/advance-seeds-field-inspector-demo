@@ -22,7 +22,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: isDark ? "#8F75FF" : "#6C47FF",
+        tabBarActiveTintColor: isDark ? "#8F75FF" : "#6E40E0",
         tabBarInactiveTintColor: isDark ? "#B6B6B0" : "#5F5F5B",
         tabBarStyle: {
           // In dark mode RN's default TabBar background is solid black, which

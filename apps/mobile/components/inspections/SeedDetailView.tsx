@@ -182,7 +182,7 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
     tone === "success"
       ? "#5DCAA5"
       : tone === "info"
-        ? "#6C47FF"
+        ? "#6E40E0"
         : tone === "warning"
           ? "#EF9F27"
           : "#DC2828";

@@ -170,7 +170,7 @@ export default function ReportsRoute() {
                 size="sm"
                 variant="outline"
                 label={rangeLabel(dateRange, i18n.language, t)}
-                renderLeadingIcon={() => <Calendar color="#6C47FF" size={14} />}
+                renderLeadingIcon={() => <Calendar color="#6E40E0" size={14} />}
                 onPress={() => setDatePickerOpen(true)}
               />
               {hasDateRange ? (

@@ -309,7 +309,7 @@ export function DropdownSearch({
                           </Text>
                         ) : null}
                       </View>
-                      {item.id === value ? <Check color="#6C47FF" size={18} /> : null}
+                      {item.id === value ? <Check color="#6E40E0" size={18} /> : null}
                     </Pressable>
                   )}
                   ListEmptyComponent={

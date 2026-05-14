@@ -125,7 +125,7 @@ export default function CaptureClassesScreen() {
                       backgroundColor: cocoName ? "#DFF6EC" : "#F2F1ED",
                     }}
                   >
-                    <Sparkles color={cocoName ? "#6C47FF" : "#8C8C87"} size={16} />
+                    <Sparkles color={cocoName ? "#6E40E0" : "#8C8C87"} size={16} />
                   </View>
                   <View className="flex-1">
                     <Text className="text-title text-fg-primary">{variety.name}</Text>
