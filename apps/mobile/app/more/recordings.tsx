@@ -3,7 +3,16 @@ import { FlatList, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Calendar, ChevronLeft, Download, RefreshCw, Share2, Trash2, X } from "lucide-react-native";
+import {
+  Calendar,
+  ChevronLeft,
+  Download,
+  Play,
+  RefreshCw,
+  Share2,
+  Trash2,
+  X,
+} from "lucide-react-native";
 import type { Recording } from "@advance-seeds/types";
 import { useRecordings, useDeleteRecording } from "@/lib/queries";
 import {
@@ -211,16 +220,15 @@ export default function RecordingsScreen() {
             </View>
 
             {pendingRecordings.length > 0 ? (
-              <View className="gap-xs">
-                <Text className="text-caption uppercase tracking-wide text-fg-secondary px-xs">
+              <View className="gap-sm">
+                <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary px-xs">
                   {t("profile:recordings.pendingSection")}
                 </Text>
-                <Card className="p-0">
-                  {pendingRecordings.map((row, i) => (
+                <View className="gap-sm">
+                  {pendingRecordings.map((row) => (
                     <PendingRecordingRow
                       key={row.entry.id}
                       row={row}
-                      isLast={i === pendingRecordings.length - 1}
                       onRetry={async () => {
                         await retryAllFailedQueueEntries();
                         void replaySyncQueue();
@@ -251,7 +259,7 @@ export default function RecordingsScreen() {
                       }}
                     />
                   ))}
-                </Card>
+                </View>
               </View>
             ) : null}
 
@@ -296,13 +304,11 @@ interface PendingRecording {
 
 function PendingRecordingRow({
   row,
-  isLast,
   onRetry,
   onDiscard,
   labels,
 }: {
   row: PendingRecording;
-  isLast: boolean;
   onRetry: () => void | Promise<void>;
   onDiscard: () => void | Promise<void>;
   labels: {
@@ -332,20 +338,14 @@ function PendingRecordingRow({
         ? labels.syncing
         : labels.pending;
   return (
-    <View
-      className={`flex-row gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
-    >
-      <View className="h-[88px] w-[88px] overflow-hidden rounded-lg bg-black">
-        {previewUri ? <CaptureMediaPreview uri={previewUri} kind="video" /> : null}
-        <View className="absolute bottom-xs right-xs rounded-sm bg-black/70 px-xs">
-          <Text className="text-[10px] font-semibold text-white">
+    <Card className="p-md flex-row gap-md overflow-hidden">
+      <Thumbnail uri={previewUri} duration={formatDuration(data.duration_ms)} />
+      <View className="flex-1 gap-xs">
+        <View className="flex-row items-center gap-sm flex-wrap">
+          <Text className="text-title font-semibold text-fg-primary" numberOfLines={1}>
             {formatDuration(data.duration_ms)}
           </Text>
-        </View>
-      </View>
-      <View className="flex-1 gap-xs">
-        <View className="flex-row items-center gap-sm">
-          <Pill tone={tone} dot label={label} />
+          <Pill tone={tone} label={label} />
         </View>
         <Text className="text-caption text-fg-secondary">{captionDate}</Text>
         {entry.lastError ? (
@@ -353,27 +353,28 @@ function PendingRecordingRow({
             {entry.lastError}
           </Text>
         ) : null}
-        <View className="flex-row gap-xs mt-auto pt-xs">
-          <Button
-            size="icon"
-            variant="tinted"
+        <View className="flex-row gap-md mt-auto pt-xs items-center">
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel={labels.retry}
             onPress={() => void onRetry()}
             disabled={entry.status === "syncing"}
+            className="flex-row items-center gap-xs"
           >
-            <RefreshCw color="#171717" size={16} />
-          </Button>
-          <Button
-            size="icon"
-            variant="danger"
+            <RefreshCw color="#6E40E0" size={14} />
+            <Text className="text-caption font-medium text-brand-deep">{labels.retry}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel={labels.discard}
             onPress={() => void onDiscard()}
+            className="ml-auto p-xs"
           >
             <Trash2 color="#8A1F1B" size={16} />
-          </Button>
+          </Pressable>
         </View>
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -405,37 +406,58 @@ function RecordingRow({
     minute: "2-digit",
   });
   return (
-    <Card className="p-md flex-row gap-md">
-      <View className="h-[88px] w-[88px] overflow-hidden rounded-lg bg-black">
-        <CaptureMediaPreview uri={recording.video_url} kind="video" />
-        <View className="absolute bottom-xs right-xs rounded-sm bg-black/70 px-xs">
-          <Text className="text-[10px] font-semibold text-white">
-            {formatDuration(recording.duration_ms)}
-          </Text>
-        </View>
-      </View>
+    <Card className="p-md flex-row gap-md overflow-hidden">
+      <Thumbnail uri={recording.video_url} duration={formatDuration(recording.duration_ms)} />
       <View className="flex-1 gap-xs">
-        <Text className="text-title text-fg-primary font-medium" numberOfLines={1}>
+        <Text className="text-title font-semibold text-fg-primary" numberOfLines={1}>
           {formatDuration(recording.duration_ms)}
         </Text>
         <Text className="text-caption text-fg-secondary">{captionDate}</Text>
-        <View className="flex-row gap-xs mt-auto pt-xs">
-          <Button size="icon" variant="tinted" accessibilityLabel={labels.share} onPress={onShare}>
-            <Share2 color="#171717" size={16} />
-          </Button>
-          <Button size="icon" variant="tinted" accessibilityLabel={labels.save} onPress={onSave}>
-            <Download color="#171717" size={16} />
-          </Button>
-          <Button
-            size="icon"
-            variant="danger"
+        <View className="flex-row gap-md mt-auto pt-xs items-center">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={labels.share}
+            onPress={onShare}
+            className="flex-row items-center gap-xs"
+          >
+            <Share2 color="#171717" size={14} />
+            <Text className="text-caption font-medium text-fg-primary">{labels.share}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={labels.save}
+            onPress={onSave}
+            className="flex-row items-center gap-xs"
+          >
+            <Download color="#171717" size={14} />
+            <Text className="text-caption font-medium text-fg-primary">{labels.save}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
             accessibilityLabel={labels.delete}
             onPress={onDelete}
+            className="ml-auto p-xs"
           >
             <Trash2 color="#8A1F1B" size={16} />
-          </Button>
+          </Pressable>
         </View>
       </View>
     </Card>
+  );
+}
+
+function Thumbnail({ uri, duration }: { uri: string; duration: string }) {
+  return (
+    <View className="h-[88px] w-[88px] overflow-hidden rounded-md bg-black">
+      {uri ? <CaptureMediaPreview uri={uri} kind="video" /> : null}
+      <View className="absolute inset-0 items-center justify-center">
+        <View className="h-8 w-8 items-center justify-center rounded-full bg-black/55">
+          <Play color="#FFFFFF" size={14} fill="#FFFFFF" />
+        </View>
+      </View>
+      <View className="absolute bottom-xs right-xs rounded-sm bg-black/70 px-xs">
+        <Text className="text-[10px] font-semibold text-white">{duration}</Text>
+      </View>
+    </View>
   );
 }

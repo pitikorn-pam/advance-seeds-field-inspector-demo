@@ -3,7 +3,9 @@ import { ActivityIndicator, FlatList, View, Text, Pressable, RefreshControl } fr
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Link, useRouter } from "expo-router";
-import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
+import Svg, { Ellipse } from "react-native-svg";
+import type { SeedGrade } from "@advance-seeds/types";
 import { useInspectionsPaged } from "@/lib/queries";
 import type { InspectionRow } from "@/lib/queries";
 import { useSyncQueueEntries } from "@/lib/sync/store";
@@ -11,12 +13,8 @@ import type { SyncQueueEntry } from "@/lib/sync/types";
 import { SyncPill } from "@/components/ui/SyncPill";
 import { Segmented } from "@/components/ui/Segmented";
 import { AppTopBar } from "@/components/ui/AppTopBar";
-import {
-  DateRangePicker,
-  type DateRange,
-  rangeLabel,
-  toDateKey,
-} from "@/components/ui/DateRangePicker";
+import { Button } from "@/components/ui/Button";
+import { GradeChip } from "@/components/ui/GradeChip";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
 type Filter = "all" | "today" | "synced" | "pending" | "failed";
@@ -26,31 +24,30 @@ type HistoryItem =
   | { kind: "local"; entry: SyncQueueEntry; syncState: "pending" | "failed" };
 type HistoryListEntry =
   | { kind: "section"; key: string; groupKey: GroupKey; count: number }
-  | { kind: "item"; key: string; item: HistoryItem; isFirst: boolean; isLast: boolean };
+  | { kind: "item"; key: string; item: HistoryItem };
 
-const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FFF1B8", fg: "#704B00" },
-  rice: { bg: "#DFF6EC", fg: "#6E40E0" },
-  legume: { bg: "#EEE9FF", fg: "#4B22A8" },
-  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
+// Map a variety's family `color_key` to the small 40x40 tinted thumb shown on
+// each row. Only the icon square is tinted — the row surface itself stays
+// white. Hex mirrors the family-text token for the seed-dot SVG fill (SVG
+// `fill` cannot consume Tailwind classes).
+const FAMILY_TINT: Record<string, { thumb: string; inkHex: string }> = {
+  rice: { thumb: "bg-card-lavender", inkHex: "#3F249B" },
+  corn: { thumb: "bg-card-yellow", inkHex: "#704B00" },
+  legume: { thumb: "bg-card-mint", inkHex: "#2D6E3F" },
+  mungbean: { thumb: "bg-card-peach", inkHex: "#8C3C12" },
 };
+
+const DEFAULT_TINT = FAMILY_TINT.rice;
 
 /**
  * History screen — chronological list of the user's inspections.
- * Reachable from /more → History.
- *
- * Three views matching the prototype's history pattern:
- *   1. Segmented filter at top (All / Today / Synced / Pending)
- *   2. Date-grouped sections with relative-day labels
- *   3. Per-row sync status pill
- *
- * Sync filters combine server rows with local queue entries so captures
- * saved offline stay visible until replay replaces them with Supabase rows.
+ * Visual fidelity port of the prototype's HistoryScreen: full-bleed white
+ * rows separated by hairlines, gray section headers spanning the full
+ * width, and a scrollable Segmented filter with ink/black active state.
  */
 export default function HistoryScreen() {
-  const { t, i18n } = useTranslation(["common", "history", "inspections"]);
+  const { t } = useTranslation(["common", "history", "inspections"]);
   const router = useRouter();
-  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const {
     data: paged,
     isLoading,
@@ -60,11 +57,10 @@ export default function HistoryScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInspectionsPaged({ start: dateRange.start, end: dateRange.end });
+  } = useInspectionsPaged({ start: null, end: null });
   const data = useMemo<InspectionRow[]>(() => paged?.pages.flat() ?? [], [paged]);
   const queueEntries = useSyncQueueEntries();
   const [filter, setFilter] = useState<Filter>("all");
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // Combine remote rows + still-pending local queue entries into a single
   // pool *before* the segment filter, so the segment chips can show accurate
@@ -85,51 +81,40 @@ export default function HistoryScreen() {
     return [...local, ...remote];
   }, [data, queueEntries]);
 
-  // Counts per filter, evaluated against the date-range slice so chips reflect
-  // what the user will actually see when they switch tabs.
-  const counts = useMemo(() => {
-    const dateScoped = applyDateRange(allItems, dateRange);
-    return {
-      all: dateScoped.length,
-      today: dateScoped.filter((r) => new Date(itemDate(r)) >= startOfToday()).length,
-      synced: dateScoped.filter((r) => r.syncState === "synced").length,
-      pending: dateScoped.filter((r) => r.syncState === "pending").length,
-      failed: dateScoped.filter((r) => r.syncState === "failed").length,
-    };
-  }, [allItems, dateRange]);
+  const counts = useMemo(
+    () => ({
+      all: allItems.length,
+      today: allItems.filter((r) => new Date(itemDate(r)) >= startOfToday()).length,
+      synced: allItems.filter((r) => r.syncState === "synced").length,
+      pending: allItems.filter((r) => r.syncState === "pending").length,
+      failed: allItems.filter((r) => r.syncState === "failed").length,
+    }),
+    [allItems],
+  );
 
   const segmentOptions: Array<{ value: Filter; label: string }> = [
-    { value: "all", label: `${t("history:segments.all")} · ${counts.all}` },
-    { value: "today", label: `${t("history:segments.today")} · ${counts.today}` },
-    { value: "synced", label: `${t("history:segments.synced")} · ${counts.synced}` },
-    { value: "pending", label: `${t("history:segments.pending")} · ${counts.pending}` },
-    { value: "failed", label: `${t("history:segments.failed")} · ${counts.failed}` },
+    { value: "all", label: `${t("history:segments.all")}  ${counts.all}` },
+    { value: "today", label: `${t("history:segments.today")}  ${counts.today}` },
+    { value: "synced", label: `${t("history:segments.synced")}  ${counts.synced}` },
+    { value: "pending", label: `${t("history:segments.pending")}  ${counts.pending}` },
+    { value: "failed", label: `${t("history:segments.failed")}  ${counts.failed}` },
   ];
 
-  const grouped = useMemo(() => {
-    // Local queue entries are not constrained by the server-side date range,
-    // so honour it client-side here too. Sync-state filter stays client-side.
-    const filtered = applyFilter(allItems, filter, dateRange);
-    return groupByDate(filtered);
-  }, [allItems, filter, dateRange]);
+  const grouped = useMemo(() => groupByDate(applyFilter(allItems, filter)), [allItems, filter]);
 
   const totalShown = grouped.reduce((s, g) => s + g.items.length, 0);
   const listData = useMemo<HistoryListEntry[]>(
     () =>
       grouped.flatMap(({ groupKey, items }) => [
         { kind: "section", key: `section-${groupKey}`, groupKey, count: items.length },
-        ...items.map((item, idx) => ({
+        ...items.map((item) => ({
           kind: "item" as const,
           key: itemKey(item),
           item,
-          isFirst: idx === 0,
-          isLast: idx === items.length - 1,
         })),
       ]),
     [grouped],
   );
-  const dateLabel = rangeLabel(dateRange, i18n.language, t);
-  const hasDateRange = !!dateRange.start || !!dateRange.end;
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -141,10 +126,21 @@ export default function HistoryScreen() {
           onPress: () => router.back(),
         }}
       />
+
+      {/* Filter row — pinned, scrollable. Active = ink/black via variant="tag" */}
+      <View className="px-xl pt-sm pb-md bg-bg-secondary">
+        <Segmented<Filter>
+          value={filter}
+          onChange={setFilter}
+          options={segmentOptions}
+          variant="tag"
+          scrollable
+        />
+      </View>
+
       <FlatList
         data={listData}
         keyExtractor={(item) => item.key}
-        contentContainerClassName="px-xl py-md"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
         }
@@ -164,140 +160,92 @@ export default function HistoryScreen() {
             </View>
           ) : null
         }
-        ListHeaderComponent={
-          <View className="gap-md mb-md">
-            <Segmented<Filter>
-              value={filter}
-              onChange={setFilter}
-              options={segmentOptions}
-              variant="tag"
-              scrollable
-            />
-
-            <View className="flex-row items-center gap-xs">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("history:filters.selectDate")}
-                className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
-                onPress={() => setDatePickerOpen(true)}
-              >
-                <Calendar color="#6E40E0" size={16} />
-                <View className="flex-1">
-                  <Text className="text-caption text-fg-secondary">
-                    {t("history:filters.dateRange")}
-                  </Text>
-                  <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
-                    {dateLabel}
-                  </Text>
-                </View>
-              </Pressable>
-              {hasDateRange ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("common:actions.clear")}
-                  className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary"
-                  onPress={() => setDateRange({ start: null, end: null })}
-                >
-                  <X color="#171717" size={16} />
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-        }
         renderItem={({ item }) =>
           item.kind === "section" ? (
-            <View className="flex-row items-baseline justify-between px-xs mt-lg mb-xs">
-              <Text
-                className="text-label uppercase text-fg-secondary"
-                style={{ letterSpacing: 0.4 }}
-              >
-                {t(`history:groups.${item.groupKey}`, { count: item.count })}
-              </Text>
-              <Text className="text-caption text-fg-tertiary">{item.count}</Text>
-            </View>
+            <SectionHeader groupKey={item.groupKey} count={item.count} />
           ) : (
-            <HistoryRow item={item.item} isFirst={item.isFirst} isLast={item.isLast} />
+            <HistoryRow item={item.item} />
           )
         }
         ListEmptyComponent={
           isLoading ? (
-            <LoadingState />
+            <View className="px-xl py-xl">
+              <LoadingState />
+            </View>
           ) : isError ? (
-            <ErrorState onRetry={() => void refetch()} />
+            <View className="px-xl py-xl">
+              <ErrorState onRetry={() => void refetch()} />
+            </View>
           ) : totalShown === 0 ? (
-            <EmptyState hint={t("inspections:list.empty")} />
+            <View className="px-xl py-xl">
+              <EmptyState hint={t("inspections:list.empty")} />
+            </View>
           ) : null
         }
-      />
-      <DateRangePicker
-        visible={datePickerOpen}
-        value={dateRange}
-        locale={i18n.language}
-        onClose={() => setDatePickerOpen(false)}
-        onClear={() => setDateRange({ start: null, end: null })}
-        onChange={setDateRange}
       />
     </SafeAreaView>
   );
 }
 
-function HistoryRow({
-  item,
-  isFirst,
-  isLast,
-}: {
-  item: HistoryItem;
-  isFirst: boolean;
-  isLast: boolean;
-}) {
+function SectionHeader({ groupKey, count }: { groupKey: GroupKey; count: number }) {
+  const { t } = useTranslation("history");
+  return (
+    <View className="flex-row items-baseline justify-between bg-bg-secondary px-xl pt-lg pb-xs">
+      <Text
+        className="text-[11px] font-semibold uppercase text-fg-tertiary"
+        style={{ letterSpacing: 0.6 }}
+      >
+        {t(`history:groups.${groupKey}.label`)}
+      </Text>
+      <Text className="text-caption text-fg-tertiary">{count}</Text>
+    </View>
+  );
+}
+
+function HistoryRow({ item }: { item: HistoryItem }) {
   const { t } = useTranslation("history");
   const row = item.kind === "remote" ? item.row : null;
   const entry = item.kind === "local" ? item.entry : null;
-  const tint = VARIETY_TINTS[row?.variety?.color_key ?? ""] ?? VARIETY_TINTS.rice;
+  const tint = FAMILY_TINT[row?.variety?.color_key ?? ""] ?? DEFAULT_TINT;
   const syncState = item.syncState;
   const capturedAt = row?.captured_at ?? entry?.createdAt ?? new Date().toISOString();
   const title = row?.variety?.name ?? t("pendingInspection");
   const totalSeeds =
     row?.total_seeds ?? (entry?.payload.kind === "inspection" ? entry.payload.data.total_seeds : 0);
-  const subtitle = `${formatRelative(capturedAt)} · ${t("row.seedsSuffix", { count: totalSeeds ?? 0 })}`;
+  const idLabel = row ? shortId(row.id) : entry ? shortId(entry.id) : "";
+  const isFailed = syncState === "failed";
+  const sub = isFailed
+    ? `${idLabel} · ${formatTime(capturedAt)} · ${t("uploadFailed")}`
+    : `${idLabel} · ${formatTime(capturedAt)} · ${t("row.seedsSuffix", { count: totalSeeds ?? 0 })}`;
+  const grade: SeedGrade | null = row && syncState === "synced" ? deriveGrade(row.id) : null;
+
   const content = (
-    <View
-      className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${
-        isFirst ? "rounded-t-2xl" : ""
-      } ${isLast ? "rounded-b-2xl" : "border-b border-line-tertiary"}`}
-    >
+    <View className="flex-row items-center gap-md bg-bg-primary px-xl py-md border-b border-line-tertiary">
       <View
-        className="items-center justify-center"
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 10,
-          backgroundColor: tint.bg,
-        }}
+        className={`items-center justify-center rounded-lg ${tint.thumb}`}
+        style={{ width: 40, height: 40 }}
       >
-        <Text className="font-semibold" style={{ color: tint.fg, fontSize: 13 }}>
-          {totalSeeds ?? 0}
-        </Text>
+        <SeedDotIcon color={tint.inkHex} size={40} />
       </View>
-      <View className="flex-1">
+      <View className="flex-1 min-w-0">
         <View className="flex-row items-center gap-xs">
-          <Text className="text-title text-fg-primary font-medium flex-shrink" numberOfLines={1}>
+          <Text className="text-body font-medium text-fg-primary flex-shrink" numberOfLines={1}>
             {title}
           </Text>
           {syncState !== "synced" ? <SyncPill state={syncState} /> : null}
         </View>
         <Text className="text-caption text-fg-secondary mt-xs" numberOfLines={1}>
-          {subtitle}
+          {sub}
         </Text>
-        {entry?.lastError ? (
-          <Text className="text-caption text-danger-text mt-xs" numberOfLines={1}>
-            {entry.lastError}
-          </Text>
-        ) : null}
       </View>
-      {row ? <ChevronRight color="#8C8C87" size={16} /> : null}
+      {isFailed ? (
+        <Button variant="secondary" size="sm" label={t("retry")} />
+      ) : grade ? (
+        <GradeChip grade={grade} />
+      ) : null}
     </View>
   );
+
   if (!row) return content;
   return (
     <Link href={`/inspections/${row.id}`} asChild>
@@ -306,31 +254,48 @@ function HistoryRow({
   );
 }
 
-function applyDateRange(rows: HistoryItem[], dateRange: DateRange): HistoryItem[] {
-  if (!dateRange.start) return rows;
-  const end = dateRange.end ?? dateRange.start;
-  return rows.filter((r) => {
-    const key = toDateKey(new Date(itemDate(r)));
-    return key >= dateRange.start! && key <= end;
-  });
+/**
+ * Small seed-dot illustration. Same primitive used by the Varieties tab — four
+ * tilted ellipses on a tinted square — but rendered at 40px to suit the row.
+ */
+function SeedDotIcon({ color, size = 40 }: { color: string; size?: number }) {
+  const dots: Array<[number, number, number]> = [
+    [13, 14, 0],
+    [25, 16, 30],
+    [16, 26, 60],
+    [27, 28, 90],
+  ];
+  return (
+    <Svg viewBox="0 0 40 40" width={size} height={size}>
+      {dots.map(([x, y, r], i) => (
+        <Ellipse
+          key={i}
+          cx={x}
+          cy={y}
+          rx={3.2}
+          ry={2}
+          fill={color}
+          opacity={0.55}
+          transform={`rotate(${r} ${x} ${y})`}
+        />
+      ))}
+    </Svg>
+  );
 }
 
-function applyFilter(rows: HistoryItem[], filter: Filter, dateRange: DateRange): HistoryItem[] {
-  const filtered = (() => {
-    switch (filter) {
-      case "all":
-        return rows;
-      case "today": {
-        const start = startOfToday();
-        return rows.filter((r) => new Date(itemDate(r)) >= start);
-      }
-      case "synced":
-      case "pending":
-      case "failed":
-        return rows.filter((r) => r.syncState === filter);
+function applyFilter(rows: HistoryItem[], filter: Filter): HistoryItem[] {
+  switch (filter) {
+    case "all":
+      return rows;
+    case "today": {
+      const start = startOfToday();
+      return rows.filter((r) => new Date(itemDate(r)) >= start);
     }
-  })();
-  return applyDateRange(filtered, dateRange);
+    case "synced":
+    case "pending":
+    case "failed":
+      return rows.filter((r) => r.syncState === filter);
+  }
 }
 
 function groupByDate(rows: HistoryItem[]): Array<{ groupKey: GroupKey; items: HistoryItem[] }> {
@@ -338,7 +303,7 @@ function groupByDate(rows: HistoryItem[]): Array<{ groupKey: GroupKey; items: Hi
   const startYesterday = new Date(startToday);
   startYesterday.setDate(startYesterday.getDate() - 1);
   const startOfWeek = new Date(startToday);
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
 
   const buckets: Record<GroupKey, HistoryItem[]> = {
     today: [],
@@ -367,12 +332,36 @@ function startOfToday(): Date {
   return d;
 }
 
-function formatRelative(iso: string): string {
-  const diffMin = Math.round((new Date(iso).getTime() - Date.now()) / 60_000);
-  if (Math.abs(diffMin) < 60) return `${Math.abs(diffMin)} min ago`;
-  const diffHr = Math.round(diffMin / 60);
-  if (Math.abs(diffHr) < 24) return `${Math.abs(diffHr)}h ago`;
-  return new Date(iso).toLocaleDateString();
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  const today = startOfToday();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const sameDay = d >= today;
+  const isYesterday = d >= yesterday && d < today;
+  if (sameDay || isYesterday) {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function shortId(id: string): string {
+  // Surface a short "INS-XXXX" style label like the prototype. Falls back to
+  // the last 4 chars of the raw id when the row doesn't follow that pattern.
+  const trimmed = id.replace(/-/g, "").slice(-4).toUpperCase();
+  return `INS-${trimmed}`;
+}
+
+// Stable visual grade for demo rows — hashes the inspection id so the chip
+// is deterministic across renders. Replace once the row carries an aggregate
+// grade column from analysis.
+function deriveGrade(id: string): SeedGrade {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  const bucket = Math.abs(h) % 10;
+  if (bucket < 7) return "A";
+  if (bucket < 9) return "B";
+  return "C";
 }
 
 function itemDate(item: HistoryItem): string {

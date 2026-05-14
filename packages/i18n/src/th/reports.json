@@ -21,7 +21,8 @@
   },
   "byVariety": {
     "title": "ตามพันธุ์",
-    "runs_other": "{{count}} ครั้ง"
+    "runs_other": "{{count}} ครั้ง",
+    "gradeA": "เกรด A {{pct}}%"
   },
   "empty": {
     "title": "ไม่มีข้อมูลในช่วงนี้",

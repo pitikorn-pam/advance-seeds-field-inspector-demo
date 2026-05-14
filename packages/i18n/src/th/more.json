@@ -108,6 +108,7 @@
     "noRollback": "ยังไม่มีโมเดลก่อนหน้าให้ย้อนกลับ",
     "download": "ดาวน์โหลด",
     "activate": "เปิดใช้งาน",
+    "reverify": "ตรวจสอบอีกครั้ง",
     "installedTitle": "ติดตั้งโมเดลแล้ว",
     "installedPill": "ติดตั้งแล้ว",
     "activePill": "ใช้งานอยู่",

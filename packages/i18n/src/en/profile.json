@@ -1,6 +1,12 @@
 {
   "title": "Profile",
   "statsHeading": "This account",
+  "statsHeading30d": "This account · last 30 days",
+  "roleHeading": "About your role",
+  "roleDescription": {
+    "inspector": "Inspectors capture inspections in the field, review measurements, and adjust grades when needed. Admin-only actions (variety editing, model installation, hyperparameter tuning) are read-only here.",
+    "admin": "Admins manage varieties, model installation, and hyperparameter tuning. Inspectors and admins share the same field capture workflow."
+  },
   "stats": {
     "thisMonth": "This month",
     "dayStreak": "Day streak",

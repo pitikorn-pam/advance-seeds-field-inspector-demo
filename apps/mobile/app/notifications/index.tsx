@@ -3,7 +3,7 @@ import { View, Text, Pressable, FlatList, ActivityIndicator } from "react-native
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { CheckCheck, X, AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react-native";
+import { CheckCheck, X, AlertTriangle, Check, Info } from "lucide-react-native";
 import type { Notification, NotificationKind } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import {
@@ -28,7 +28,7 @@ type KindVisual = {
 // values from @advance-seeds/tokens (success/warning/danger/info text vars).
 const KIND_VISUAL: Record<NotificationKind, KindVisual> = {
   success: {
-    icon: CheckCircle2,
+    icon: Check,
     tintClass: "bg-grade-a",
     inkClass: "text-grade-a-ink",
     iconColor: "#2D6E3F",
@@ -37,7 +37,7 @@ const KIND_VISUAL: Record<NotificationKind, KindVisual> = {
     icon: Info,
     tintClass: "bg-card-sky",
     inkClass: "text-info-text",
-    iconColor: "#1C5A8E",
+    iconColor: "#1957A4",
   },
   warning: {
     icon: AlertTriangle,
@@ -46,7 +46,7 @@ const KIND_VISUAL: Record<NotificationKind, KindVisual> = {
     iconColor: "#7A5A12",
   },
   error: {
-    icon: AlertCircle,
+    icon: X,
     tintClass: "bg-grade-reject",
     inkClass: "text-grade-reject-ink",
     iconColor: "#A02828",
@@ -154,15 +154,9 @@ export default function NotificationsModal() {
         <FlatList
           data={visible}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={
-            <View className="px-xl pb-md pt-md">
-              <Text className="text-body text-fg-secondary">{t("notifications:subtitle")}</Text>
-            </View>
-          }
-          renderItem={({ item, index }) => (
+          renderItem={({ item }) => (
             <NotificationRow
               notification={item}
-              isLast={index === visible.length - 1}
               formatTime={formatRelative}
               t={t}
               onPress={() => onPressItem(item)}
@@ -186,13 +180,11 @@ export default function NotificationsModal() {
 
 function NotificationRow({
   notification,
-  isLast,
   formatTime,
   t,
   onPress,
 }: {
   notification: Notification;
-  isLast: boolean;
   formatTime: (iso: string) => string;
   t: (key: string, options?: Record<string, unknown>) => string;
   onPress: () => void;
@@ -206,36 +198,28 @@ function NotificationRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      className={`flex-row items-start gap-md px-xl py-lg ${
+      className={`flex-row items-start gap-md border-b border-line-tertiary px-xl py-lg ${
         unread ? "bg-bg-secondary" : "bg-bg-primary"
-      } ${isLast ? "" : "border-b border-line-tertiary"}`}
+      }`}
     >
       <View className={`h-10 w-10 items-center justify-center rounded-md ${visual.tintClass}`}>
         <Icon color={visual.iconColor} size={18} />
       </View>
       <View className="flex-1">
-        <View className="flex-row items-center gap-sm">
-          <Text
-            className={`flex-1 text-body ${
-              unread ? "font-semibold text-fg-primary" : "font-medium text-fg-secondary"
-            }`}
-            numberOfLines={1}
-          >
+        <View className="flex-row items-start gap-sm">
+          <Text className="flex-1 text-body font-semibold text-fg-primary" numberOfLines={1}>
             {copy.title}
           </Text>
-          {unread ? <View className="h-2 w-2 rounded-full bg-primary" /> : null}
+          {unread ? <View className="mt-[6px] h-2 w-2 rounded-full bg-primary" /> : null}
+          <Text className="text-caption text-fg-tertiary" numberOfLines={1}>
+            {formatTime(notification.created_at)}
+          </Text>
         </View>
         {copy.body ? (
-          <Text
-            className={`mt-xs text-caption ${unread ? "text-fg-secondary" : "text-fg-tertiary"}`}
-            numberOfLines={2}
-          >
+          <Text className="mt-xs text-caption text-fg-secondary" numberOfLines={2}>
             {copy.body}
           </Text>
         ) : null}
-        <Text className={`mt-xs text-caption ${visual.inkClass}`}>
-          {formatTime(notification.created_at)}
-        </Text>
       </View>
     </Pressable>
   );

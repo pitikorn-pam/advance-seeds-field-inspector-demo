@@ -3,17 +3,26 @@
   "fields": {
     "name": "ชื่อโปรไฟล์",
     "pxPerMm": "พิกเซลต่อมิลลิเมตร",
-    "source": "แหล่งที่มา"
+    "source": "แหล่งที่มา",
+    "drift": "ค่าคลาดเคลื่อน"
   },
   "sources": {
     "lidar": "LiDAR",
     "aruco": "เครื่องหมาย ArUco"
   },
+  "sourceLabels": {
+    "lidar": "LiDAR depth",
+    "aruco": "ArUco",
+    "manual": "Manual"
+  },
+  "lastVerified": "ตรวจล่าสุด · {{time}}",
   "marker": {
     "title": "เครื่องหมาย ArUco",
     "size": "5 ซม.",
-    "description": "แชร์การ์ดสอบเทียบให้ผู้ตรวจคนอื่น จากนั้นพิมพ์หรือเปิดแสดงตามขนาดจริงโดยให้เห็นขอบสีขาว",
+    "description": "พิมพ์ขนาด 5×5 ซม. พอดี วางราบในกรอบเพื่อสอบเทียบสำรอง",
     "download": "ดาวน์โหลดการ์ดสอบเทียบ",
+    "share": "แชร์",
+    "savePdf": "บันทึก PDF",
     "sharing": "กำลังเตรียมเครื่องหมาย...",
     "shareTitle": "แชร์การ์ดสอบเทียบ ArUco",
     "imageAlt": "การ์ดสอบเทียบ ArUco",

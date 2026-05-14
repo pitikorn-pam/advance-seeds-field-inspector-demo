@@ -3,12 +3,11 @@ import { Linking, ScrollView, View, Text, Pressable, TextInput } from "react-nat
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft, MapPin } from "lucide-react-native";
+import { X, MapPin, ArrowRight } from "lucide-react-native";
 import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import { useVarieties } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState } from "@/components/ui/States";
 import { DropdownSearch } from "@/components/ui/DropdownSearch";
@@ -279,24 +278,39 @@ export default function CaptureSetup() {
 
   const onBack = () => router.replace("/");
 
+  const onReset = () => {
+    session.reset();
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar
         title={t("common:actions.newInspection")}
         left={{
           accessibilityLabel: t("common:actions.back"),
-          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
+          renderIcon: () => <X color="#171717" size={22} />,
           onPress: onBack,
         }}
+        right={{
+          accessibilityLabel: t("common:actions.reset", "Reset"),
+          renderIcon: () => (
+            <Text className="text-caption font-medium text-fg-secondary">
+              {t("common:actions.reset", "Reset")}
+            </Text>
+          ),
+          onPress: onReset,
+        }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <Text className="text-body text-fg-secondary px-xs">
-          {t("inspections:capture.setupSubtitle")}
-        </Text>
-
+      <ScrollView
+        contentContainerClassName="px-lg pt-sm pb-2xl gap-md"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Variety — mandatory dropdown with search. */}
         <View className="gap-xs">
-          <Text className="text-caption uppercase text-fg-secondary px-xs">
+          <Text
+            className="text-[11px] font-semibold uppercase text-fg-tertiary px-xs"
+            style={{ letterSpacing: 0.6 }}
+          >
             {t("inspections:capture.selectVariety")}
             <Text className="text-danger-text"> *</Text>
           </Text>
@@ -310,39 +324,42 @@ export default function CaptureSetup() {
         </View>
 
         {/* Notes textarea. */}
-        <View className="gap-xs">
-          <Text className="text-caption uppercase text-fg-secondary px-xs">
+        <View className="gap-xs pt-xs">
+          <Text
+            className="text-[11px] font-semibold uppercase text-fg-tertiary px-xs"
+            style={{ letterSpacing: 0.6 }}
+          >
             {t("inspections:capture.notesLabel")}{" "}
-            <Text className="text-caption text-fg-tertiary">
+            <Text className="text-caption font-normal normal-case text-fg-tertiary tracking-normal">
               · {t("inspections:capture.notesOptional")}
             </Text>
           </Text>
           <TextInput
             placeholder={t("inspections:capture.notesPlaceholder")}
-            placeholderTextColor="#8C8C87"
+            placeholderTextColor="#A7A69E"
             value={session.notes}
             onChangeText={(notes) => session.set({ notes })}
             multiline
             textAlignVertical="top"
-            className="rounded-lg bg-bg-primary border border-line-tertiary px-md py-md text-body text-fg-primary"
-            style={{ minHeight: 96 }}
+            className="rounded-lg bg-bg-primary border border-line-secondary px-md py-md text-body text-fg-primary"
+            style={{ minHeight: 72 }}
           />
         </View>
 
         {/* Auto-tag location toggle — actual GPS capture wired in upcoming
             expo-location commit; today we record intent only. */}
-        <Card tone="mint" className="flex-row items-center gap-md">
+        <View className="mt-xs flex-row items-center gap-md rounded-lg bg-bg-primary border border-line-tertiary p-md">
           <View
-            className="items-center justify-center rounded-md bg-bg-primary/70"
+            className="items-center justify-center rounded-md bg-card-sky"
             style={{ width: 32, height: 32 }}
           >
-            <MapPin color="#11A78B" size={16} />
+            <MapPin color="#1C5A8E" size={18} />
           </View>
           <View className="flex-1">
-            <Text className="text-title text-fg-primary font-medium">
+            <Text className="text-body font-medium text-fg-primary">
               {t("inspections:capture.autoTagTitle")}
             </Text>
-            <Text className="text-caption text-fg-secondary">
+            <Text className="text-caption text-fg-secondary mt-[1px]">
               {t("inspections:capture.autoTagSubtitle")}
             </Text>
           </View>
@@ -350,15 +367,17 @@ export default function CaptureSetup() {
             value={session.locationTagEnabled}
             onChange={(v) => session.set({ locationTagEnabled: v })}
           />
-        </Card>
+        </View>
       </ScrollView>
 
-      <View className="px-xl pb-xl pt-sm">
-        <Button
-          label={t("common:actions.continue")}
-          disabled={!canTapContinue}
-          onPress={onContinue}
-        />
+      {/* Sticky CTA — pre-flight runs on tap */}
+      <View className="px-lg pt-sm pb-xl bg-bg-primary border-t border-line-tertiary">
+        <Button disabled={!canTapContinue} onPress={onContinue}>
+          <Text className="text-title font-medium text-primary-on">
+            {t("common:actions.continue")}
+          </Text>
+          <ArrowRight color="#FFFFFF" size={16} />
+        </Button>
       </View>
 
       <PreflightGateSheet

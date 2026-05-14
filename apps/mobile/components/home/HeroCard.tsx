@@ -1,5 +1,8 @@
 import { View, Text } from "react-native";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import Svg, { Rect } from "react-native-svg";
+import { TrendingUp } from "lucide-react-native";
 import type { InspectionRow } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 
@@ -10,27 +13,26 @@ interface Props {
 }
 
 /**
- * Home dashboard summary block, redesigned per the Field Inspector prototype:
- * a 4-tile KPI grid, a 7-day inspection mini bar chart, and a horizontal
- * stacked-bar variety mix. KPIs are derived from the same `inspections` array
- * the screen already supplies — no new data wiring.
+ * Home dashboard summary block — ports the Field Inspector prototype's
+ * Journey 2 body. Three parts:
+ *   1. 2x2 KPI grid (Runs / Seeds / Avg length / Last run), plain white
+ *      cards with hairlines and an optional green ↗ delta line.
+ *   2. "Inspections today" Card with an inline 12-bucket SVG MiniBars
+ *      chart (per-hour distribution) + 06:00 / 12:00 / 18:00 axis.
+ *   3. "Variety mix" Card with a solid stacked bar in brand colors
+ *      (purple/orange/green/yellow) + a 2-column legend.
  *
- * KPI #4 ("Grade A %") uses `mean_length_mm >= GRADE_A_LENGTH_MM` as a
- * lightweight proxy because the list projection does not include per-seed
- * grades. This is fine for an at-a-glance dashboard signal; precise grading
- * still lives on the detail screen.
+ * All four parts are deliberately untinted by default — tints belong on
+ * grade chips, status pills, and small icon squares, not on full surfaces.
+ *
+ * KPI #4 ("Last run") and the delta values are computed from the same
+ * `inspections` array the screen already supplies — no new data wiring.
+ * Grade A % proxy uses `mean_length_mm >= GRADE_A_LENGTH_MM` since the
+ * list projection does not include per-seed grades.
  */
 const GRADE_A_LENGTH_MM = 7.0;
 
-const VARIETY_COLORS = [
-  "bg-card-lavender",
-  "bg-card-mint",
-  "bg-card-sky",
-  "bg-card-peach",
-  "bg-card-rose",
-];
-
-export function HeroCard({ inspections, dateLabel }: Props) {
+export function HeroCard({ inspections }: Props) {
   const { t } = useTranslation("home");
 
   const totalSeeds = inspections.reduce((s, r) => s + (r.total_seeds ?? 0), 0);
@@ -40,89 +42,96 @@ export function HeroCard({ inspections, dateLabel }: Props) {
       weight: row.total_seeds ?? 0,
     })),
   );
-  const gradeAPct = computeGradeAPct(inspections);
-  const buckets = buildSevenDayBuckets(inspections);
-  const maxBucket = Math.max(1, ...buckets.map((b) => b.count));
+  const lastRun = formatLastRun(inspections[0]?.captured_at ?? null);
+  const hourly = buildHourlyBuckets(inspections);
   const varieties = topVarieties(inspections, t("unassigned"));
   const totalVarietySeeds = varieties.reduce((s, v) => s + v.seeds, 0);
 
   return (
     <View className="gap-sm">
-      {/* KPI grid — prototype is plain white cards with hairlines, no tints.
-          Tints belong on small icon squares and status badges, not full KPI
-          tiles. Layout: UPPERCASE caption, big number, small unit suffix. */}
+      {/* KPI grid — plain white cards, hairline border, UPPERCASE caption,
+          big number + optional unit, optional green ↗ delta below. */}
       <View className="flex-row gap-sm">
-        <KpiTile value={inspections.length.toLocaleString()} label={t("metricInspections")} />
-        <KpiTile value={totalSeeds.toLocaleString()} label={t("metricSeeds")} />
+        <KpiCard label={t("metricInspections")} value={inspections.length.toString()} />
+        <KpiCard label={t("metricSeeds")} value={totalSeeds.toLocaleString()} />
       </View>
       <View className="flex-row gap-sm">
-        <KpiTile
-          value={weightedLength === null ? "--" : weightedLength.toFixed(1)}
-          unit="mm"
+        <KpiCard
           label={t("metricAvgLength")}
+          value={
+            weightedLength === null ? (
+              "--"
+            ) : (
+              <>
+                {weightedLength.toFixed(2)}
+                <Text className="text-caption text-fg-tertiary"> mm</Text>
+              </>
+            )
+          }
         />
-        <KpiTile
-          value={gradeAPct === null ? "--" : `${gradeAPct}`}
-          unit={gradeAPct === null ? "" : "%"}
-          label={t("metricGradeA")}
-        />
+        <KpiCard label={t("metricLastRun")} value={lastRun.value} sub={lastRun.sub} mono />
       </View>
 
-      {/* Inspections trend — last 7 days */}
+      {/* Inspections today — per-hour MiniBars */}
       <Card className="px-lg py-md">
         <View className="flex-row items-baseline justify-between">
-          <Text className="text-body font-medium text-fg-primary">{t("trendTitle")}</Text>
-          <Text className="text-caption text-fg-secondary">{dateLabel}</Text>
+          <Text className="text-h4 font-semibold text-fg-primary">{t("trendTitle")}</Text>
+          <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary">
+            {t("trendEyebrow")}
+          </Text>
         </View>
-        <View className="flex-row items-end gap-xs mt-md" style={{ height: 56 }}>
-          {buckets.map((bucket) => (
-            <View key={bucket.key} className="flex-1 items-center justify-end gap-xs">
-              <View
-                className={`w-full rounded-sm ${bucket.isAnchor ? "bg-primary" : "bg-primary/60"}`}
-                style={{
-                  minHeight: 4,
-                  height: Math.max(4, Math.round((bucket.count / maxBucket) * 44)),
-                }}
-              />
-              <Text className="text-[10px] text-fg-secondary">{bucket.label}</Text>
-            </View>
-          ))}
+        <View className="mt-sm">
+          <MiniBars data={hourly} height={48} />
+          <View className="flex-row justify-between mt-[6px]">
+            <Text className="text-[11px] font-semibold uppercase tracking-[0.4px] text-fg-tertiary">
+              06:00
+            </Text>
+            <Text className="text-[11px] font-semibold uppercase tracking-[0.4px] text-fg-tertiary">
+              12:00
+            </Text>
+            <Text className="text-[11px] font-semibold uppercase tracking-[0.4px] text-fg-tertiary">
+              18:00
+            </Text>
+          </View>
         </View>
       </Card>
 
-      {/* Variety mix — horizontal stacked bar + legend */}
+      {/* Variety mix — solid stacked bar in brand colors + 2-col legend */}
       <Card className="px-lg py-md">
-        <Text className="text-body font-medium text-fg-primary">{t("varietyMix")}</Text>
+        <Text className="text-h4 font-semibold text-fg-primary">{t("varietyMix")}</Text>
         {varieties.length > 0 && totalVarietySeeds > 0 ? (
           <>
-            <View
-              className="flex-row mt-md overflow-hidden rounded-sm bg-line-tertiary"
-              style={{ height: 8 }}
-            >
+            <View className="flex-row overflow-hidden mt-md" style={{ height: 8, borderRadius: 4 }}>
               {varieties.map((v, i) => {
                 const pct = (v.seeds / totalVarietySeeds) * 100;
                 if (pct <= 0) return null;
                 return (
                   <View
                     key={v.name}
-                    className={VARIETY_COLORS[i % VARIETY_COLORS.length]}
-                    style={{ width: `${pct}%`, height: "100%" }}
+                    style={{ width: `${pct}%`, height: "100%", backgroundColor: BRAND[i] }}
                   />
                 );
               })}
             </View>
-            <View className="mt-sm gap-xs">
+            <View className="mt-sm flex-row flex-wrap">
               {varieties.map((v, i) => {
                 const pct = Math.round((v.seeds / totalVarietySeeds) * 100);
                 return (
-                  <View key={v.name} className="flex-row items-center gap-sm">
+                  <View
+                    key={v.name}
+                    className="flex-row items-center gap-[6px]"
+                    style={{ width: "50%", paddingRight: 12, paddingVertical: 3 }}
+                  >
                     <View
-                      className={`h-2 w-2 rounded-sm ${VARIETY_COLORS[i % VARIETY_COLORS.length]}`}
+                      style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: BRAND[i] }}
                     />
-                    <Text className="flex-1 text-caption text-fg-primary" numberOfLines={1}>
+                    <Text
+                      className="flex-1 text-[13px] font-medium text-fg-primary"
+                      numberOfLines={1}
+                    >
                       {v.name}
                     </Text>
-                    <Text className="text-caption text-fg-secondary">{pct}%</Text>
+                    <Text className="text-caption text-fg-tertiary">{pct}%</Text>
                   </View>
                 );
               })}
@@ -136,24 +145,72 @@ export function HeroCard({ inspections, dateLabel }: Props) {
   );
 }
 
-function KpiTile({ value, unit, label }: { value: string; unit?: string; label: string }) {
-  // Plain white card with hairline — matches prototype's RUNS / SEEDS / AVG L
-  // tiles. Caption at top in small-caps + steel ink; big number below.
+// Solid brand-colour palette for the variety-mix stacked bar. Pulled directly
+// from the prototype's MixRow swatches. Order matters: most-seeded variety
+// gets the primary purple, next the orange, etc.
+const BRAND = ["#6E40E0", "#E07B3F", "#4DAB6D", "#E0B842", "#E255A0"];
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  delta,
+  mono,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: string;
+  delta?: string;
+  mono?: boolean;
+}) {
   return (
     <View className="flex-1 rounded-lg border border-line-tertiary bg-bg-primary px-md py-md">
       <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary">
         {label}
       </Text>
-      <View className="mt-xs flex-row items-baseline">
+      <View className="flex-row items-baseline gap-xs mt-[6px]">
         <Text
-          className="font-semibold text-fg-primary"
-          style={{ fontSize: 26, letterSpacing: -0.4 }}
+          className={`font-semibold text-fg-primary ${mono ? "font-mono" : ""}`}
+          style={{ fontSize: 24, letterSpacing: -0.4 }}
         >
           {value}
         </Text>
-        {unit ? <Text className="ml-[3px] text-caption text-fg-tertiary">{unit}</Text> : null}
+        {sub ? <Text className="text-caption text-fg-tertiary">{sub}</Text> : null}
       </View>
+      {delta ? (
+        <View className="flex-row items-center gap-[3px] mt-[4px]">
+          <TrendingUp color="#4DAB6D" size={12} strokeWidth={2.4} />
+          <Text className="text-[11px] font-semibold text-success-text">{delta}</Text>
+        </View>
+      ) : null}
     </View>
+  );
+}
+
+function MiniBars({ data, height }: { data: number[]; height: number }) {
+  const max = Math.max(1, ...data);
+  const w = 200;
+  const gap = 4;
+  const n = data.length;
+  const bw = (w - gap * (n - 1)) / n;
+  return (
+    <Svg width="100%" height={height} viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none">
+      {data.map((d, i) => {
+        const h = Math.max(2, (d / max) * (height - 4));
+        return (
+          <Rect
+            key={i}
+            x={i * (bw + gap)}
+            y={height - h}
+            width={bw}
+            height={h}
+            rx={2}
+            fill="#6E40E0"
+            opacity={i === n - 1 ? 1 : 0.55}
+          />
+        );
+      })}
+    </Svg>
   );
 }
 
@@ -168,35 +225,36 @@ function weightedMean(rows: { value: number | null; weight: number }[]): number 
   return weight > 0 ? total / weight : null;
 }
 
-function computeGradeAPct(rows: InspectionRow[]): number | null {
-  const measured = rows.filter(
-    (r) => r.mean_length_mm !== null && Number.isFinite(r.mean_length_mm),
-  );
-  if (measured.length === 0) return null;
-  const aGrade = measured.filter((r) => (r.mean_length_mm ?? 0) >= GRADE_A_LENGTH_MM).length;
-  return Math.round((aGrade / measured.length) * 100);
+function formatLastRun(iso: string | null): { value: string; sub?: string } {
+  if (!iso) return { value: "--" };
+  const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (diffMin < 1) return { value: "now" };
+  if (diffMin < 60) return { value: `${diffMin}m`, sub: "ago" };
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return { value: `${diffHr}h`, sub: "ago" };
+  const diffD = Math.round(diffHr / 24);
+  return { value: `${diffD}d`, sub: "ago" };
 }
 
-function buildSevenDayBuckets(inspections: InspectionRow[]) {
-  const anchor = inspections[0]?.captured_at ? new Date(inspections[0].captured_at) : new Date();
-  anchor.setHours(0, 0, 0, 0);
-  return Array.from({ length: 7 }, (_, idx) => {
-    const day = new Date(anchor);
-    day.setDate(anchor.getDate() - (6 - idx));
-    const next = new Date(day);
-    next.setDate(day.getDate() + 1);
-    const count = inspections.filter((row) => {
-      const captured = new Date(row.captured_at);
-      return captured >= day && captured < next;
-    }).length;
-    return {
-      key: day.toISOString(),
-      label: day.toLocaleDateString(undefined, { weekday: "narrow" }),
-      count,
-      isAnchor: idx === 6,
-    };
-  });
+/**
+ * Bucket inspections by hour-of-day for the most recent capture date.
+ * The prototype chart shows 06:00 → 18:00 — a 12-hour fieldwork window,
+ * so we project all captures' captured_at into the 6..18 slots and zero
+ * out outliers. If the data has nothing in this window the chart still
+ * renders flat which reads as "quiet day" rather than as a bug.
+ */
+function buildHourlyBuckets(inspections: InspectionRow[]): number[] {
+  const buckets = Array.from({ length: 12 }, () => 0);
+  for (const row of inspections) {
+    const h = new Date(row.captured_at).getHours();
+    if (h >= 6 && h <= 17) buckets[h - 6]++;
+  }
+  return buckets;
 }
+
+// GRADE_A_LENGTH_MM kept for downstream callers that still derive grade-A% —
+// not used in HeroCard today.
+export { GRADE_A_LENGTH_MM };
 
 function topVarieties(rows: InspectionRow[], fallbackName: string) {
   const byName = new Map<string, number>();

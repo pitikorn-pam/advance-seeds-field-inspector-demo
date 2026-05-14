@@ -632,11 +632,11 @@ export default function CaptureProcessing() {
             SVG ring inside and a percent readout in the centre. The disc
             stays static-sized across the four steps so the layout doesn't
             shift as progress advances. */}
-        <View className="h-[160px] w-[160px] items-center justify-center rounded-2xl border border-line-tertiary bg-bg-primary">
+        <View className="h-[160px] w-[160px] items-center justify-center rounded-3xl border border-line-tertiary bg-bg-primary">
           <ConcentricProgress percent={percent} />
         </View>
 
-        <Text className="text-h1 text-fg-primary font-semibold mt-2xl text-center">
+        <Text className="text-h2 text-fg-primary font-semibold mt-xl text-center">
           {detectedCount !== null
             ? t("inspections:capture.processing.analyzingSeeds", {
                 count: detectedCount,

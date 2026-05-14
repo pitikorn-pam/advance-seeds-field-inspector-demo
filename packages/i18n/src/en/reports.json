@@ -22,7 +22,8 @@
   "byVariety": {
     "title": "By variety",
     "runs_one": "{{count}} run",
-    "runs_other": "{{count}} runs"
+    "runs_other": "{{count}} runs",
+    "gradeA": "{{pct}}% grade A"
   },
   "empty": {
     "title": "No data in this range",

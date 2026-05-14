@@ -1,32 +1,33 @@
-import { ScrollView, View, Text } from "react-native";
+import { Alert, ScrollView, View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Cloud, LogOut } from "lucide-react-native";
 import { useTheme } from "@/lib/theme";
+import { useAuth } from "@/lib/auth";
 import { useSyncQueue } from "@/lib/sync/useSyncQueue";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
-import { Segmented } from "@/components/ui/Segmented";
 import type { Theme } from "@advance-seeds/types";
 import type { SupportedLocale } from "@advance-seeds/i18n";
 
 /**
- * App-level settings — appearance, language, sync maintenance, and build info.
+ * App-level settings.
  *
- * Visual treatment matches the prototype's `SettingsScreen`: section captions
- * sit above grouped Cards (`p-0`) whose rows share dividers. Each row is a
- * label + value/control pair so the screen reads as a tidy list rather than
- * a stack of free-form cards. Data wiring (theme, locale, sync queue) is
- * unchanged from the previous revision.
+ * Visual layer mirrors the prototype `SettingsScreen`: section captions
+ * above grouped `Card`s, Appearance bundles Theme + Language as inline grid
+ * pickers, Sync shows a status row with retry / clear actions, About lists
+ * version / build / backend, and a destructive Sign out button sits at the
+ * bottom. Theme, locale, sync-queue, and auth wiring are unchanged.
  */
 export default function SettingsScreen() {
-  const { t, i18n } = useTranslation(["common", "settings"]);
+  const { t, i18n } = useTranslation(["common", "settings", "more"]);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { signOut } = useAuth();
   const syncQueue = useSyncQueue();
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
@@ -39,6 +40,30 @@ export default function SettingsScreen() {
     "—";
   const lastError = syncQueue.entries.find((entry) => entry.lastError)?.lastError;
 
+  const syncStatusLabel =
+    syncQueue.counts.failed > 0
+      ? t("settings:sync.failed", { count: syncQueue.counts.failed })
+      : syncQueue.counts.pending > 0
+        ? t("settings:sync.pending", { count: syncQueue.counts.pending })
+        : t("settings:sync.upToDate");
+
+  const syncTone =
+    syncQueue.counts.failed > 0 ? "danger" : syncQueue.counts.pending > 0 ? "warning" : "success";
+
+  const onSignOut = () => {
+    Alert.alert(t("more:menu.signOut"), t("more:menu.signOutConfirm"), [
+      { text: t("common:actions.cancel"), style: "cancel" },
+      {
+        text: t("more:menu.signOut"),
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          router.replace("/login");
+        },
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar
@@ -49,124 +74,122 @@ export default function SettingsScreen() {
           onPress: () => router.back(),
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
+      <ScrollView contentContainerClassName="px-xl pt-md pb-xl gap-md">
+        {/* Appearance — Theme + Language grids inside one card */}
         <Section title={t("settings:sections.appearance")}>
-          <Card className="p-0">
-            <Row
-              label={t("settings:rows.theme")}
-              control={
-                <Segmented<Theme>
-                  value={theme}
-                  onChange={setTheme}
-                  options={themeOpts.map((value) => ({
-                    value,
-                    label: t(`common:themes.${value}`),
-                  }))}
-                  variant="tag"
-                />
-              }
-              hint={t("settings:appearanceHint")}
-            />
-          </Card>
-        </Section>
-
-        <Section title={t("settings:sections.language")}>
-          <Card className="p-0">
-            <Row
-              label={t("settings:rows.language")}
-              control={
-                <Segmented<SupportedLocale>
-                  value={activeLocale}
-                  onChange={(next) => void i18n.changeLanguage(next)}
-                  options={localeOpts.map((value) => ({
-                    value,
-                    label: t(`common:languages.${value}`),
-                  }))}
-                  variant="tag"
-                />
-              }
-            />
-          </Card>
-        </Section>
-
-        <Section title={t("settings:sections.sync")}>
-          <Card className="p-0">
-            <Row
-              label={t("settings:sync.status")}
-              value={
-                <Pill
-                  tone={
-                    syncQueue.counts.failed > 0
-                      ? "danger"
-                      : syncQueue.counts.pending > 0
-                        ? "warning"
-                        : "success"
-                  }
-                  dot
-                  label={
-                    syncQueue.counts.failed > 0
-                      ? t("settings:sync.failed", { count: syncQueue.counts.failed })
-                      : syncQueue.counts.pending > 0
-                        ? t("settings:sync.pending", { count: syncQueue.counts.pending })
-                        : t("settings:sync.upToDate")
-                  }
-                />
-              }
-            />
-            <Divider />
-            <Row
-              label={t("settings:sync.pendingCount")}
-              value={<NumericValue text={String(syncQueue.counts.pending)} />}
-            />
-            <Divider />
-            <Row
-              label={t("settings:sync.failedCount")}
-              value={
-                <NumericValue
-                  text={String(syncQueue.counts.failed)}
-                  tone={syncQueue.counts.failed > 0 ? "danger" : "default"}
-                />
-              }
-            />
-            {lastError ? (
-              <>
-                <Divider />
-                <View className="px-lg py-md">
-                  <Text className="text-caption text-danger-text" numberOfLines={2}>
-                    {lastError}
-                  </Text>
-                </View>
-              </>
-            ) : null}
-            <Divider />
-            <View className="flex-row gap-sm px-lg py-md">
-              <Button
-                className="flex-1"
-                size="sm"
-                variant="outline"
-                label={t("settings:sync.retryAll")}
-                disabled={syncQueue.counts.pending + syncQueue.counts.failed === 0}
-                onPress={() => void syncQueue.retryAll()}
-              />
-              <Button
-                className="flex-1"
-                size="sm"
-                variant="ghost"
-                label={t("settings:sync.clearFailed")}
-                disabled={syncQueue.counts.failed === 0}
-                onPress={() => void syncQueue.clearFailed()}
-              />
+          <View className="px-md py-md gap-md">
+            <View className="gap-sm">
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary px-xs">
+                {t("settings:rows.theme")}
+              </Text>
+              <View className="flex-row gap-xs">
+                {themeOpts.map((opt) => (
+                  <GridButton
+                    key={opt}
+                    label={t(`common:themes.${opt}`)}
+                    active={theme === opt}
+                    onPress={() => setTheme(opt)}
+                  />
+                ))}
+              </View>
             </View>
-          </Card>
+
+            <View className="gap-sm">
+              <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary px-xs">
+                {t("settings:rows.language")}
+              </Text>
+              <View className="flex-row gap-xs">
+                {localeOpts.map((opt) => (
+                  <GridButton
+                    key={opt}
+                    label={t(`common:languages.${opt}`)}
+                    active={activeLocale === opt}
+                    onPress={() => void i18n.changeLanguage(opt)}
+                  />
+                ))}
+              </View>
+            </View>
+          </View>
         </Section>
 
-        <Section title={t("settings:sections.app")}>
-          <Card className="p-0">
-            <Row label={t("settings:version")} value={<NumericValue text={appVersion} />} />
-            <Divider />
-            <Row label={t("settings:build")} value={<NumericValue text={buildNumber} />} />
-          </Card>
+        {/* Sync */}
+        <Section title={t("settings:sections.sync")}>
+          <View className="flex-row items-center gap-md px-md py-md">
+            <View className="h-9 w-9 items-center justify-center rounded-md bg-card-mint">
+              <Cloud color="#2D6E3F" size={18} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-body font-medium text-fg-primary">{syncStatusLabel}</Text>
+              <Text className="text-caption text-fg-secondary mt-[1px]">
+                {t("settings:sync.status")}
+              </Text>
+            </View>
+            <Pill tone={syncTone} dot label={syncStatusLabel} />
+          </View>
+          <Divider />
+          <SettingsRow
+            label={t("settings:sync.pendingCount")}
+            value={String(syncQueue.counts.pending)}
+            mono
+          />
+          <Divider />
+          <SettingsRow
+            label={t("settings:sync.failedCount")}
+            value={String(syncQueue.counts.failed)}
+            mono
+            danger={syncQueue.counts.failed > 0}
+          />
+          {lastError ? (
+            <>
+              <Divider />
+              <View className="px-md py-md">
+                <Text className="text-caption text-danger-text" numberOfLines={2}>
+                  {lastError}
+                </Text>
+              </View>
+            </>
+          ) : null}
+          <Divider />
+          <View className="flex-row gap-xs px-md py-md">
+            <Button
+              className="flex-1"
+              size="sm"
+              variant="outline"
+              label={t("settings:sync.retryAll")}
+              disabled={syncQueue.counts.pending + syncQueue.counts.failed === 0}
+              onPress={() => void syncQueue.retryAll()}
+            />
+            <Button
+              className="flex-1"
+              size="sm"
+              variant="ghost"
+              label={t("settings:sync.clearFailed")}
+              disabled={syncQueue.counts.failed === 0}
+              onPress={() => void syncQueue.clearFailed()}
+            />
+          </View>
         </Section>
+
+        {/* About */}
+        <Section title={t("settings:sections.app")}>
+          <SettingsRow label={t("settings:version")} value={appVersion} mono />
+          <Divider />
+          <SettingsRow label={t("settings:build")} value={buildNumber} mono />
+        </Section>
+
+        {/* Destructive sign-out — kept for the existing sign-out flow */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("more:menu.signOut")}
+          onPress={onSignOut}
+          className="mt-md flex-row items-center justify-center gap-sm rounded-md bg-bg-primary py-md active:opacity-80"
+          style={{ borderWidth: 1, borderColor: "#FBC4C4" }}
+        >
+          <LogOut color="#8A1F1B" size={16} />
+          <Text className="text-body font-medium" style={{ color: "#8A1F1B" }}>
+            {t("more:menu.signOut")}
+          </Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -175,46 +198,72 @@ export default function SettingsScreen() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="gap-sm">
-      <Text className="text-caption font-medium uppercase text-fg-secondary px-xs">{title}</Text>
-      {children}
+      <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary px-xs">
+        {title}
+      </Text>
+      <Card className="p-0 overflow-hidden">{children}</Card>
     </View>
   );
 }
 
-function Row({
+function SettingsRow({
   label,
   value,
-  control,
-  hint,
+  mono = false,
+  danger = false,
 }: {
   label: string;
-  value?: React.ReactNode;
-  control?: React.ReactNode;
-  hint?: string;
+  value: string;
+  mono?: boolean;
+  danger?: boolean;
 }) {
   return (
-    <View className="px-lg py-md gap-sm">
-      <View className="flex-row items-center justify-between gap-md">
-        <Text className="text-body text-fg-primary flex-1">{label}</Text>
+    <View className="flex-row items-center px-md py-md">
+      <Text className="text-body font-medium text-fg-primary flex-1">{label}</Text>
+      <Text
+        className="text-caption font-medium"
+        style={{
+          color: danger ? "#8A1F1B" : undefined,
+          fontFamily: mono ? "ui-monospace" : undefined,
+        }}
+      >
         {value}
-      </View>
-      {control ? <View>{control}</View> : null}
-      {hint ? <Text className="text-caption text-fg-secondary">{hint}</Text> : null}
+      </Text>
     </View>
   );
 }
 
-function NumericValue({ text, tone = "default" }: { text: string; tone?: "default" | "danger" }) {
+function GridButton({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
   return (
-    <Text
-      className={`text-title ${tone === "danger" ? "text-danger-text" : "text-fg-primary"}`}
-      numberOfLines={1}
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      className={`flex-1 items-center justify-center rounded-md py-sm active:opacity-80 ${
+        active
+          ? "border-2 border-primary bg-bg-primary"
+          : "border border-line-secondary bg-bg-primary"
+      }`}
     >
-      {text}
-    </Text>
+      <Text
+        className={`text-caption font-semibold ${active ? "text-primary" : "text-fg-primary"}`}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
 function Divider() {
-  return <View className="h-[0.5px] bg-line-tertiary mx-lg" />;
+  return <View className="h-px bg-line-tertiary mx-md" />;
 }

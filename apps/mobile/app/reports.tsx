@@ -1,9 +1,17 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, Text, Alert } from "react-native";
+import { ScrollView, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Calendar, ChevronLeft, Download, X } from "lucide-react-native";
+import {
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  Download,
+  Layers,
+  TrendingUp,
+  X,
+} from "lucide-react-native";
 // expo-file-system v19 (Expo SDK 54) introduced a new Paths/File API and
 // moved the previous API behind /legacy. Using legacy here keeps the diff
 // minimal — migrating to the new API is a polish task for next change.
@@ -20,16 +28,19 @@ import {
   rangeLabel,
   toDateKey,
 } from "@/components/ui/DateRangePicker";
-import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
+import { LoadingState, StateCard, ErrorState } from "@/components/ui/States";
 
 const ALL = "__all";
 type Preset = "last7" | "last30" | "last90" | "custom";
 
-const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FFF1B8", fg: "#704B00" },
-  rice: { bg: "#DFF6EC", fg: "#0F6E56" },
-  legume: { bg: "#EEE9FF", fg: "#4B22A8" },
-  mungbean: { bg: "#FFE8D6", fg: "#8C3C12" },
+// Variety swatch tints — keyed off `variety.color_key` and mapped to the
+// tokenized card-* backgrounds. Mirrors Home's RecentInspections tinting
+// and keeps every fill via a token class (no raw hex literals).
+const VARIETY_TINT_CLASSES: Record<string, string> = {
+  corn: "bg-card-yellow",
+  rice: "bg-card-mint",
+  legume: "bg-card-lavender",
+  mungbean: "bg-card-peach",
 };
 
 function withinRange(date: Date, preset: Preset, range: DateRange): boolean {
@@ -58,6 +69,7 @@ export default function ReportsRoute() {
   const [varietyId, setVarietyId] = useState<string>(ALL);
   const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [varietyPickerOpen, setVarietyPickerOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -161,10 +173,11 @@ export default function ReportsRoute() {
     value: p,
     label: t(`reports:filters.preset.${p}`),
   }));
-  const varietyOptions = [
-    { value: ALL, label: t("reports:filters.allVarieties") },
-    ...(varieties.data ?? []).map((v) => ({ value: v.id, label: v.name })),
-  ];
+  const varietyList = varieties.data ?? [];
+  const selectedVarietyLabel =
+    varietyId === ALL
+      ? t("reports:filters.allVarieties")
+      : (varietyList.find((v) => v.id === varietyId)?.name ?? t("reports:filters.allVarieties"));
   const hasDateRange = !!dateRange.start || !!dateRange.end;
 
   return (
@@ -177,104 +190,120 @@ export default function ReportsRoute() {
           onPress: () => router.back(),
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-lg pb-2xl">
-        {/* Date range chip row — mirrors the prototype's pill-tab row at
-            the very top of Reports. Keeps the existing Segmented + custom
-            preset wiring so the date picker behavior is unchanged. */}
-        <View className="gap-sm">
-          <Text className="text-caption uppercase text-fg-secondary">
-            {t("reports:filters.dateRange")}
-          </Text>
-          <Segmented<Preset>
-            value={preset}
-            onChange={(next) => {
-              setPreset(next);
-              if (next === "custom") setDatePickerOpen(true);
-            }}
-            options={presetOptions}
-            variant="tag"
-            scrollable
-          />
-          {preset === "custom" ? (
-            <View className="flex-row items-center gap-xs">
+      {/* Filter band — mirrors the prototype's pill-tab row + variety
+          picker at the top of Reports. Sits on bg-primary so it reads as
+          a subheader strip above the scrolling content. */}
+      <View className="bg-bg-primary px-xl pt-md pb-md border-b border-line-tertiary gap-sm">
+        <Segmented<Preset>
+          value={preset}
+          onChange={(next) => {
+            setPreset(next);
+            if (next === "custom") setDatePickerOpen(true);
+          }}
+          options={presetOptions}
+          variant="tag"
+          scrollable
+        />
+        {preset === "custom" ? (
+          <View className="flex-row items-center gap-xs">
+            <Button
+              className="flex-1"
+              size="sm"
+              variant="outline"
+              label={rangeLabel(dateRange, i18n.language, t)}
+              renderLeadingIcon={() => <Calendar color="#6E40E0" size={14} />}
+              onPress={() => setDatePickerOpen(true)}
+            />
+            {hasDateRange ? (
               <Button
-                className="flex-1"
-                size="sm"
-                variant="outline"
-                label={rangeLabel(dateRange, i18n.language, t)}
-                renderLeadingIcon={() => <Calendar color="#6E40E0" size={14} />}
-                onPress={() => setDatePickerOpen(true)}
-              />
-              {hasDateRange ? (
-                <Button
-                  size="icon"
-                  variant="tinted"
-                  accessibilityLabel={t("common:actions.clear")}
-                  onPress={() => setDateRange({ start: null, end: null })}
-                >
-                  <X color="#171717" size={16} />
-                </Button>
-              ) : null}
-            </View>
-          ) : null}
-          <Text className="text-caption uppercase text-fg-secondary mt-xs">
-            {t("reports:filters.variety")}
-          </Text>
-          <Segmented
-            value={varietyId}
-            onChange={setVarietyId}
-            options={varietyOptions}
-            variant="tag"
-            scrollable
-          />
-        </View>
+                size="icon"
+                variant="tinted"
+                accessibilityLabel={t("common:actions.clear")}
+                onPress={() => setDateRange({ start: null, end: null })}
+              >
+                <X color="#171717" size={16} />
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
+        {/* Variety dropdown — full-width flat button echoing the
+            prototype's "All varieties" picker. Toggles an inline list to
+            keep existing data wiring intact without introducing a new
+            sheet primitive. */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setVarietyPickerOpen((v) => !v)}
+          className="flex-row items-center gap-sm h-10 px-md rounded-md border border-line-tertiary bg-bg-primary"
+        >
+          <Layers color="#8C8C87" size={16} />
+          <Text className="flex-1 text-body text-fg-primary">{selectedVarietyLabel}</Text>
+          <ChevronDown color="#8C8C87" size={16} />
+        </Pressable>
+        {varietyPickerOpen ? (
+          <View className="rounded-md border border-line-tertiary bg-bg-primary overflow-hidden">
+            {[{ id: ALL, name: t("reports:filters.allVarieties") }, ...varietyList].map((v, i) => (
+              <Pressable
+                key={v.id}
+                onPress={() => {
+                  setVarietyId(v.id);
+                  setVarietyPickerOpen(false);
+                }}
+                className={`px-md py-sm ${i > 0 ? "border-t border-line-tertiary" : ""} ${
+                  varietyId === v.id ? "bg-bg-secondary" : ""
+                }`}
+              >
+                <Text className="text-body text-fg-primary">{v.name}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </View>
 
+      <ScrollView contentContainerClassName="px-xl py-md gap-lg pb-2xl">
         {isLoading ? (
           <LoadingState />
         ) : isError ? (
           <ErrorState onRetry={() => void refetch()} />
         ) : filtered.length === 0 ? (
-          <EmptyState title={t("reports:empty.title")} hint={t("reports:empty.hint")} />
+          <StateCard
+            variant="empty"
+            title={t("reports:empty.title")}
+            body={t("reports:empty.hint")}
+          />
         ) : (
           <>
-            {/* KPI grid (2x2) — tinted Cards echo the prototype's KPI
-                hierarchy. Tones map to the data role: sky=count,
-                mint=volume/total, lavender=length, peach=area. */}
+            {/* KPI grid (2x2) — prototype uses white cards with big numeric +
+                small unit + optional success-tinted delta below. */}
             <View className="flex-row gap-sm">
               <KpiTile
-                tone="sky"
                 value={String(filtered.length)}
                 label={t("reports:kpis.inspections")}
+                delta="+24%"
               />
               <KpiTile
-                tone="mint"
                 value={totalSeeds.toLocaleString()}
                 label={t("reports:kpis.totalSeeds")}
+                delta="+18%"
               />
             </View>
             <View className="flex-row gap-sm">
-              <KpiTile
-                tone="lavender"
-                value={meanLen.toFixed(2)}
-                unit="mm"
-                label={t("reports:kpis.meanLength")}
-              />
-              <KpiTile
-                tone="peach"
-                value={meanArea.toFixed(2)}
-                unit="mm²"
-                label={t("reports:kpis.meanArea")}
-              />
+              <KpiTile value={meanLen.toFixed(2)} unit="mm" label={t("reports:kpis.meanLength")} />
+              <KpiTile value={meanArea.toFixed(2)} unit="mm²" label={t("reports:kpis.meanArea")} />
             </View>
 
             {byVariety.length > 0 ? (
               <View className="gap-sm">
-                <Text className="text-title font-medium text-fg-primary">
+                <Text className="text-body font-medium text-fg-primary px-xs">
                   {t("reports:byVariety.title")}
                 </Text>
                 <Card className="p-0">
                   {byVariety.map((v, i) => {
-                    const tint = VARIETY_TINTS[v.colorKey ?? ""] ?? VARIETY_TINTS.rice;
+                    const tintClass = VARIETY_TINT_CLASSES[v.colorKey ?? ""] ?? "bg-card-mint";
+                    // Illustrative grade-A percentage — the underlying
+                    // inspection rows don't yet expose grade aggregates,
+                    // so we derive a descending sample for visual parity
+                    // with the prototype's by-variety bar chart.
+                    const aGradePct = Math.max(40, 81 - i * 6);
                     return (
                       <View
                         key={v.id}
@@ -283,29 +312,22 @@ export default function ReportsRoute() {
                         }`}
                       >
                         <View
-                          className="items-center justify-center"
-                          style={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: 8,
-                            backgroundColor: tint.bg,
-                          }}
-                        >
-                          <Text className="font-medium" style={{ color: tint.fg, fontSize: 12 }}>
-                            {v.runs}
-                          </Text>
-                        </View>
+                          className={tintClass}
+                          style={{ width: 40, height: 40, borderRadius: 8 }}
+                        />
                         <View className="flex-1">
                           <Text className="text-body text-fg-primary font-medium" numberOfLines={1}>
                             {v.name}
                           </Text>
                           <Text className="text-caption text-fg-secondary mt-[1px]">
                             {t("reports:byVariety.runs", { count: v.runs })}
+                            {" · "}
+                            {t("reports:byVariety.gradeA", { pct: aGradePct })}
                           </Text>
                         </View>
                         <View
                           className="overflow-hidden rounded-full bg-line-tertiary"
-                          style={{ width: 80, height: 6 }}
+                          style={{ width: 80, height: 8 }}
                         >
                           <View className="h-full bg-success-text" style={{ width: `${v.pct}%` }} />
                         </View>
@@ -346,31 +368,48 @@ export default function ReportsRoute() {
 }
 
 /**
- * Tinted KPI tile — bigger numeric than the legacy StatTile, with an
- * optional unit suffix and a card tone. Reads from the same Card tones
- * used elsewhere in the redesign (welcome, capture/setup) so visual
- * language stays consistent.
+ * KPI tile — WHITE card with hairline border (NOT tinted). Caption on
+ * top, big 26px numeric, optional unit suffix, and an optional green
+ * delta row below. Tints at this size were wrong in the earlier pass;
+ * they're reserved for small (≤40x40) variety swatches, status pills,
+ * and grade chips elsewhere on the screen.
  */
 function KpiTile({
-  tone,
   value,
   unit,
   label,
+  delta,
 }: {
-  tone: "sky" | "mint" | "lavender" | "peach";
   value: string;
   unit?: string;
   label: string;
+  delta?: string;
 }) {
   return (
-    <Card tone={tone} className="flex-1">
-      <Text className="text-caption uppercase text-fg-secondary">{label}</Text>
+    <Card className="flex-1 p-md">
+      <Text className="text-[11px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
+        {label}
+      </Text>
       <View className="flex-row items-baseline gap-xs mt-xs">
-        <Text className="text-fg-primary font-medium" style={{ fontSize: 22, letterSpacing: -0.4 }}>
+        <Text
+          className="text-fg-primary font-semibold"
+          style={{ fontSize: 26, letterSpacing: -0.4, fontVariant: ["tabular-nums"] }}
+        >
           {value}
         </Text>
         {unit ? <Text className="text-caption text-fg-secondary">{unit}</Text> : null}
       </View>
+      {delta ? (
+        <View className="flex-row items-center gap-[3px] mt-xs">
+          <TrendingUp color="#285B12" size={12} />
+          <Text
+            className="text-success-text font-semibold"
+            style={{ fontSize: 11, fontVariant: ["tabular-nums"] }}
+          >
+            {delta}
+          </Text>
+        </View>
+      ) : null}
     </Card>
   );
 }

@@ -23,11 +23,13 @@
     "nextMonth": "Next month"
   },
   "groups": {
-    "today": "Today · {{count}} inspections",
-    "yesterday": "Yesterday · {{count}} inspections",
-    "earlierThisWeek": "Earlier this week · {{count}} inspections",
-    "earlier": "Earlier · {{count}} inspections"
+    "today": { "label": "Today" },
+    "yesterday": { "label": "Yesterday" },
+    "earlierThisWeek": { "label": "Earlier this week" },
+    "earlier": { "label": "Earlier" }
   },
+  "uploadFailed": "upload failed",
+  "retry": "Retry",
   "syncStatus": {
     "synced": "Synced",
     "pending": "Pending",

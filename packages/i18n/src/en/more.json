@@ -108,6 +108,7 @@
     "noRollback": "No previous active model is available.",
     "download": "Download",
     "activate": "Activate",
+    "reverify": "Re-verify",
     "installedTitle": "Model installed",
     "installedPill": "Installed",
     "activePill": "Active",

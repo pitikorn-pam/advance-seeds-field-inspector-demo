@@ -11,11 +11,13 @@ import { RolePill } from "@/components/ui/RolePill";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 
 /**
- * Standalone read-only profile screen. The visual layer mirrors the Field
- * Inspector redesign prototype: hero card (avatar + name + role chip), a
- * three-up read-only stat grid, then a meta list (email / device / app
- * version). Auth wiring and queries are untouched — the stats lean on the
- * existing `useInspections` query and sync queue read.
+ * Standalone read-only profile screen.
+ *
+ * Visual layer mirrors the Field Inspector redesign prototype `ProfileScreen`:
+ * a centered hero Card (large round avatar + name + email + role pill),
+ * an "About your role" description Card, then a three-up centered stat
+ * grid (`StatTile3`). Auth wiring and queries are untouched — stats lean
+ * on the existing `useInspections` query.
  */
 export default function ProfileScreen() {
   const { t } = useTranslation(["common", "profile"]);
@@ -34,8 +36,6 @@ export default function ProfileScreen() {
   const role: "Inspector" | "Admin" | null =
     profile?.role === "admin" ? "Admin" : profile?.role === "inspector" ? "Inspector" : null;
 
-  // Read-only stats derived from already-fetched data — no new auth/profile
-  // wiring. `useInspections` is shared with the home + history screens.
   const inspectionsCount = inspections?.length ?? 0;
   const seedsTotal = (inspections ?? []).reduce((sum, row) => sum + (row.total_seeds ?? 0), 0);
   const completeCount = (inspections ?? []).filter((row) => row.status === "complete").length;
@@ -44,6 +44,19 @@ export default function ProfileScreen() {
 
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "—";
   const deviceName = Constants.deviceName ?? "—";
+
+  // Description used for "About your role" — sourced from i18n with sensible
+  // English defaults to avoid blank state when the key is missing.
+  const roleDescription =
+    role === "Admin"
+      ? t(
+          "profile:roleDescription.admin",
+          "Admins manage varieties, model installation, and hyperparameter tuning. Inspectors and admins share the same field capture workflow.",
+        )
+      : t(
+          "profile:roleDescription.inspector",
+          "Inspectors capture inspections in the field, review measurements, and adjust grades when needed. Admin-only actions (variety editing, model installation, hyperparameter tuning) are read-only here.",
+        );
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -55,10 +68,13 @@ export default function ProfileScreen() {
           onPress: () => router.back(),
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        {/* Hero */}
-        <Card className="items-center py-xl">
-          <View className="items-center justify-center mb-md h-[80px] w-[80px] rounded-full bg-card-lavender">
+      <ScrollView contentContainerClassName="px-xl pt-lg pb-xl gap-lg">
+        {/* Hero card — centered avatar + name + email + role pill */}
+        <Card className="p-xl items-center">
+          <View
+            className="items-center justify-center rounded-full bg-card-lavender"
+            style={{ height: 80, width: 80 }}
+          >
             <Text
               className="font-medium text-primary-deep"
               style={{ fontSize: 26, letterSpacing: -0.5 }}
@@ -67,8 +83,9 @@ export default function ProfileScreen() {
             </Text>
           </View>
           <Text
-            className="text-fg-primary font-medium"
-            style={{ fontSize: 20, letterSpacing: -0.3 }}
+            className="text-fg-primary font-medium mt-md"
+            style={{ fontSize: 17, letterSpacing: -0.2 }}
+            numberOfLines={1}
           >
             {profile?.full_name ?? "—"}
           </Text>
@@ -76,33 +93,37 @@ export default function ProfileScreen() {
             <Text className="text-caption text-fg-secondary mt-xs">{profile.email}</Text>
           ) : null}
           {role ? (
-            <View className="mt-md">
+            <View className="mt-sm">
               <RolePill role={role} />
             </View>
           ) : null}
         </Card>
 
-        {/* Stat grid */}
-        <View>
-          <Text
-            className="text-label uppercase text-fg-secondary px-xs pb-sm"
-            style={{ letterSpacing: 0.4 }}
-          >
-            {t("profile:statsHeading")}
+        {/* About your role */}
+        <View className="gap-sm">
+          <Text className="text-title font-medium text-fg-primary px-xs">
+            {t("profile:roleHeading", "About your role")}
+          </Text>
+          <Card className="p-md">
+            <Text className="text-body text-fg-secondary">{roleDescription}</Text>
+          </Card>
+        </View>
+
+        {/* Stat grid — last 30 days */}
+        <View className="gap-sm">
+          <Text className="text-title font-medium text-fg-primary px-xs">
+            {t("profile:statsHeading30d", "This account · last 30 days")}
           </Text>
           <View className="flex-row gap-sm">
-            <StatTile value={String(inspectionsCount)} label={t("profile:stats.inspections")} />
-            <StatTile value={formatCount(seedsTotal)} label={t("profile:stats.seeds")} />
-            <StatTile value={syncRate} label={t("profile:stats.syncRate")} />
+            <StatTile3 value={String(inspectionsCount)} label={t("profile:stats.inspections")} />
+            <StatTile3 value={formatCount(seedsTotal)} label={t("profile:stats.seeds")} />
+            <StatTile3 value={syncRate} label={t("profile:stats.syncRate")} />
           </View>
         </View>
 
-        {/* Meta list */}
-        <View>
-          <Text
-            className="text-label uppercase text-fg-secondary px-xs pb-sm"
-            style={{ letterSpacing: 0.4 }}
-          >
+        {/* Meta list — email / device / app version (kept for real account info) */}
+        <View className="gap-sm">
+          <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary px-xs">
             {t("profile:meta.heading")}
           </Text>
           <Card className="p-0">
@@ -110,7 +131,7 @@ export default function ProfileScreen() {
             <Divider />
             <MetaRow label={t("profile:meta.device")} value={deviceName} />
             <Divider />
-            <MetaRow label={t("profile:meta.appVersion")} value={appVersion} last />
+            <MetaRow label={t("profile:meta.appVersion")} value={appVersion} />
           </Card>
         </View>
       </ScrollView>
@@ -118,28 +139,27 @@ export default function ProfileScreen() {
   );
 }
 
-function StatTile({ value, label }: { value: string; label: string }) {
+function StatTile3({ value, label }: { value: string; label: string }) {
   return (
-    <View className="flex-1 rounded-lg border border-line-tertiary bg-bg-primary px-md py-md items-center">
+    <Card className="p-md items-center flex-1">
       <Text className="text-fg-primary font-medium" style={{ fontSize: 20, letterSpacing: -0.3 }}>
         {value}
       </Text>
       <Text
-        className="mt-xs text-label uppercase text-fg-secondary text-center"
-        style={{ letterSpacing: 0.4 }}
+        className="mt-xs text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary text-center"
         numberOfLines={1}
       >
         {label}
       </Text>
-    </View>
+    </Card>
   );
 }
 
-function MetaRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+function MetaRow({ label, value }: { label: string; value: string }) {
   return (
-    <View className={`flex-row items-center px-lg py-md ${last ? "" : ""}`}>
-      <Text className="text-body text-fg-primary flex-1">{label}</Text>
-      <Text className="text-caption text-fg-secondary" numberOfLines={1}>
+    <View className="flex-row items-center px-md py-md">
+      <Text className="text-body font-medium text-fg-primary flex-1">{label}</Text>
+      <Text className="text-caption font-medium text-fg-secondary" numberOfLines={1}>
         {value}
       </Text>
     </View>
@@ -147,7 +167,7 @@ function MetaRow({ label, value, last }: { label: string; value: string; last?: 
 }
 
 function Divider() {
-  return <View className="h-[0.5px] bg-line-tertiary mx-lg" />;
+  return <View className="h-px bg-line-tertiary mx-md" />;
 }
 
 function formatCount(n: number) {

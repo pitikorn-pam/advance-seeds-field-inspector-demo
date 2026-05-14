@@ -7,7 +7,7 @@ import {
   User,
   Video,
   Target,
-  History,
+  Clock,
   BarChart3,
   Settings as SettingsIcon,
   Sliders,
@@ -18,23 +18,22 @@ import {
 } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
+import { RolePill } from "@/components/ui/RolePill";
 
 /**
  * More screen — secondary navigation hub.
  *
- * Visual layer follows the Field Inspector redesign prototype:
- * grouped sections with a small caption, a bordered Card list, hairline
- * dividers between rows, and a tinted icon tile per row. Sign-out is a
- * destructive row with no chevron. The footer shows the app version.
- *
- * Five sections (Inspection tools / Reference data / Calibration /
- * Model & tuning / Account) map onto the existing routes; data wiring
- * (auth gates, navigation, sign-out flow) is unchanged.
+ * Visual layer mirrors the Field Inspector redesign prototype `MoreScreen`:
+ * profile card at the top, then grouped sections (`MoreGroup`) of `MoreRow`s.
+ * Each row has a 32x32 tinted icon square, a title, an optional subline, an
+ * optional admin badge, and a chevron. Sign-out is the trailing row of the
+ * Account group with destructive styling. Data wiring (auth + navigation +
+ * sign-out flow) is unchanged from the previous revision.
  */
 export default function MoreScreen() {
   const { t } = useTranslation(["common", "more"]);
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { profile, signOut } = useAuth();
 
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "—";
   const buildNumber =
@@ -42,6 +41,17 @@ export default function MoreScreen() {
     Constants.expoConfig?.android?.versionCode?.toString() ??
     Constants.nativeBuildVersion ??
     "—";
+
+  const role: "Inspector" | "Admin" | null =
+    profile?.role === "admin" ? "Admin" : profile?.role === "inspector" ? "Inspector" : null;
+
+  const initials =
+    (profile?.full_name ?? profile?.email ?? "")
+      .split(/\s+|@/)
+      .map((part) => part.charAt(0).toUpperCase())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("") || "—";
 
   const onSignOut = () => {
     Alert.alert(t("more:menu.signOut"), t("more:menu.signOutConfirm"), [
@@ -59,8 +69,40 @@ export default function MoreScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
-      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <Text className="text-h1 font-medium text-fg-primary">{t("more:title")}</Text>
+      <ScrollView contentContainerClassName="px-xl pt-md pb-xl gap-md">
+        {/* Profile card — prototype keeps no page-title row; the profile
+            card IS the top of the screen, sitting under the iOS notch. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("more:menu.profile")}
+          onPress={() => router.push("/profile")}
+          className="active:opacity-80"
+        >
+          <Card className="p-0 flex-row items-center gap-md px-md py-md">
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-card-lavender">
+              <Text
+                className="font-medium text-primary-deep"
+                style={{ fontSize: 16, letterSpacing: -0.2 }}
+              >
+                {initials}
+              </Text>
+            </View>
+            <View className="flex-1">
+              <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
+                {profile?.full_name ?? profile?.email ?? "—"}
+              </Text>
+              <View className="flex-row items-center gap-xs mt-xs">
+                {role ? <RolePill role={role} /> : null}
+                {profile?.email && role ? (
+                  <Text className="text-caption text-fg-secondary" numberOfLines={1}>
+                    {profile.email}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+            <ChevronRight color="#8C8C87" size={18} />
+          </Card>
+        </Pressable>
 
         <Section title={t("more:sections.inspectionTools")}>
           <MenuRow
@@ -71,17 +113,10 @@ export default function MoreScreen() {
           />
           <Divider />
           <MenuRow
-            renderIcon={() => <History color={ROW_INK.sky} size={16} />}
+            renderIcon={() => <Clock color={ROW_INK.sky} size={16} />}
             tint="bg-card-sky"
             label={t("more:menu.history")}
             onPress={() => router.push("/more/history" as never)}
-          />
-          <Divider />
-          <MenuRow
-            renderIcon={() => <BarChart3 color={ROW_INK.yellow} size={16} />}
-            tint="bg-card-yellow"
-            label={t("more:menu.reports")}
-            onPress={() => router.push("/reports")}
           />
         </Section>
 
@@ -92,22 +127,19 @@ export default function MoreScreen() {
             label={t("more:menu.varieties")}
             onPress={() => router.push("/more/capture-classes" as never)}
           />
-        </Section>
-
-        <Section title={t("more:sections.calibration")}>
+          <Divider />
           <MenuRow
             renderIcon={() => <Target color={ROW_INK.mint} size={16} />}
             tint="bg-card-mint"
             label={t("more:menu.calibration")}
             onPress={() => router.push("/calibration")}
           />
-        </Section>
-
-        <Section title={t("more:sections.modelTuning")}>
+          <Divider />
           <MenuRow
             renderIcon={() => <Sliders color={ROW_INK.peach} size={16} />}
             tint="bg-card-peach"
             label={t("more:menu.hyperparams")}
+            admin
             onPress={() => router.push("/more/hyperparams" as never)}
           />
           <Divider />
@@ -115,7 +147,17 @@ export default function MoreScreen() {
             renderIcon={() => <Cpu color={ROW_INK.lavender} size={16} />}
             tint="bg-card-lavender"
             label={t("more:menu.models")}
+            admin
             onPress={() => router.push("/more/models" as never)}
+          />
+        </Section>
+
+        <Section title={t("more:sections.insights")}>
+          <MenuRow
+            renderIcon={() => <BarChart3 color={ROW_INK.yellow} size={16} />}
+            tint="bg-card-yellow"
+            label={t("more:menu.reports")}
+            onPress={() => router.push("/reports")}
           />
         </Section>
 
@@ -143,8 +185,10 @@ export default function MoreScreen() {
           />
         </Section>
 
-        <View className="items-center pt-md pb-xl">
-          <Text className="text-caption text-fg-tertiary">{t("more:footer.appName")}</Text>
+        <View className="items-center pt-md">
+          <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary">
+            {t("more:footer.appName")}
+          </Text>
           <Text className="mt-xs text-caption text-fg-secondary">
             {t("more:footer.version", { version: appVersion, build: buildNumber })}
           </Text>
@@ -173,7 +217,9 @@ const ROW_INK = {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="gap-sm">
-      <Text className="text-caption font-medium uppercase text-fg-secondary px-xs">{title}</Text>
+      <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary px-xs">
+        {title}
+      </Text>
       <Card className="p-0 overflow-hidden">{children}</Card>
     </View>
   );
@@ -183,12 +229,16 @@ function MenuRow({
   renderIcon,
   tint,
   label,
+  sub,
+  admin = false,
   destructive = false,
   onPress,
 }: {
   renderIcon: () => React.ReactNode;
   tint: string;
   label: string;
+  sub?: string;
+  admin?: boolean;
   destructive?: boolean;
   onPress?: () => void;
 }) {
@@ -197,22 +247,39 @@ function MenuRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="flex-row items-center gap-md px-lg py-md active:bg-bg-tertiary"
+      className="flex-row items-center gap-md px-md py-md active:bg-bg-tertiary"
     >
-      <View className={`h-8 w-8 items-center justify-center rounded-md ${tint}`}>
+      <View className={`h-10 w-10 items-center justify-center rounded-md ${tint}`}>
         {renderIcon()}
       </View>
-      <Text
-        className={`flex-1 text-title font-medium ${destructive ? "" : "text-fg-primary"}`}
-        style={destructive ? { color: ROW_INK.danger } : undefined}
-      >
-        {label}
-      </Text>
-      {destructive ? null : <ChevronRight color="#8C8C87" size={16} />}
+      <View className="flex-1">
+        <View className="flex-row items-center gap-xs">
+          <Text
+            className={`text-body font-medium ${destructive ? "" : "text-fg-primary"}`}
+            style={destructive ? { color: ROW_INK.danger } : undefined}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+          {admin ? (
+            <View className="h-4 rounded-sm bg-card-lavender px-[5px] justify-center">
+              <Text className="text-[9px] font-semibold uppercase tracking-[0.4px] text-primary-deep">
+                admin
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {sub ? (
+          <Text className="text-caption text-fg-secondary mt-[1px]" numberOfLines={1}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+      <ChevronRight color="#8C8C87" size={16} />
     </Pressable>
   );
 }
 
 function Divider() {
-  return <View className="h-px bg-line-tertiary mx-lg" />;
+  return <View className="h-px bg-line-tertiary mx-md" />;
 }

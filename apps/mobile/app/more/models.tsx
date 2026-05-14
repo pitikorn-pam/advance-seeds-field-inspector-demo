@@ -2,7 +2,6 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
-import { Segmented } from "@/components/ui/Segmented";
 import { Toggle } from "@/components/ui/Toggle";
 import { useAutoInstallOnWifi } from "@/lib/models/autoInstall";
 import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
@@ -36,6 +35,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronUp,
+  Cloud,
   Cpu,
   Download,
   Gauge,
@@ -43,6 +43,7 @@ import {
   Package,
   RefreshCw,
   Sliders,
+  Trash2,
   X,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -357,23 +358,47 @@ export default function ModelRegistryScreen() {
         }}
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg">
-        <Card>
-          <View className="flex-row items-center gap-md">
-            <View className="flex-1">
-              <Text className="text-body text-fg-primary">
-                {t("settings:models.autoInstallOnWifi")}
-              </Text>
-              <Text className="text-caption text-fg-secondary mt-xs">
-                {t("settings:models.autoInstallOnWifiHint")}
-              </Text>
-            </View>
-            <Toggle
-              value={autoInstallOnWifi}
-              onValueChange={setAutoInstallOnWifi}
-              accessibilityLabel={t("settings:models.autoInstallOnWifi")}
-            />
+        <View className="flex-row gap-xs p-xs rounded-md bg-bg-tertiary border border-line-tertiary">
+          {(["production", "staging"] as DeploymentChannel[]).map((value) => {
+            const active = channel === value;
+            return (
+              <Pressable
+                key={value}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setChannel(value)}
+                className={`flex-1 h-9 items-center justify-center rounded-sm ${
+                  active ? "bg-bg-primary border border-line-tertiary" : "bg-transparent"
+                }`}
+              >
+                <Text
+                  className={`text-title ${
+                    active ? "text-fg-primary font-semibold" : "text-fg-secondary font-medium"
+                  }`}
+                >
+                  {t(`more:models.${value}`)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View className="flex-row items-center gap-md rounded-md bg-card-cream px-md py-md">
+          <Cloud color="#704B00" size={16} />
+          <View className="flex-1">
+            <Text className="text-body text-fg-primary font-medium">
+              {t("settings:models.autoInstallOnWifi")}
+            </Text>
+            <Text className="text-caption text-fg-secondary mt-xs">
+              {t("settings:models.autoInstallOnWifiHint")}
+            </Text>
           </View>
-        </Card>
+          <Toggle
+            value={autoInstallOnWifi}
+            onValueChange={setAutoInstallOnWifi}
+            accessibilityLabel={t("settings:models.autoInstallOnWifi")}
+          />
+        </View>
 
         {error ? (
           <StatusBanner
@@ -435,29 +460,18 @@ export default function ModelRegistryScreen() {
           onDelete={(r) => remove(r)}
           onCancel={(id) => cancelInstall(id)}
           headerRight={
-            <View className="flex-row items-center gap-xs">
-              <Segmented<DeploymentChannel>
-                value={channel}
-                onChange={(v) => setChannel(v)}
-                variant="tag"
-                options={[
-                  { value: "staging", label: t("more:models.staging") },
-                  { value: "production", label: t("more:models.production") },
-                ]}
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("more:models.refresh")}
-                disabled={effectiveBusy !== null}
-                onPress={() => void refresh(channel)}
-                hitSlop={6}
-                className={`h-7 w-7 items-center justify-center rounded-full border border-line-secondary ${
-                  effectiveBusy === "refresh" ? "opacity-50" : ""
-                }`}
-              >
-                <RefreshCw color="#6E40E0" size={14} />
-              </Pressable>
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("more:models.refresh")}
+              disabled={effectiveBusy !== null}
+              onPress={() => void refresh(channel)}
+              hitSlop={6}
+              className={`h-7 w-7 items-center justify-center rounded-full border border-line-secondary ${
+                effectiveBusy === "refresh" ? "opacity-50" : ""
+              }`}
+            >
+              <RefreshCw color="#6E40E0" size={14} />
+            </Pressable>
           }
           prepend={
             statusMessage ? (
@@ -515,21 +529,22 @@ function RowSection({
         {headerRight}
       </View>
       {loading ? <RefreshingPill /> : null}
-      <Card className="gap-md">
-        {prepend}
-        {rows.length === 0 ? (
+      {prepend}
+      {rows.length === 0 ? (
+        <Card>
           <View className="items-center gap-sm py-md">
             <Inbox color="rgba(0,0,0,0.35)" size={24} />
             <Text className="text-body text-fg-secondary text-center">
               {loading ? t("states.loading") : emptyLabel}
             </Text>
           </View>
-        ) : (
-          rows.map((row, idx) => (
+        </Card>
+      ) : (
+        <View className="gap-sm">
+          {rows.map((row) => (
             <ModelRow
               key={row.candidate.id}
               row={row}
-              isLast={idx === rows.length - 1}
               busy={busy}
               progress={progressById[row.candidate.id]}
               onInstall={() => onInstall(row.candidate)}
@@ -537,9 +552,9 @@ function RowSection({
               onDelete={() => row.installedRecord && onDelete(row.installedRecord)}
               onCancel={() => onCancel(row.candidate.id)}
             />
-          ))
-        )}
-      </Card>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -625,7 +640,6 @@ function PhaseLabel({ progress }: { progress: InstallProgress }) {
 
 function ModelRow({
   row,
-  isLast,
   busy,
   progress,
   onInstall,
@@ -634,7 +648,6 @@ function ModelRow({
   onCancel,
 }: {
   row: RegistryRow;
-  isLast: boolean;
   busy: string | null;
   progress?: InstallProgress | undefined;
   onInstall: () => void;
@@ -661,12 +674,9 @@ function ModelRow({
       : null;
 
   return (
-    <View
-      className={`gap-md rounded-lg ${
-        status === "active" ? "bg-card-lavender -mx-xs px-md py-md" : "py-xs"
-      } ${status === "unsupported" ? "opacity-70" : ""} ${
-        isLast ? "" : "border-b border-line-tertiary pb-md"
-      }`}
+    <Card
+      tone={status === "active" ? "lavender" : "base"}
+      className={`gap-md ${status === "unsupported" ? "opacity-70" : ""}`}
     >
       <View className="flex-row items-start gap-md">
         <View className="h-10 w-10 items-center justify-center rounded-lg bg-card-lavender">
@@ -753,8 +763,27 @@ function ModelRow({
             ) : null}
           </View>
         </View>
-      ) : status === "active" ? null : status === "installed" ? (
-        <View className="flex-row justify-end gap-sm">
+      ) : status === "active" ? (
+        <View className="flex-row items-center gap-sm">
+          <Button
+            variant="secondary"
+            size="sm"
+            label={t("more:models.reverify")}
+            disabled={busy !== null}
+            onPress={onActivate}
+          />
+          <View className="flex-1" />
+          <Button
+            variant="ghost"
+            size="sm"
+            label={t("common:actions.delete")}
+            renderLeadingIcon={() => <Trash2 color="#5F5F5B" size={14} />}
+            disabled={busy !== null}
+            onPress={onDelete}
+          />
+        </View>
+      ) : status === "installed" ? (
+        <View className="flex-row items-center gap-sm">
           <Button
             variant="secondary"
             size="sm"
@@ -768,10 +797,12 @@ function ModelRow({
             disabled={busy !== null}
             onPress={onActivate}
           />
+          <View className="flex-1" />
           <Button
-            variant="danger"
+            variant="ghost"
             size="sm"
             label={t("common:actions.delete")}
+            renderLeadingIcon={() => <Trash2 color="#5F5F5B" size={14} />}
             disabled={busy !== null}
             onPress={onDelete}
           />
@@ -779,6 +810,7 @@ function ModelRow({
       ) : status === "available" ? (
         <Button
           size="sm"
+          className="w-full"
           label={installing ? t("common:states.loading") : t("more:models.download")}
           renderLeadingIcon={() => <Download color="#FFFFFF" size={16} />}
           onPress={onInstall}
@@ -789,7 +821,7 @@ function ModelRow({
       {expanded && metadata ? (
         <ModelDetails metadata={metadata} record={installedRecord} candidate={candidate} />
       ) : null}
-    </View>
+    </Card>
   );
 }
 

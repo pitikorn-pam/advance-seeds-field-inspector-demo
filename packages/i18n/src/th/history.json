@@ -23,11 +23,13 @@
     "nextMonth": "เดือนถัดไป"
   },
   "groups": {
-    "today": "วันนี้ · {{count}} ครั้ง",
-    "yesterday": "เมื่อวาน · {{count}} ครั้ง",
-    "earlierThisWeek": "ต้นสัปดาห์ · {{count}} ครั้ง",
-    "earlier": "ก่อนหน้า · {{count}} ครั้ง"
+    "today": { "label": "วันนี้" },
+    "yesterday": { "label": "เมื่อวาน" },
+    "earlierThisWeek": { "label": "ต้นสัปดาห์" },
+    "earlier": { "label": "ก่อนหน้า" }
   },
+  "uploadFailed": "อัปโหลดไม่สำเร็จ",
+  "retry": "ลองอีกครั้ง",
   "syncStatus": {
     "synced": "ซิงค์แล้ว",
     "pending": "รอซิงค์",

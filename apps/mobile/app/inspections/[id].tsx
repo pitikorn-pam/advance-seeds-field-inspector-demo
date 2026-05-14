@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { FlatList, View, Text, Pressable, Alert } from "react-native";
+import { FlatList, View, Text, Pressable, Alert, ScrollView } from "react-native";
+import Svg, { Ellipse } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, MoreHorizontal } from "lucide-react-native";
+import { ChevronLeft, MoreHorizontal, Share2, Download, Trash2 } from "lucide-react-native";
 import type { Seed } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
 import { saveImageToLibrary } from "@/lib/capture/imageActions";
@@ -21,7 +22,6 @@ import {
   readLocationMetadata,
   locationDisplayName,
 } from "@/lib/inspections/metadata";
-import { StatTile } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { GradeChip } from "@/components/ui/GradeChip";
 import { Button } from "@/components/ui/Button";
@@ -33,20 +33,16 @@ type GradeFilter = "all" | Seed["grade"];
 
 const gradeFilters: GradeFilter[] = ["all", "A", "B", "C", "reject"];
 
-// Seed-card body tint per grade — mirrors the prototype's 4-up grid where the
-// card surface itself carries the grade colour rather than a sub-badge.
-const seedCardTone: Record<Seed["grade"], string> = {
+// Per-grade tile-thumb tint. The prototype keeps the OUTER card white with a
+// hairline border, and tints only the small interior thumb area where a seed
+// silhouette sits — the grade is communicated by the corner GradeChip, not by
+// the whole card. Tints stay subtle so a wall of cards reads as a grid, not a
+// rainbow.
+const seedThumbTone: Record<Seed["grade"], string> = {
   A: "bg-grade-a",
   B: "bg-grade-b",
   C: "bg-grade-c",
   reject: "bg-grade-reject",
-};
-
-const seedCardInk: Record<Seed["grade"], string> = {
-  A: "text-grade-a-ink",
-  B: "text-grade-b-ink",
-  C: "text-grade-c-ink",
-  reject: "text-grade-reject-ink",
 };
 
 /**
@@ -216,7 +212,8 @@ export default function InspectionDetail() {
         removeClippedSubviews
         extraData={gradeFilter}
         ListHeaderComponent={
-          <View className="gap-xl">
+          <View className="gap-md">
+            {/* Header card — prototype: pills + headline + date · inspector */}
             <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
               <View className="flex-row flex-wrap items-center gap-sm">
                 {inspection.variety?.name ? (
@@ -240,6 +237,7 @@ export default function InspectionDetail() {
               </Text>
             </View>
 
+            {/* Sample preview / hero image */}
             <View className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
               {mediaUrl ? (
                 <CaptureMediaPreview
@@ -262,6 +260,25 @@ export default function InspectionDetail() {
                   </Text>
                 </View>
               )}
+            </View>
+
+            {/* Stat tiles — prototype shows 3-col Avg L / Avg W / Avg A */}
+            <View className="flex-row gap-sm">
+              <AvgStatTile
+                label={t("inspections:detail.summary.meanLength")}
+                value={Number(inspection.mean_length_mm ?? 0).toFixed(2)}
+                unit="mm"
+              />
+              <AvgStatTile
+                label={t("inspections:detail.summary.meanWidth")}
+                value={Number(inspection.mean_width_mm ?? 0).toFixed(2)}
+                unit="mm"
+              />
+              <AvgStatTile
+                label={t("inspections:detail.summary.meanArea")}
+                value={Number(inspection.mean_area_mm2 ?? 0).toFixed(1)}
+                unit="mm²"
+              />
             </View>
 
             {(() => {
@@ -567,42 +584,24 @@ export default function InspectionDetail() {
               </View>
             ) : null}
 
-            <View className="flex-row gap-sm">
-              <StatTile
-                value={inspection.total_seeds}
-                label={t("inspections:detail.summary.totalSeeds")}
-              />
-              <StatTile
-                value={Number(inspection.mean_length_mm ?? 0).toFixed(2)}
-                label={t("inspections:detail.summary.meanLength")}
-              />
-            </View>
-            <View className="flex-row gap-sm">
-              <StatTile
-                value={Number(inspection.mean_width_mm ?? 0).toFixed(2)}
-                label={t("inspections:detail.summary.meanWidth")}
-              />
-              <StatTile
-                value={Number(inspection.mean_area_mm2 ?? 0).toFixed(2)}
-                label={t("inspections:detail.summary.meanArea")}
-              />
-            </View>
-
-            <View className="gap-md">
-              <View className="flex-row items-end justify-between gap-md">
-                <View>
-                  <Text className="text-h2 font-medium text-fg-primary">
-                    {t("inspections:detail.perSeedTitle")}
-                  </Text>
-                  <Text className="text-caption text-fg-secondary">
-                    {t("inspections:detail.filteredSeedCount", {
-                      count: filteredSeeds.length,
-                      total: seeds.length,
-                    })}
-                  </Text>
-                </View>
+            {/* Per-seed title + horizontally scrolling filter chips (prototype) */}
+            <View className="gap-sm mt-sm">
+              <View className="flex-row items-end justify-between gap-md px-xs">
+                <Text className="text-title font-medium text-fg-primary">
+                  {t("inspections:detail.perSeedTitle")}
+                </Text>
+                <Text className="text-caption text-fg-secondary">
+                  {t("inspections:detail.filteredSeedCount", {
+                    count: filteredSeeds.length,
+                    total: seeds.length,
+                  })}
+                </Text>
               </View>
-              <View className="flex-row flex-wrap gap-sm">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 6, paddingBottom: 4 }}
+              >
                 {gradeFilters.map((filter) => {
                   const count =
                     filter === "all" ? allSeeds.length : gradeCounts[filter as Seed["grade"]];
@@ -620,7 +619,7 @@ export default function InspectionDetail() {
                     />
                   );
                 })}
-              </View>
+              </ScrollView>
             </View>
           </View>
         }
@@ -631,28 +630,75 @@ export default function InspectionDetail() {
           />
         )}
         ListFooterComponent={
-          policy.canDeleteInspection(inspection) ? (
-            <Button
-              variant="outline"
-              label={t("common:actions.delete")}
-              onPress={() =>
-                Alert.alert(t("common:actions.delete"), t("inspections:detail.deleteConfirm"), [
-                  { text: t("common:actions.cancel"), style: "cancel" },
-                  {
-                    text: t("common:actions.delete"),
-                    style: "destructive",
-                    onPress: async () => {
-                      await del.mutateAsync(inspection.id);
-                      handleBack();
+          <View className="mt-xl gap-sm">
+            <View className="flex-row gap-sm">
+              <View className="flex-1">
+                <Button
+                  variant="secondary"
+                  label="Share"
+                  renderLeadingIcon={() => <Share2 color="#171717" size={16} />}
+                  onPress={saveImage}
+                />
+              </View>
+              <View className="flex-1">
+                <Button
+                  variant="secondary"
+                  label="Export"
+                  renderLeadingIcon={() => <Download color="#171717" size={16} />}
+                  onPress={saveImage}
+                />
+              </View>
+            </View>
+            {policy.canDeleteInspection(inspection) ? (
+              <Button
+                variant="ghost"
+                renderLeadingIcon={() => <Trash2 color="#A02828" size={16} />}
+                onPress={() =>
+                  Alert.alert(t("common:actions.delete"), t("inspections:detail.deleteConfirm"), [
+                    { text: t("common:actions.cancel"), style: "cancel" },
+                    {
+                      text: t("common:actions.delete"),
+                      style: "destructive",
+                      onPress: async () => {
+                        await del.mutateAsync(inspection.id);
+                        handleBack();
+                      },
                     },
-                  },
-                ])
-              }
-            />
-          ) : null
+                  ])
+                }
+              >
+                <Text className="text-title font-medium text-error">
+                  {t("common:actions.delete")}
+                </Text>
+              </Button>
+            ) : null}
+          </View>
         }
       />
     </SafeAreaView>
+  );
+}
+
+/**
+ * 3-column "Avg L / Avg W / Avg A" stat tile — matches the prototype's
+ * `StatTile`: centred label cap, value + unit on a baseline-aligned row.
+ */
+function AvgStatTile({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <View className="flex-1 rounded-lg border border-line-tertiary bg-bg-primary px-md py-md items-center">
+      <Text className="text-[11px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
+        {label}
+      </Text>
+      <View className="flex-row items-baseline gap-[3px] mt-xs">
+        <Text
+          className="text-fg-primary font-semibold"
+          style={{ fontSize: 20, fontVariant: ["tabular-nums"] }}
+        >
+          {value}
+        </Text>
+        <Text className="text-caption text-fg-tertiary">{unit}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -670,28 +716,39 @@ function MetadataDivider() {
 }
 
 function SeedCard({ seed, onPress }: { seed: Seed; onPress: () => void }) {
-  // Grade tint covers the whole tile (prototype's 4-up grid). Index + measurements
-  // sit on the tinted surface; the GradeChip pins the bottom-right corner so the
-  // grade is still scannable when seeds of the same grade cluster together.
+  // Prototype: white outer card with hairline; INSIDE sits a cream-tinted
+  // thumb area with a tiny rotated seed silhouette; below the thumb is a
+  // tabular #N on the left + grade chip on the right. The whole tile reads as
+  // "a seed photo with a grade label" rather than "this whole rectangle is
+  // grade X coloured" — keeps the grid scannable across many tiles.
   return (
     <Pressable
       onPress={onPress}
-      className={`aspect-square rounded-lg border border-line-tertiary px-sm py-sm ${seedCardTone[seed.grade]}`}
+      className="aspect-square rounded-lg border border-line-tertiary bg-bg-primary p-[6px]"
       style={{ flex: 1 }}
     >
-      <View className="flex-row items-start justify-between">
-        <Text className={`text-caption font-semibold ${seedCardInk[seed.grade]}`}>
+      <View
+        className={`flex-1 items-center justify-center overflow-hidden rounded-[6px] ${seedThumbTone[seed.grade]}`}
+      >
+        {/* Tiny seed silhouette — pure decoration */}
+        <Svg width="80%" height="80%" viewBox="0 0 40 40">
+          <Ellipse
+            cx={20}
+            cy={20}
+            rx={13}
+            ry={5.5}
+            fill="#F3E6C8"
+            stroke="#7A5A32"
+            strokeWidth={0.7}
+            transform={`rotate(${(seed.index * 23) % 180} 20 20)`}
+          />
+        </Svg>
+      </View>
+      <View className="flex-row items-center justify-between mt-[4px]">
+        <Text className="text-[10px] text-fg-tertiary" style={{ fontVariant: ["tabular-nums"] }}>
           #{seed.index}
         </Text>
         <GradeChip grade={seed.grade} size="sm" />
-      </View>
-      <View className="flex-1 items-center justify-center">
-        <Text className={`text-body font-medium ${seedCardInk[seed.grade]}`}>
-          {Number(seed.length_mm).toFixed(1)}
-        </Text>
-        <Text className={`text-[10px] ${seedCardInk[seed.grade]} opacity-80`}>
-          × {Number(seed.width_mm).toFixed(1)} mm
-        </Text>
       </View>
     </Pressable>
   );
@@ -714,16 +771,16 @@ function GradeFilterChip({
       accessibilityState={{ selected }}
       onPress={onPress}
       className={`flex-row items-center gap-xs rounded-full border px-md py-xs ${
-        selected ? "border-primary bg-primary" : "border-line-tertiary bg-bg-primary"
+        selected ? "border-fg-primary bg-fg-primary" : "border-line-tertiary bg-bg-primary"
       }`}
     >
       <Text
-        className={`text-caption font-medium ${selected ? "text-primary-on" : "text-fg-primary"}`}
+        className={`text-caption font-medium ${selected ? "text-fg-on-dark" : "text-fg-primary"}`}
       >
         {label}
       </Text>
       <Text
-        className={`text-caption ${selected ? "text-primary-on opacity-80" : "text-fg-tertiary"}`}
+        className={`text-caption ${selected ? "text-fg-on-dark opacity-80" : "text-fg-tertiary"}`}
       >
         {count}
       </Text>
