@@ -27,12 +27,17 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Skip the registry probe + first-launch model download until the user
-    // has signed in. Otherwise the heavy work (resolveDefaultModel fetch,
-    // dynamic imports, ~60MB model install on first launch) competes with
-    // the splash/welcome/permission/login screens and makes the onboarding
-    // taps feel stuck. Once signed in we run it normally — Home tolerates
-    // the latency since useInteractionManager defers it past first paint.
+    // The registry probe runs only after sign-in. It publishes the resolve
+    // result so the Models screen and the Home update banner know whether
+    // an install or update is available — but it never DOWNLOADS a model
+    // on its own. First-launch auto-install was removed because the
+    // ~60 MB download made the post-login experience feel stuck; the
+    // user installs manually from /more/models or via the Inspect-tab
+    // gate, both of which surface the missing-model message clearly.
+    //
+    // `runAutoInstallIfEligible` is still wired for the user-opt-in
+    // "auto-install updates on Wi-Fi" pref (default off) — it never
+    // triggers a first-launch download because that path is gone.
     if (!session) return;
 
     let cancelled = false;
@@ -46,16 +51,6 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
           const { publishResolveResult } = await import("@/lib/models/updateStore");
           const active = await readActiveModel();
           if (cancelled) return;
-          if (!active) {
-            const { runFirstLaunchDefaultInstallIfNeeded } =
-              await import("@/lib/models/autoInstall");
-            const installed = await runFirstLaunchDefaultInstallIfNeeded();
-            if (cancelled) return;
-            if (installed) {
-              setAnalyzer(await selectAnalyzer());
-              return;
-            }
-          }
           const res = await resolveDefaultModel({
             channel: "production",
             currentVersion: active?.manifest?.display_name ?? "",
