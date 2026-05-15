@@ -53,7 +53,11 @@ function StartupGate() {
       if (!inOnboarding) router.replace("/splash");
       return;
     }
-    if (!session && !inAuth) {
+    // Onboarding screens own their own forward navigation (welcome →
+    // welcome-permission → login). Without this guard, fire-and-forget
+    // setOnboarded() flips the flag mid-flow and the next render kicks
+    // the permission screen straight to /login.
+    if (!session && !inAuth && !inOnboarding) {
       router.replace("/login");
       return;
     }
