@@ -7,6 +7,7 @@ type Variant =
   | "outline"
   | "tinted"
   | "ghost"
+  | "ghostDanger"
   | "danger"
   | "onDark"
   | "yellowFeature";
@@ -18,6 +19,7 @@ const variantClass: Record<Variant, string> = {
   outline: "bg-transparent border border-line-secondary active:bg-bg-secondary",
   tinted: "bg-bg-secondary active:bg-bg-tertiary",
   ghost: "bg-transparent active:bg-bg-secondary",
+  ghostDanger: "bg-transparent active:bg-bg-secondary",
   danger: "bg-danger-bg active:opacity-90",
   onDark: "bg-fg-on-dark active:opacity-90",
   yellowFeature: "bg-card-yellow-bold active:opacity-90",
@@ -29,6 +31,7 @@ const variantText: Record<Variant, string> = {
   outline: "text-fg-primary",
   tinted: "text-fg-primary",
   ghost: "text-fg-primary",
+  ghostDanger: "text-danger-text",
   danger: "text-danger-text",
   onDark: "text-brand-navy",
   yellowFeature: "text-fg-primary",

@@ -28,7 +28,10 @@ type Prefs = { autoInstallOnWifi: boolean };
  *
  * Rules:
  * - Wi-Fi only — never spend cellular data on a model artifact.
- * - User must have opted in (`autoInstallOnWifi`); default is off.
+ * - User must have the pref on (`autoInstallOnWifi`); default is ON
+ *   because field-inspector deployments are typically Wi-Fi only when
+ *   docked and benefit from staying current without a manual install
+ *   step. Users can opt out from the Models screen.
  * - We must know the size up-front and it must be under the cap, so we
  *   can't accidentally pull a multi-hundred-MB file in the background.
  */
@@ -50,9 +53,12 @@ const prefSubscribers = new Set<(value: boolean) => void>();
 export async function readAutoInstallOnWifi(): Promise<boolean> {
   if (prefCache !== null) return prefCache;
   try {
-    prefCache = (await AsyncStorage.getItem(PREF_KEY)) === "true";
+    // Default to ON for never-touched installs (stored value === null).
+    // Users who have explicitly toggled it off see "false" persisted.
+    const stored = await AsyncStorage.getItem(PREF_KEY);
+    prefCache = stored === null ? true : stored === "true";
   } catch {
-    prefCache = false;
+    prefCache = true;
   }
   return prefCache;
 }
@@ -68,7 +74,7 @@ export async function setAutoInstallOnWifi(value: boolean): Promise<void> {
 }
 
 export function useAutoInstallOnWifi(): [boolean, (next: boolean) => void] {
-  const [value, setValue] = useState<boolean>(prefCache ?? false);
+  const [value, setValue] = useState<boolean>(prefCache ?? true);
   useEffect(() => {
     if (prefCache === null) {
       void readAutoInstallOnWifi().then((v) => setValue(v));

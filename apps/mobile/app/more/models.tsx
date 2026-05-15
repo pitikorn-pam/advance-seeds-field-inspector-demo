@@ -764,20 +764,16 @@ function ModelRow({
           </View>
         </View>
       ) : status === "active" ? (
-        <View className="flex-row items-center gap-sm">
+        // Prototype: the active model only exposes a Delete affordance —
+        // there is no "re-verify" concept and the prior button was wired
+        // to the same activate handler, so tapping it did nothing visible
+        // and ran a redundant activate write. Removed.
+        <View className="flex-row items-center justify-end">
           <Button
-            variant="secondary"
-            size="sm"
-            label={t("more:models.reverify")}
-            disabled={busy !== null}
-            onPress={onActivate}
-          />
-          <View className="flex-1" />
-          <Button
-            variant="ghost"
+            variant="ghostDanger"
             size="sm"
             label={t("common:actions.delete")}
-            renderLeadingIcon={() => <Trash2 color="#5F5F5B" size={14} />}
+            renderLeadingIcon={() => <Trash2 color="#A02828" size={14} />}
             disabled={busy !== null}
             onPress={onDelete}
           />
@@ -799,10 +795,10 @@ function ModelRow({
           />
           <View className="flex-1" />
           <Button
-            variant="ghost"
+            variant="ghostDanger"
             size="sm"
             label={t("common:actions.delete")}
-            renderLeadingIcon={() => <Trash2 color="#5F5F5B" size={14} />}
+            renderLeadingIcon={() => <Trash2 color="#A02828" size={14} />}
             disabled={busy !== null}
             onPress={onDelete}
           />
@@ -895,14 +891,25 @@ function ModelDetails({
   const versionId = (metadata.registry as { version_id?: string } | undefined)?.version_id ?? null;
 
   return (
-    <View className="gap-md rounded-lg bg-bg-secondary px-md py-md">
+    <View className="mt-sm gap-lg rounded-lg border border-line-tertiary bg-bg-secondary px-md py-md">
       {performanceRows.length > 0 ? (
         <DetailGroup title={t("models.details.performance")} icon="performance">
-          <View className="flex-row flex-wrap gap-x-md gap-y-xs">
+          {/* Performance tiles match the prototype's stat-tile DNA: mint
+              accent on the value, uppercase caption above, tabular nums. */}
+          <View className="flex-row flex-wrap" style={{ marginHorizontal: -4 }}>
             {performanceRows.map((r) => (
-              <View key={r.label} className="w-[48%]">
-                <Text className="text-caption text-fg-secondary">{r.label}</Text>
-                <Text className="text-title font-medium text-fg-primary">{r.value.toFixed(3)}</Text>
+              <View key={r.label} style={{ width: "50%", padding: 4 }}>
+                <View className="rounded-md bg-bg-primary px-sm py-sm">
+                  <Text className="text-[10px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
+                    {r.label}
+                  </Text>
+                  <Text
+                    className="mt-[2px] font-semibold text-fg-primary"
+                    style={{ fontSize: 18, letterSpacing: -0.2, fontVariant: ["tabular-nums"] }}
+                  >
+                    {r.value.toFixed(3)}
+                  </Text>
+                </View>
               </View>
             ))}
           </View>
@@ -914,6 +921,7 @@ function ModelDetails({
         <DetailRow
           label={t("models.details.inputSize")}
           value={`${metadata.input_size}×${metadata.input_size}`}
+          mono
         />
         <DetailRow
           label={t("models.details.classes")}
@@ -928,6 +936,7 @@ function ModelDetails({
         <DetailRow
           label={t("models.details.outputShape")}
           value={Array.isArray(metadata.output_shape) ? metadata.output_shape.join("×") : "—"}
+          mono
         />
         {metadata.calibration?.required ? (
           <DetailRow
@@ -942,7 +951,7 @@ function ModelDetails({
       {trainingRows.length > 0 ? (
         <DetailGroup title={t("models.details.training")} icon="training">
           {trainingRows.map((r) => (
-            <DetailRow key={r.label} label={r.label} value={r.value} />
+            <DetailRow key={r.label} label={r.label} value={r.value} mono />
           ))}
         </DetailGroup>
       ) : null}
@@ -954,12 +963,14 @@ function ModelDetails({
             value={
               versionId.length > 14 ? `${versionId.slice(0, 8)}…${versionId.slice(-4)}` : versionId
             }
+            mono
           />
         ) : null}
         {sha ? (
           <DetailRow
             label={t("models.details.sha256")}
             value={`${sha.slice(0, 8)}…${sha.slice(-6)}`}
+            mono
           />
         ) : null}
         {candidate.channel ? (
@@ -992,21 +1003,27 @@ function DetailGroup({
             ? Package
             : null;
   return (
-    <View className="gap-xs">
+    <View className="gap-sm">
       <View className="flex-row items-center gap-xs">
         {Icon ? <Icon color="#6B6B68" size={12} /> : null}
-        <Text className="text-caption uppercase text-fg-secondary">{title}</Text>
+        <Text className="text-[10px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
+          {title}
+        </Text>
       </View>
-      <View className="gap-xs">{children}</View>
+      <View className="gap-[6px]">{children}</View>
     </View>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <View className="flex-row items-start gap-md">
-      <Text className="w-32 text-caption text-fg-secondary">{label}</Text>
-      <Text className="flex-1 text-caption text-fg-primary" numberOfLines={2}>
+    <View className="flex-row items-baseline gap-md">
+      <Text className="flex-1 text-caption text-fg-secondary">{label}</Text>
+      <Text
+        className={`text-caption font-medium text-fg-primary text-right ${mono ? "font-mono" : ""}`}
+        style={mono ? { fontVariant: ["tabular-nums"] } : undefined}
+        numberOfLines={2}
+      >
         {value}
       </Text>
     </View>
