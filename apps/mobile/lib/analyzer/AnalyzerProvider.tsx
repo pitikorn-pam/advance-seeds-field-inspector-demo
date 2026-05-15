@@ -2,12 +2,14 @@ import type { SeedAnalyzer } from "@advance-seeds/types";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { InteractionManager } from "react-native";
+import { useAuth } from "@/lib/auth";
 import { ClassicalSeedAnalyzer } from "./ClassicalSeedAnalyzer";
 import { selectAnalyzer } from "./selectAnalyzer";
 
 const ctx = createContext<SeedAnalyzer | null>(null);
 
 export function AnalyzerProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
   // Render with the classical analyzer immediately so screens never see a
   // null context; swap in the resolved analyzer once selectAnalyzer settles.
   const initial = useMemo(() => new ClassicalSeedAnalyzer(), []);
@@ -19,15 +21,21 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
     selectAnalyzer().then((picked) => {
       if (!cancelled) setAnalyzer(picked);
     });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    // Defer the registry probe until after the initial cold-start
-    // interaction burst settles. Without this, the resolveDefaultModel
-    // fetch + dynamic imports + publishResolveResult re-render compete
-    // with the Home screen's first paint (greeting, hero card,
-    // inspection query) and make the home menu feel sluggish on
-    // launch. InteractionManager schedules after gesture/animation
-    // queues drain; the extra setTimeout gives slow devices a beat
-    // before we touch the network.
+  useEffect(() => {
+    // Skip the registry probe + first-launch model download until the user
+    // has signed in. Otherwise the heavy work (resolveDefaultModel fetch,
+    // dynamic imports, ~60MB model install on first launch) competes with
+    // the splash/welcome/permission/login screens and makes the onboarding
+    // taps feel stuck. Once signed in we run it normally — Home tolerates
+    // the latency since useInteractionManager defers it past first paint.
+    if (!session) return;
+
+    let cancelled = false;
     let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
     const handle = InteractionManager.runAfterInteractions(() => {
       cleanupTimer = setTimeout(async () => {
@@ -70,7 +78,7 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
       handle.cancel();
       if (cleanupTimer) clearTimeout(cleanupTimer);
     };
-  }, []);
+  }, [session]);
 
   return <ctx.Provider value={analyzer}>{children}</ctx.Provider>;
 }

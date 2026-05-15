@@ -37,6 +37,23 @@ const queryClient = new QueryClient({
  *      out of /login or /splash or /welcome — let them keep navigating
  *      anywhere else.
  */
+/**
+ * Background workers (sync replay, model-install toast) are gated behind an
+ * authenticated session. Mounting them during onboarding wakes AsyncStorage,
+ * NetInfo, and model-update channels for a user who can't act on them yet —
+ * which manifests as sluggish onboarding taps on cold start.
+ */
+function BackgroundWorkers() {
+  const { session } = useAuth();
+  if (!session) return null;
+  return (
+    <>
+      <SyncQueueWorker />
+      <ModelInstallNotifier />
+    </>
+  );
+}
+
 function StartupGate() {
   const { session, loading } = useAuth();
   const onboarded = useOnboarded();
@@ -99,8 +116,7 @@ export default function RootLayout() {
               <AnalyzerProvider>
                 <StatusBar style="auto" />
                 <StartupGate />
-                <SyncQueueWorker />
-                <ModelInstallNotifier />
+                <BackgroundWorkers />
                 <Stack
                   screenOptions={{
                     headerShown: false,
