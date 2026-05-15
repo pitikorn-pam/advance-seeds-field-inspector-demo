@@ -3,7 +3,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { ScanLine, Zap, Cloud, Layers } from "lucide-react-native";
-import { Camera as VCCamera } from "react-native-vision-camera";
 import { tokens } from "@advance-seeds/tokens";
 import { useTheme } from "@/lib/theme";
 import { setOnboarded } from "@/lib/onboarding";
@@ -27,25 +26,22 @@ export default function Welcome() {
   const router = useRouter();
   const { resolved } = useTheme();
 
-  const onContinue = async () => {
-    await setOnboarded();
-    // If camera permission hasn't been decided yet, route through the
-    // permission-gate screen (port of prototype `WelcomePermissionScreen`)
-    // so the user sees a soft-ask before the system prompt. Otherwise
-    // skip straight to login. `getCameraPermissionStatus` is sync in this
-    // version of react-native-vision-camera.
-    const status = VCCamera.getCameraPermissionStatus();
-    if (status === "not-determined") {
-      router.replace("/welcome-permission");
-    } else {
-      router.replace("/login");
-    }
+  // Persisting the onboarded flag is fire-and-forget. Awaiting AsyncStorage
+  // before pushing the route adds a perceptible 200-400 ms hitch on the
+  // press, which reads as a stuck button. The flag only matters at the
+  // next cold launch, so the I/O can race with the navigation.
+  const onContinue = () => {
+    void setOnboarded();
+    // The permission-gate screen is always part of the onboarding journey
+    // per the prototype — iOS retains a prior "granted" state across
+    // reinstalls so we can't drive this off `getCameraPermissionStatus`.
+    // The screen itself reads the status and short-circuits the system
+    // prompt when permission is already granted.
+    router.push("/welcome-permission");
   };
 
-  const onSkip = async () => {
-    // Same as Continue minus the permission prompts. Capture screens re-prompt
-    // if camera permission turns out to be missing, so this is non-blocking.
-    await setOnboarded();
+  const onSkip = () => {
+    void setOnboarded();
     router.replace("/login");
   };
 

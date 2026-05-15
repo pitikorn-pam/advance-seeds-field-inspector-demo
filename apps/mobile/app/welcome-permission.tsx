@@ -21,12 +21,16 @@ export default function WelcomePermission() {
   const { t } = useTranslation(["common", "onboarding"]);
   const router = useRouter();
 
-  const onAllow = async () => {
-    try {
-      await VCCamera.requestCameraPermission();
-      await VCCamera.requestMicrophonePermission();
-    } catch {
-      // Non-blocking — capture screens re-prompt on demand.
+  // Fire permission prompts in the background so the navigation is instant.
+  // iOS's permission dialog still appears over the next screen; capture
+  // screens re-check anyway so a delayed grant is harmless. Skipping the
+  // request entirely when permission is already granted avoids the system
+  // briefly flashing a "stay on this app" sheet for users on reinstall.
+  const onAllow = () => {
+    const status = VCCamera.getCameraPermissionStatus();
+    if (status === "not-determined") {
+      void VCCamera.requestCameraPermission().catch(() => {});
+      void VCCamera.requestMicrophonePermission().catch(() => {});
     }
     router.replace("/login");
   };
