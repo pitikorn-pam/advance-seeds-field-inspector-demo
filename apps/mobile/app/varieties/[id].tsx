@@ -3,7 +3,8 @@ import { ScrollView, View, Text, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, ChevronRight, Pencil, Layers } from "lucide-react-native";
+import { ChevronLeft, Pencil } from "lucide-react-native";
+import type { GradeCriteriaRule, GradeDimensionRange } from "@advance-seeds/types";
 import { useVarieties, useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useAuth } from "@/lib/auth";
@@ -86,7 +87,7 @@ export default function VarietyDetail() {
   // the thresholds card stays oriented around real data. Width follows the
   // same ±10/20% bands. These are display-only stand-ins until a
   // `grade_thresholds` column lands on `varieties`.
-  const thresholds = buildThresholds(meanL, meanW);
+  const _thresholds = buildThresholds(meanL, meanW);
   const gradeAPct = recent.length > 0 ? gradeAPercent(recent) : 0;
   const histogram = buildHistogram(recent, meanL);
 
@@ -277,43 +278,23 @@ export default function VarietyDetail() {
           <Card className="p-0">
             <ThresholdRow
               grade="A"
-              label={t("varieties:detail.lengthRange")}
-              loLabel={thresholds.A.lLo}
-              hiLabel={thresholds.A.lHi}
+              rule={variety.grade_criteria?.A ?? null}
+              notSetLabel={t("varieties:detail.gradeNotSet")}
             />
             <Divider />
             <ThresholdRow
               grade="B"
-              label={t("varieties:detail.lengthRange")}
-              loLabel={thresholds.B.lLo}
-              hiLabel={thresholds.B.lHi}
+              rule={variety.grade_criteria?.B ?? null}
+              notSetLabel={t("varieties:detail.gradeNotSet")}
             />
             <Divider />
             <ThresholdRow
               grade="C"
-              label={t("varieties:detail.lengthRange")}
-              loLabel={thresholds.C.lLo}
-              hiLabel={thresholds.C.lHi}
+              rule={variety.grade_criteria?.C ?? null}
+              notSetLabel={t("varieties:detail.gradeNotSet")}
             />
           </Card>
         </View>
-
-        {policy.canEditVariety() ? (
-          <View className="px-xl pt-lg gap-sm">
-            <Button
-              label={t("varieties:detail.editVariety")}
-              variant="outline"
-              renderLeadingIcon={() => <Pencil color="#171717" size={16} />}
-              onPress={() => router.push(`/varieties/edit/${variety.id}` as never)}
-            />
-            <Button
-              label={t("varieties:detail.captureClasses")}
-              variant="outline"
-              renderLeadingIcon={() => <Layers color="#171717" size={16} />}
-              onPress={() => router.push(`/more/capture-classes/${variety.id}` as never)}
-            />
-          </View>
-        ) : null}
       </ScrollView>
 
       <View className="px-xl pb-xl pt-md border-t border-line-tertiary bg-bg-primary">
@@ -450,27 +431,53 @@ function StatTile({ label, value, unit }: { label: string; value: string; unit?:
 
 function ThresholdRow({
   grade,
-  label,
-  loLabel,
-  hiLabel,
+  rule,
+  notSetLabel,
 }: {
   grade: "A" | "B" | "C";
-  label: string;
-  loLabel: string;
-  hiLabel: string;
+  rule: GradeCriteriaRule | null;
+  notSetLabel: string;
 }) {
+  const lengthText = formatRange(rule?.length_mm);
+  const widthText = formatRange(rule?.width_mm);
+  const hasAny = !!lengthText || !!widthText;
   return (
     <View className="flex-row items-center gap-md px-lg py-md">
       <GradeChip grade={grade} />
       <View className="flex-1">
-        <Text className="text-body text-fg-primary">{label}</Text>
-        <Text className="text-caption text-fg-secondary mt-[1px]">
-          {`≥ ${loLabel} mm  ·  ≤ ${hiLabel} mm`}
-        </Text>
+        <Text className="text-body text-fg-primary">{`Grade ${grade}`}</Text>
+        {hasAny ? (
+          <View className="mt-[1px]">
+            {lengthText ? (
+              <Text className="text-caption text-fg-secondary">{`L  ${lengthText}`}</Text>
+            ) : null}
+            {widthText ? (
+              <Text className="text-caption text-fg-secondary">{`W  ${widthText}`}</Text>
+            ) : null}
+          </View>
+        ) : (
+          <Text className="text-caption text-fg-tertiary mt-[1px]">{notSetLabel}</Text>
+        )}
       </View>
-      <ChevronRight color="#8C8C87" size={16} />
     </View>
   );
+}
+
+// Render a `{min, max}` band as `≥ A mm · ≤ B mm`, or one-sided bounds
+// when only min or max is set. Returns null when both bounds are absent
+// so the caller can fall back to the "not set" placeholder.
+function formatRange(range: GradeDimensionRange | null | undefined): string | null {
+  const min = typeof range?.min === "number" ? range.min : null;
+  const max = typeof range?.max === "number" ? range.max : null;
+  if (min === null && max === null) return null;
+  const parts: string[] = [];
+  if (min !== null) parts.push(`≥ ${formatMm(min)} mm`);
+  if (max !== null) parts.push(`≤ ${formatMm(max)} mm`);
+  return parts.join("  ·  ");
+}
+
+function formatMm(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 function SeedShape({ color, rotate }: { color: string; rotate: string }) {

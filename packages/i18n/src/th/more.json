@@ -115,7 +115,7 @@
     "noCandidates": "ใส่ URL รายการโมเดลภายในแล้วรีเฟรช",
     "noInstalled": "ยังไม่มีโมเดลที่ดาวน์โหลด",
     "noRollback": "ยังไม่มีโมเดลก่อนหน้าให้ย้อนกลับ",
-    "download": "ดาวน์โหลด",
+    "download": "ติดตั้ง",
     "activate": "เปิดใช้งาน",
     "reverify": "ตรวจสอบอีกครั้ง",
     "installedTitle": "ติดตั้งโมเดลแล้ว",
@@ -140,7 +140,7 @@
     "active": "โมเดลที่ใช้งาน",
     "noActive": "ยังไม่มีโมเดลที่ติดตั้ง — แตะ ตรวจหาอัปเดต",
     "channel": "ช่องทาง",
-    "previousPill": "เคยใช้งาน",
+    "previousPill": "ย้อนกลับ",
     "restore": "กู้คืน",
     "installFailedTitle": "ติดตั้งไม่สำเร็จ",
     "upToDateTitle": "เป็นเวอร์ชันล่าสุด",
@@ -148,6 +148,43 @@
     "deleteConfirmBody": "ไฟล์โมเดลจะถูกลบออกจากอุปกรณ์นี้ คุณสามารถดาวน์โหลดใหม่จาก registry ได้ทุกเมื่อ",
     "showDetails": "แสดงรายละเอียด",
     "hideDetails": "ซ่อนรายละเอียด",
+    "subtitleInstalled": "ติดตั้งแล้ว · {{count}}",
+    "detailNotFound": "ไม่พบโมเดล",
+    "section": {
+      "performance": "ประสิทธิภาพ",
+      "model": "โมเดล",
+      "training": "การฝึก",
+      "artifact": "อาร์ทิแฟกต์",
+      "history": "ประวัติการเปิดใช้งาน"
+    },
+    "kpi": {
+      "acc": "ACC",
+      "map": "MAP",
+      "size": "SIZE",
+      "precision": "Precision",
+      "recall": "Recall"
+    },
+    "field": {
+      "task": "ประเภท",
+      "inputSize": "ขนาดอินพุต",
+      "classes": "คลาส",
+      "outputShape": "Output shape",
+      "calibration": "Calibration",
+      "calibrationNotRequired": "ไม่จำเป็น",
+      "lr0": "Lr0",
+      "batch": "Batch",
+      "imgsz": "Imgsz",
+      "epochs": "Epochs",
+      "patience": "Patience",
+      "versionId": "Version ID",
+      "sha256": "SHA-256",
+      "channel": "ช่องทาง"
+    },
+    "action": {
+      "reverify": "ตรวจสอบอีกครั้ง",
+      "copyId": "คัดลอก ID",
+      "delete": "ลบโมเดลนี้"
+    },
     "details": {
       "performance": "ประสิทธิภาพ",
       "model": "โมเดล",

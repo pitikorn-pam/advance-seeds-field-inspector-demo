@@ -18,7 +18,6 @@ import {
 } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
-import { RolePill } from "@/components/ui/RolePill";
 
 /**
  * More screen — secondary navigation hub.
@@ -33,7 +32,7 @@ import { RolePill } from "@/components/ui/RolePill";
 export default function MoreScreen() {
   const { t } = useTranslation(["common", "more"]);
   const router = useRouter();
-  const { profile, signOut } = useAuth();
+  const { signOut } = useAuth();
 
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "—";
   const buildNumber =
@@ -41,17 +40,6 @@ export default function MoreScreen() {
     Constants.expoConfig?.android?.versionCode?.toString() ??
     Constants.nativeBuildVersion ??
     "—";
-
-  const role: "Inspector" | "Admin" | null =
-    profile?.role === "admin" ? "Admin" : profile?.role === "inspector" ? "Inspector" : null;
-
-  const initials =
-    (profile?.full_name ?? profile?.email ?? "")
-      .split(/\s+|@/)
-      .map((part) => part.charAt(0).toUpperCase())
-      .filter(Boolean)
-      .slice(0, 2)
-      .join("") || "—";
 
   const onSignOut = () => {
     Alert.alert(t("more:menu.signOut"), t("more:menu.signOutConfirm"), [
@@ -70,40 +58,6 @@ export default function MoreScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
       <ScrollView contentContainerClassName="px-xl pt-md pb-xl gap-md">
-        {/* Profile card — prototype keeps no page-title row; the profile
-            card IS the top of the screen, sitting under the iOS notch. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("more:menu.profile")}
-          onPress={() => router.push("/profile")}
-          className="active:opacity-80"
-        >
-          <Card className="p-0 flex-row items-center gap-md px-md py-md">
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-card-lavender">
-              <Text
-                className="font-medium text-primary-deep"
-                style={{ fontSize: 16, letterSpacing: -0.2 }}
-              >
-                {initials}
-              </Text>
-            </View>
-            <View className="flex-1">
-              <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
-                {profile?.full_name ?? profile?.email ?? "—"}
-              </Text>
-              <View className="flex-row items-center gap-xs mt-xs">
-                {role ? <RolePill role={role} /> : null}
-                {profile?.email && role ? (
-                  <Text className="text-caption text-fg-secondary" numberOfLines={1}>
-                    {profile.email}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-            <ChevronRight color="#8C8C87" size={18} />
-          </Card>
-        </Pressable>
-
         <Section title={t("more:sections.inspectionTools")}>
           <MenuRow
             renderIcon={() => <Video color={ROW_INK.rose} size={16} />}

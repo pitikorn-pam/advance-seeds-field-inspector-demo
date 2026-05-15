@@ -19,7 +19,7 @@ const variantClass: Record<Variant, string> = {
   outline: "bg-transparent border border-line-secondary active:bg-bg-secondary",
   tinted: "bg-bg-secondary active:bg-bg-tertiary",
   ghost: "bg-transparent active:bg-bg-secondary",
-  ghostDanger: "bg-transparent active:bg-bg-secondary",
+  ghostDanger: "bg-danger-bg active:opacity-80",
   danger: "bg-danger-bg active:opacity-90",
   onDark: "bg-fg-on-dark active:opacity-90",
   yellowFeature: "bg-card-yellow-bold active:opacity-90",

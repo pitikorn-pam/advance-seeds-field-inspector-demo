@@ -31,6 +31,7 @@
     "startInspection": "เริ่มตรวจสอบ",
     "inactiveUsage": "พันธุ์นี้ไม่ใช้งานและไม่สามารถใช้สำหรับการตรวจใหม่ได้",
     "gradeThresholdsTitle": "เกณฑ์เกรด",
+    "gradeNotSet": "ยังไม่ได้ตั้งค่า",
     "lengthRange": "ความยาว",
     "widthRange": "ความกว้าง",
     "last7Days": "7 วันล่าสุด",

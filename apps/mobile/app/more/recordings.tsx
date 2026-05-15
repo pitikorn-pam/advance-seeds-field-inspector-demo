@@ -436,9 +436,12 @@ function RecordingRow({
             accessibilityRole="button"
             accessibilityLabel={labels.delete}
             onPress={onDelete}
-            className="ml-auto p-xs"
+            className="ml-auto flex-row items-center gap-xs p-xs"
           >
-            <Trash2 color="#8A1F1B" size={16} />
+            <Trash2 color="#8A1F1B" size={14} />
+            <Text className="text-caption font-medium" style={{ color: "#8A1F1B" }}>
+              {labels.delete}
+            </Text>
           </Pressable>
         </View>
       </View>

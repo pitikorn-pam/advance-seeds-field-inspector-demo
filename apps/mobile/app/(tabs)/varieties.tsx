@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { FlatList, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -50,7 +50,6 @@ const FAMILY_INK_HEX: Record<VarietyFamily, string> = {
 export default function LibraryTab() {
   const { t } = useTranslation(["common", "varieties", "library"]);
   const router = useRouter();
-  const searchRef = useRef<TextInput>(null);
   const { data, isLoading, isError, refetch } = useVarieties();
   const inspections = useInspections();
   const [family, setFamily] = useState<FamilyKey>("all");
@@ -116,14 +115,7 @@ export default function LibraryTab() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
-      <AppTopBar
-        title={t("varieties:title")}
-        right={{
-          accessibilityLabel: t("library:searchPlaceholder"),
-          renderIcon: () => <Search size={20} />,
-          onPress: () => searchRef.current?.focus(),
-        }}
-      />
+      <AppTopBar title={t("varieties:title")} />
       <FlatList
         data={listData}
         keyExtractor={(item) => item.key}
@@ -135,14 +127,15 @@ export default function LibraryTab() {
         removeClippedSubviews
         ListHeaderComponent={
           <View className="px-xl pt-xs pb-md gap-sm">
-            <View className="flex-row items-center gap-sm rounded-full bg-bg-tertiary px-md h-10">
+            <View className="flex-row items-center gap-sm rounded-full bg-bg-primary px-md h-11 border border-line-tertiary">
               <Search color="#8C8C87" size={18} />
               <TextInput
-                ref={searchRef}
                 placeholder={t("library:searchPlaceholder")}
                 placeholderTextColor="#8C8C87"
                 value={query}
                 onChangeText={setQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
                 className="flex-1 text-body text-fg-primary"
                 returnKeyType="search"
               />

@@ -31,6 +31,7 @@
     "startInspection": "Start inspection",
     "inactiveUsage": "This variety is inactive and cannot be used for new inspections.",
     "gradeThresholdsTitle": "Grade thresholds",
+    "gradeNotSet": "Not configured",
     "lengthRange": "Length",
     "widthRange": "Width",
     "last7Days": "Last 7 days",

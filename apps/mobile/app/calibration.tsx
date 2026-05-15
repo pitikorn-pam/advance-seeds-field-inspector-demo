@@ -5,7 +5,7 @@ import * as Sharing from "expo-sharing";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Download, Share2 } from "lucide-react-native";
+import { ChevronLeft, Download } from "lucide-react-native";
 import type { CalibrationProfile } from "@advance-seeds/types";
 import { useCalibrations } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
@@ -225,21 +225,13 @@ export default function CalibrationRoute() {
                 {t("calibration:marker.description")}
               </Text>
             </View>
-            <View className="mt-md flex-row gap-sm">
+            <View className="mt-md">
               <Button
-                className="flex-1"
+                className="w-full"
                 variant="secondary"
                 label={
-                  sharingMarker ? t("calibration:marker.sharing") : t("calibration:marker.share")
+                  sharingMarker ? t("calibration:marker.sharing") : t("calibration:marker.savePdf")
                 }
-                renderLeadingIcon={() => <Share2 color="#171717" size={16} />}
-                disabled={sharingMarker}
-                onPress={() => void onShareMarker()}
-              />
-              <Button
-                className="flex-1"
-                variant="secondary"
-                label={t("calibration:marker.savePdf")}
                 renderLeadingIcon={() => <Download color="#171717" size={16} />}
                 disabled={sharingMarker}
                 onPress={() => void onShareMarker()}

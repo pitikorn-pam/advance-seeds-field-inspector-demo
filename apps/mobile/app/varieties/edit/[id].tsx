@@ -53,8 +53,16 @@ export default function VarietyEditor() {
     setName(variety.name ?? "");
     setScientific(variety.scientific_name ?? "");
     setFamily((variety.color_key as string) ?? "rice");
-    setRefL(variety.ref_length_mm != null ? String(variety.ref_length_mm) : "");
-    setRefW(variety.ref_width_mm != null ? String(variety.ref_width_mm) : "");
+    setRefL(
+      variety.ref_length_mm !== null && variety.ref_length_mm !== undefined
+        ? String(variety.ref_length_mm)
+        : "",
+    );
+    setRefW(
+      variety.ref_width_mm !== null && variety.ref_width_mm !== undefined
+        ? String(variety.ref_width_mm)
+        : "",
+    );
     setSelectedClasses(variety.model_class_aliases ?? []);
     setHydrated(true);
   }

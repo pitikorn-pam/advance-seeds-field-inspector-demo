@@ -66,10 +66,8 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-      {/* Prototype shows no title in the nav bar — just the back chevron sits
-          under the iOS notch. Match by passing an empty title slot. */}
       <AppTopBar
-        title=""
+        title={t("settings:title")}
         left={{
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <ChevronLeft color="#171717" size={20} />,
@@ -156,7 +154,7 @@ export default function SettingsScreen() {
             <Button
               className="flex-1"
               size="sm"
-              variant="outline"
+              variant="primary"
               label={t("settings:sync.retryAll")}
               disabled={syncQueue.counts.pending + syncQueue.counts.failed === 0}
               onPress={() => void syncQueue.retryAll()}
@@ -164,7 +162,7 @@ export default function SettingsScreen() {
             <Button
               className="flex-1"
               size="sm"
-              variant="ghost"
+              variant="ghostDanger"
               label={t("settings:sync.clearFailed")}
               disabled={syncQueue.counts.failed === 0}
               onPress={() => void syncQueue.clearFailed()}

@@ -1,17 +1,10 @@
 import { useMemo, useState } from "react";
-import { ScrollView, View, Text, Alert, Pressable } from "react-native";
+import { ScrollView, View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import {
-  Calendar,
-  ChevronDown,
-  ChevronLeft,
-  Download,
-  Layers,
-  TrendingUp,
-  X,
-} from "lucide-react-native";
+import { Calendar, ChevronLeft, Download, Layers, TrendingUp, X } from "lucide-react-native";
+import { DropdownSearch, type DropdownItem } from "@/components/ui/DropdownSearch";
 // expo-file-system v19 (Expo SDK 54) introduced a new Paths/File API and
 // moved the previous API behind /legacy. Using legacy here keeps the diff
 // minimal — migrating to the new API is a polish task for next change.
@@ -69,7 +62,6 @@ export default function ReportsRoute() {
   const [varietyId, setVarietyId] = useState<string>(ALL);
   const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [varietyPickerOpen, setVarietyPickerOpen] = useState(false);
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -174,10 +166,23 @@ export default function ReportsRoute() {
     label: t(`reports:filters.preset.${p}`),
   }));
   const varietyList = varieties.data ?? [];
-  const selectedVarietyLabel =
-    varietyId === ALL
-      ? t("reports:filters.allVarieties")
-      : (varietyList.find((v) => v.id === varietyId)?.name ?? t("reports:filters.allVarieties"));
+  const varietyOptions = useMemo<DropdownItem[]>(
+    () =>
+      varietyList.map((v) => ({
+        id: v.id,
+        label: v.name,
+        leading: (
+          <View
+            className={`h-7 w-7 rounded-md items-center justify-center ${
+              VARIETY_TINT_CLASSES[v.color_key ?? ""] ?? "bg-card-gray"
+            }`}
+          >
+            <Layers color="#5F5F5B" size={14} />
+          </View>
+        ),
+      })),
+    [varietyList],
+  );
   const hasDateRange = !!dateRange.start || !!dateRange.end;
 
   return (
@@ -226,37 +231,17 @@ export default function ReportsRoute() {
             ) : null}
           </View>
         ) : null}
-        {/* Variety dropdown — full-width flat button echoing the
-            prototype's "All varieties" picker. Toggles an inline list to
-            keep existing data wiring intact without introducing a new
-            sheet primitive. */}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setVarietyPickerOpen((v) => !v)}
-          className="flex-row items-center gap-sm h-10 px-md rounded-md border border-line-tertiary bg-bg-primary"
-        >
-          <Layers color="#8C8C87" size={16} />
-          <Text className="flex-1 text-body text-fg-primary">{selectedVarietyLabel}</Text>
-          <ChevronDown color="#8C8C87" size={16} />
-        </Pressable>
-        {varietyPickerOpen ? (
-          <View className="rounded-md border border-line-tertiary bg-bg-primary overflow-hidden">
-            {[{ id: ALL, name: t("reports:filters.allVarieties") }, ...varietyList].map((v, i) => (
-              <Pressable
-                key={v.id}
-                onPress={() => {
-                  setVarietyId(v.id);
-                  setVarietyPickerOpen(false);
-                }}
-                className={`px-md py-sm ${i > 0 ? "border-t border-line-tertiary" : ""} ${
-                  varietyId === v.id ? "bg-bg-secondary" : ""
-                }`}
-              >
-                <Text className="text-body text-fg-primary">{v.name}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
+        {/* Variety dropdown — opens the shared DropdownSearch sheet
+            (slide-up modal with typeahead) so the picker UX matches
+            every other dropdown in the app instead of expanding the
+            list inline beneath the trigger. */}
+        <DropdownSearch
+          value={varietyId === ALL ? null : varietyId}
+          onChange={(id) => setVarietyId(id ?? ALL)}
+          options={varietyOptions}
+          placeholder={t("reports:filters.allVarieties")}
+          clearable
+        />
       </View>
 
       <ScrollView contentContainerClassName="px-xl py-md gap-lg pb-2xl">

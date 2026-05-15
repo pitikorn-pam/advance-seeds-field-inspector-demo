@@ -115,7 +115,7 @@
     "noCandidates": "Enter a local HTTP index URL and refresh.",
     "noInstalled": "No downloaded models yet.",
     "noRollback": "No previous active model is available.",
-    "download": "Download",
+    "download": "Install",
     "activate": "Activate",
     "reverify": "Re-verify",
     "installedTitle": "Model installed",
@@ -140,7 +140,7 @@
     "active": "Active model",
     "noActive": "No model installed yet — tap Check for updates.",
     "channel": "Channel",
-    "previousPill": "Previously active",
+    "previousPill": "Rollback",
     "restore": "Restore",
     "installFailedTitle": "Install failed",
     "upToDateTitle": "Up to date",
@@ -148,6 +148,43 @@
     "deleteConfirmBody": "Model files will be removed from this device. You can re-download from the registry at any time.",
     "showDetails": "Show details",
     "hideDetails": "Hide details",
+    "subtitleInstalled": "Installed · {{count}}",
+    "detailNotFound": "Model not found",
+    "section": {
+      "performance": "Performance",
+      "model": "Model",
+      "training": "Training",
+      "artifact": "Artifact",
+      "history": "Activation history"
+    },
+    "kpi": {
+      "acc": "ACC",
+      "map": "MAP",
+      "size": "SIZE",
+      "precision": "Precision",
+      "recall": "Recall"
+    },
+    "field": {
+      "task": "Task",
+      "inputSize": "Input size",
+      "classes": "Classes",
+      "outputShape": "Output shape",
+      "calibration": "Calibration",
+      "calibrationNotRequired": "Not required",
+      "lr0": "Lr0",
+      "batch": "Batch",
+      "imgsz": "Imgsz",
+      "epochs": "Epochs",
+      "patience": "Patience",
+      "versionId": "Version ID",
+      "sha256": "SHA-256",
+      "channel": "Channel"
+    },
+    "action": {
+      "reverify": "Re-verify",
+      "copyId": "Copy ID",
+      "delete": "Delete this model"
+    },
     "details": {
       "performance": "Performance",
       "model": "Model",

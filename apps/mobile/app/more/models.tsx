@@ -12,7 +12,6 @@ import {
 } from "@/lib/models/modelRegistry";
 import {
   activateInstalledModel,
-  deleteInstalledModel,
   readActiveModel,
   readInstalledModels,
   readPreviousActiveModel,
@@ -32,23 +31,18 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
-  ChevronUp,
+  ChevronRight,
   Cloud,
   Cpu,
   Download,
-  Gauge,
   Inbox,
-  Package,
   RefreshCw,
-  Sliders,
-  Trash2,
   X,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type RowStatus = "active" | "installed" | "available" | "unsupported";
@@ -181,35 +175,6 @@ export default function ModelRegistryScreen() {
       }
     },
     [reloadInstalled],
-  );
-
-  const remove = useCallback(
-    (record: InstalledModelRecord) => {
-      Alert.alert(
-        t("more:models.deleteConfirmTitle", { name: record.displayName }),
-        t("more:models.deleteConfirmBody"),
-        [
-          { text: t("common:actions.cancel"), style: "cancel" },
-          {
-            text: t("common:actions.delete"),
-            style: "destructive",
-            onPress: async () => {
-              setBusy(`delete:${record.id}`);
-              try {
-                await deleteInstalledModel(record.id);
-                await reloadInstalled();
-              } catch (err) {
-                setError(err instanceof Error ? err.message : String(err));
-              } finally {
-                setBusy(null);
-              }
-            },
-          },
-        ],
-        { cancelable: true },
-      );
-    },
-    [reloadInstalled, t],
   );
 
   const cancelInstall = (id: string) => {
@@ -444,7 +409,6 @@ export default function ModelRegistryScreen() {
           progressById={effectiveProgressById}
           onInstall={(c) => install(c)}
           onActivate={(r) => activate(r)}
-          onDelete={(r) => remove(r)}
           onCancel={(id) => cancelInstall(id)}
         />
 
@@ -457,7 +421,6 @@ export default function ModelRegistryScreen() {
           progressById={effectiveProgressById}
           onInstall={(c) => install(c)}
           onActivate={(r) => activate(r)}
-          onDelete={(r) => remove(r)}
           onCancel={(id) => cancelInstall(id)}
           headerRight={
             <Pressable
@@ -498,7 +461,6 @@ function RowSection({
   progressById,
   onInstall,
   onActivate,
-  onDelete,
   onCancel,
   headerRight,
   prepend,
@@ -511,7 +473,6 @@ function RowSection({
   progressById: Record<string, InstallProgress>;
   onInstall: (candidate: ModelCandidate) => void;
   onActivate: (record: InstalledModelRecord) => void;
-  onDelete: (record: InstalledModelRecord) => void;
   onCancel: (id: string) => void;
   headerRight?: React.ReactNode;
   prepend?: React.ReactNode;
@@ -549,7 +510,6 @@ function RowSection({
               progress={progressById[row.candidate.id]}
               onInstall={() => onInstall(row.candidate)}
               onActivate={() => row.installedRecord && onActivate(row.installedRecord)}
-              onDelete={() => row.installedRecord && onDelete(row.installedRecord)}
               onCancel={() => onCancel(row.candidate.id)}
             />
           ))}
@@ -644,7 +604,6 @@ function ModelRow({
   progress,
   onInstall,
   onActivate,
-  onDelete,
   onCancel,
 }: {
   row: RegistryRow;
@@ -652,15 +611,14 @@ function ModelRow({
   progress?: InstallProgress | undefined;
   onInstall: () => void;
   onActivate: () => void;
-  onDelete: () => void;
   onCancel: () => void;
 }) {
   const { t } = useTranslation(["common", "more"]);
+  const router = useRouter();
   const { candidate, installedRecord, isPreviousActive, status } = row;
   const sizeMb = candidateSizeMb(candidate, installedRecord);
   const platformLabel = candidate.platform === "android" ? "TFLite" : "Core ML";
   const installing = busy === `install:${candidate.id}`;
-  const [expanded, setExpanded] = useState(false);
   const metadata = installedRecord?.metadata ?? candidate.metadata ?? null;
   const headlineMap = metadata ? pickHeadlineMap(metadata.metrics) : null;
 
@@ -673,11 +631,17 @@ function ModelRow({
         )
       : null;
 
-  return (
-    <Card
-      tone={status === "active" ? "lavender" : "base"}
-      className={`gap-md ${status === "unsupported" ? "opacity-70" : ""}`}
-    >
+  // Tappable when there is content to show on the detail screen. Available
+  // candidates route only when they carry metadata (until installed, the
+  // detail page falls back to the registry metadata payload). Unsupported
+  // rows stay non-tappable so the warning text reads as terminal.
+  const detailId = installedRecord?.id ?? candidate.id;
+  const tappable =
+    status === "active" || status === "installed" || (status === "available" && !!metadata);
+  const showChevron = tappable && !progress;
+
+  const cardContent = (
+    <View className="gap-md">
       <View className="flex-row items-start gap-md">
         <View className="h-10 w-10 items-center justify-center rounded-lg bg-card-lavender">
           <Cpu color="#6E40E0" size={20} />
@@ -703,40 +667,28 @@ function ModelRow({
               <Pill tone="neutral" label={t("more:models.previousPill")} />
             ) : null}
           </View>
-          <View className="flex-row flex-wrap items-center gap-xs">
+          {status === "active" || status === "installed" || status === "available" ? (
+            <StatStrip
+              acc={pickAccuracy(metadata)}
+              map={headlineMap}
+              sizeMb={sizeMb}
+              platformLabel={platformLabel}
+              quantization={candidate.quantization}
+            />
+          ) : (
             <Text className="text-caption text-fg-secondary">
               {platformLabel}
               {sizeMb ? ` · ${sizeMb} MB` : ""}
               {` · ${candidate.quantization}`}
             </Text>
-            {headlineMap !== null ? (
-              <Pill tone="info" label={`mAP@50 ${headlineMap.toFixed(2)}`} />
-            ) : null}
-          </View>
+          )}
           {status === "unsupported" ? (
             <Text className="text-caption text-warning-text mt-xs">
               {candidate.unsupportedReason}
             </Text>
           ) : null}
         </View>
-        {metadata ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded }}
-            accessibilityLabel={
-              expanded ? t("more:models.hideDetails") : t("more:models.showDetails")
-            }
-            className="h-7 w-7 items-center justify-center"
-            onPress={() => setExpanded((v) => !v)}
-            hitSlop={6}
-          >
-            {expanded ? (
-              <ChevronUp color="#6B6B68" size={16} />
-            ) : (
-              <ChevronDown color="#6B6B68" size={16} />
-            )}
-          </Pressable>
-        ) : null}
+        {showChevron ? <ChevronRight color="#6B6B68" size={18} /> : null}
       </View>
 
       {progress ? (
@@ -763,46 +715,21 @@ function ModelRow({
             ) : null}
           </View>
         </View>
-      ) : status === "active" ? (
-        // Prototype: the active model only exposes a Delete affordance —
-        // there is no "re-verify" concept and the prior button was wired
-        // to the same activate handler, so tapping it did nothing visible
-        // and ran a redundant activate write. Removed.
-        <View className="flex-row items-center justify-end">
-          <Button
-            variant="ghostDanger"
-            size="sm"
-            label={t("common:actions.delete")}
-            renderLeadingIcon={() => <Trash2 color="#A02828" size={14} />}
-            disabled={busy !== null}
-            onPress={onDelete}
-          />
-        </View>
       ) : status === "installed" ? (
-        <View className="flex-row items-center gap-sm">
-          <Button
-            variant="secondary"
-            size="sm"
-            label={
-              busy === `activate:${candidate.id}`
-                ? t("common:states.loading")
-                : isPreviousActive
-                  ? t("more:models.restore")
-                  : t("more:models.activate")
-            }
-            disabled={busy !== null}
-            onPress={onActivate}
-          />
-          <View className="flex-1" />
-          <Button
-            variant="ghostDanger"
-            size="sm"
-            label={t("common:actions.delete")}
-            renderLeadingIcon={() => <Trash2 color="#A02828" size={14} />}
-            disabled={busy !== null}
-            onPress={onDelete}
-          />
-        </View>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="w-full"
+          label={
+            busy === `activate:${candidate.id}`
+              ? t("common:states.loading")
+              : isPreviousActive
+                ? t("more:models.restore")
+                : t("more:models.activate")
+          }
+          disabled={busy !== null}
+          onPress={onActivate}
+        />
       ) : status === "available" ? (
         <Button
           size="sm"
@@ -813,18 +740,103 @@ function ModelRow({
           disabled={busy !== null}
         />
       ) : null}
+    </View>
+  );
 
-      {expanded && metadata ? (
-        <ModelDetails metadata={metadata} record={installedRecord} candidate={candidate} />
-      ) : null}
+  // Active state: 2px green left-rail accent (in place of the prior lavender
+  // background fill). Implemented via inline border style on the Card so the
+  // accent doesn't conflict with the existing rounded-corner tone token.
+  const activeRail =
+    status === "active" ? { borderLeftWidth: 2, borderLeftColor: "#1F6E3A" } : undefined;
+  const baseCardClass = `gap-md ${status === "unsupported" ? "opacity-70" : ""}`;
+
+  if (tappable) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={cleanDisplayName(candidate.displayName)}
+        onPress={() => router.push(`/more/models/${detailId}`)}
+      >
+        <Card className={baseCardClass} style={activeRail}>
+          {cardContent}
+        </Card>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Card className={baseCardClass} style={activeRail}>
+      {cardContent}
     </Card>
   );
 }
 
-// Headline metric — surfaced as a Pill on the collapsed row. Tries the
+// Three-stat strip on the collapsed row: acc · mAP · size. Matches the
+// prototype's stat-tile DNA — uppercase micro-label above, semibold
+// tabular-num value below. Falls back gracefully when a metric is
+// missing so the layout doesn't collapse.
+function StatStrip({
+  acc,
+  map,
+  sizeMb,
+  platformLabel,
+  quantization,
+}: {
+  acc: number | null;
+  map: number | null;
+  sizeMb: string | null;
+  platformLabel: string;
+  quantization: string;
+}) {
+  return (
+    <View className="gap-xs">
+      <View className="flex-row" style={{ marginHorizontal: -4 }}>
+        <StatTile label="acc" value={acc !== null ? `${acc.toFixed(1)}%` : "—"} />
+        <StatTile label="mAP" value={map !== null ? map.toFixed(2) : "—"} />
+        <StatTile label="size" value={sizeMb ? `${sizeMb} MB` : "—"} />
+      </View>
+      <Text className="text-caption text-fg-tertiary">
+        {platformLabel} · {quantization}
+      </Text>
+    </View>
+  );
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1, paddingHorizontal: 4 }}>
+      <Text className="text-[10px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
+        {label}
+      </Text>
+      <Text
+        className="mt-[1px] font-semibold text-fg-primary"
+        style={{ fontSize: 15, letterSpacing: -0.2, fontVariant: ["tabular-nums"] }}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+// "acc" in the prototype maps to precision-at-IoU-0.5 — the closest
+// single-number proxy that field users read as "accuracy" for a
+// detection/seg model. Falls back to mAP×100 so the tile is never
+// empty when *some* signal is available.
+function pickAccuracy(metadata: ModelCandidate["metadata"] | null | undefined): number | null {
+  if (!metadata) return null;
+  const precision = pickNumber(metadata.metrics, [
+    "metrics/precision(M)",
+    "metrics/precision(B)",
+    "precision",
+  ]);
+  if (precision !== null) return precision * 100;
+  const map = pickHeadlineMap(metadata.metrics);
+  return map !== null ? map * 100 : null;
+}
+
+// Headline metric — surfaced on the collapsed row. Tries the
 // segmentation mAP first (since this is a -seg model), then bbox mAP,
-// then a generic key. Returns null if none are present so the badge
-// can be skipped cleanly.
+// then a generic key. Returns null if none are present.
 function pickHeadlineMap(metrics: unknown): number | null {
   return (
     pickNumber(metrics, [
@@ -847,212 +859,10 @@ function pickNumber(source: unknown, keys: string[]): number | null {
   return null;
 }
 
-interface MetricDef {
-  label: string;
-  keys: string[];
-  format?: (n: number) => string;
-}
-
-const PERFORMANCE_METRICS: MetricDef[] = [
-  { label: "mAP@50 (mask)", keys: ["metrics/mAP50(M)"] },
-  { label: "mAP@50-95 (mask)", keys: ["metrics/mAP50-95(M)"] },
-  { label: "mAP@50 (box)", keys: ["metrics/mAP50(B)", "mAP50"] },
-  { label: "mAP@50-95 (box)", keys: ["metrics/mAP50-95(B)", "mAP50-95"] },
-  { label: "Precision", keys: ["metrics/precision(M)", "metrics/precision(B)", "precision"] },
-  { label: "Recall", keys: ["metrics/recall(M)", "metrics/recall(B)", "recall"] },
-  { label: "Fitness", keys: ["fitness"] },
-];
-
-function ModelDetails({
-  metadata,
-  record,
-  candidate,
-}: {
-  metadata: ModelCandidate["metadata"] & {};
-  record: InstalledModelRecord | null;
-  candidate: ModelCandidate;
-}) {
-  const { t } = useTranslation("more");
-  const performanceRows = PERFORMANCE_METRICS.map((m) => ({
-    label: m.label,
-    value: pickNumber(metadata.metrics, m.keys),
-  })).filter((r): r is { label: string; value: number } => r.value !== null);
-
-  const hyperparams = metadata.hyperparameters as Record<string, unknown> | undefined;
-  const trainingRows: { label: string; value: string }[] = hyperparams
-    ? Object.entries(hyperparams)
-        .filter(([, v]) => v !== null && v !== undefined && v !== "")
-        .slice(0, 12)
-        .map(([k, v]) => ({ label: humanizeKey(k), value: formatPrimitive(v) }))
-    : [];
-
-  const classCount = Array.isArray(metadata.class_names) ? metadata.class_names.length : 0;
-  const sha = record?.artifactSha256 ?? null;
-  const versionId = (metadata.registry as { version_id?: string } | undefined)?.version_id ?? null;
-
-  return (
-    <View className="mt-sm gap-lg rounded-lg border border-line-tertiary bg-bg-secondary px-md py-md">
-      {performanceRows.length > 0 ? (
-        <DetailGroup title={t("models.details.performance")} icon="performance">
-          {/* Performance tiles match the prototype's stat-tile DNA: mint
-              accent on the value, uppercase caption above, tabular nums. */}
-          <View className="flex-row flex-wrap" style={{ marginHorizontal: -4 }}>
-            {performanceRows.map((r) => (
-              <View key={r.label} style={{ width: "50%", padding: 4 }}>
-                <View className="rounded-md bg-bg-primary px-sm py-sm">
-                  <Text className="text-[10px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
-                    {r.label}
-                  </Text>
-                  <Text
-                    className="mt-[2px] font-semibold text-fg-primary"
-                    style={{ fontSize: 18, letterSpacing: -0.2, fontVariant: ["tabular-nums"] }}
-                  >
-                    {r.value.toFixed(3)}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </DetailGroup>
-      ) : null}
-
-      <DetailGroup title={t("models.details.model")} icon="model">
-        <DetailRow label={t("models.details.task")} value={metadata.task} />
-        <DetailRow
-          label={t("models.details.inputSize")}
-          value={`${metadata.input_size}×${metadata.input_size}`}
-          mono
-        />
-        <DetailRow
-          label={t("models.details.classes")}
-          value={
-            classCount > 0
-              ? `${classCount} (${metadata.class_names.slice(0, 4).join(", ")}${
-                  classCount > 4 ? "…" : ""
-                })`
-              : "—"
-          }
-        />
-        <DetailRow
-          label={t("models.details.outputShape")}
-          value={Array.isArray(metadata.output_shape) ? metadata.output_shape.join("×") : "—"}
-          mono
-        />
-        {metadata.calibration?.required ? (
-          <DetailRow
-            label={t("models.details.calibration")}
-            value={`${metadata.calibration.default_marker_mm ?? "?"} mm · ${
-              metadata.calibration.supported_sources?.join(", ") ?? ""
-            }`}
-          />
-        ) : null}
-      </DetailGroup>
-
-      {trainingRows.length > 0 ? (
-        <DetailGroup title={t("models.details.training")} icon="training">
-          {trainingRows.map((r) => (
-            <DetailRow key={r.label} label={r.label} value={r.value} mono />
-          ))}
-        </DetailGroup>
-      ) : null}
-
-      <DetailGroup title={t("models.details.artifact")} icon="artifact">
-        {versionId ? (
-          <DetailRow
-            label={t("models.details.versionId")}
-            value={
-              versionId.length > 14 ? `${versionId.slice(0, 8)}…${versionId.slice(-4)}` : versionId
-            }
-            mono
-          />
-        ) : null}
-        {sha ? (
-          <DetailRow
-            label={t("models.details.sha256")}
-            value={`${sha.slice(0, 8)}…${sha.slice(-6)}`}
-            mono
-          />
-        ) : null}
-        {candidate.channel ? (
-          <DetailRow label={t("models.details.channel")} value={candidate.channel} />
-        ) : null}
-      </DetailGroup>
-    </View>
-  );
-}
-
-type DetailIcon = "performance" | "model" | "training" | "artifact";
-
-function DetailGroup({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon?: DetailIcon;
-  children: React.ReactNode;
-}) {
-  const Icon =
-    icon === "performance"
-      ? Gauge
-      : icon === "model"
-        ? Cpu
-        : icon === "training"
-          ? Sliders
-          : icon === "artifact"
-            ? Package
-            : null;
-  return (
-    <View className="gap-sm">
-      <View className="flex-row items-center gap-xs">
-        {Icon ? <Icon color="#6B6B68" size={12} /> : null}
-        <Text className="text-[10px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
-          {title}
-        </Text>
-      </View>
-      <View className="gap-[6px]">{children}</View>
-    </View>
-  );
-}
-
-function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <View className="flex-row items-baseline gap-md">
-      <Text className="flex-1 text-caption text-fg-secondary">{label}</Text>
-      <Text
-        className={`text-caption font-medium text-fg-primary text-right ${mono ? "font-mono" : ""}`}
-        style={mono ? { fontVariant: ["tabular-nums"] } : undefined}
-        numberOfLines={2}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function humanizeKey(key: string): string {
-  return key
-    .replace(/[_/]/g, " ")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^./, (c) => c.toUpperCase());
-}
-
-function formatPrimitive(value: unknown): string {
-  if (typeof value === "number") {
-    return Number.isInteger(value) ? String(value) : value.toFixed(4).replace(/\.?0+$/, "");
-  }
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.slice(0, 4).map(formatPrimitive).join(", ");
-  return JSON.stringify(value);
-}
-
 // Old installed records baked the channel/default suffix into the
 // stored display name. Strip those patterns so the row title is just
 // the version and the rest renders as pills.
-function cleanDisplayName(name: string): string {
+export function cleanDisplayName(name: string): string {
   return name
     .replace(/\s*·\s*(staging|production)\s*$/i, "")
     .replace(/\s+default\s*$/i, "")
