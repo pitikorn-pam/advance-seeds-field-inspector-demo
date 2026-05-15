@@ -259,7 +259,11 @@
     },
     "review": {
       "title": "Inspection result",
-      "perSeedTitle": "Per-seed results",
+      "justNow": "just now",
+      "subtitle": "{{variety}} · {{when}}",
+      "resultLabel": "Result",
+      "summary": "{{count}} seeds · avg {{length}} × {{width}} mm",
+      "perSeedTitle": "Per-seed",
       "sort": "Sort",
       "sortIndex": "Index",
       "sortGrade": "Grade",

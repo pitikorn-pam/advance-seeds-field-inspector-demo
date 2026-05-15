@@ -284,8 +284,10 @@ export default function CaptureSetup() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      {/* Prototype: top nav is X close + iOS notch + "Reset" text — no centered
+          title. Match by passing an empty title slot. */}
       <AppTopBar
-        title={t("common:actions.newInspection")}
+        title=""
         left={{
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <X color="#171717" size={22} />,

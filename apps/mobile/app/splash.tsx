@@ -1,22 +1,22 @@
 import { useEffect } from "react";
 import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
+import { tokens } from "@advance-seeds/tokens";
+import { useTheme } from "@/lib/theme";
 
 /**
- * First-launch splash, ported 1:1 from `auth.jsx > SplashScreen`:
- * white background, centered 64px purple AS brand mark with the app
- * name and "Field Inspector" subline; a thin progress bar + status
- * label + version caption pinned near the bottom.
+ * First-launch splash, ported 1:1 from the prototype PNG: a clean white
+ * canvas with the 64px purple AS brand mark vertically centered, the app
+ * name beneath it, and "Field Inspector" subline. The proto deliberately
+ * drops the progress bar / version caption — the native splash already
+ * covers cold-start latency, so the JS splash is a quiet branded card
+ * that auto-routes to /welcome after a brief delay.
  *
- * The native splash hides after i18n boots; this is the JS-side
- * ceremony that routes to /welcome after a brief delay. The StartupGate
- * in the root layout reads the onboarded flag and bypasses this on
- * subsequent launches.
+ * The StartupGate in the root layout reads the onboarded flag and
+ * bypasses this on subsequent launches.
  */
 export default function Splash() {
-  const { t } = useTranslation(["onboarding"]);
   const router = useRouter();
 
   useEffect(() => {
@@ -36,21 +36,7 @@ export default function Splash() {
         >
           Advance Seeds
         </Text>
-        <Text className="mt-[2px] text-caption text-fg-secondary text-center">Field Inspector</Text>
-      </View>
-      <View className="items-center pb-3xl gap-sm">
-        <View
-          className="overflow-hidden bg-line-tertiary"
-          style={{ width: 140, height: 3, borderRadius: 9999 }}
-        >
-          <View className="h-full bg-primary" style={{ width: "62%", borderRadius: 9999 }} />
-        </View>
-        <Text className="text-caption text-fg-tertiary">
-          {t("onboarding:splash.checking", { defaultValue: "Checking session…" })}
-        </Text>
-        <Text className="text-[11px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
-          {t("onboarding:splash.version")}
-        </Text>
+        <Text className="mt-[2px] text-body text-fg-secondary text-center">Field Inspector</Text>
       </View>
     </SafeAreaView>
   );
@@ -62,16 +48,22 @@ export default function Splash() {
  * identically without an extra import.
  */
 function BrandMark() {
+  const { resolved } = useTheme();
+  // Brand-tinted soft glow under the purple square — taken from the
+  // prototype's "0 4px 12px rgba(110,64,224,0.25)" drop shadow. Source the
+  // hex from tokens so dark mode inherits the right shade.
+  const glow = pickHex(tokens, ["color", "brand", "primary"], resolved);
   return (
     <View
-      className="items-center justify-center rounded-lg bg-primary"
+      className="items-center justify-center rounded-xl bg-primary"
       style={{
         width: 64,
         height: 64,
-        shadowColor: "#6E40E0",
+        shadowColor: glow,
         shadowOpacity: 0.25,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 4 },
+        elevation: 6,
       }}
     >
       <Text
@@ -82,4 +74,30 @@ function BrandMark() {
       </Text>
     </View>
   );
+}
+
+// Walks the runtime tokens tree to a leaf and returns the theme-correct
+// hex. Mirrors the helper in welcome.tsx; kept inline so this screen can
+// pull tokens for SVG/shadow colours that NativeWind classes can't reach.
+function pickHex(
+  source: Record<string, unknown>,
+  path: readonly string[],
+  resolved: "light" | "dark",
+): string {
+  let node: unknown = source;
+  for (const seg of path) {
+    if (node && typeof node === "object" && seg in (node as object)) {
+      node = (node as Record<string, unknown>)[seg];
+    } else {
+      return "transparent";
+    }
+  }
+  if (typeof node === "string") return node;
+  if (node && typeof node === "object") {
+    const leaf = node as { value?: unknown; darkValue?: unknown };
+    const v =
+      resolved === "dark" && typeof leaf.darkValue === "string" ? leaf.darkValue : leaf.value;
+    if (typeof v === "string") return v;
+  }
+  return "transparent";
 }

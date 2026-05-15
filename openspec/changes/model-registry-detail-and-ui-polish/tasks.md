@@ -12,7 +12,12 @@
 
 - [x] 2.1 Add `reanchorRecord` helper in `apps/mobile/lib/models/modelStore.ts` that rewrites the `artifactUri` / `compiledArtifactUri` prefix against the current `FileSystem.documentDirectory`.
 - [x] 2.2 Apply re-anchoring inside `readInstalledModels`, `readActiveModel`, and `readPreviousActiveModel`.
-- [ ] 2.3 Verify on iOS device: install a model, rebuild the app on the same device, confirm capture is not blocked by a spurious "Model readiness required".
+- [x] 2.3 Verified on iOS device — Metro log after rebuild reported `[analyzer] coreml active model=production-459bf03a-…-ios status=active`, confirming the gate recognizes the active model after reinstall.
+
+## 2a. Rules-of-Hooks fix in live capture
+
+- [x] 2a.1 Hoist `recDurationLabel` `useMemo` in `apps/mobile/app/capture/scan.tsx` above the three early returns (model-readiness gate, LiDAR-calibration gate, main HUD). Add a boundary comment so future hooks don't drift back below.
+- [ ] 2a.2 Smoke-test live capture after the rebuild and confirm the HUD reaches the main view without the "Rendered more hooks than during the previous render" error.
 
 ## 3. Button + design polish
 

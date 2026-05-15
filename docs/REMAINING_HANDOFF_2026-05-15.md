@@ -18,7 +18,11 @@ All shipped changes pass `pnpm -F @advance-seeds/mobile typecheck`. Nothing comm
 ### Reinstall-blocks-inspection bug — "Model readiness required" after rebuild
 
 - `apps/mobile/lib/models/modelStore.ts` — `readInstalledModels`, `readActiveModel`, and `readPreviousActiveModel` now re-anchor stored absolute URIs against the current `FileSystem.documentDirectory`. Root cause: the registry's `artifactUri` / `compiledArtifactUri` were baked at install time with the absolute container-UUID path. On reinstall (or when the iOS container UUID rotates) the new `documentDirectory` differs, the stored URIs are stale, `quickVerifyArtifact` reports `info.exists === false`, and the inspection gate falls through to `"missing"`. The fix derives paths from `modelInstallDir(id)` instead of trusting the persisted absolute URI.
-- **Not yet verified on device.** Needs a rebuild + reproduce-the-bug pass.
+- **Verified on device.** Metro log after the rebuild reported `[analyzer] coreml active model=production-459bf03a-…-ios status=active`; the gate no longer trips after reinstall.
+
+### Rules-of-Hooks fix in live capture
+
+- `apps/mobile/app/capture/scan.tsx` — the `recDurationLabel` `useMemo` was sitting _below_ three early returns (model-readiness gate, LiDAR-calibration gate, main HUD). When LiDAR calibration completed, `lidarGateActive` flipped from true to false, the render path widened, and React raised `"Rendered more hooks than during the previous render"`. Hoisted the `useMemo` above every early return and added a boundary comment so future hooks don't drift back down. Surfaced after the path-staleness fix made the gate transition faster — the new hot path was exercising a latent ordering bug that the previous slower flow rarely hit.
 
 ### Buttons / design system
 
@@ -60,13 +64,11 @@ All shipped changes pass `pnpm -F @advance-seeds/mobile typecheck`. Nothing comm
 
 ## Open / pending
 
-| Area             | Item                                  | Notes                                                                                                                                                                                           |
-| ---------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bug verification | Path-staleness fix in `modelStore.ts` | Rebuild on iPhone Air → reproduce reinstall flow → confirm gate no longer trips.                                                                                                                |
-| Model detail     | Activation history section            | Deferred — depends on a `model_events` table that doesn't exist yet.                                                                                                                            |
-| Model detail     | Re-verify + Copy ID actions           | Removed from the UI (were no-op scaffolds). Re-add when the underlying behavior is implemented.                                                                                                 |
-| Git              | All session changes are uncommitted   | 16 modified files + 3 new (`KV.tsx`, `lib/strings.ts`, `app/more/models/`). Pending user review before commit.                                                                                  |
-| Build            | iOS device build                      | Latest device install was the model-registry redesign before the path-staleness fix. A fresh `npx expo run:ios --device 00008150-001555E01188401C` is needed to validate the reinstall-bug fix. |
+| Area         | Item                                      | Notes                                                                                                                                                       |
+| ------------ | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Model detail | Activation history section                | Deferred — depends on a `model_events` table that doesn't exist yet.                                                                                        |
+| Model detail | Re-verify + Copy ID actions               | Removed from the UI (were no-op scaffolds). Re-add when the underlying behavior is implemented.                                                             |
+| Smoke test   | Live capture after the Rules-of-Hooks fix | Re-launch live capture after the rebuild and confirm the HUD reaches the main view without the "Rendered more hooks than during the previous render" error. |
 
 ## How to verify
 

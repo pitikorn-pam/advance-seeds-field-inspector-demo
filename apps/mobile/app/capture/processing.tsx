@@ -7,6 +7,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import Svg, { Circle, Text as SvgText } from "react-native-svg";
 import { AlertTriangle, Check, X } from "lucide-react-native";
+import { tokens } from "@advance-seeds/tokens";
+import { useTheme } from "@/lib/theme";
 import type { AnalysisResult } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -86,6 +88,12 @@ export default function CaptureProcessing() {
   const varieties = useVarieties();
   const createRecording = useCreateRecording();
   const notify = useNotify();
+  const { resolved } = useTheme();
+  // Lucide icons take a fixed hex; thread the theme-correct ink so the
+  // close-button glyph stays legible in dark mode. AppTopBar themes its own
+  // icon — this covers the AlertTriangle / Cancel-X usage below.
+  const inkHex = pickHex(tokens, ["color", "text", "primary"], resolved);
+  const dangerHex = pickHex(tokens, ["color", "semantic", "danger", "text"], resolved);
 
   const [completed, setCompleted] = useState<Set<Step>>(new Set());
   const [detectedCount, setDetectedCount] = useState<number | null>(null);
@@ -593,13 +601,13 @@ export default function CaptureProcessing() {
           title={t("inspections:capture.processing.failedTitle", "Analysis failed")}
           left={{
             accessibilityLabel: t("common:actions.cancel"),
-            renderIcon: () => <X color="#171717" size={20} />,
+            renderIcon: () => <X color={inkHex} size={20} />,
             onPress: onCancel,
           }}
         />
         <View className="flex-1 items-center justify-center gap-md px-xl">
-          <View className="h-[160px] w-[160px] items-center justify-center rounded-2xl border border-line-tertiary bg-bg-primary">
-            <AlertTriangle color="#A02828" size={56} />
+          <View className="h-[160px] w-[160px] items-center justify-center rounded-3xl border border-line-tertiary bg-bg-primary">
+            <AlertTriangle color={dangerHex} size={56} />
           </View>
           <Text className="text-h1 text-fg-primary font-semibold mt-md text-center">
             {t("inspections:capture.processing.failedTitle", "Analysis failed")}
@@ -622,7 +630,7 @@ export default function CaptureProcessing() {
         title={t("inspections:capture.processing.title")}
         left={{
           accessibilityLabel: t("common:actions.cancel"),
-          renderIcon: () => <X color="#171717" size={20} />,
+          renderIcon: () => <X color={inkHex} size={20} />,
           onPress: onCancel,
         }}
       />
@@ -633,16 +641,14 @@ export default function CaptureProcessing() {
             stays static-sized across the four steps so the layout doesn't
             shift as progress advances. */}
         <View className="h-[160px] w-[160px] items-center justify-center rounded-3xl border border-line-tertiary bg-bg-primary">
-          <ConcentricProgress percent={percent} />
+          <ConcentricProgress percent={percent} inkHex={inkHex} />
         </View>
 
         <Text className="text-h2 text-fg-primary font-semibold mt-xl text-center">
-          {detectedCount !== null
-            ? t("inspections:capture.processing.analyzingSeeds", {
-                count: detectedCount,
-                defaultValue: `Analyzing ${detectedCount} seeds`,
-              })
-            : t("inspections:capture.processing.title")}
+          {t("inspections:capture.processing.analyzingSeeds", {
+            count: detectedCount ?? 0,
+            defaultValue: `Analyzing ${detectedCount ?? 0} seeds`,
+          })}
         </Text>
         <Text className="text-body text-fg-secondary text-center mt-sm" style={{ maxWidth: 280 }}>
           {t("inspections:capture.processing.subtitle")}
@@ -705,7 +711,14 @@ export default function CaptureProcessing() {
  * track, primary-coloured arc, percent readout at the centre. Pure visual —
  * the `percent` prop is what drives the dash offset.
  */
-function ConcentricProgress({ percent }: { percent: number }) {
+function ConcentricProgress({ percent, inkHex }: { percent: number; inkHex: string }) {
+  const { resolved } = useTheme();
+  // SVG strokes can't read NativeWind classes, so resolve theme-aware hex
+  // out of the canonical tokens tree. Track uses the same value as the
+  // `line-tertiary` border so the ring sits flush against the surrounding
+  // card border; the arc is the brand purple primary.
+  const trackHex = pickHex(tokens, ["color", "border", "tertiary"], resolved);
+  const arcHex = pickHex(tokens, ["color", "brand", "primary"], resolved);
   const size = 120;
   const stroke = 8;
   const r = (size - stroke) / 2;
@@ -717,7 +730,7 @@ function ConcentricProgress({ percent }: { percent: number }) {
         cx={size / 2}
         cy={size / 2}
         r={r}
-        stroke="rgba(23,23,23,0.08)"
+        stroke={trackHex}
         strokeWidth={stroke}
         fill="none"
       />
@@ -725,7 +738,7 @@ function ConcentricProgress({ percent }: { percent: number }) {
         cx={size / 2}
         cy={size / 2}
         r={r}
-        stroke="#6E40E0"
+        stroke={arcHex}
         strokeWidth={stroke}
         fill="none"
         strokeLinecap="round"
@@ -739,7 +752,7 @@ function ConcentricProgress({ percent }: { percent: number }) {
         textAnchor="middle"
         fontSize={22}
         fontWeight="600"
-        fill="#191918"
+        fill={inkHex}
       >
         {`${percent}%`}
       </SvgText>
@@ -758,6 +771,10 @@ function StepRow({
   isLast: boolean;
 }) {
   const { t } = useTranslation(["inspections"]);
+  const { resolved } = useTheme();
+  // Check glyph rides on a coloured circle (success/primary), so use the
+  // token-defined onDark ink to stay legible in both themes.
+  const onDarkHex = pickHex(tokens, ["color", "text", "onDark"], resolved);
   return (
     <View
       className={`flex-row items-center gap-md px-md py-[10px] ${isLast ? "" : "border-b border-line-tertiary"}`}
@@ -772,7 +789,7 @@ function StepRow({
         }`}
       >
         {state === "done" ? (
-          <Check color="#FFFFFF" size={14} strokeWidth={3} />
+          <Check color={onDarkHex} size={14} strokeWidth={3} />
         ) : state === "active" ? (
           <View className="h-[6px] w-[6px] rounded-full bg-primary-on" />
         ) : null}
@@ -789,4 +806,30 @@ function StepRow({
       ) : null}
     </View>
   );
+}
+
+// Walks the runtime tokens tree to a leaf and returns the theme-correct
+// hex. Mirrors the helper in welcome.tsx / splash.tsx; SVG strokes and
+// Lucide icon colours need raw hex strings that NativeWind can't supply.
+function pickHex(
+  source: Record<string, unknown>,
+  path: readonly string[],
+  resolved: "light" | "dark",
+): string {
+  let node: unknown = source;
+  for (const seg of path) {
+    if (node && typeof node === "object" && seg in (node as object)) {
+      node = (node as Record<string, unknown>)[seg];
+    } else {
+      return "transparent";
+    }
+  }
+  if (typeof node === "string") return node;
+  if (node && typeof node === "object") {
+    const leaf = node as { value?: unknown; darkValue?: unknown };
+    const v =
+      resolved === "dark" && typeof leaf.darkValue === "string" ? leaf.darkValue : leaf.value;
+    if (typeof v === "string") return v;
+  }
+  return "transparent";
 }

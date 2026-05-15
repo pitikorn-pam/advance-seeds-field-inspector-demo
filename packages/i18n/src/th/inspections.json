@@ -259,7 +259,11 @@
     },
     "review": {
       "title": "ผลการตรวจสอบ",
-      "perSeedTitle": "ผลรายเมล็ด",
+      "justNow": "เพิ่งนี้",
+      "subtitle": "{{variety}} · {{when}}",
+      "resultLabel": "ผลลัพธ์",
+      "summary": "{{count}} เมล็ด · เฉลี่ย {{length}} × {{width}} มม.",
+      "perSeedTitle": "รายเมล็ด",
       "sort": "เรียง",
       "sortIndex": "ลำดับ",
       "sortGrade": "เกรด",

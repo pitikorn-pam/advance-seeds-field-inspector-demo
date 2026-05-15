@@ -425,6 +425,18 @@ export default function CaptureScan() {
     }
   };
 
+  // ── Hooks below this line MUST stay above every early `return` to honor
+  //    the Rules of Hooks. The model-readiness, LiDAR-calibration, and
+  //    main-render branches each early-return below; any new hook must
+  //    live here or be hoisted above its return site, not below it.
+  const recDurationLabel = useMemo(() => {
+    const ms = recording.durationMs ?? 0;
+    const total = Math.floor(ms / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }, [recording.durationMs]);
+
   if (modelInstallGate.blocked) {
     const title = modelInstallGate.installing
       ? t("inspections:capture.modelInstallBlockedTitle")
@@ -517,14 +529,6 @@ export default function CaptureScan() {
       : manualCalibration.reading
         ? `Manual · ${manualCalibration.reading.pxPerMm.toFixed(1)} px/mm`
         : "Calibration unavailable";
-
-  const recDurationLabel = useMemo(() => {
-    const ms = recording.durationMs ?? 0;
-    const total = Math.floor(ms / 1000);
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  }, [recording.durationMs]);
 
   const flashIconActive = flashMode === "on" || flashMode === "auto";
 

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { ChevronLeft, Share2, ChevronRight, Check } from "lucide-react-native";
+import Svg, { Ellipse } from "react-native-svg";
 import type { AnalyzedSeed, SeedGrade } from "@advance-seeds/types";
 import { GradeChip } from "@/components/ui/GradeChip";
 import { supabase } from "@/lib/supabase";
@@ -33,7 +34,7 @@ import {
   toInspectionQueuePayload,
   type InspectionSavePayload,
 } from "@/lib/inspections/savePayload";
-import { useCreateInspection } from "@/lib/queries";
+import { useCreateInspection, useVarieties } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -140,6 +141,11 @@ export default function CaptureReview() {
   const router = useRouter();
   const { profile } = useAuth();
   const session = useCaptureSession();
+  const varieties = useVarieties();
+  const variety = useMemo(
+    () => varieties.data?.find((v) => v.id === session.varietyId) ?? null,
+    [varieties.data, session.varietyId],
+  );
   const create = useCreateInspection();
   const notify = useNotify();
   const [saving, setSaving] = useState(false);
@@ -489,7 +495,14 @@ export default function CaptureReview() {
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar
-        title={t("inspections:capture.review.title")}
+        title={
+          variety?.name
+            ? t("inspections:capture.review.subtitle", {
+                variety: variety.name,
+                when: t("inspections:capture.review.justNow"),
+              })
+            : t("inspections:capture.review.title")
+        }
         left={{
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <ChevronLeft color="#171717" size={20} />,
@@ -516,40 +529,39 @@ export default function CaptureReview() {
         removeClippedSubviews
         ListHeaderComponent={
           <View className="gap-sm pb-sm">
-            {/* Media — rounded preview with ROI + seed overlays */}
-            <View
-              className="rounded-lg overflow-hidden"
-              style={{ height: 220, backgroundColor: "#cdb189" }}
-            >
-              <CaptureMediaPreview
-                uri={previewMediaUri}
-                kind={mediaKind}
-                roi={previewRoi}
-                seeds={
-                  mediaKind === "video" ? session.capturedLiveFrameResult?.seeds : result.seeds
-                }
-                seedFrameWidth={
-                  mediaKind === "video"
-                    ? (session.capturedLiveFrameResult?.frameWidth ?? null)
-                    : null
-                }
-                seedFrameHeight={
-                  mediaKind === "video"
-                    ? (session.capturedLiveFrameResult?.frameHeight ?? null)
-                    : null
-                }
-              />
+            {/* Hero card — white card with cream-tinted inner thumb area */}
+            <View className="rounded-lg border border-line-tertiary bg-bg-primary p-xs overflow-hidden">
+              <View className="rounded-md overflow-hidden bg-card-cream" style={{ height: 210 }}>
+                <CaptureMediaPreview
+                  uri={previewMediaUri}
+                  kind={mediaKind}
+                  roi={previewRoi}
+                  seeds={
+                    mediaKind === "video" ? session.capturedLiveFrameResult?.seeds : result.seeds
+                  }
+                  seedFrameWidth={
+                    mediaKind === "video"
+                      ? (session.capturedLiveFrameResult?.frameWidth ?? null)
+                      : null
+                  }
+                  seedFrameHeight={
+                    mediaKind === "video"
+                      ? (session.capturedLiveFrameResult?.frameHeight ?? null)
+                      : null
+                  }
+                />
+              </View>
             </View>
 
             {/* Headline result card */}
             <View className="mt-sm flex-row items-center gap-md rounded-lg border border-line-tertiary bg-bg-primary p-md">
               <View
-                className="items-center justify-center rounded-lg bg-grade-a"
-                style={{ width: 56, height: 56 }}
+                className="items-center justify-center rounded-md bg-grade-a"
+                style={{ width: 40, height: 40 }}
               >
                 <Text
                   className="text-grade-a-ink font-semibold"
-                  style={{ fontSize: 28, lineHeight: 32 }}
+                  style={{ fontSize: 20, lineHeight: 22 }}
                 >
                   {gradeAPct >= 70 ? "A" : gradeAPct >= 40 ? "B" : "C"}
                 </Text>
@@ -559,7 +571,7 @@ export default function CaptureReview() {
                   className="text-[11px] font-semibold uppercase text-fg-tertiary"
                   style={{ letterSpacing: 0.6 }}
                 >
-                  {t("inspections:detail.summary.totalSeeds", "Result")}
+                  {t("inspections:capture.review.resultLabel")}
                 </Text>
                 <Text className="mt-[2px] text-title font-semibold text-fg-primary">
                   Grade {gradeAPct >= 70 ? "A" : gradeAPct >= 40 ? "B" : "C"} · {gradeAPct}%
@@ -568,39 +580,39 @@ export default function CaptureReview() {
                   className="mt-[2px] text-caption text-fg-secondary"
                   style={{ fontVariant: ["tabular-nums"] }}
                 >
-                  {result.summary.total_seeds} seeds · avg {avgLen.toFixed(2)} × {avgWid.toFixed(2)}{" "}
-                  mm
+                  {t("inspections:capture.review.summary", {
+                    count: result.summary.total_seeds,
+                    length: avgLen.toFixed(2),
+                    width: avgWid.toFixed(2),
+                  })}
                 </Text>
               </View>
             </View>
 
-            {/* Mini stats — 4-up grade tiles */}
+            {/* Mini stats — 4-up grade tiles (white cards, count colored by grade) */}
             <View className="mt-xs flex-row gap-xs">
               {(["A", "B", "C", "reject"] as SeedGrade[]).map((g) => {
                 const count = seeds.filter((s) => s.grade === g).length;
-                const tileBg: Record<SeedGrade, string> = {
-                  A: "bg-grade-a",
-                  B: "bg-grade-b",
-                  C: "bg-grade-c",
-                  reject: "bg-grade-reject",
-                };
                 const tileInk: Record<SeedGrade, string> = {
                   A: "text-grade-a-ink",
                   B: "text-grade-b-ink",
                   C: "text-grade-c-ink",
                   reject: "text-grade-reject-ink",
                 };
-                const label = g === "reject" ? "Rej" : g;
+                const label = g === "reject" ? "REJ" : g;
                 return (
-                  <View key={g} className={`flex-1 rounded-md py-sm items-center ${tileBg[g]}`}>
+                  <View
+                    key={g}
+                    className="flex-1 rounded-md py-sm items-center border border-line-tertiary bg-bg-primary"
+                  >
                     <Text
                       className={`font-semibold ${tileInk[g]}`}
-                      style={{ fontSize: 18, fontVariant: ["tabular-nums"] }}
+                      style={{ fontSize: 20, fontVariant: ["tabular-nums"] }}
                     >
                       {count}
                     </Text>
                     <Text
-                      className={`mt-[1px] text-[11px] font-semibold uppercase ${tileInk[g]}`}
+                      className={`mt-[2px] text-[11px] font-semibold uppercase ${tileInk[g]}`}
                       style={{ letterSpacing: 0.6 }}
                     >
                       {label}
@@ -615,7 +627,7 @@ export default function CaptureReview() {
               <Text className="text-body font-semibold text-fg-primary">
                 {t("inspections:capture.review.perSeedTitle")}
               </Text>
-              <View className="flex-row items-center gap-[2px] rounded-md border border-line-tertiary bg-bg-primary p-[3px]">
+              <View className="flex-row items-center gap-[2px] rounded-md border border-line-tertiary bg-bg-secondary p-[3px]">
                 {(["index", "grade", "length"] as SortMode[]).map((mode) => {
                   const active = mode === sortMode;
                   return (
@@ -624,12 +636,12 @@ export default function CaptureReview() {
                       onPress={() => setSortMode(mode)}
                       accessibilityRole="button"
                       className={`h-[26px] items-center justify-center rounded-[5px] px-sm ${
-                        active ? "bg-card-gray" : ""
+                        active ? "bg-fg-primary" : ""
                       }`}
                     >
                       <Text
                         className={`text-[11px] font-semibold capitalize ${
-                          active ? "text-fg-primary" : "text-fg-secondary"
+                          active ? "text-fg-on-dark" : "text-fg-secondary"
                         }`}
                       >
                         {t(`inspections:capture.review.${sortModeLabelKey(mode)}`)}
@@ -977,7 +989,21 @@ function SeedRow({
       onPress={onPress}
       className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${border} ${corners}`}
     >
-      <View className="w-[36px]">
+      <View className="h-[32px] w-[32px] items-center justify-center overflow-hidden rounded-md bg-card-cream">
+        <Svg width={32} height={32} viewBox="0 0 32 32">
+          <Ellipse
+            cx={16}
+            cy={16}
+            rx={11}
+            ry={4.5}
+            transform={`rotate(${(seed.index * 23) % 180} 16 16)`}
+            fill="#f3e6c8"
+            stroke="#7a5a32"
+            strokeWidth={0.8}
+          />
+        </Svg>
+      </View>
+      <View className="w-[34px]">
         <Text
           className="text-fg-tertiary font-medium"
           style={{ fontSize: 11, fontVariant: ["tabular-nums"] }}
@@ -985,7 +1011,7 @@ function SeedRow({
           #{String(seed.index).padStart(2, "0")}
         </Text>
       </View>
-      <View className="flex-1 flex-row gap-lg">
+      <View className="flex-1 flex-row gap-md">
         <View>
           <Text className="text-label uppercase text-fg-tertiary" style={{ letterSpacing: 0.4 }}>
             L
