@@ -1,20 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Alert, Linking, ActivityIndicator, Platform } from "react-native";
+import type { ReactNode } from "react";
+import { View, Text, Alert, Linking, ActivityIndicator, Platform, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
+import {
+  ChevronLeft,
+  Zap,
+  ZapOff,
+  Grid3x3,
+  RefreshCw,
+  Video,
+  Camera as CameraIcon,
+  Square,
+  Pentagon,
+  Circle as CircleIcon,
+} from "lucide-react-native";
 import { Viewfinder } from "@/components/camera/Viewfinder";
 import { GlassTopBar } from "@/components/camera/GlassTopBar";
 import type { FlashMode } from "@/components/camera/GlassTopBar";
-import { ShutterBar } from "@/components/camera/ShutterBar";
-import { KpiStrip } from "@/components/camera/KpiStrip";
-import { CalibrationPill } from "@/components/camera/CalibrationPill";
 import { RoiOverlay } from "@/components/camera/RoiOverlay";
-import { RoiToolbar } from "@/components/camera/RoiToolbar";
-import { RecordingTimer } from "@/components/camera/RecordingTimer";
 import { Toast } from "@/components/ui/Toast";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
 import { useLiveDetections } from "@/lib/analyzer/useLiveDetections";
@@ -484,8 +492,44 @@ export default function CaptureScan() {
     );
   }
 
+  // ── HUD data binding (ported verbatim from prototype's StatCol grid) ─
+  // The prototype shows Frame/Detect/Light but the original demo's stats are
+  // count/avg-mm/grade-A — we keep our existing analyzer outputs to drive
+  // the same 3-up layout the prototype establishes.
+  const liveFrame = liveDetections.detections ?? frameResult;
+  const seeds = liveFrame?.seeds ?? [];
+  const kpiCount = liveFrame ? String(seeds.length) : "—";
+  const kpiAvg =
+    seeds.length > 0
+      ? `${(seeds.reduce((s, d) => s + d.length_mm, 0) / seeds.length).toFixed(1)} mm`
+      : "—";
+  const kpiGrade = seeds.length > 0 ? String(seeds.filter((d) => d.grade === "A").length) : "—";
+
+  // ROI mode label for the top chip (rect / polygon / circle).
+  const roiKindLabel = session.roi?.kind ?? "rect";
+
+  const calibrationOk = liveLidar.result || liveAruco.locked || manualCalibration.reading !== null;
+  const showCalibrationWarn = !calibrationOk;
+  const calibrationLabel = liveLidar.result
+    ? `LiDAR · ${liveLidar.result.reading.pxPerMm.toFixed(1)} px/mm`
+    : liveAruco.result
+      ? `ArUco · ${liveAruco.result.reading.pxPerMm.toFixed(1)} px/mm`
+      : manualCalibration.reading
+        ? `Manual · ${manualCalibration.reading.pxPerMm.toFixed(1)} px/mm`
+        : "Calibration unavailable";
+
+  const recDurationLabel = useMemo(() => {
+    const ms = recording.durationMs ?? 0;
+    const total = Math.floor(ms / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  }, [recording.durationMs]);
+
+  const flashIconActive = flashMode === "on" || flashMode === "auto";
+
   return (
-    <View className="flex-1 bg-black">
+    <View className="flex-1" style={{ backgroundColor: "#0d0d10" }}>
       <Viewfinder
         active={cameraActive}
         cameraRef={cameraRef}
@@ -494,6 +538,7 @@ export default function CaptureScan() {
         performanceProfile={androidFrameProcessorActive ? "low" : "quality"}
         cameraProps={viewfinderCameraProps}
       >
+        {/* Detection overlay sits directly over the camera frame. */}
         <View
           className="absolute inset-0"
           pointerEvents="none"
@@ -515,80 +560,413 @@ export default function CaptureScan() {
             />
           ) : null}
         </View>
-        <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
-          <GlassTopBar
-            centerLabel={`${t("inspections:capture.live.pillLabel")} · ${t("inspections:capture.shutter")}`}
-            centerDotColor="#7DD3C7"
-            flashMode={flashMode}
-            onFlashPress={cycleFlash}
-            onBackPress={leaveCamera}
-          />
 
-          {/* Inline calibration pill — sits below the top bar (hidden during
-              recording so the timer takes the spotlight). */}
-          {!recording.isRecording ? (
-            <View className="items-center mt-xs" pointerEvents="box-none">
-              <CalibrationPill reading={automaticCalibration} />
-              <Text className="mt-xs rounded-full bg-black/45 px-sm py-[2px] text-white/75 text-caption">
-                {liveLidar.result
-                  ? `${t("inspections:capture.calibration.lockedHintBare", {
-                      pxPerMm: liveLidar.result.reading.pxPerMm.toFixed(1),
-                    })}${liveLidar.distanceLabel ? ` · ${liveLidar.distanceLabel}` : ""}`
-                  : liveAruco.locked
-                    ? t("inspections:capture.calibration.lockedHintBare", {
-                        pxPerMm: liveAruco.result?.reading.pxPerMm.toFixed(1),
-                      })
-                    : manualCalibration.reading
-                      ? t("inspections:capture.calibration.lockedHintWithProfile", {
-                          pxPerMm: manualCalibration.reading.pxPerMm.toFixed(1),
-                          profile: manualCalibration.profileName ?? "Manual",
-                        })
-                      : t("inspections:capture.calibration.alignMarker")}
+        {/* ROI drawing overlay (captures touches when a tool is active). */}
+        <View className="absolute inset-0" pointerEvents="box-none">
+          <RoiOverlay drawingTool={roiTool} roi={session.roi} onRoi={setRoi} />
+        </View>
+
+        {/* ───── Top bar: back · variety+ROI chip · flash ───── */}
+        <SafeAreaView
+          edges={["top"]}
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 4,
+          }}
+        >
+          <View
+            pointerEvents="box-none"
+            className="flex-row items-start justify-between px-md pt-md pb-sm"
+            style={{
+              backgroundColor: "rgba(0,0,0,0.0)",
+            }}
+          >
+            <DarkChip onPress={leaveCamera}>
+              <ChevronLeft color="#fff" size={16} />
+            </DarkChip>
+            <DarkChip wide>
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 9999,
+                  backgroundColor: recording.isRecording ? "#E55B5B" : "#4DAB6D",
+                }}
+              />
+              <Text
+                style={{
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: "600",
+                }}
+              >
+                {recording.isRecording
+                  ? `Live · Rec · ${recDurationLabel}`
+                  : `Live · Capture · ${roiKindLabel.toUpperCase()}`}
               </Text>
-            </View>
-          ) : (
-            <RecordingTimer durationMs={recording.durationMs} />
-          )}
-
-          {/* ROI overlay sits between the chrome and the KPI strip. When no
-              tool is active it's pointerEvents-transparent and only renders
-              the committed shape; when a tool is active it captures touches
-              for drawing. */}
-          <View className="flex-1" pointerEvents="box-none">
-            <RoiOverlay drawingTool={roiTool} roi={session.roi} onRoi={setRoi} />
+            </DarkChip>
+            <DarkChip onPress={cycleFlash}>
+              {flashIconActive ? (
+                <Zap color="#fff" size={16} fill="#fff" />
+              ) : (
+                <ZapOff color="#fff" size={16} />
+              )}
+            </DarkChip>
           </View>
 
-          {!recording.isRecording ? (
-            <RoiToolbar
-              activeTool={roiTool}
-              onSelectTool={setRoiTool}
-              roi={session.roi}
-              onClear={onClearRoi}
-              onClosePolygon={onClosePolygon}
-            />
-          ) : null}
+          {/* Stacked status pills (center top) */}
+          <View
+            pointerEvents="box-none"
+            style={{
+              alignItems: "center",
+              paddingHorizontal: 16,
+              marginTop: 8,
+              gap: 8,
+            }}
+          >
+            <DarkChip wide>
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 9999,
+                  backgroundColor: showCalibrationWarn ? "#E07B3F" : "#4DAB6D",
+                }}
+              />
+              <Text style={{ color: "#fff", fontSize: 12, fontWeight: "500" }}>
+                {calibrationLabel}
+              </Text>
+            </DarkChip>
+            {showCalibrationWarn ? (
+              <DarkChip wide>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "400",
+                    color: "rgba(255,255,255,0.8)",
+                  }}
+                >
+                  Align the ArUco card to lock calibration
+                </Text>
+              </DarkChip>
+            ) : null}
+          </View>
+        </SafeAreaView>
 
-          <KpiStrip
-            frameResult={liveDetections.detections ?? frameResult}
-            roi={session.roi}
-            frameWidth={liveDetections.detections?.frameWidth}
-            frameHeight={liveDetections.detections?.frameHeight}
-          />
+        {/* ───── Bottom control stack ───── */}
+        <SafeAreaView
+          edges={["bottom"]}
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 3,
+          }}
+        >
+          <View
+            pointerEvents="box-none"
+            style={{
+              paddingHorizontal: 14,
+              paddingTop: 14,
+              paddingBottom: 14,
+            }}
+          >
+            {/* ROI shape selector — Rect / Polygon / Circle */}
+            <View
+              style={{
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+              pointerEvents="box-none"
+            >
+              <RoiSelector
+                active={(roiTool ?? session.roi?.kind ?? "rect") as RoiKindLocal}
+                onSelect={(kind) => setRoiTool(roiTool === kind ? null : kind)}
+              />
+            </View>
 
-          <ShutterBar
-            onShutter={onShutter}
-            onLongPress={onLongPressShutter}
-            onSnapshot={onSnapshot}
-            onRecordPress={onRecordPress}
-            onFlip={toggleFlip}
-            onGrid={toggleGrid}
-            isLive={!recording.isRecording}
-            isRecording={recording.isRecording}
-            disabled={busy}
-          />
+            {/* 3-up stat strip */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-around",
+                alignItems: "flex-end",
+                marginBottom: 16,
+              }}
+            >
+              <StatCol label="COUNT" value={kpiCount} />
+              <StatCol label="AVG MM" value={kpiAvg} mono />
+              <StatCol label="GRADE A" value={kpiGrade} accent="#4DAB6D" />
+            </View>
+
+            {/* Shutter row: grid (L) — shutter (C) — flip (R) */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
+            >
+              <DarkChip onPress={toggleGrid}>
+                <Grid3x3 color="#fff" size={16} />
+              </DarkChip>
+
+              <View style={{ alignItems: "center" }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Capture"
+                  disabled={busy}
+                  delayLongPress={600}
+                  onPress={onShutter}
+                  onLongPress={onLongPressShutter}
+                  style={{
+                    width: 76,
+                    height: 76,
+                    borderRadius: 9999,
+                    borderWidth: 4,
+                    borderColor: "rgba(255,255,255,0.9)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "transparent",
+                    opacity: busy ? 0.6 : 1,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: recording.isRecording ? 28 : 60,
+                      height: recording.isRecording ? 28 : 60,
+                      borderRadius: recording.isRecording ? 6 : 9999,
+                      backgroundColor: "#E55B5B",
+                    }}
+                  />
+                </Pressable>
+
+                {/* Mode toggle: Rec / Snap */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle capture mode"
+                  onPress={onRecordPress}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    marginTop: 8,
+                  }}
+                >
+                  {recording.isRecording ? (
+                    <Video color="rgba(255,255,255,0.75)" size={14} />
+                  ) : (
+                    <CameraIcon color="rgba(255,255,255,0.75)" size={14} />
+                  )}
+                  <Text
+                    style={{
+                      color: "rgba(255,255,255,0.75)",
+                      fontSize: 11,
+                      fontWeight: "600",
+                      letterSpacing: 0.5,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {recording.isRecording ? "Rec" : "Snap"}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <DarkChip onPress={toggleFlip}>
+                <RefreshCw color="#fff" size={16} />
+              </DarkChip>
+            </View>
+
+            {/* Inline secondary actions: snapshot (saves to Photos) + clear ROI */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "center",
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              <DarkChip wide onPress={onSnapshot}>
+                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>Snapshot</Text>
+              </DarkChip>
+              {session.roi ? (
+                <DarkChip wide onPress={onClearRoi}>
+                  <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>Clear ROI</Text>
+                </DarkChip>
+              ) : null}
+              {roiTool === "polygon" &&
+              session.roi?.kind === "polygon" &&
+              !session.roi.closed &&
+              session.roi.points.length >= 3 ? (
+                <DarkChip wide onPress={onClosePolygon}>
+                  <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>
+                    Close polygon
+                  </Text>
+                </DarkChip>
+              ) : null}
+            </View>
+          </View>
           <Toast message={toast} tone="success" />
         </SafeAreaView>
       </Viewfinder>
+    </View>
+  );
+}
+
+// ── Local prototype-ported primitives ─────────────────────────────────
+// These live in this file because the prototype defines them inline and
+// they're scan-specific. If another camera screen needs them later they
+// can be lifted into components/camera.
+
+type RoiKindLocal = "rect" | "polygon" | "circle";
+
+function DarkChip({
+  children,
+  wide = false,
+  onPress,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+  onPress?: () => void;
+}) {
+  const content = (
+    <View
+      style={{
+        height: 36,
+        minWidth: 36,
+        paddingHorizontal: wide ? 12 : 8,
+        borderRadius: 9999,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        backgroundColor: "rgba(0,0,0,0.50)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.12)",
+      }}
+    >
+      {children}
+    </View>
+  );
+  if (!onPress) return content;
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button">
+      {content}
+    </Pressable>
+  );
+}
+
+function StatCol({
+  label,
+  value,
+  mono = false,
+  accent,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  accent?: string;
+}) {
+  return (
+    <View style={{ flex: 1, alignItems: "center" }}>
+      <Text
+        style={{
+          fontSize: 22,
+          fontWeight: "600",
+          color: accent ?? "#fff",
+          lineHeight: 24,
+          letterSpacing: mono ? 0 : -0.3,
+          fontVariant: mono ? ["tabular-nums"] : undefined,
+        }}
+      >
+        {value}
+      </Text>
+      <View
+        style={{
+          width: 28,
+          height: 2,
+          backgroundColor: "rgba(255,255,255,0.35)",
+          borderRadius: 9999,
+          marginVertical: 6,
+        }}
+      />
+      <Text
+        style={{
+          fontSize: 10,
+          fontWeight: "600",
+          letterSpacing: 0.8,
+          color: "rgba(255,255,255,0.6)",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function RoiSelector({
+  active,
+  onSelect,
+}: {
+  active: RoiKindLocal;
+  onSelect: (kind: RoiKindLocal) => void;
+}) {
+  const opts: { id: RoiKindLocal; label: string; Icon: typeof Square }[] = [
+    { id: "rect", label: "Rect", Icon: Square },
+    { id: "polygon", label: "Polygon", Icon: Pentagon },
+    { id: "circle", label: "Circle", Icon: CircleIcon },
+  ];
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        backgroundColor: "rgba(0,0,0,0.45)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.14)",
+        borderRadius: 9999,
+        padding: 4,
+        gap: 2,
+      }}
+    >
+      {opts.map(({ id, label, Icon }) => {
+        const isActive = id === active;
+        return (
+          <Pressable
+            key={id}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={() => onSelect(id)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              height: 32,
+              paddingHorizontal: 14,
+              borderRadius: 9999,
+              backgroundColor: isActive ? "rgba(255,255,255,0.95)" : "transparent",
+            }}
+          >
+            <Icon size={14} color={isActive ? "#191918" : "rgba(255,255,255,0.85)"} />
+            <Text
+              style={{
+                color: isActive ? "#191918" : "rgba(255,255,255,0.85)",
+                fontSize: 12,
+                fontWeight: "600",
+              }}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

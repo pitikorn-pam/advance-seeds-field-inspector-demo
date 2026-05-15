@@ -33,6 +33,10 @@
     "newTitle": "New variety",
     "editTitle": "Edit variety",
     "invalidName": "Name is required.",
+    "basicInfo": "Basic info",
+    "referenceDimensions": "Reference dimensions",
+    "modelClassesSelected": "Tap to map this variety to one or more detector classes. {{count}} selected.",
+    "classesFrom": "Classes from {{name}}",
     "modelClasses": "Model classes",
     "modelClassesHint": "Tap classes from {{name}} that identify this variety. When set, takes precedence over the COCO detector class.",
     "modelClassesNoActive": "No active registry model. Install one from More → Model registry to map variety classes.",
@@ -48,6 +52,11 @@
     "filterWithCount": "{{label}} · {{count}}",
     "mappedPill": "Mapped",
     "unmappedPill": "Unmapped",
+    "chips": {
+      "class": "class",
+      "grade": "grade",
+      "refDim": "ref dim"
+    },
     "refDims": "{{l}} × {{w}} mm",
     "noRefDims": "No reference",
     "refLengthMm": "Reference length (mm)",

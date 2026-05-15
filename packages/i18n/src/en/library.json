@@ -9,17 +9,17 @@
     "mungbean": "Mungbean"
   },
   "sections": {
-    "corn": "Corn varieties",
-    "rice": "Rice varieties",
-    "legume": "Legume varieties",
-    "mungbean": "Mungbean varieties"
+    "corn": "Corn",
+    "rice": "Rice",
+    "legume": "Legume",
+    "mungbean": "Mungbean"
   },
   "dimensionsObserved": "{{l}} × {{w}} mm · observed",
   "dimensionsPending": "Reference dimensions not yet measured",
   "row": {
     "refDims": "ref {{l}}×{{w}} mm",
     "refPending": "ref pending",
-    "sevenDay": "7d"
+    "sevenDay": "7D"
   },
   "sectionCount_one": "{{count}} variety",
   "sectionCount_other": "{{count}} varieties"

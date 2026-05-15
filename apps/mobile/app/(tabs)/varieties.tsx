@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FlatList, View, Text, Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,7 @@ import { ChevronRight, Search, X } from "lucide-react-native";
 import Svg, { Ellipse } from "react-native-svg";
 import type { Variety } from "@advance-seeds/types";
 import { useVarieties, useInspections } from "@/lib/queries";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Segmented } from "@/components/ui/Segmented";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
@@ -40,13 +41,16 @@ const FAMILY_INK_HEX: Record<VarietyFamily, string> = {
  * Varieties tab — read-only catalog browser.
  *
  * Visual layer mirrors the Field Inspector redesign prototype:
- * search field, family pill row, then grouped sections with rounded
- * thumbs (seed-dot SVG on family tint) + scientific name + ref dims.
+ * AppTopBar with title and a magnifier action, a pill-shaped search field
+ * on the off-white surface, family chip row (active = solid black), then
+ * grouped sections rendered as full-bleed list rows with hairlines and a
+ * single tinted seed-dot thumb per row.
  * Data wiring (useVarieties / useInspections / navigation) is unchanged.
  */
 export default function LibraryTab() {
   const { t } = useTranslation(["common", "varieties", "library"]);
   const router = useRouter();
+  const searchRef = useRef<TextInput>(null);
   const { data, isLoading, isError, refetch } = useVarieties();
   const inspections = useInspections();
   const [family, setFamily] = useState<FamilyKey>("all");
@@ -111,7 +115,15 @@ export default function LibraryTab() {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-primary" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top"]}>
+      <AppTopBar
+        title={t("varieties:title")}
+        right={{
+          accessibilityLabel: t("library:searchPlaceholder"),
+          renderIcon: () => <Search size={20} />,
+          onPress: () => searchRef.current?.focus(),
+        }}
+      />
       <FlatList
         data={listData}
         keyExtractor={(item) => item.key}
@@ -122,12 +134,11 @@ export default function LibraryTab() {
         windowSize={9}
         removeClippedSubviews
         ListHeaderComponent={
-          <View className="border-b border-line-tertiary px-xl pt-md pb-md gap-md">
-            <Text className="text-h1 font-medium text-fg-primary">{t("varieties:title")}</Text>
-
-            <View className="flex-row items-center gap-sm rounded-md bg-bg-secondary border border-line-tertiary px-md h-11">
+          <View className="px-xl pt-xs pb-md gap-sm">
+            <View className="flex-row items-center gap-sm rounded-full bg-bg-tertiary px-md h-10">
               <Search color="#8C8C87" size={18} />
               <TextInput
+                ref={searchRef}
                 placeholder={t("library:searchPlaceholder")}
                 placeholderTextColor="#8C8C87"
                 value={query}
@@ -161,9 +172,7 @@ export default function LibraryTab() {
               <Text className="text-caption font-medium uppercase tracking-wide text-fg-secondary">
                 {t(`library:sections.${item.familyKey}`)}
               </Text>
-              <Text className="text-caption text-fg-tertiary">
-                {t("library:sectionCount", { count: item.count })}
-              </Text>
+              <Text className="text-caption text-fg-tertiary">{item.count}</Text>
             </View>
           ) : (
             <VarietyRow
@@ -217,7 +226,7 @@ function VarietyRow({ variety, isLast, observed, onPress }: RowProps) {
       accessibilityRole="button"
       accessibilityLabel={variety.name}
       onPress={onPress}
-      className={`flex-row items-center gap-md bg-bg-primary px-xl py-md ${
+      className={`flex-row items-center gap-md px-xl py-md ${
         isLast ? "" : "border-b border-line-tertiary"
       }`}
     >
@@ -238,7 +247,7 @@ function VarietyRow({ variety, isLast, observed, onPress }: RowProps) {
       </View>
       {observed ? (
         <View className="items-end mr-sm">
-          <Text className="text-title font-medium text-fg-primary">{observed.n}</Text>
+          <Text className="text-title font-medium text-fg-primary tabular-nums">{observed.n}</Text>
           <Text className="text-caption text-fg-tertiary mt-xs">{t("library:row.sevenDay")}</Text>
         </View>
       ) : null}

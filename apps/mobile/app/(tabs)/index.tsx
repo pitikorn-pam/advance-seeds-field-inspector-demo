@@ -100,6 +100,14 @@ export default function HomeScreen() {
     () => filterByDateRange(data ?? [], dateRange),
     [data, dateRange],
   );
+  // Prior-period slice for KPI deltas. We shift the active range backward by
+  // its own length so "Today" compares to yesterday, "7D" to the prior week,
+  // and so on. Custom ranges with no start fall back to comparing the full
+  // history to its own halves — coarse but stable.
+  const priorInspections = useMemo(
+    () => filterByDateRange(data ?? [], shiftRangeBackward(dateRange)),
+    [data, dateRange],
+  );
   const dashboardDateLabel = rangeLabel(dateRange, i18n.language, t);
   const hasCustomDateRange = rangePreset === "custom" && (!!dateRange.start || !!dateRange.end);
   const iconColor = resolved === "dark" ? "#F7F7F5" : "#171717";
@@ -291,7 +299,11 @@ export default function HomeScreen() {
                     </View>
                   ) : null}
                 </View>
-                <HeroCard inspections={dashboardInspections} dateLabel={dashboardDateLabel} />
+                <HeroCard
+                  inspections={dashboardInspections}
+                  priorInspections={priorInspections}
+                  dateLabel={dashboardDateLabel}
+                />
               </>
             )}
 
@@ -381,4 +393,22 @@ function filterByDateRange<T extends { captured_at: string }>(rows: T[], range: 
     const key = toDateKey(new Date(row.captured_at));
     return key >= range.start! && key <= end;
   });
+}
+
+/**
+ * Shift a range backward by its own length so KPI deltas have a stable
+ * prior-period reference. Today → yesterday, 7D → prior 7D, etc. Returns
+ * a null range when the input has no start (open-ended history), since
+ * there is no meaningful prior period to compare to.
+ */
+function shiftRangeBackward(range: DateRange): DateRange {
+  if (!range.start) return { start: null, end: null };
+  const startD = new Date(range.start);
+  const endD = new Date(range.end ?? range.start);
+  const lengthDays = Math.max(1, Math.round((+endD - +startD) / 86_400_000) + 1);
+  const priorEnd = new Date(startD);
+  priorEnd.setDate(startD.getDate() - 1);
+  const priorStart = new Date(priorEnd);
+  priorStart.setDate(priorEnd.getDate() - (lengthDays - 1));
+  return { start: toDateKey(priorStart), end: toDateKey(priorEnd) };
 }

@@ -39,12 +39,37 @@
     "referenceShort": "อ้างอิง",
     "seedsTotal": "{{count}} เมล็ด",
     "editVariety": "แก้ไขพันธุ์",
-    "captureClasses": "คลาสการถ่าย"
+    "captureClasses": "คลาสการถ่าย",
+    "recentMeasurementsTitle": "ผลวัดล่าสุด",
+    "mmAvgLengthLabel": "ความยาวเฉลี่ย mm ({{count}} ครั้งล่าสุด)",
+    "modelClassLabel": "โมเดล · {{name}}"
   },
   "family": {
     "rice": "ข้าว",
     "corn": "ข้าวโพด",
     "legume": "ถั่ว",
     "mungbean": "ถั่วเขียว"
+  },
+  "editor": {
+    "title": "แก้ไข · {{name}}",
+    "adminSubtitle": "แอดมิน",
+    "sectionIdentity": "ข้อมูลพื้นฐาน",
+    "sectionReference": "ขนาดอ้างอิง",
+    "sectionGrades": "เกณฑ์เกรด",
+    "sectionDetectorClass": "คลาสตัวตรวจจับ",
+    "sectionCaptureDefaults": "ค่าตั้งต้นการถ่าย",
+    "fieldName": "ชื่อ",
+    "fieldScientific": "ชื่อวิทยาศาสตร์",
+    "fieldFamily": "ตระกูล",
+    "fieldLengthMm": "ความยาว (mm)",
+    "fieldWidthMm": "ความกว้าง (mm)",
+    "gradeLabel": "เกรด {{grade}}",
+    "lengthRange": "ความยาว",
+    "classesFrom": "คลาสจาก {{model}}",
+    "searchClasses": "ค้นหาคลาส",
+    "selectedHint": "แตะเพื่อแมปพันธุ์นี้กับคลาสตัวตรวจจับหนึ่งคลาสขึ้นไป เลือก {{count}} รายการ",
+    "captureLighting": "ตรวจสอบแสง",
+    "captureSurface": "ตรวจสอบพื้นผิว",
+    "captureMultiSeed": "หลายเมล็ด"
   }
 }

@@ -22,5 +22,17 @@
     "cardWorkspaceBody": "A / B / C thresholds set per variety, applied per seed.",
     "continue": "Continue",
     "skip": "Skip for now"
+  },
+  "welcomePermission": {
+    "title": "Allow camera access",
+    "body": "Inspections need camera and microphone for live capture and recording. Location is optional, used only for auto-tagging.",
+    "permCamera": "Camera",
+    "permCameraSub": "Required for capture",
+    "permMic": "Microphone",
+    "permMicSub": "Required for recordings",
+    "permLocation": "Location",
+    "permLocationSub": "Optional · auto-tag inspections",
+    "allow": "Allow access",
+    "notNow": "Not now"
   }
 }

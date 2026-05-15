@@ -33,6 +33,10 @@
     "newTitle": "เพิ่มพันธุ์ใหม่",
     "editTitle": "แก้ไขพันธุ์",
     "invalidName": "ต้องระบุชื่อ",
+    "basicInfo": "ข้อมูลพื้นฐาน",
+    "referenceDimensions": "ขนาดอ้างอิง",
+    "modelClassesSelected": "แตะเพื่อแมปพันธุ์นี้กับคลาสตัวตรวจจับ เลือกแล้ว {{count}} รายการ",
+    "classesFrom": "คลาสจาก {{name}}",
     "modelClasses": "คลาสของโมเดล",
     "modelClassesHint": "เลือกคลาสจาก {{name}} ที่ระบุพันธุ์นี้ เมื่อกำหนดค่าจะใช้แทนคลาส COCO",
     "modelClassesNoActive": "ยังไม่มีโมเดลที่ใช้งาน ติดตั้งจาก More → Model registry เพื่อแมปคลาส",
@@ -48,6 +52,11 @@
     "filterWithCount": "{{label}} · {{count}}",
     "mappedPill": "ระบุคลาสแล้ว",
     "unmappedPill": "ยังไม่ระบุ",
+    "chips": {
+      "class": "คลาส",
+      "grade": "เกรด",
+      "refDim": "ขนาดอ้างอิง"
+    },
     "refDims": "{{l}} × {{w}} มม.",
     "noRefDims": "ไม่มีขนาดอ้างอิง",
     "refLengthMm": "ความยาวอ้างอิง (มม.)",

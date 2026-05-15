@@ -1,15 +1,9 @@
 import { useMemo } from "react";
-import { ScrollView, View, Text, Image, Pressable } from "react-native";
+import { ScrollView, View, Text, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  Camera as CameraIcon,
-  ChevronLeft,
-  ChevronRight,
-  Pencil,
-  Layers,
-} from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Pencil, Layers } from "lucide-react-native";
 import { useVarieties, useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useAuth } from "@/lib/auth";
@@ -48,11 +42,11 @@ function resolveTint(colorKey: string | null | undefined): {
 /**
  * Variety detail screen.
  *
- * Read-only view of a variety: tinted hero band with family + scientific
- * name + seed thumb, reference dimensions card, grade thresholds preview,
- * and a brief recent-inspections roll-up. Admin-only actions (edit
- * variety, capture classes) appear at the bottom of the scroll. Bottom
- * CTA jumps to capture setup with the variety pre-selected.
+ * Tinted hero band (family + name + scientific + active/model-class pills)
+ * over white reference / histogram / grade-threshold cards. Admin-only edit
+ * + capture-classes actions appear inline; the bottom dock holds the primary
+ * "Start inspection" CTA. Visual fidelity port of the prototype's
+ * `VarietyDetailScreen`.
  *
  * Lookups reuse the cached `useVarieties()` query rather than a separate
  * by-id endpoint — avoids a per-screen network round trip and keeps the
@@ -80,8 +74,6 @@ export default function VarietyDetail() {
     return inspections.data.filter((row) => row.variety_id === variety.id).slice(0, 50);
   }, [variety, inspections.data]);
 
-  const totalSeeds = recent.reduce((sum, r) => sum + (r.total_seeds ?? 0), 0);
-
   if (varieties.isLoading || inspections.isLoading) return <LoadingState />;
   if (varieties.isError || !variety) {
     return <ErrorState onRetry={() => void varieties.refetch()} />;
@@ -90,13 +82,13 @@ export default function VarietyDetail() {
   const tint = resolveTint(variety.color_key);
   const meanL = avg(recent, "mean_length_mm");
   const meanW = avg(recent, "mean_width_mm");
-  const meanArea = avg(recent, "mean_area_mm2");
   // Grade range "anchors" derive from the recent mean length when present so
   // the thresholds card stays oriented around real data. Width follows the
   // same ±10/20% bands. These are display-only stand-ins until a
   // `grade_thresholds` column lands on `varieties`.
   const thresholds = buildThresholds(meanL, meanW);
   const gradeAPct = recent.length > 0 ? gradeAPercent(recent) : 0;
+  const histogram = buildHistogram(recent, meanL);
 
   const onStartInspection = () => {
     if (modelInstallGate.showBlockedMessage()) return;
@@ -109,9 +101,16 @@ export default function VarietyDetail() {
   };
 
   const familyLabel = t(`varieties:family.${tint.key}`);
+  // Mirrors the prototype's "model · oryza_sativa" purple pill — uses the
+  // scientific name slug as a stand-in for the (not-yet-stored) detector
+  // class mapping so the band carries the same information density.
+  const modelSlug = (variety.scientific_name ?? variety.name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-bg-primary" edges={["top", "bottom"]}>
       <AppTopBar
         title={variety.name}
         left={{
@@ -130,12 +129,12 @@ export default function VarietyDetail() {
         }
       />
       <ScrollView contentContainerClassName="pb-md">
-        {/* Hero band — tinted full-bleed with seed thumb + family + sci name */}
+        {/* Hero band — tinted full-bleed with white seed thumb + family + sci name */}
         <View className={`px-xl pt-lg pb-xl ${tint.bg}`}>
           <View className="flex-row items-center gap-md">
             <View
-              className="items-center justify-center overflow-hidden rounded-lg"
-              style={{ height: 72, width: 72, backgroundColor: "rgba(255,255,255,0.55)" }}
+              className="items-center justify-center overflow-hidden rounded-lg bg-bg-primary"
+              style={{ height: 64, width: 64 }}
             >
               {variety.image_url ? (
                 <Image
@@ -153,13 +152,13 @@ export default function VarietyDetail() {
             </View>
             <View className="flex-1">
               <Text
-                className={`text-label uppercase font-medium ${tint.text}`}
+                className="text-label uppercase font-semibold text-primary-deep"
                 style={{ letterSpacing: 0.6 }}
               >
                 {familyLabel}
               </Text>
               <Text
-                className="text-fg-primary font-medium mt-[2px]"
+                className="text-fg-primary font-semibold mt-[2px]"
                 style={{ fontSize: 22, letterSpacing: -0.4 }}
                 numberOfLines={2}
               >
@@ -183,12 +182,13 @@ export default function VarietyDetail() {
                   : t("varieties:status.active")
               }
             />
+            <Pill tone="brand" label={t("varieties:detail.modelClassLabel", { name: modelSlug })} />
           </View>
         </View>
 
         {variety.description ? (
           <View className="px-xl pt-md">
-            <Text className="text-body text-fg-secondary">{variety.description}</Text>
+            <Text className="text-body text-fg-primary">{variety.description}</Text>
           </View>
         ) : null}
 
@@ -210,6 +210,37 @@ export default function VarietyDetail() {
           />
         </View>
 
+        {/* Recent measurements histogram */}
+        <View className="px-xl pt-lg">
+          <Text className="text-h2 font-medium text-fg-primary mb-md">
+            {t("varieties:detail.recentMeasurementsTitle")}
+          </Text>
+          <Card className="py-md px-md">
+            <View className="flex-row items-baseline gap-xs">
+              <Text className="text-fg-primary font-semibold" style={{ fontSize: 22 }}>
+                {recent.length > 0 ? meanL.toFixed(2) : "—"}
+              </Text>
+              <Text className="text-caption text-fg-secondary">
+                {t("varieties:detail.mmAvgLengthLabel", { count: recent.length })}
+              </Text>
+            </View>
+            <View className="flex-row items-end mt-md" style={{ height: 50, gap: 2 }}>
+              {histogram.bars.map((h, i) => (
+                <View
+                  key={i}
+                  className={`flex-1 rounded-xs ${i === histogram.peakIdx ? "bg-brand" : "bg-brand-soft"}`}
+                  style={{ height: `${Math.max(6, h * 100)}%` }}
+                />
+              ))}
+            </View>
+            <View className="flex-row justify-between mt-xs">
+              <Text className="text-label text-fg-tertiary">{histogram.loLabel}</Text>
+              <Text className="text-label text-fg-tertiary">{histogram.midLabel}</Text>
+              <Text className="text-label text-fg-tertiary">{histogram.hiLabel} mm</Text>
+            </View>
+          </Card>
+        </View>
+
         {/* Reference dimensions */}
         <View className="px-xl pt-lg">
           <Text className="text-h2 font-medium text-fg-primary mb-md">
@@ -227,11 +258,6 @@ export default function VarietyDetail() {
                   label={t("inspections:detail.summary.meanWidth")}
                   value={`${meanW.toFixed(2)} mm`}
                 />
-                <Divider />
-                <Row
-                  label={t("inspections:detail.summary.meanArea")}
-                  value={`${meanArea.toFixed(2)} mm²`}
-                />
               </>
             ) : (
               <View className="px-lg py-md">
@@ -243,7 +269,7 @@ export default function VarietyDetail() {
           </Card>
         </View>
 
-        {/* Grade thresholds preview */}
+        {/* Grade thresholds */}
         <View className="px-xl pt-lg">
           <Text className="text-h2 font-medium text-fg-primary mb-md">
             {t("varieties:detail.gradeThresholdsTitle")}
@@ -251,73 +277,24 @@ export default function VarietyDetail() {
           <Card className="p-0">
             <ThresholdRow
               grade="A"
-              lengthLabel={`${thresholds.A.lLo} – ${thresholds.A.lHi} mm`}
-              widthLabel={`${thresholds.A.wLo} – ${thresholds.A.wHi} mm`}
-              t={t}
+              label={t("varieties:detail.lengthRange")}
+              loLabel={thresholds.A.lLo}
+              hiLabel={thresholds.A.lHi}
             />
             <Divider />
             <ThresholdRow
               grade="B"
-              lengthLabel={`${thresholds.B.lLo} – ${thresholds.B.lHi} mm`}
-              widthLabel={`${thresholds.B.wLo} – ${thresholds.B.wHi} mm`}
-              t={t}
+              label={t("varieties:detail.lengthRange")}
+              loLabel={thresholds.B.lLo}
+              hiLabel={thresholds.B.lHi}
             />
             <Divider />
             <ThresholdRow
               grade="C"
-              lengthLabel={`${thresholds.C.lLo} – ${thresholds.C.lHi} mm`}
-              widthLabel={`${thresholds.C.wLo} – ${thresholds.C.wHi} mm`}
-              t={t}
+              label={t("varieties:detail.lengthRange")}
+              loLabel={thresholds.C.lLo}
+              hiLabel={thresholds.C.lHi}
             />
-          </Card>
-        </View>
-
-        {/* Recent inspections list */}
-        <View className="px-xl pt-lg">
-          <Text className="text-h2 font-medium text-fg-primary mb-md">
-            {t("varieties:detail.recentTitle")}
-          </Text>
-          <Card className="p-0">
-            {recent.length === 0 ? (
-              <View className="px-lg py-md">
-                <Text className="text-caption text-fg-secondary">
-                  {t("inspections:list.empty")}
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Row
-                  label={t("varieties:detail.thisWeek")}
-                  value={t("varieties:detail.inspectionsCount", {
-                    count: recent.length,
-                    seeds: totalSeeds,
-                  })}
-                />
-                <Divider />
-                {recent.slice(0, 4).map((row, idx) => (
-                  <View key={row.id}>
-                    {idx > 0 ? <Divider /> : null}
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => router.push(`/inspections/${row.id}` as never)}
-                      className="flex-row items-center justify-between px-lg py-md active:bg-bg-secondary"
-                    >
-                      <View className="flex-1 mr-md">
-                        <Text className="text-body text-fg-primary" numberOfLines={1}>
-                          {formatDate(row.captured_at ?? row.created_at)}
-                        </Text>
-                        <Text className="text-caption text-fg-secondary mt-[2px]">
-                          {t("varieties:detail.seedsTotal", {
-                            count: row.total_seeds ?? 0,
-                          })}
-                        </Text>
-                      </View>
-                      <ChevronRight color="#8C8C87" size={16} />
-                    </Pressable>
-                  </View>
-                ))}
-              </>
-            )}
           </Card>
         </View>
 
@@ -325,13 +302,13 @@ export default function VarietyDetail() {
           <View className="px-xl pt-lg gap-sm">
             <Button
               label={t("varieties:detail.editVariety")}
-              variant="secondary"
+              variant="outline"
               renderLeadingIcon={() => <Pencil color="#171717" size={16} />}
-              onPress={() => router.push(`/more/varieties/${variety.id}/edit` as never)}
+              onPress={() => router.push(`/varieties/edit/${variety.id}` as never)}
             />
             <Button
               label={t("varieties:detail.captureClasses")}
-              variant="secondary"
+              variant="outline"
               renderLeadingIcon={() => <Layers color="#171717" size={16} />}
               onPress={() => router.push(`/more/capture-classes/${variety.id}` as never)}
             />
@@ -347,7 +324,6 @@ export default function VarietyDetail() {
         ) : null}
         <Button
           label={t("varieties:detail.startInspection")}
-          renderLeadingIcon={() => <CameraIcon color="#FFFFFF" size={18} />}
           disabled={variety.is_active === false}
           onPress={onStartInspection}
         />
@@ -404,18 +380,43 @@ function buildThresholds(meanL: number, meanW: number): Record<"A" | "B" | "C", 
   };
 }
 
-function formatDate(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    });
-  } catch {
-    return iso;
+// 15-bucket histogram around mean length. When no data is available we emit a
+// flat distribution so the card still renders an axis without an empty stripe.
+function buildHistogram(
+  rows: Array<{ mean_length_mm: number | null }>,
+  meanL: number,
+): { bars: number[]; peakIdx: number; loLabel: string; midLabel: string; hiLabel: string } {
+  const BARS = 15;
+  if (rows.length === 0 || meanL <= 0) {
+    return {
+      bars: Array.from({ length: BARS }, () => 0.05),
+      peakIdx: 7,
+      loLabel: "—",
+      midLabel: "—",
+      hiLabel: "—",
+    };
   }
+  const lo = meanL - 1;
+  const hi = meanL + 1;
+  const step = (hi - lo) / BARS;
+  const counts = new Array<number>(BARS).fill(0);
+  for (const r of rows) {
+    const v = Number(r.mean_length_mm) || 0;
+    if (v <= 0) continue;
+    const idx = Math.min(BARS - 1, Math.max(0, Math.floor((v - lo) / step)));
+    counts[idx] += 1;
+  }
+  const max = counts.reduce((m, c) => Math.max(m, c), 0) || 1;
+  const bars = counts.map((c) => c / max);
+  let peakIdx = 0;
+  for (let i = 1; i < bars.length; i += 1) if (bars[i] > bars[peakIdx]) peakIdx = i;
+  return {
+    bars,
+    peakIdx,
+    loLabel: lo.toFixed(1),
+    midLabel: meanL.toFixed(1),
+    hiLabel: hi.toFixed(1),
+  };
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -438,7 +439,7 @@ function StatTile({ label, value, unit }: { label: string; value: string; unit?:
         {label}
       </Text>
       <View className="flex-row items-baseline gap-[3px] mt-xs">
-        <Text className="text-fg-primary font-medium" style={{ fontSize: 18 }}>
+        <Text className="text-fg-primary font-semibold" style={{ fontSize: 18 }}>
           {value}
         </Text>
         {unit ? <Text className="text-caption text-fg-secondary">{unit}</Text> : null}
@@ -449,26 +450,25 @@ function StatTile({ label, value, unit }: { label: string; value: string; unit?:
 
 function ThresholdRow({
   grade,
-  lengthLabel,
-  widthLabel,
-  t,
+  label,
+  loLabel,
+  hiLabel,
 }: {
   grade: "A" | "B" | "C";
-  lengthLabel: string;
-  widthLabel: string;
-  t: (key: string) => string;
+  label: string;
+  loLabel: string;
+  hiLabel: string;
 }) {
   return (
     <View className="flex-row items-center gap-md px-lg py-md">
       <GradeChip grade={grade} />
       <View className="flex-1">
-        <Text className="text-body text-fg-primary">{t("varieties:detail.lengthRange")}</Text>
-        <Text className="text-caption text-fg-secondary mt-[1px]">{lengthLabel}</Text>
+        <Text className="text-body text-fg-primary">{label}</Text>
+        <Text className="text-caption text-fg-secondary mt-[1px]">
+          {`≥ ${loLabel} mm  ·  ≤ ${hiLabel} mm`}
+        </Text>
       </View>
-      <View className="flex-1">
-        <Text className="text-body text-fg-primary">{t("varieties:detail.widthRange")}</Text>
-        <Text className="text-caption text-fg-secondary mt-[1px]">{widthLabel}</Text>
-      </View>
+      <ChevronRight color="#8C8C87" size={16} />
     </View>
   );
 }

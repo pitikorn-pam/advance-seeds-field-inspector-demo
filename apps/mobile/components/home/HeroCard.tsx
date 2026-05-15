@@ -9,6 +9,11 @@ import { Card } from "@/components/ui/Card";
 interface Props {
   /** Inspections already filtered by the selected Home dashboard date range. */
   inspections: InspectionRow[];
+  /**
+   * Inspections from the equal-length window immediately preceding the
+   * active range — drives the small ↗ deltas under each KPI tile.
+   */
+  priorInspections?: InspectionRow[];
   dateLabel: string;
 }
 
@@ -32,7 +37,7 @@ interface Props {
  */
 const GRADE_A_LENGTH_MM = 7.0;
 
-export function HeroCard({ inspections }: Props) {
+export function HeroCard({ inspections, priorInspections = [] }: Props) {
   const { t } = useTranslation("home");
 
   const totalSeeds = inspections.reduce((s, r) => s + (r.total_seeds ?? 0), 0);
@@ -43,6 +48,18 @@ export function HeroCard({ inspections }: Props) {
     })),
   );
   const lastRun = formatLastRun(inspections[0]?.captured_at ?? null);
+
+  // Deltas vs the prior equal-length window. Returned as already-formatted
+  // strings (e.g. "+3" / "-12 / "+0.2") so the KpiCard can render them
+  // directly. `null` means we don't have a comparable prior period (open
+  // history or both periods empty) and the delta line is hidden.
+  const priorSeeds = priorInspections.reduce((s, r) => s + (r.total_seeds ?? 0), 0);
+  const priorAvgLength = weightedMean(
+    priorInspections.map((row) => ({ value: row.mean_length_mm, weight: row.total_seeds ?? 0 })),
+  );
+  const runsDelta = formatCountDelta(inspections.length, priorInspections.length);
+  const seedsDelta = formatCountDelta(totalSeeds, priorSeeds);
+  const avgLengthDelta = formatFloatDelta(weightedLength, priorAvgLength, 2);
   const hourly = buildHourlyBuckets(inspections);
   const varieties = topVarieties(inspections, t("unassigned"));
   const totalVarietySeeds = varieties.reduce((s, v) => s + v.seeds, 0);
@@ -52,8 +69,12 @@ export function HeroCard({ inspections }: Props) {
       {/* KPI grid — plain white cards, hairline border, UPPERCASE caption,
           big number + optional unit, optional green ↗ delta below. */}
       <View className="flex-row gap-sm">
-        <KpiCard label={t("metricInspections")} value={inspections.length.toString()} />
-        <KpiCard label={t("metricSeeds")} value={totalSeeds.toLocaleString()} />
+        <KpiCard
+          label={t("metricInspections")}
+          value={inspections.length.toString()}
+          delta={runsDelta}
+        />
+        <KpiCard label={t("metricSeeds")} value={totalSeeds.toLocaleString()} delta={seedsDelta} />
       </View>
       <View className="flex-row gap-sm">
         <KpiCard
@@ -68,6 +89,7 @@ export function HeroCard({ inspections }: Props) {
               </>
             )
           }
+          delta={avgLengthDelta}
         />
         <KpiCard label={t("metricLastRun")} value={lastRun.value} sub={lastRun.sub} mono />
       </View>
@@ -160,9 +182,10 @@ function KpiCard({
   label: string;
   value: ReactNode;
   sub?: string;
-  delta?: string;
+  delta?: string | null;
   mono?: boolean;
 }) {
+  const negative = delta?.startsWith("-");
   return (
     <View className="flex-1 rounded-lg border border-line-tertiary bg-bg-primary px-md py-md">
       <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary">
@@ -179,12 +202,42 @@ function KpiCard({
       </View>
       {delta ? (
         <View className="flex-row items-center gap-[3px] mt-[4px]">
-          <TrendingUp color="#4DAB6D" size={12} strokeWidth={2.4} />
-          <Text className="text-[11px] font-semibold text-success-text">{delta}</Text>
+          <TrendingUp
+            color={negative ? "#A02828" : "#4DAB6D"}
+            size={12}
+            strokeWidth={2.4}
+            style={negative ? { transform: [{ scaleY: -1 }] } : undefined}
+          />
+          <Text
+            className={`text-[11px] font-semibold ${negative ? "text-error" : "text-success-text"}`}
+          >
+            {delta}
+          </Text>
         </View>
       ) : null}
     </View>
   );
+}
+
+/** Integer-delta formatter — returns null when there's nothing to compare. */
+function formatCountDelta(current: number, prior: number): string | null {
+  if (prior === 0 && current === 0) return null;
+  const diff = current - prior;
+  if (diff === 0) return null;
+  return diff > 0 ? `+${diff}` : `${diff}`;
+}
+
+/** Float-delta formatter with N-digit precision; null when either side missing. */
+function formatFloatDelta(
+  current: number | null,
+  prior: number | null,
+  digits: number,
+): string | null {
+  if (current === null || prior === null) return null;
+  const diff = current - prior;
+  if (Math.abs(diff) < 0.05) return null;
+  const formatted = Math.abs(diff).toFixed(digits);
+  return diff > 0 ? `+${formatted}` : `-${formatted}`;
 }
 
 function MiniBars({ data, height }: { data: number[]; height: number }) {

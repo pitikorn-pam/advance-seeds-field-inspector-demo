@@ -20,14 +20,16 @@ type FilterKey = "all" | "mapped" | "unmapped";
  * Capture-class master-data list.
  *
  * Visual layer mirrors the Field Inspector redesign prototype's
- * `AdminCaptureClassesScreen`: search field, then an All / Mapped /
- * Unmapped filter row over a flat list whose rows expose the row's
- * mapped/unmapped state via a status `Pill` plus a tap-to-edit chevron.
+ * `AdminCaptureClassesScreen`: a pill-shaped search field on the screen
+ * surface (not inside a card), followed by an All / Mapped / Unmapped
+ * tag-style segmented row whose active option is ink-black. The list
+ * itself is a flat sequence of full-bleed rows separated by hairlines —
+ * no surrounding row card. Each row shows the variety name, a mono
+ * scientific name, and three boolean status chips (class / grade /
+ * ref dim) that summarise the editable reference state.
  *
  * Tapping a row routes to `/more/capture-classes/<id>` for editing; the
- * top-right `+` routes to `/more/capture-classes/new` for creating. The
- * form lives on its own page so a long variety list doesn't squeeze the
- * editor below the fold.
+ * top-right `+` routes to `/more/capture-classes/new` for creating.
  */
 export default function CaptureClassesScreen() {
   const { t } = useTranslation(["common", "varieties", "more"]);
@@ -123,8 +125,10 @@ export default function CaptureClassesScreen() {
         }
       />
 
-      <View className="border-b border-line-tertiary px-xl pt-xs pb-md gap-md bg-bg-primary">
-        <View className="flex-row items-center gap-sm rounded-md bg-bg-secondary border border-line-tertiary px-md h-11">
+      {/* Search lives on the screen surface, not inside a card. Pill-shaped
+          bg-secondary fill with a magnifier, matching the prototype shot. */}
+      <View className="px-xl pt-xs pb-md gap-md bg-bg-primary">
+        <View className="flex-row items-center gap-sm rounded-full bg-bg-secondary px-md h-11">
           <Search color="#8C8C87" size={18} />
           <TextInput
             placeholder={t("more:masterData.searchPlaceholder")}
@@ -169,7 +173,8 @@ export default function CaptureClassesScreen() {
           visible.map((variety, idx) => {
             const isLast = idx === visible.length - 1;
             const mapped = isMapped(variety.coco_class_id);
-            const cocoName = labelForCocoId(variety.coco_class_id);
+            const hasGrade = hasGradeCriteria(variety.grade_criteria);
+            const hasRef = Boolean(variety.ref_length_mm && variety.ref_width_mm);
             return (
               <Pressable
                 key={variety.id}
@@ -181,7 +186,7 @@ export default function CaptureClassesScreen() {
                   isLast ? "" : "border-b border-line-tertiary"
                 } ${variety.is_active ? "" : "opacity-60"}`}
               >
-                <View className="flex-1">
+                <View className="flex-1 min-w-0">
                   <View className="flex-row items-center gap-sm">
                     <Text
                       className="text-title font-medium text-fg-primary flex-shrink"
@@ -194,31 +199,28 @@ export default function CaptureClassesScreen() {
                     )}
                   </View>
                   {variety.scientific_name ? (
-                    <Text className="text-caption text-fg-secondary italic mt-xs" numberOfLines={1}>
+                    <Text
+                      className="text-caption font-mono text-fg-secondary mt-xs"
+                      numberOfLines={1}
+                    >
                       {variety.scientific_name}
                     </Text>
                   ) : null}
-                  <Text className="text-caption text-fg-tertiary mt-xs" numberOfLines={1}>
-                    {cocoName
-                      ? t("more:masterData.classRow", {
-                          klass: cocoName,
-                          id: variety.coco_class_id,
-                        })
-                      : t("more:masterData.unmapped")}
-                    {hasGradeCriteria(variety.grade_criteria)
-                      ? ` · ${t("more:masterData.gradeCriteriaSet")}`
-                      : variety.ref_length_mm && variety.ref_width_mm
-                        ? ` · ${t("more:masterData.refDims", {
-                            l: variety.ref_length_mm,
-                            w: variety.ref_width_mm,
-                          })}`
-                        : ""}
-                  </Text>
+                  <View className="flex-row flex-wrap gap-xs mt-sm">
+                    <StatusChip
+                      ok={mapped}
+                      label={t("more:masterData.chips.class", { defaultValue: "class" })}
+                    />
+                    <StatusChip
+                      ok={hasGrade}
+                      label={t("more:masterData.chips.grade", { defaultValue: "grade" })}
+                    />
+                    <StatusChip
+                      ok={hasRef}
+                      label={t("more:masterData.chips.refDim", { defaultValue: "ref dim" })}
+                    />
+                  </View>
                 </View>
-                <Pill
-                  tone={mapped ? "success" : "warning"}
-                  label={t(mapped ? "more:masterData.mappedPill" : "more:masterData.unmappedPill")}
-                />
                 {editable ? <ChevronRight color="#8C8C87" size={16} /> : null}
               </Pressable>
             );
@@ -227,6 +229,16 @@ export default function CaptureClassesScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+/**
+ * Compact boolean status chip used inside list rows. Renders green (ok)
+ * or orange (missing) with a leading dot, mirroring the prototype's
+ * `BoolChip` (`fi-tag fi-tag-green` / `fi-tag fi-tag-orange`). We reuse
+ * the shared `Pill` primitive with a `dot` to stay token-driven.
+ */
+function StatusChip({ ok, label }: { ok: boolean; label: string }) {
+  return <Pill tone={ok ? "success" : "warning"} dot label={label} />;
 }
 
 function isMapped(id: number | null | undefined): boolean {

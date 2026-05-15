@@ -39,12 +39,37 @@
     "referenceShort": "Reference",
     "seedsTotal": "{{count}} seeds",
     "editVariety": "Edit variety",
-    "captureClasses": "Capture classes"
+    "captureClasses": "Capture classes",
+    "recentMeasurementsTitle": "Recent measurements",
+    "mmAvgLengthLabel": "mm avg L (last {{count}} runs)",
+    "modelClassLabel": "model · {{name}}"
   },
   "family": {
     "rice": "Rice",
     "corn": "Corn",
     "legume": "Legume",
     "mungbean": "Mungbean"
+  },
+  "editor": {
+    "title": "Edit · {{name}}",
+    "adminSubtitle": "Admin",
+    "sectionIdentity": "Identity",
+    "sectionReference": "Reference dimensions",
+    "sectionGrades": "Grade thresholds",
+    "sectionDetectorClass": "Detector class",
+    "sectionCaptureDefaults": "Capture defaults",
+    "fieldName": "Name",
+    "fieldScientific": "Scientific name",
+    "fieldFamily": "Family",
+    "fieldLengthMm": "Length (mm)",
+    "fieldWidthMm": "Width (mm)",
+    "gradeLabel": "Grade {{grade}}",
+    "lengthRange": "Length",
+    "classesFrom": "Classes from {{model}}",
+    "searchClasses": "Search classes",
+    "selectedHint": "Tap to map this variety to one or more detector classes. {{count}} selected.",
+    "captureLighting": "Lighting check",
+    "captureSurface": "Surface check",
+    "captureMultiSeed": "Multiple seeds"
   }
 }
