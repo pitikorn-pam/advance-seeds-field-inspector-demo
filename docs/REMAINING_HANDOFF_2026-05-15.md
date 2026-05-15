@@ -2,7 +2,7 @@
 
 Supersedes [`docs/REMAINING_HANDOFF_2026-05-04.md`](./REMAINING_HANDOFF_2026-05-04.md). Captures a UI-polish + bugfix session covering the Journey 14 Model Registry port, several cross-app design-cleanup tasks, and one real reinstall-blocks-inspection bug.
 
-All shipped changes pass `pnpm -F @advance-seeds/mobile typecheck`. Nothing committed yet — the working tree contains every change below.
+All shipped changes pass `pnpm -F @advance-seeds/mobile typecheck`. Committed as `f74a50d fix(capture): hoist scan.tsx useMemo above early returns + capture/splash polish` (alongside the prior `f23b178 feat(redesign): Wave B + polish — varieties/auth/admin/capture pass` that captured the model-registry/UI work earlier in the session).
 
 ## What just landed
 
