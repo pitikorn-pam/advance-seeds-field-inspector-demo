@@ -46,7 +46,7 @@ function StartupGate() {
   useEffect(() => {
     if (loading || onboarded === null) return;
     const top = segments[0] ?? "";
-    const inOnboarding = top === "splash" || top === "welcome";
+    const inOnboarding = top === "splash" || top === "welcome" || top === "welcome-permission";
     const inAuth = top === "login";
 
     if (!onboarded) {
