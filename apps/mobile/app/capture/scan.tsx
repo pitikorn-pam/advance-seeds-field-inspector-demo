@@ -517,9 +517,6 @@ export default function CaptureScan() {
       : "—";
   const kpiGrade = seeds.length > 0 ? String(seeds.filter((d) => d.grade === "A").length) : "—";
 
-  // ROI mode label for the top chip (rect / polygon / circle).
-  const roiKindLabel = session.roi?.kind ?? "rect";
-
   const calibrationOk = liveLidar.result || liveAruco.locked || manualCalibration.reading !== null;
   const showCalibrationWarn = !calibrationOk;
   const calibrationLabel = liveLidar.result
@@ -608,9 +605,7 @@ export default function CaptureScan() {
                   fontWeight: "600",
                 }}
               >
-                {recording.isRecording
-                  ? `Live · Rec · ${recDurationLabel}`
-                  : `Live · Capture · ${roiKindLabel.toUpperCase()}`}
+                {recording.isRecording ? `Live · Rec · ${recDurationLabel}` : "Live"}
               </Text>
             </DarkChip>
             <DarkChip onPress={cycleFlash}>
