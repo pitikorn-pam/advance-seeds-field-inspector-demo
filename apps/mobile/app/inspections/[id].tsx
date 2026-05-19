@@ -4,10 +4,10 @@ import Svg, { Ellipse } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, MoreHorizontal, Share2, Download, Trash2 } from "lucide-react-native";
+import { ChevronLeft, Share2, Trash2 } from "lucide-react-native";
 import type { Seed } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
-import { saveImageToLibrary } from "@/lib/capture/imageActions";
+import { shareImage, shareVideo } from "@/lib/capture/imageActions";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useInspection, useDeleteInspection } from "@/lib/queries";
@@ -161,28 +161,19 @@ export default function InspectionDetail() {
   const analyzerModel = readAnalyzerModelMetadata(metadata);
   const analysisDiagnostics = readAnalysisDiagnosticsMetadata(metadata);
 
-  const saveImage = async () => {
+  const onShare = async () => {
     if (!mediaUrl) return;
     try {
-      await saveImageToLibrary(mediaUrl, {
-        title: t("inspections:detail.imageSaved"),
-        permissionDeniedTitle: t("inspections:capture.snapshot.permissionDeniedTitle"),
-        permissionDeniedBody: t("inspections:capture.snapshot.permissionDeniedBody"),
-      });
+      const title = t("inspections:detail.title");
+      if (captureMedia.kind === "video") {
+        await shareVideo(mediaUrl, title);
+      } else {
+        await shareImage(mediaUrl, title);
+      }
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       Alert.alert(t("common:states.error"), reason);
     }
-  };
-
-  const openMenu = () => {
-    Alert.alert(t("common:actions.more"), undefined, [
-      {
-        text: t("inspections:detail.saveImage"),
-        onPress: saveImage,
-      },
-      { text: t("common:actions.cancel"), style: "cancel" },
-    ]);
   };
 
   return (
@@ -195,9 +186,9 @@ export default function InspectionDetail() {
           onPress: handleBack,
         }}
         right={{
-          accessibilityLabel: t("common:actions.more"),
-          renderIcon: () => <MoreHorizontal color="#171717" size={20} />,
-          onPress: openMenu,
+          accessibilityLabel: t("inspections:capture.review.shareImage"),
+          renderIcon: () => <Share2 color="#171717" size={20} />,
+          onPress: onShare,
         }}
       />
       <FlatList
@@ -631,24 +622,6 @@ export default function InspectionDetail() {
         )}
         ListFooterComponent={
           <View className="mt-xl gap-sm">
-            <View className="flex-row gap-sm">
-              <View className="flex-1">
-                <Button
-                  variant="secondary"
-                  label="Share"
-                  renderLeadingIcon={() => <Share2 color="#171717" size={16} />}
-                  onPress={saveImage}
-                />
-              </View>
-              <View className="flex-1">
-                <Button
-                  variant="secondary"
-                  label="Export"
-                  renderLeadingIcon={() => <Download color="#171717" size={16} />}
-                  onPress={saveImage}
-                />
-              </View>
-            </View>
             {policy.canDeleteInspection(inspection) ? (
               <Button
                 variant="ghost"

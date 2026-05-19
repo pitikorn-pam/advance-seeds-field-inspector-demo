@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { ChevronLeft } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
-import { useInspections } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 import { RolePill } from "@/components/ui/RolePill";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -15,15 +14,13 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
  *
  * Visual layer mirrors the Field Inspector redesign prototype `ProfileScreen`:
  * a centered hero Card (large round avatar + name + email + role pill),
- * an "About your role" description Card, then a three-up centered stat
- * grid (`StatTile3`). Auth wiring and queries are untouched — stats lean
- * on the existing `useInspections` query.
+ * an "About your role" description Card, and a meta list (email / device /
+ * app version).
  */
 export default function ProfileScreen() {
   const { t } = useTranslation(["common", "profile"]);
   const router = useRouter();
   const { profile } = useAuth();
-  const { data: inspections } = useInspections();
 
   const initials =
     (profile?.full_name ?? profile?.email ?? "")
@@ -35,12 +32,6 @@ export default function ProfileScreen() {
 
   const role: "Inspector" | "Admin" | null =
     profile?.role === "admin" ? "Admin" : profile?.role === "inspector" ? "Inspector" : null;
-
-  const inspectionsCount = inspections?.length ?? 0;
-  const seedsTotal = (inspections ?? []).reduce((sum, row) => sum + (row.total_seeds ?? 0), 0);
-  const completeCount = (inspections ?? []).filter((row) => row.status === "complete").length;
-  const syncRate =
-    inspectionsCount === 0 ? "—" : `${Math.round((completeCount / inspectionsCount) * 100)}%`;
 
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "—";
   const deviceName = Constants.deviceName ?? "—";
@@ -112,18 +103,6 @@ export default function ProfileScreen() {
           </Card>
         </View>
 
-        {/* Stat grid — last 30 days */}
-        <View className="gap-sm">
-          <Text className="text-title font-medium text-fg-primary px-xs">
-            {t("profile:statsHeading30d", "This account · last 30 days")}
-          </Text>
-          <View className="flex-row gap-sm">
-            <StatTile3 value={String(inspectionsCount)} label={t("profile:stats.inspections")} />
-            <StatTile3 value={formatCount(seedsTotal)} label={t("profile:stats.seeds")} />
-            <StatTile3 value={syncRate} label={t("profile:stats.syncRate")} />
-          </View>
-        </View>
-
         {/* Meta list — email / device / app version (kept for real account info) */}
         <View className="gap-sm">
           <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary px-xs">
@@ -142,24 +121,6 @@ export default function ProfileScreen() {
   );
 }
 
-function StatTile3({ value, label }: { value: string; label: string }) {
-  // Prototype: big 28px semibold value with UPPERCASE caption below in
-  // small-caps steel — same KPI grammar used on Home/Reports.
-  return (
-    <Card className="p-md items-center flex-1">
-      <Text className="text-fg-primary font-semibold" style={{ fontSize: 28, letterSpacing: -0.5 }}>
-        {value}
-      </Text>
-      <Text
-        className="mt-[6px] text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary text-center"
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-    </Card>
-  );
-}
-
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row items-center px-md py-md">
@@ -173,9 +134,4 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 
 function Divider() {
   return <View className="h-px bg-line-tertiary mx-md" />;
-}
-
-function formatCount(n: number) {
-  if (n < 1000) return String(n);
-  return n.toLocaleString("en-US");
 }

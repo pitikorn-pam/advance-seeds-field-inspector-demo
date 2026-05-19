@@ -3,16 +3,7 @@ import { FlatList, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import {
-  Calendar,
-  ChevronLeft,
-  Download,
-  Play,
-  RefreshCw,
-  Share2,
-  Trash2,
-  X,
-} from "lucide-react-native";
+import { Calendar, ChevronLeft, Play, RefreshCw, Share2, Trash2, X } from "lucide-react-native";
 import type { Recording } from "@advance-seeds/types";
 import { useRecordings, useDeleteRecording } from "@/lib/queries";
 import {
@@ -25,7 +16,7 @@ import { deleteLocalMediaForPayload } from "@/lib/sync/localMedia";
 import type { RecordingQueuePayload, SyncQueueEntry } from "@/lib/sync/types";
 import { Pill } from "@/components/ui/Pill";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
-import { shareVideo, saveImageToLibrary } from "@/lib/capture/imageActions";
+import { shareVideo } from "@/lib/capture/imageActions";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -109,18 +100,6 @@ export default function RecordingsScreen() {
             Alert.alert(t("common:states.error"), reason);
           }
         }}
-        onSave={async () => {
-          try {
-            await saveImageToLibrary(rec.video_url, {
-              title: t("profile:recordings.savedToPhotos"),
-              permissionDeniedTitle: t("profile:recordings.permissionDeniedTitle"),
-              permissionDeniedBody: t("profile:recordings.permissionDeniedBody"),
-            });
-          } catch (err) {
-            const reason = err instanceof Error ? err.message : String(err);
-            Alert.alert(t("common:states.error"), reason);
-          }
-        }}
         onDelete={() =>
           Alert.alert(t("common:actions.delete"), t("profile:recordings.deleteConfirm"), [
             { text: t("common:actions.cancel"), style: "cancel" },
@@ -135,7 +114,6 @@ export default function RecordingsScreen() {
         }
         labels={{
           share: t("profile:recordings.share"),
-          save: t("profile:recordings.save"),
           delete: t("common:actions.delete"),
         }}
       />
@@ -388,15 +366,13 @@ function formatDuration(ms: number): string {
 function RecordingRow({
   recording,
   onShare,
-  onSave,
   onDelete,
   labels,
 }: {
   recording: Recording;
   onShare: () => void;
-  onSave: () => void;
   onDelete: () => void;
-  labels: { share: string; save: string; delete: string };
+  labels: { share: string; delete: string };
 }) {
   const captured = new Date(recording.captured_at);
   const captionDate = captured.toLocaleDateString(undefined, {
@@ -422,15 +398,6 @@ function RecordingRow({
           >
             <Share2 color="#171717" size={14} />
             <Text className="text-caption font-medium text-fg-primary">{labels.share}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={labels.save}
-            onPress={onSave}
-            className="flex-row items-center gap-xs"
-          >
-            <Download color="#171717" size={14} />
-            <Text className="text-caption font-medium text-fg-primary">{labels.save}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"

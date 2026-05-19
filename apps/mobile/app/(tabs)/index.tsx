@@ -32,7 +32,6 @@ import {
 } from "@/components/ui/DateRangePicker";
 import { HeroCard } from "@/components/home/HeroCard";
 import { RecentInspections } from "@/components/home/RecentInspections";
-import { SyncBanner } from "@/components/home/SyncBanner";
 import { ModelUpdateBanner } from "@/components/home/ModelUpdateBanner";
 import { ModelUpdateNotifier } from "@/components/home/ModelUpdateNotifier";
 import { NotificationBell } from "@/components/home/NotificationBell";
@@ -321,7 +320,6 @@ export default function HomeScreen() {
 
             <ModelUpdateBanner />
             <ModelUpdateNotifier />
-            <SyncBanner />
           </ScrollView>
         </SafeAreaView>
       </Animated.View>

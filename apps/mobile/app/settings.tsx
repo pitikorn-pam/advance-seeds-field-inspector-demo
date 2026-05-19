@@ -1,11 +1,10 @@
-import { Alert, ScrollView, View, Text, Pressable } from "react-native";
+import { ScrollView, View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
-import { ChevronLeft, Cloud, LogOut } from "lucide-react-native";
+import { ChevronLeft, Cloud } from "lucide-react-native";
 import { useTheme } from "@/lib/theme";
-import { useAuth } from "@/lib/auth";
 import { useSyncQueue } from "@/lib/sync/useSyncQueue";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
@@ -20,14 +19,13 @@ import type { SupportedLocale } from "@advance-seeds/i18n";
  * Visual layer mirrors the prototype `SettingsScreen`: section captions
  * above grouped `Card`s, Appearance bundles Theme + Language as inline grid
  * pickers, Sync shows a status row with retry / clear actions, About lists
- * version / build / backend, and a destructive Sign out button sits at the
- * bottom. Theme, locale, sync-queue, and auth wiring are unchanged.
+ * version / build / backend. Theme, locale, and sync-queue wiring are
+ * unchanged.
  */
 export default function SettingsScreen() {
   const { t, i18n } = useTranslation(["common", "settings", "more"]);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { signOut } = useAuth();
   const syncQueue = useSyncQueue();
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
@@ -49,20 +47,6 @@ export default function SettingsScreen() {
 
   const syncTone =
     syncQueue.counts.failed > 0 ? "danger" : syncQueue.counts.pending > 0 ? "warning" : "success";
-
-  const onSignOut = () => {
-    Alert.alert(t("more:menu.signOut"), t("more:menu.signOutConfirm"), [
-      { text: t("common:actions.cancel"), style: "cancel" },
-      {
-        text: t("more:menu.signOut"),
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/login");
-        },
-      },
-    ]);
-  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -176,20 +160,6 @@ export default function SettingsScreen() {
           <Divider />
           <SettingsRow label={t("settings:build")} value={buildNumber} mono />
         </Section>
-
-        {/* Destructive sign-out — kept for the existing sign-out flow */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("more:menu.signOut")}
-          onPress={onSignOut}
-          className="mt-md flex-row items-center justify-center gap-sm rounded-md bg-bg-primary py-md active:opacity-80"
-          style={{ borderWidth: 1, borderColor: "#FBC4C4" }}
-        >
-          <LogOut color="#8A1F1B" size={16} />
-          <Text className="text-body font-medium" style={{ color: "#8A1F1B" }}>
-            {t("more:menu.signOut")}
-          </Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

@@ -26,17 +26,19 @@ export interface HyperParams {
 }
 
 export const DEFAULT_HYPERPARAMS: HyperParams = {
-  // 0.25 matches Ultralytics' export default: balances recall against
-  // false-positive haze for proven custom models. Operators can drop
-  // it to 0.10–0.15 via More → Hyperparameters when debugging a fresh
-  // training run, then tune back up once recall stabilises.
-  scoreThreshold: 0.25,
-  iouThreshold: 0.65,
+  // 0.75 favours precision over recall — appropriate for the field-grade
+  // detector where false positives are more disruptive than missed seeds.
+  // 0.85 IoU keeps NMS tight against duplicate boxes around the same seed.
+  // Operators can dial these back via More → Hyperparameters when testing
+  // a fresh training run.
+  scoreThreshold: 0.75,
+  iouThreshold: 0.85,
   targetFps: 30,
   preprocessProfile: "model",
 };
 
-const STORAGE_KEY = "advance-seeds.hyperparams.v6";
+// v7: defaults raised to 0.75 / 0.85 / 30 (was 0.25 / 0.65 / 30).
+const STORAGE_KEY = "advance-seeds.hyperparams.v7";
 const LEGACY_STORAGE_KEYS = [
   "advance-seeds.hyperparams.v5",
   "advance-seeds.hyperparams.v4",
