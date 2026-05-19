@@ -13,6 +13,7 @@ import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
 import {
   YOLO_INPUT_SIZE,
+  attachSegmentationPolygons,
   decodeYolo,
   decodeYoloNms,
   decodeYoloSegmentationNms,
@@ -104,6 +105,27 @@ async function fileExists(uri: string): Promise<boolean> {
 
 function prod(s: number[]): number {
   return s.reduce((a, b) => a * b, 1);
+}
+
+/**
+ * Find the YOLO mask prototype tensor among the CoreML runner's
+ * `extraOutputs`. The prototype is a rank-4 multiArray of roughly
+ * `[1, 32, 160, 160]` (or NHWC equivalent); when multiple candidates
+ * exist we pick the largest by element count.
+ */
+function pickPrototypeFromExtras(
+  extras: Record<string, { shape: number[]; values: number[] }> | undefined,
+): { shape: number[]; values: number[] } | null {
+  if (!extras) return null;
+  let best: { shape: number[]; values: number[] } | null = null;
+  for (const key of Object.keys(extras)) {
+    const tensor = extras[key];
+    if (!tensor || !tensor.shape || tensor.shape.length < 3) continue;
+    if (!best || prod(tensor.shape) > prod(best.shape)) {
+      best = tensor;
+    }
+  }
+  return best;
 }
 
 /**
@@ -211,6 +233,24 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     // Segmentation output is already NMS-fused on-graph; only the raw
     // path needs JS-side NMS. nms-fused detection is also pre-NMS'd.
     const kept = outputKind === "raw" ? nonMaxSuppression(raw, hp.iouThreshold) : raw;
+    // Reconstruct per-instance binary masks from the prototype tensor +
+    // per-row coefficients so length/width/area come from
+    // `measure_instance` (mirror of scripts/run_segmentation.py). The
+    // CoreML runner surfaces the prototype tensor under `extraOutputs`
+    // alongside the primary detection tensor — pick the largest rank-4
+    // multiArray as the prototype candidate.
+    if (outputKind === "segmentation") {
+      const proto = pickPrototypeFromExtras(result.extraOutputs);
+      if (proto) {
+        attachSegmentationPolygons(kept, {
+          prototypes: Float32Array.from(proto.values),
+          protoShape: proto.shape,
+          letterbox: decodeOpts.letterbox,
+          srcWidth: srcW,
+          srcHeight: srcH,
+        });
+      }
+    }
     const seeds = mapDetectionsToSeeds(kept, {
       frameWidth: srcW,
       frameHeight: srcH,

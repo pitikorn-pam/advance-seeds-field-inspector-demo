@@ -3,9 +3,12 @@ import type {
   AnalysisSummary,
   AnalyzedSeed,
   SeedGradingConfig,
+  SeedMaskMeasurement,
 } from "@advance-seeds/types";
 import type { PixelImage } from "./ClassicalSeedAnalyzerCore";
 import { gradeSeedByConfig } from "./grading";
+import { measureInstance, type Point } from "./maskMeasurement";
+import { decodeMaskForDetection, extractPolygonFromMask } from "./yoloSegMask";
 
 export const YOLO_INPUT_SIZE = 640;
 
@@ -24,6 +27,22 @@ export interface RawDetection {
   height: number;
   score: number;
   classId: number;
+  /**
+   * Mask prototype coefficients from a YOLO segmentation head — present
+   * only on segmentation outputs. Same length as the prototype tensor's
+   * channel dimension (typically 32). When set, the post-decode mask
+   * pipeline reconstructs a per-instance binary mask and attaches a
+   * polygon + measurement bundle to the seed.
+   */
+  maskCoefs?: Float32Array;
+  /**
+   * Decoded mask polygon in source-image pixel space. Populated by
+   * `attachSegmentationPolygons` once the prototype tensor is available.
+   * Empty array when reconstruction failed or yielded < 3 vertices.
+   */
+  polygon?: ReadonlyArray<Point>;
+  /** Non-zero count of the decoded binary mask, paired with `polygon`. */
+  maskPixelCount?: number;
 }
 
 export function letterbox(pixels: PixelImage, target = YOLO_INPUT_SIZE): LetterboxResult {
@@ -281,7 +300,18 @@ export function decodeYoloSegmentationNms(
     const width = x2 - x1;
     const height = y2 - y1;
     if (width <= 1 || height <= 1) continue;
-    detections.push({ x: x1, y: y1, width, height, score, classId });
+    // Capture the trailing mask coefficients so the post-decode mask
+    // pipeline can reconstruct a per-instance binary mask from the
+    // prototype tensor. Standard Ultralytics export emits 32 coefs after
+    // `[bbox, conf, cls]`; we slice whatever's there and let the mask
+    // decoder match against the prototype tensor's channel count.
+    const coefCount = fields - 6;
+    let maskCoefs: Float32Array | undefined;
+    if (coefCount > 0) {
+      maskCoefs = new Float32Array(coefCount);
+      for (let c = 0; c < coefCount; c++) maskCoefs[c] = output[base + 6 + c];
+    }
+    detections.push({ x: x1, y: y1, width, height, score, classId, maskCoefs });
   }
   return detections;
 }
@@ -402,6 +432,60 @@ function iou(a: RawDetection, b: RawDetection) {
   return inter / union;
 }
 
+export interface AttachSegmentationOptions {
+  prototypes: Float32Array | readonly number[];
+  protoShape: readonly number[];
+  letterbox: LetterboxInverse;
+  srcWidth: number;
+  srcHeight: number;
+  /** Sigmoid threshold for mask binarization. Defaults to 0.5 (Ultralytics). */
+  maskThreshold?: number;
+}
+
+/**
+ * For each detection that came out of `decodeYoloSegmentationNms`, combine
+ * its `maskCoefs` with the model's mask prototype tensor, threshold to a
+ * binary mask, and trace the boundary polygon. Mutates each detection in
+ * place by adding `polygon` and `maskPixelCount`.
+ *
+ * Mirrors the Ultralytics segmentation post-process the reference script
+ * (scripts/run_segmentation.py) relies on for `masks.xy`. Skipped silently
+ * for detections without `maskCoefs` (the raw / nms-only paths).
+ */
+export function attachSegmentationPolygons(
+  detections: RawDetection[],
+  options: AttachSegmentationOptions,
+): void {
+  const { prototypes, protoShape, letterbox, srcWidth, srcHeight, maskThreshold } = options;
+  let decoded = 0;
+  for (const d of detections) {
+    if (!d.maskCoefs) continue;
+    const maskRect = decodeMaskForDetection({
+      coefs: d.maskCoefs,
+      prototypes,
+      protoShape,
+      bbox: { x: d.x, y: d.y, width: d.width, height: d.height },
+      srcW: srcWidth,
+      srcH: srcHeight,
+      letterbox,
+      threshold: maskThreshold,
+    });
+    if (!maskRect) continue;
+    const polygon = extractPolygonFromMask(maskRect);
+    if (polygon.length >= 3) {
+      d.polygon = polygon;
+      d.maskPixelCount = maskRect.pixelCount;
+      decoded++;
+    }
+  }
+  if (__DEV__ && detections.length > 0) {
+    console.info(
+      `[yolo] attachSegmentationPolygons: in=${detections.length} decoded=${decoded} ` +
+        `proto=${protoShape.join("x")}`,
+    );
+  }
+}
+
 export interface MapOptions {
   frameWidth: number;
   frameHeight: number;
@@ -466,11 +550,43 @@ export function mapDetectionsToSeeds(
       droppedOutOfRoi++;
       continue;
     }
-    const longPx = Math.max(d.width, d.height);
-    const shortPx = Math.min(d.width, d.height);
-    const length_mm = round(longPx / pxPerMm, 2);
-    const width_mm = round(shortPx / pxPerMm, 2);
-    const area_mm2 = round((d.width * d.height) / (pxPerMm * pxPerMm), 2);
+    // Segment-based measurement when the decoder reconstructed a mask
+    // polygon (test.py / run_segmentation.py path). The min-area rotated
+    // rect + mask pixel count gives a rotation-aware length/width and a
+    // true area, instead of the bbox-rect approximation used by the
+    // detection-only path. Falls back to bbox math when no polygon — the
+    // classical analyzer, the raw-head TFLite path, and any segmentation
+    // model whose prototype tensor we couldn't load all flow through that
+    // branch.
+    let length_mm: number;
+    let width_mm: number;
+    let area_mm2: number;
+    let maskMeasurement: SeedMaskMeasurement | undefined;
+    if (d.polygon && d.polygon.length >= 3 && pxPerMm > 0) {
+      const measured = measureInstance(d.polygon, {
+        maskPixelCount: d.maskPixelCount,
+        pxPerMm,
+      });
+      length_mm = round(measured.length_mm ?? 0, 2);
+      width_mm = round(measured.width_mm ?? 0, 2);
+      area_mm2 = round(measured.area_mm2 ?? 0, 2);
+      maskMeasurement = {
+        polygon: d.polygon.map((p) => ({ x: p.x, y: p.y })),
+        area_px: measured.area_px ?? 0,
+        length_px: measured.length_px ?? 0,
+        width_px: measured.width_px ?? 0,
+        perimeter_px: measured.perimeter_px ?? 0,
+        aspect_ratio: measured.aspect_ratio ?? 0,
+        circularity: measured.circularity ?? 0,
+        angle_deg: measured.angle_deg ?? 0,
+      };
+    } else {
+      const longPx = Math.max(d.width, d.height);
+      const shortPx = Math.min(d.width, d.height);
+      length_mm = round(longPx / pxPerMm, 2);
+      width_mm = round(shortPx / pxPerMm, 2);
+      area_mm2 = round((d.width * d.height) / (pxPerMm * pxPerMm), 2);
+    }
     seeds.push({
       index: seeds.length + 1,
       length_mm,
@@ -485,6 +601,7 @@ export function mapDetectionsToSeeds(
         width: Math.round(d.width),
         height: Math.round(d.height),
       },
+      ...(maskMeasurement ? { mask: maskMeasurement } : null),
     });
   }
   // Diagnostic for the "no seeds saved" failure mode: tells us at a glance

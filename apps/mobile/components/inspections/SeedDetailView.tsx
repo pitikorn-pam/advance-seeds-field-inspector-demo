@@ -4,7 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
-import type { BoundingBox, SeedGrade } from "@advance-seeds/types";
+import Svg, { Polygon as SvgPolygon } from "react-native-svg";
+import type { BoundingBox, SeedGrade, SeedMaskMeasurement } from "@advance-seeds/types";
 import { Card } from "@/components/ui/Card";
 import { GradeChip } from "@/components/ui/GradeChip";
 import { AppTopBar } from "@/components/ui/AppTopBar";
@@ -29,6 +30,13 @@ export interface SeedDetailSeed {
   area_mm2: number;
   grade: SeedGrade;
   bbox: BoundingBox;
+  /**
+   * Optional segment-based measurement bundle from the analyzer's mask
+   * head. When present, the hero crop renders the polygon outline and
+   * the metrics card surfaces perimeter / aspect / circularity (mirrors
+   * `measure_instance` from scripts/run_segmentation.py).
+   */
+  mask?: SeedMaskMeasurement;
 }
 
 interface Props {
@@ -341,6 +349,18 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
               borderColor: ringColor,
             }}
           />
+          {dims && seed.mask && seed.mask.polygon.length >= 3 ? (
+            <MaskPolygonOverlay
+              polygon={seed.mask.polygon}
+              imageLeft={projection.left}
+              imageTop={projection.top}
+              imageWidth={projection.imageWidth}
+              imageHeight={projection.imageHeight}
+              sourceWidth={dims.width}
+              sourceHeight={dims.height}
+              color={ringColor}
+            />
+          ) : null}
         </View>
       ) : (
         <SeedShape ringColor={ringColor} />
@@ -390,6 +410,44 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
           </View>
         );
       })()}
+    </View>
+  );
+}
+
+/**
+ * Render the segmentation mask polygon as an SVG overlay aligned with the
+ * hero crop's scaled image. The polygon points are in source-image pixel
+ * coordinates; we just multiply by the same scale `projectBboxToHero`
+ * used and shift by the image's top-left within the container.
+ */
+function MaskPolygonOverlay({
+  polygon,
+  imageLeft,
+  imageTop,
+  imageWidth,
+  imageHeight,
+  sourceWidth,
+  sourceHeight,
+  color,
+}: {
+  polygon: SeedMaskMeasurement["polygon"];
+  imageLeft: number;
+  imageTop: number;
+  imageWidth: number;
+  imageHeight: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  color: string;
+}) {
+  if (sourceWidth <= 0 || sourceHeight <= 0) return null;
+  const sx = imageWidth / sourceWidth;
+  const sy = imageHeight / sourceHeight;
+  const pointStr = polygon.map((p) => `${imageLeft + p.x * sx},${imageTop + p.y * sy}`).join(" ");
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
+      <Svg width="100%" height="100%">
+        <SvgPolygon points={pointStr} fill={`${color}33`} stroke={color} strokeWidth={1.5} />
+      </Svg>
     </View>
   );
 }

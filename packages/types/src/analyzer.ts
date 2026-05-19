@@ -91,6 +91,41 @@ export interface AnalyzedSeed {
    * mock fixture don't have a class concept.
    */
   class_id?: number;
+  /**
+   * Segment-based measurement details. Present when the analyzer ran a
+   * segmentation head and reconstructed the per-instance mask polygon —
+   * mirrors `measure_instance(polygon_xy, mask_bool, scale, …)` from
+   * scripts/run_segmentation.py in the ML repo.
+   *
+   * Carried in-memory only: not persisted to Supabase (the seeds table
+   * stores length/width/area_mm² as the canonical surface). Lost on
+   * reload, regenerated when the operator re-runs analysis.
+   */
+  mask?: SeedMaskMeasurement;
+}
+
+export interface SeedMaskMeasurement {
+  /**
+   * Boundary of the decoded mask, in source-image pixel space and in
+   * traversal order (typically clockwise from the top-left foreground
+   * pixel). Closed implicitly — the renderer connects the last vertex back
+   * to the first.
+   */
+  polygon: ReadonlyArray<{ x: number; y: number }>;
+  /** Non-zero pixel count of the binary mask (the source of `area_mm²`). */
+  area_px: number;
+  /** Long side of the mask's min-area rotated rect, in pixels. */
+  length_px: number;
+  /** Short side of the mask's min-area rotated rect, in pixels. */
+  width_px: number;
+  /** Polygon perimeter in pixels (mirrors cv2.arcLength). */
+  perimeter_px: number;
+  /** length_px / max(width_px, 1e-6). */
+  aspect_ratio: number;
+  /** 4π·area / max(perimeter², 1e-6) — 1.0 for a perfect circle. */
+  circularity: number;
+  /** OpenCV-compatible rotated-rect angle, in (-90, 0] degrees. */
+  angle_deg: number;
 }
 
 export interface AnalysisSummary {

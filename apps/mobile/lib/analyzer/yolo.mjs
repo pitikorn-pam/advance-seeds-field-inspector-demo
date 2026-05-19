@@ -2,6 +2,9 @@
 // Mirrors yolo.ts so node --test can exercise the decode/NMS/mapping logic
 // without pulling in react-native-fast-tflite or expo-file-system.
 
+import { measureInstance } from "./maskMeasurement.mjs";
+import { decodeMaskForDetection, extractPolygonFromMask } from "./yoloSegMask.mjs";
+
 export const YOLO_INPUT_SIZE = 640;
 
 // Letterbox a packed RGBA pixel buffer into a square `target` Float32 NHWC
@@ -149,9 +152,42 @@ export function decodeYoloSegmentationNms(output, shape, options) {
     const width = x2 - x1;
     const height = y2 - y1;
     if (width <= 1 || height <= 1) continue;
-    detections.push({ x: x1, y: y1, width, height, score, classId });
+    // Capture trailing mask coefficients (typically 32) so the post-decode
+    // mask pipeline can reconstruct a per-instance binary mask.
+    const coefCount = fields - 6;
+    let maskCoefs;
+    if (coefCount > 0) {
+      maskCoefs = new Float32Array(coefCount);
+      for (let c = 0; c < coefCount; c++) maskCoefs[c] = output[base + 6 + c];
+    }
+    detections.push({ x: x1, y: y1, width, height, score, classId, maskCoefs });
   }
   return detections;
+}
+
+// Mirror of attachSegmentationPolygons in yolo.ts. Mutates each detection
+// by adding `polygon` and `maskPixelCount` when the mask decode succeeds.
+export function attachSegmentationPolygons(detections, options) {
+  const { prototypes, protoShape, letterbox, srcWidth, srcHeight, maskThreshold } = options;
+  for (const d of detections) {
+    if (!d.maskCoefs) continue;
+    const maskRect = decodeMaskForDetection({
+      coefs: d.maskCoefs,
+      prototypes,
+      protoShape,
+      bbox: { x: d.x, y: d.y, width: d.width, height: d.height },
+      srcW: srcWidth,
+      srcH: srcHeight,
+      letterbox,
+      threshold: maskThreshold,
+    });
+    if (!maskRect) continue;
+    const polygon = extractPolygonFromMask(maskRect);
+    if (polygon.length >= 3) {
+      d.polygon = polygon;
+      d.maskPixelCount = maskRect.pixelCount;
+    }
+  }
 }
 
 export function nonMaxSuppression(detections, iouThreshold = 0.45) {
@@ -194,11 +230,40 @@ export function mapDetectionsToSeeds(detections, options) {
       y: frameHeight > 0 ? (d.y + d.height / 2) / frameHeight : 0,
     };
     if (roi && !pointInRoi(centroid, roi)) continue;
-    const longPx = Math.max(d.width, d.height);
-    const shortPx = Math.min(d.width, d.height);
-    const length_mm = round(longPx / pxPerMm, 2);
-    const width_mm = round(shortPx / pxPerMm, 2);
-    const area_mm2 = round((d.width * d.height) / (pxPerMm * pxPerMm), 2);
+    // Segment-based measurement when the decoder reconstructed a mask
+    // polygon. Mirrors `measure_instance` from run_segmentation.py: the
+    // min-area rotated rect supplies length/width, the mask pixel count
+    // supplies area. Falls back to bbox-rect math for detection-only
+    // outputs.
+    let length_mm;
+    let width_mm;
+    let area_mm2;
+    let mask;
+    if (d.polygon && d.polygon.length >= 3 && pxPerMm > 0) {
+      const measured = measureInstance(d.polygon, {
+        maskPixelCount: d.maskPixelCount,
+        pxPerMm,
+      });
+      length_mm = round(measured.length_mm ?? 0, 2);
+      width_mm = round(measured.width_mm ?? 0, 2);
+      area_mm2 = round(measured.area_mm2 ?? 0, 2);
+      mask = {
+        polygon: d.polygon.map((p) => ({ x: p.x, y: p.y })),
+        area_px: measured.area_px ?? 0,
+        length_px: measured.length_px ?? 0,
+        width_px: measured.width_px ?? 0,
+        perimeter_px: measured.perimeter_px ?? 0,
+        aspect_ratio: measured.aspect_ratio ?? 0,
+        circularity: measured.circularity ?? 0,
+        angle_deg: measured.angle_deg ?? 0,
+      };
+    } else {
+      const longPx = Math.max(d.width, d.height);
+      const shortPx = Math.min(d.width, d.height);
+      length_mm = round(longPx / pxPerMm, 2);
+      width_mm = round(shortPx / pxPerMm, 2);
+      area_mm2 = round((d.width * d.height) / (pxPerMm * pxPerMm), 2);
+    }
     seeds.push({
       index: seeds.length + 1,
       length_mm,
@@ -213,6 +278,7 @@ export function mapDetectionsToSeeds(detections, options) {
         width: Math.round(d.width),
         height: Math.round(d.height),
       },
+      ...(mask ? { mask } : null),
     });
   }
   return seeds;

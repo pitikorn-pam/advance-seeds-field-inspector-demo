@@ -16,10 +16,15 @@ test("post-capture CoreML analyzer resolves the active model for every analyze c
 });
 
 test("post-capture TFLite analyzer resolves the active model for every analyze call", () => {
-  assert.match(
-    tfliteSource,
-    /const \{ model, outputKind, outputIndex, outputShape, delegate, modelRecord \} =\s+await loadSharedTfliteModel\(\);/,
-  );
+  // We extract everything (model, output meta, delegate, modelRecord, and
+  // — when present — the segmentation mask prototype tensor) per analyze
+  // call, so a model swap between captures takes effect immediately. The
+  // destructure has grown over time; what matters is that it's a fresh
+  // `await loadSharedTfliteModel()` invocation, not a stored instance
+  // field on the analyzer class.
+  assert.match(tfliteSource, /=\s+await loadSharedTfliteModel\(\);/);
+  assert.match(tfliteSource, /const \{[^}]*\bmodel\b[^}]*\}\s*=/);
+  assert.match(tfliteSource, /const \{[^}]*\boutputKind\b[^}]*\}\s*=/);
   assert.doesNotMatch(tfliteSource, /private readonly model/);
   assert.doesNotMatch(tfliteSource, /this\.model/);
   assert.doesNotMatch(tfliteSource, /this\.outputKind/);

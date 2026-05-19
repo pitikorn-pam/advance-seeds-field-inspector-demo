@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  attachSegmentationPolygons,
   decodeYolo,
   decodeYoloNms,
   decodeYoloSegmentationNms,
@@ -165,4 +166,81 @@ test("mapDetectionsToSeeds applies ROI and converts mm", () => {
   const summary = summarizeSeeds(seeds);
   assert.equal(summary.total_seeds, 1);
   assert.equal(summary.mean_length_mm, 3);
+});
+
+test("mapDetectionsToSeeds uses measure_instance math when a mask polygon is present", () => {
+  // 12×4 rotated-rect polygon centered at (60, 50). length=12, width=4,
+  // so at pxPerMm=2 we expect length=6mm, width=2mm. Area from the mask
+  // pixel count (47) → 47 / 4 = 11.75 mm² (rounded to 11.75).
+  const polygon = [
+    { x: 54, y: 48 },
+    { x: 66, y: 48 },
+    { x: 66, y: 52 },
+    { x: 54, y: 52 },
+  ];
+  const detections = [
+    {
+      x: 54,
+      y: 48,
+      width: 12,
+      height: 4,
+      score: 0.9,
+      classId: 0,
+      polygon,
+      maskPixelCount: 47,
+    },
+  ];
+  const seeds = mapDetectionsToSeeds(detections, {
+    frameWidth: 200,
+    frameHeight: 200,
+    pxPerMm: 2,
+  });
+  assert.equal(seeds.length, 1);
+  const s = seeds[0];
+  assert.equal(s.length_mm, 6);
+  assert.equal(s.width_mm, 2);
+  // 47 px / (2 px/mm)² = 47 / 4 = 11.75 mm² (mask area beats bbox).
+  assert.equal(s.area_mm2, 11.75);
+  assert.ok(s.mask, "mask measurement bundle should be attached");
+  assert.equal(s.mask.length_px, 12);
+  assert.equal(s.mask.width_px, 4);
+  assert.equal(s.mask.area_px, 47);
+  assert.ok(Math.abs(s.mask.aspect_ratio - 3) < 1e-6);
+});
+
+test("attachSegmentationPolygons fills polygon + maskPixelCount on segmentation detections", () => {
+  // Tiny synthetic prototype: 1 hot channel inside a 4×4 block at proto
+  // coords (4..7), no scaling between proto and source.
+  const protoH = 16;
+  const protoW = 16;
+  const protoC = 1;
+  const protos = new Float32Array(protoH * protoW * protoC);
+  for (let y = 4; y < 8; y++) {
+    for (let x = 4; x < 8; x++) {
+      protos[(y * protoW + x) * protoC] = 1;
+    }
+  }
+  const detections = [
+    {
+      x: 4,
+      y: 4,
+      width: 4,
+      height: 4,
+      score: 0.9,
+      classId: 0,
+      maskCoefs: new Float32Array([10]),
+    },
+    // Second detection has no coefs — should be skipped.
+    { x: 0, y: 0, width: 4, height: 4, score: 0.9, classId: 0 },
+  ];
+  attachSegmentationPolygons(detections, {
+    prototypes: protos,
+    protoShape: [1, protoH, protoW, protoC],
+    letterbox: { scale: 1, padX: 0, padY: 0, target: 16 },
+    srcWidth: 16,
+    srcHeight: 16,
+  });
+  assert.ok(detections[0].polygon && detections[0].polygon.length >= 3);
+  assert.equal(detections[0].maskPixelCount, 16);
+  assert.equal(detections[1].polygon, undefined);
 });

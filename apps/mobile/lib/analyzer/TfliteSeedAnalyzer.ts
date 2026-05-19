@@ -15,6 +15,7 @@ import type {
 import type { PixelImage } from "./ClassicalSeedAnalyzerCore";
 import {
   YOLO_INPUT_SIZE,
+  attachSegmentationPolygons,
   decodeYolo,
   decodeYoloNms,
   decodeYoloSegmentationNms,
@@ -48,6 +49,14 @@ export interface LoadedTfliteModel {
    *  native state across fast-refresh, so reading `model.outputs` repeatedly
    *  is unsafe. Capture once at load time and reuse. */
   outputShape: readonly [number, number, number];
+  /**
+   * Mask prototype tensor index, when the model emits one (segmentation
+   * head). Used by `attachSegmentationPolygons` to reconstruct per-instance
+   * masks. -1 when the model is detection-only.
+   */
+  protoIndex: number;
+  /** Cached prototype shape, snapshot for the same reason as `outputShape`. */
+  protoShape: readonly number[] | null;
   delegate: TfliteDelegate;
   sourceKey: string;
   modelRecord: InstalledModelRecord | null;
@@ -84,6 +93,28 @@ function selectDetectionOutput(outputs: readonly TfliteTensorInfo[]): {
   throw new Error(
     `Unsupported TFLite output shapes ${outputs.map((output) => output.shape.join("x")).join(",")}`,
   );
+}
+
+/**
+ * Locate the segmentation-head mask prototype tensor among the model's
+ * outputs. Standard YOLO seg models emit a rank-4 tensor of roughly
+ * `[1, 160, 160, 32]` (NHWC) — the largest non-detection output. We skip
+ * the index already taken by the detection head and pick the first rank-4
+ * tensor we find. Returns null when no candidate matches (detection-only
+ * model, or unexpected export layout).
+ */
+function selectPrototypeOutput(
+  outputs: readonly TfliteTensorInfo[],
+  detectionIndex: number,
+): { index: number; shape: readonly number[] } | null {
+  for (let index = 0; index < outputs.length; index++) {
+    if (index === detectionIndex) continue;
+    const shape = outputs[index]?.shape ?? [];
+    if (shape.length === 4 && shape[0] === 1) {
+      return { index, shape };
+    }
+  }
+  return null;
 }
 
 // Singleton loader — TfliteSeedAnalyzer (single-shot) and useLiveDetections
@@ -131,7 +162,15 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
       }
       const outputKind: TfliteOutputKind =
         outShape[2] === 6 ? "nms" : outShape[2] > 6 ? "segmentation" : "raw";
-      console.info(`[analyzer] tflite output kind=${outputKind} shape=${outShape.join("x")}`);
+      // For segmentation models, also locate the mask prototype tensor so
+      // the post-decode polygon pass has something to multiply the
+      // detection-row mask coefficients against.
+      const protoOutput =
+        outputKind === "segmentation" ? selectPrototypeOutput(outputs, selectedOutput.index) : null;
+      console.info(
+        `[analyzer] tflite output kind=${outputKind} shape=${outShape.join("x")}` +
+          (protoOutput ? ` proto=${protoOutput.shape.join("x")}` : ""),
+      );
       // Snapshot the shape into a plain tuple so we never read it back off
       // the hybrid object — accessing `model.outputs[].shape` after a
       // fast-refresh throws "this does not have a NativeState".
@@ -140,11 +179,14 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
         outShape[1],
         outShape[2],
       ];
+      const protoShape = protoOutput ? Array.from(protoOutput.shape) : null;
       return {
         model,
         outputKind,
         outputIndex: selectedOutput.index,
         outputShape,
+        protoIndex: protoOutput ? protoOutput.index : -1,
+        protoShape,
         delegate: activeDelegate,
         sourceKey: source.key,
         modelRecord: source.record,
@@ -193,8 +235,16 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     const startedAt = Date.now();
     await ensureHyperParamsLoaded();
     const hp = getHyperParamsSync();
-    const { model, outputKind, outputIndex, outputShape, delegate, modelRecord } =
-      await loadSharedTfliteModel();
+    const {
+      model,
+      outputKind,
+      outputIndex,
+      outputShape,
+      protoIndex,
+      protoShape,
+      delegate,
+      modelRecord,
+    } = await loadSharedTfliteModel();
     const decodeStartedAt = Date.now();
     const pixels = await decodeImage(image);
     const decodeMs = Date.now() - decodeStartedAt;
@@ -238,6 +288,26 @@ export class TfliteSeedAnalyzer implements SeedAnalyzer {
     // YOLO26 already runs NMS in the graph, so re-running it would be a no-op
     // on overlap and a needless O(n²) on JS. Skip when the graph handled it.
     const kept = outputKind === "raw" ? nonMaxSuppression(raw, hp.iouThreshold) : raw;
+    // When the model is a segmentation head, reconstruct per-instance
+    // binary masks from the prototype tensor + per-row coefficients and
+    // hand polygons to `mapDetectionsToSeeds`. This is the bridge that
+    // makes the seeds' length/width/area come from `measure_instance`
+    // (port of scripts/run_segmentation.py) instead of the bbox-rect
+    // approximation. Single-shot only — the live worklet returns null
+    // from analyzeFrame so it never pays this cost.
+    if (outputKind === "segmentation" && protoIndex >= 0 && protoShape) {
+      const protoBuffer = outputs[protoIndex];
+      if (protoBuffer) {
+        const protos = new Float32Array(protoBuffer);
+        attachSegmentationPolygons(kept, {
+          prototypes: protos,
+          protoShape,
+          letterbox: lb,
+          srcWidth: pixels.width,
+          srcHeight: pixels.height,
+        });
+      }
+    }
     const seeds = mapDetectionsToSeeds(kept, {
       frameWidth: pixels.width,
       frameHeight: pixels.height,
