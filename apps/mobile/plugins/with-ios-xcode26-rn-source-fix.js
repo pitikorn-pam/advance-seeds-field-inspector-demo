@@ -1,6 +1,12 @@
-const { withDangerousMod, withPodfileProperties } = require("@expo/config-plugins");
 const fs = require("node:fs");
 const path = require("node:path");
+
+// In pnpm workspaces @expo/config-plugins is not hoisted to the plugin directory.
+// Resolve it through expo (which always depends on it) to find the correct copy.
+const _expoDir = path.dirname(require.resolve("expo/package.json", { paths: [__dirname] }));
+const { withDangerousMod, withPodfileProperties } = require(
+  require.resolve("@expo/config-plugins", { paths: [_expoDir] }),
+);
 
 const FMT_CXX17_PATCH = `    installer.pods_project.targets.each do |target|
       next unless target.name == 'fmt'

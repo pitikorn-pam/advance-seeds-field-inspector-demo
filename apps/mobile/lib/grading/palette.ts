@@ -1,4 +1,4 @@
-import type { SeedGrade } from "@advance-seeds/types";
+import { GRADE_LETTERS, type SeedGrade, type Variety } from "@advance-seeds/types";
 
 /**
  * Per-grade colour pair: a soft background tint + a darker ink for the
@@ -51,6 +51,23 @@ export function gradePalette(grade: SeedGrade): GradePalette {
  * uses its own key. Falls back to the raw letter if i18n isn't wired in
  * for the caller.
  */
+/**
+ * Returns the grades a user can pick when overriding a seed's grade for
+ * the given variety. Scoped to the variety's declared tier set + "reject"
+ * (always available as a downgrade target). Falls back to the legacy
+ * A/B/C + reject set when no variety / no criteria are available so old
+ * inspections still get a sensible picker.
+ */
+export function availableGradesForVariety(
+  variety: Pick<Variety, "grade_criteria"> | null | undefined,
+): SeedGrade[] {
+  const criteria = variety?.grade_criteria;
+  if (!criteria) return ["A", "B", "C", "reject"];
+  const tiers: SeedGrade[] = GRADE_LETTERS.filter((letter) => criteria[letter]);
+  if (tiers.length === 0) return ["A", "B", "C", "reject"];
+  return [...tiers, "reject"];
+}
+
 export function gradeLabel(
   grade: SeedGrade,
   t: (key: string, options?: Record<string, unknown>) => string,

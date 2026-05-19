@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { useInspection, useUpdateSeedGrade } from "@/lib/queries";
+import { useInspection, useUpdateSeedGrade, useVarieties } from "@/lib/queries";
+import { availableGradesForVariety } from "@/lib/grading/palette";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 import { SeedDetailView } from "@/components/inspections/SeedDetailView";
 
@@ -15,7 +17,14 @@ export default function SavedSeedDetail() {
   const seedIndex = Number(params.index);
 
   const { data, isLoading, isError, refetch } = useInspection(inspectionId);
+  const varieties = useVarieties();
   const updateGrade = useUpdateSeedGrade();
+
+  const variety = useMemo(
+    () => varieties.data?.find((v) => v.id === data?.inspection.variety_id) ?? null,
+    [varieties.data, data?.inspection.variety_id],
+  );
+  const availableGrades = useMemo(() => availableGradesForVariety(variety), [variety]);
 
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => void refetch()} />;
@@ -28,6 +37,7 @@ export default function SavedSeedDetail() {
       seed={seed}
       sourceUri={data.inspection.image_url ?? null}
       busy={updateGrade.isPending}
+      availableGrades={availableGrades}
       onUpdateGrade={(grade) =>
         updateGrade.mutateAsync({
           inspectionId: data.inspection.id,

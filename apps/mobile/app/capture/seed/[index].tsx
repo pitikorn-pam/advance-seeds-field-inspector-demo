@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { useLocalSearchParams } from "expo-router";
 import type { SeedGrade } from "@advance-seeds/types";
 import { useCaptureSession } from "@/lib/capture/session";
+import { useVarieties } from "@/lib/queries";
+import { availableGradesForVariety } from "@/lib/grading/palette";
 import { ErrorState } from "@/components/ui/States";
 import { SeedDetailView } from "@/components/inspections/SeedDetailView";
 
@@ -16,8 +19,15 @@ import { SeedDetailView } from "@/components/inspections/SeedDetailView";
 export default function CaptureSeedDetail() {
   const params = useLocalSearchParams<{ index: string }>();
   const session = useCaptureSession();
+  const varieties = useVarieties();
   const result = session.analysisResult;
   const seedIndex = Number(params.index);
+
+  const variety = useMemo(
+    () => varieties.data?.find((v) => v.id === session.varietyId) ?? null,
+    [varieties.data, session.varietyId],
+  );
+  const availableGrades = useMemo(() => availableGradesForVariety(variety), [variety]);
 
   const seed = result?.seeds.find((s) => s.index === seedIndex) ?? null;
   if (!result || !seed) return <ErrorState />;
@@ -33,5 +43,12 @@ export default function CaptureSeedDetail() {
     });
   };
 
-  return <SeedDetailView seed={seed} sourceUri={sourceUri} onUpdateGrade={onUpdateGrade} />;
+  return (
+    <SeedDetailView
+      seed={seed}
+      sourceUri={sourceUri}
+      onUpdateGrade={onUpdateGrade}
+      availableGrades={availableGrades}
+    />
+  );
 }
