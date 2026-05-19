@@ -3,7 +3,7 @@ import { View, Text, Pressable, FlatList, ActivityIndicator } from "react-native
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { CheckCheck, X, AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react-native";
+import { CheckCheck, X, AlertTriangle, Check, Info } from "lucide-react-native";
 import type { Notification, NotificationKind } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import {
@@ -17,11 +17,40 @@ import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
 
 const PAGE_SIZE = 10;
 
-const KIND_VISUAL: Record<NotificationKind, { icon: typeof Info; color: string; bg: string }> = {
-  success: { icon: CheckCircle2, color: "#285B12", bg: "#DFF6EC" },
-  info: { icon: Info, color: "#1957A4", bg: "#E2F0FF" },
-  warning: { icon: AlertTriangle, color: "#704B00", bg: "#FFF1B8" },
-  error: { icon: AlertCircle, color: "#8A1F1B", bg: "#FFE2E0" },
+type KindVisual = {
+  icon: typeof Info;
+  tintClass: string;
+  inkClass: string;
+  iconColor: string;
+};
+
+// Tailwind colour tokens only. Icon stroke colours below match the ink token
+// values from @advance-seeds/tokens (success/warning/danger/info text vars).
+const KIND_VISUAL: Record<NotificationKind, KindVisual> = {
+  success: {
+    icon: Check,
+    tintClass: "bg-grade-a",
+    inkClass: "text-grade-a-ink",
+    iconColor: "#2D6E3F",
+  },
+  info: {
+    icon: Info,
+    tintClass: "bg-card-sky",
+    inkClass: "text-info-text",
+    iconColor: "#1957A4",
+  },
+  warning: {
+    icon: AlertTriangle,
+    tintClass: "bg-grade-b",
+    inkClass: "text-grade-b-ink",
+    iconColor: "#7A5A12",
+  },
+  error: {
+    icon: X,
+    tintClass: "bg-grade-reject",
+    inkClass: "text-grade-reject-ink",
+    iconColor: "#A02828",
+  },
 };
 
 /**
@@ -57,6 +86,29 @@ export default function NotificationsModal() {
     [i18n.language],
   );
 
+  const timeFmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [i18n.language],
+  );
+
+  const formatRelative = useCallback(
+    (iso: string) => {
+      const d = new Date(iso);
+      const now = new Date();
+      const sameDay =
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate();
+      if (sameDay) return timeFmt.format(d);
+      return dateFmt.format(d);
+    },
+    [dateFmt, timeFmt],
+  );
+
   const onPressItem = useCallback(
     (item: Notification) => {
       if (item.read_at === null) {
@@ -87,7 +139,7 @@ export default function NotificationsModal() {
           unreadCount > 0 && profile
             ? {
                 accessibilityLabel: t("notifications:markAllRead"),
-                renderIcon: () => <CheckCheck color="#6C47FF" size={18} />,
+                renderIcon: () => <CheckCheck size={18} />,
                 onPress: () => markAllRead.mutate(profile.id),
               }
             : undefined
@@ -102,25 +154,21 @@ export default function NotificationsModal() {
         <FlatList
           data={visible}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={
-            <Text className="mb-md text-body text-fg-secondary">{t("notifications:subtitle")}</Text>
-          }
-          renderItem={({ item, index }) => (
+          renderItem={({ item }) => (
             <NotificationRow
               notification={item}
-              isLast={index === visible.length - 1}
-              dateFmt={dateFmt}
+              formatTime={formatRelative}
               t={t}
               onPress={() => onPressItem(item)}
             />
           )}
           onEndReachedThreshold={0.4}
           onEndReached={onEndReached}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, paddingTop: 16 }}
+          contentContainerStyle={{ paddingBottom: 20 }}
           ListFooterComponent={
             hasMore ? (
               <View className="py-md items-center">
-                <ActivityIndicator size="small" color="#6C47FF" />
+                <ActivityIndicator size="small" />
               </View>
             ) : null
           }
@@ -132,14 +180,12 @@ export default function NotificationsModal() {
 
 function NotificationRow({
   notification,
-  isLast,
-  dateFmt,
+  formatTime,
   t,
   onPress,
 }: {
   notification: Notification;
-  isLast: boolean;
-  dateFmt: Intl.DateTimeFormat;
+  formatTime: (iso: string) => string;
   t: (key: string, options?: Record<string, unknown>) => string;
   onPress: () => void;
 }) {
@@ -152,34 +198,28 @@ function NotificationRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      className={`flex-row items-start gap-md rounded-lg border border-line-tertiary bg-bg-primary px-xl py-lg ${isLast ? "" : "mb-md"}`}
+      className={`flex-row items-start gap-md border-b border-line-tertiary px-xl py-lg ${
+        unread ? "bg-bg-secondary" : "bg-bg-primary"
+      }`}
     >
-      <View
-        className="items-center justify-center"
-        style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: visual.bg }}
-      >
-        <Icon color={visual.color} size={18} />
+      <View className={`h-10 w-10 items-center justify-center rounded-md ${visual.tintClass}`}>
+        <Icon color={visual.iconColor} size={18} />
       </View>
       <View className="flex-1">
-        <View className="flex-row items-center gap-sm">
-          <Text
-            className={`flex-1 text-title font-medium ${unread ? "text-fg-primary" : "text-fg-secondary"}`}
-            numberOfLines={1}
-          >
+        <View className="flex-row items-start gap-sm">
+          <Text className="flex-1 text-body font-semibold text-fg-primary" numberOfLines={1}>
             {copy.title}
           </Text>
-          {unread ? (
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#6C47FF" }} />
-          ) : null}
+          {unread ? <View className="mt-[6px] h-2 w-2 rounded-full bg-primary" /> : null}
+          <Text className="text-caption text-fg-tertiary" numberOfLines={1}>
+            {formatTime(notification.created_at)}
+          </Text>
         </View>
         {copy.body ? (
-          <Text className="text-caption text-fg-secondary mt-xs" numberOfLines={2}>
+          <Text className="mt-xs text-caption text-fg-secondary" numberOfLines={2}>
             {copy.body}
           </Text>
         ) : null}
-        <Text className="text-caption text-fg-tertiary mt-xs">
-          {dateFmt.format(new Date(notification.created_at))}
-        </Text>
       </View>
     </Pressable>
   );

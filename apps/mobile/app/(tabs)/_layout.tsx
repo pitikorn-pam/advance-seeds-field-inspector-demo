@@ -1,5 +1,6 @@
 import { Tabs, useRouter } from "expo-router";
 import { Camera, Home, MoreHorizontal, Sprout } from "lucide-react-native";
+import { Pressable, View, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
@@ -22,7 +23,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: isDark ? "#8F75FF" : "#6C47FF",
+        tabBarActiveTintColor: isDark ? "#8F75FF" : "#6E40E0",
         tabBarInactiveTintColor: isDark ? "#B6B6B0" : "#5F5F5B",
         tabBarStyle: {
           // In dark mode RN's default TabBar background is solid black, which
@@ -55,7 +56,34 @@ export default function TabsLayout() {
         }}
         options={{
           title: "Inspect",
-          tabBarIcon: ({ color, size }) => <TabGlyph kind="inspect" color={color} size={size} />,
+          // Marquee CTA — render the entire tab cell as a 44x44 solid-purple
+          // rounded square with a white camera icon, matching the prototype's
+          // Journey 2 bottom-bar treatment. Keeps the tab in the same row as
+          // the others (not a floating FAB) but visually announces it as the
+          // primary capture entry point.
+          tabBarButton: (props) => (
+            <Pressable
+              accessibilityRole={props.accessibilityRole}
+              accessibilityState={props.accessibilityState}
+              accessibilityLabel="Inspect"
+              onPress={props.onPress}
+              onLongPress={props.onLongPress}
+              className="flex-1 items-center justify-center gap-[2px]"
+            >
+              <View
+                className="h-[44px] w-[44px] items-center justify-center rounded-[12px] bg-primary"
+                style={{
+                  shadowColor: "#6E40E0",
+                  shadowOpacity: 0.35,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 2 },
+                }}
+              >
+                <Camera color="#FFFFFF" size={22} strokeWidth={2.1} />
+              </View>
+              <Text className="text-[10.5px] font-semibold text-fg-primary">Inspect</Text>
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen

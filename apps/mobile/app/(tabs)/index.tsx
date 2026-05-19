@@ -17,8 +17,10 @@ import { useAuth } from "@/lib/auth";
 import { useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useTheme } from "@/lib/theme";
-import { Pill } from "@/components/ui/Pill";
+import { RolePill, type Role } from "@/components/ui/RolePill";
+import { SyncPill, type SyncState } from "@/components/ui/SyncPill";
 import { Button } from "@/components/ui/Button";
+import { useSyncQueue } from "@/lib/sync/useSyncQueue";
 import { Segmented } from "@/components/ui/Segmented";
 import { ErrorState } from "@/components/ui/States";
 import { Skeleton, SkeletonList } from "@/components/ui/Skeleton";
@@ -56,14 +58,29 @@ export default function HomeScreen() {
   const router = useRouter();
   const session = useCaptureSession();
   const modelInstallGate = useModelInstallInspectionGate();
+  const syncQueue = useSyncQueue();
   const { data, isLoading, isError, refetch, isRefetching } = useInspections();
+
+  // Derive a single sync state from queue counts. Failed beats pending —
+  // a failed entry needs the user's attention more than a still-uploading one.
+  const syncState: SyncState =
+    syncQueue.counts.failed > 0 ? "failed" : syncQueue.counts.pending > 0 ? "pending" : "synced";
+  const syncCount =
+    syncState === "failed"
+      ? syncQueue.counts.failed
+      : syncState === "pending"
+        ? syncQueue.counts.pending
+        : 0;
   const [rangePreset, setRangePreset] = useState<HomeRangePreset>("today");
   const [dateRange, setDateRange] = useState<DateRange>(() => presetToRange("today"));
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const firstName = (profile?.full_name ?? profile?.email ?? "").split(/\s+|@/)[0];
 
-  const dateLabel = useMemo(
+  // Kept underscored — current Home layout shows greeting via the segmented
+  // chip row's "Today" instead of a date salutation, but the formatter is
+  // useful for the custom-range button label and any future re-use.
+  const _dateLabel = useMemo(
     () =>
       new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
         weekday: "long",
@@ -81,6 +98,14 @@ export default function HomeScreen() {
   }, [data]);
   const dashboardInspections = useMemo(
     () => filterByDateRange(data ?? [], dateRange),
+    [data, dateRange],
+  );
+  // Prior-period slice for KPI deltas. We shift the active range backward by
+  // its own length so "Today" compares to yesterday, "7D" to the prior week,
+  // and so on. Custom ranges with no start fall back to comparing the full
+  // history to its own halves — coarse but stable.
+  const priorInspections = useMemo(
+    () => filterByDateRange(data ?? [], shiftRangeBackward(dateRange)),
     [data, dateRange],
   );
   const dashboardDateLabel = rangeLabel(dateRange, i18n.language, t);
@@ -209,23 +234,27 @@ export default function HomeScreen() {
               <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
             }
           >
-            {/* Greeting + initials chip */}
+            {/* Greeting row — prototype: 36x36 lavender avatar with initials,
+                "Good morning" caption above the name, RolePill inline next to
+                the name, notification bell on the right. The date is NOT in
+                this row — it's implicit via the filter pills below. */}
             <View className="flex-row items-center gap-md">
+              <Avatar name={profile?.full_name ?? profile?.email ?? "?"} />
               <View className="flex-1">
-                <Text className="text-caption text-fg-secondary">{dateLabel}</Text>
-                <Text
-                  className="text-fg-primary font-medium mt-xs"
-                  style={{ fontSize: 22, letterSpacing: -0.4 }}
-                >
-                  {firstName ? t("home:greeting", { name: firstName }) : t("common:appName")}
-                </Text>
+                <Text className="text-caption text-fg-tertiary">{t("home:goodMorning")}</Text>
+                <View className="flex-row items-center gap-xs mt-[1px]">
+                  <Text
+                    className="text-fg-primary font-semibold"
+                    style={{ fontSize: 19, letterSpacing: -0.3 }}
+                    numberOfLines={1}
+                  >
+                    {firstName || t("common:appName")}
+                  </Text>
+                  {profile?.role ? (
+                    <RolePill role={(profile.role === "admin" ? "Admin" : "Inspector") as Role} />
+                  ) : null}
+                </View>
               </View>
-              {profile?.role ? (
-                <Pill
-                  tone={profile.role === "admin" ? "brand" : "info"}
-                  label={t(`common:roles.${profile.role}`)}
-                />
-              ) : null}
               <NotificationBell />
             </View>
 
@@ -234,13 +263,19 @@ export default function HomeScreen() {
             ) : (
               <>
                 <View className="gap-sm">
-                  <Segmented<HomeRangePreset>
-                    value={rangePreset}
-                    onChange={setPreset}
-                    options={rangeOptions}
-                    variant="tag"
-                    scrollable
-                  />
+                  {/* Segmented + sync state on the right — single row per prototype */}
+                  <View className="flex-row items-center gap-sm">
+                    <View className="flex-1">
+                      <Segmented<HomeRangePreset>
+                        value={rangePreset}
+                        onChange={setPreset}
+                        options={rangeOptions}
+                        variant="tag"
+                        scrollable
+                      />
+                    </View>
+                    <SyncPill state={syncState} count={syncCount} />
+                  </View>
                   {rangePreset === "custom" ? (
                     <View className="flex-row items-center gap-xs">
                       <Button
@@ -248,7 +283,7 @@ export default function HomeScreen() {
                         size="sm"
                         variant="outline"
                         label={dashboardDateLabel}
-                        renderLeadingIcon={() => <Calendar color="#6C47FF" size={14} />}
+                        renderLeadingIcon={() => <Calendar color="#6E40E0" size={14} />}
                         onPress={() => setDatePickerOpen(true)}
                       />
                       {hasCustomDateRange ? (
@@ -264,7 +299,11 @@ export default function HomeScreen() {
                     </View>
                   ) : null}
                 </View>
-                <HeroCard inspections={dashboardInspections} dateLabel={dashboardDateLabel} />
+                <HeroCard
+                  inspections={dashboardInspections}
+                  priorInspections={priorInspections}
+                  dateLabel={dashboardDateLabel}
+                />
               </>
             )}
 
@@ -313,6 +352,26 @@ export default function HomeScreen() {
   );
 }
 
+/**
+ * 40x40 lavender circle with the user's initials. Matches the prototype's
+ * "JK" avatar — a lightweight identity anchor for the greeting row.
+ * Local to this file because no other screen renders the same shape yet;
+ * promote to components/ui if a second consumer shows up.
+ */
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+  return (
+    <View className="h-[36px] w-[36px] items-center justify-center rounded-full bg-card-lavender">
+      <Text className="text-[13px] font-semibold text-primary-deep">{initials || "·"}</Text>
+    </View>
+  );
+}
+
 function presetToRange(preset: HomeRangePreset): DateRange {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -334,4 +393,22 @@ function filterByDateRange<T extends { captured_at: string }>(rows: T[], range: 
     const key = toDateKey(new Date(row.captured_at));
     return key >= range.start! && key <= end;
   });
+}
+
+/**
+ * Shift a range backward by its own length so KPI deltas have a stable
+ * prior-period reference. Today → yesterday, 7D → prior 7D, etc. Returns
+ * a null range when the input has no start (open-ended history), since
+ * there is no meaningful prior period to compare to.
+ */
+function shiftRangeBackward(range: DateRange): DateRange {
+  if (!range.start) return { start: null, end: null };
+  const startD = new Date(range.start);
+  const endD = new Date(range.end ?? range.start);
+  const lengthDays = Math.max(1, Math.round((+endD - +startD) / 86_400_000) + 1);
+  const priorEnd = new Date(startD);
+  priorEnd.setDate(startD.getDate() - 1);
+  const priorStart = new Date(priorEnd);
+  priorStart.setDate(priorEnd.getDate() - (lengthDays - 1));
+  return { start: toDateKey(priorStart), end: toDateKey(priorEnd) };
 }

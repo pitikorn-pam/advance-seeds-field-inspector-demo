@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { FlatList, View, Text, Pressable, Alert } from "react-native";
+import { FlatList, View, Text, Pressable, Alert, ScrollView } from "react-native";
+import Svg, { Ellipse } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, MoreHorizontal } from "lucide-react-native";
+import { ChevronLeft, MoreHorizontal, Share2, Download, Trash2 } from "lucide-react-native";
 import type { Seed } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
 import { saveImageToLibrary } from "@/lib/capture/imageActions";
@@ -21,23 +22,28 @@ import {
   readLocationMetadata,
   locationDisplayName,
 } from "@/lib/inspections/metadata";
-import { StatTile } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
+import { GradeChip } from "@/components/ui/GradeChip";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 
-const gradeToTone: Record<Seed["grade"], "success" | "info" | "warning" | "danger"> = {
-  A: "success",
-  B: "info",
-  C: "warning",
-  reject: "danger",
-};
-
 type GradeFilter = "all" | Seed["grade"];
 
 const gradeFilters: GradeFilter[] = ["all", "A", "B", "C", "reject"];
+
+// Per-grade tile-thumb tint. The prototype keeps the OUTER card white with a
+// hairline border, and tints only the small interior thumb area where a seed
+// silhouette sits — the grade is communicated by the corner GradeChip, not by
+// the whole card. Tints stay subtle so a wall of cards reads as a grid, not a
+// rainbow.
+const seedThumbTone: Record<Seed["grade"], string> = {
+  A: "bg-grade-a",
+  B: "bg-grade-b",
+  C: "bg-grade-c",
+  reject: "bg-grade-reject",
+};
 
 /**
  * Read the captured ROI off of `inspection.metadata.roi`. Returns the
@@ -127,6 +133,12 @@ export default function InspectionDetail() {
       gradeFilter === "all" ? allSeeds : allSeeds.filter((seed) => seed.grade === gradeFilter),
     [gradeFilter, allSeeds],
   );
+  // Counts shown next to each filter chip (prototype shows "All 18 · A 14 …").
+  const gradeCounts = useMemo(() => {
+    const counts: Record<Seed["grade"], number> = { A: 0, B: 0, C: 0, reject: 0 };
+    for (const s of allSeeds) counts[s.grade] += 1;
+    return counts;
+  }, [allSeeds]);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
     dateStyle: "medium",
@@ -191,36 +203,41 @@ export default function InspectionDetail() {
       <FlatList
         data={filteredSeeds}
         keyExtractor={(seed) => seed.id}
-        numColumns={3}
+        numColumns={4}
         contentContainerClassName="px-xl py-md gap-xl"
-        columnWrapperStyle={{ gap: 8 }}
-        initialNumToRender={12}
-        maxToRenderPerBatch={12}
+        columnWrapperStyle={{ gap: 6 }}
+        initialNumToRender={16}
+        maxToRenderPerBatch={16}
         windowSize={7}
         removeClippedSubviews
         extraData={gradeFilter}
         ListHeaderComponent={
-          <View className="gap-xl">
-            <View>
-              <Text className="text-h1 font-medium text-fg-primary">
-                {inspection.variety?.name ?? "—"}
+          <View className="gap-md">
+            {/* Header card — prototype: pills + headline + date · inspector */}
+            <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
+              <View className="flex-row flex-wrap items-center gap-sm">
+                {inspection.variety?.name ? (
+                  <Pill tone="brand" label={inspection.variety.name} />
+                ) : null}
+                {roiLabel ? (
+                  <Pill
+                    tone="info"
+                    label={t(`inspections:detail.roiBadge.${roiLabel.kind}`, {
+                      vertices: roiLabel.vertices ?? 0,
+                    })}
+                  />
+                ) : null}
+              </View>
+              <Text className="mt-sm text-h2 font-medium text-fg-primary">
+                {t("inspections:detail.summary.totalSeeds")} · {inspection.total_seeds}
               </Text>
               <Text className="text-caption text-fg-secondary mt-xs">
                 {dateFmt.format(new Date(inspection.captured_at))} ·{" "}
                 {inspection.inspector?.full_name ?? inspection.inspector?.email}
               </Text>
-              {roiLabel ? (
-                <View className="mt-sm flex-row">
-                  <Pill
-                    tone="brand"
-                    label={t(`inspections:detail.roiBadge.${roiLabel.kind}`, {
-                      vertices: roiLabel.vertices ?? 0,
-                    })}
-                  />
-                </View>
-              ) : null}
             </View>
 
+            {/* Sample preview / hero image */}
             <View className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-black">
               {mediaUrl ? (
                 <CaptureMediaPreview
@@ -243,6 +260,25 @@ export default function InspectionDetail() {
                   </Text>
                 </View>
               )}
+            </View>
+
+            {/* Stat tiles — prototype shows 3-col Avg L / Avg W / Avg A */}
+            <View className="flex-row gap-sm">
+              <AvgStatTile
+                label={t("inspections:detail.summary.meanLength")}
+                value={Number(inspection.mean_length_mm ?? 0).toFixed(2)}
+                unit="mm"
+              />
+              <AvgStatTile
+                label={t("inspections:detail.summary.meanWidth")}
+                value={Number(inspection.mean_width_mm ?? 0).toFixed(2)}
+                unit="mm"
+              />
+              <AvgStatTile
+                label={t("inspections:detail.summary.meanArea")}
+                value={Number(inspection.mean_area_mm2 ?? 0).toFixed(1)}
+                unit="mm²"
+              />
             </View>
 
             {(() => {
@@ -548,55 +584,42 @@ export default function InspectionDetail() {
               </View>
             ) : null}
 
-            <View className="flex-row gap-sm">
-              <StatTile
-                value={inspection.total_seeds}
-                label={t("inspections:detail.summary.totalSeeds")}
-              />
-              <StatTile
-                value={Number(inspection.mean_length_mm ?? 0).toFixed(2)}
-                label={t("inspections:detail.summary.meanLength")}
-              />
-            </View>
-            <View className="flex-row gap-sm">
-              <StatTile
-                value={Number(inspection.mean_width_mm ?? 0).toFixed(2)}
-                label={t("inspections:detail.summary.meanWidth")}
-              />
-              <StatTile
-                value={Number(inspection.mean_area_mm2 ?? 0).toFixed(2)}
-                label={t("inspections:detail.summary.meanArea")}
-              />
-            </View>
-
-            <View className="gap-md">
-              <View className="flex-row items-end justify-between gap-md">
-                <View>
-                  <Text className="text-h2 font-medium text-fg-primary">
-                    {t("inspections:detail.perSeedTitle")}
-                  </Text>
-                  <Text className="text-caption text-fg-secondary">
-                    {t("inspections:detail.filteredSeedCount", {
-                      count: filteredSeeds.length,
-                      total: seeds.length,
-                    })}
-                  </Text>
-                </View>
+            {/* Per-seed title + horizontally scrolling filter chips (prototype) */}
+            <View className="gap-sm mt-sm">
+              <View className="flex-row items-end justify-between gap-md px-xs">
+                <Text className="text-title font-medium text-fg-primary">
+                  {t("inspections:detail.perSeedTitle")}
+                </Text>
+                <Text className="text-caption text-fg-secondary">
+                  {t("inspections:detail.filteredSeedCount", {
+                    count: filteredSeeds.length,
+                    total: seeds.length,
+                  })}
+                </Text>
               </View>
-              <View className="flex-row flex-wrap gap-sm">
-                {gradeFilters.map((filter) => (
-                  <GradeFilterChip
-                    key={filter}
-                    label={
-                      filter === "all"
-                        ? t("inspections:detail.gradeFilterAll")
-                        : t(`inspections:seedGrade.${filter}`)
-                    }
-                    selected={gradeFilter === filter}
-                    onPress={() => setGradeFilter(filter)}
-                  />
-                ))}
-              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 6, paddingBottom: 4 }}
+              >
+                {gradeFilters.map((filter) => {
+                  const count =
+                    filter === "all" ? allSeeds.length : gradeCounts[filter as Seed["grade"]];
+                  return (
+                    <GradeFilterChip
+                      key={filter}
+                      label={
+                        filter === "all"
+                          ? t("inspections:detail.gradeFilterAll")
+                          : t(`inspections:seedGrade.${filter}`)
+                      }
+                      count={count}
+                      selected={gradeFilter === filter}
+                      onPress={() => setGradeFilter(filter)}
+                    />
+                  );
+                })}
+              </ScrollView>
             </View>
           </View>
         }
@@ -604,32 +627,78 @@ export default function InspectionDetail() {
           <SeedCard
             seed={item}
             onPress={() => router.push(`/seed/${inspection.id}/${item.index}`)}
-            gradeLabel={t(`inspections:seedGrade.${item.grade}`)}
           />
         )}
         ListFooterComponent={
-          policy.canDeleteInspection(inspection) ? (
-            <Button
-              variant="outline"
-              label={t("common:actions.delete")}
-              onPress={() =>
-                Alert.alert(t("common:actions.delete"), t("inspections:detail.deleteConfirm"), [
-                  { text: t("common:actions.cancel"), style: "cancel" },
-                  {
-                    text: t("common:actions.delete"),
-                    style: "destructive",
-                    onPress: async () => {
-                      await del.mutateAsync(inspection.id);
-                      handleBack();
+          <View className="mt-xl gap-sm">
+            <View className="flex-row gap-sm">
+              <View className="flex-1">
+                <Button
+                  variant="secondary"
+                  label="Share"
+                  renderLeadingIcon={() => <Share2 color="#171717" size={16} />}
+                  onPress={saveImage}
+                />
+              </View>
+              <View className="flex-1">
+                <Button
+                  variant="secondary"
+                  label="Export"
+                  renderLeadingIcon={() => <Download color="#171717" size={16} />}
+                  onPress={saveImage}
+                />
+              </View>
+            </View>
+            {policy.canDeleteInspection(inspection) ? (
+              <Button
+                variant="ghost"
+                renderLeadingIcon={() => <Trash2 color="#A02828" size={16} />}
+                onPress={() =>
+                  Alert.alert(t("common:actions.delete"), t("inspections:detail.deleteConfirm"), [
+                    { text: t("common:actions.cancel"), style: "cancel" },
+                    {
+                      text: t("common:actions.delete"),
+                      style: "destructive",
+                      onPress: async () => {
+                        await del.mutateAsync(inspection.id);
+                        handleBack();
+                      },
                     },
-                  },
-                ])
-              }
-            />
-          ) : null
+                  ])
+                }
+              >
+                <Text className="text-title font-medium text-error">
+                  {t("common:actions.delete")}
+                </Text>
+              </Button>
+            ) : null}
+          </View>
         }
       />
     </SafeAreaView>
+  );
+}
+
+/**
+ * 3-column "Avg L / Avg W / Avg A" stat tile — matches the prototype's
+ * `StatTile`: centred label cap, value + unit on a baseline-aligned row.
+ */
+function AvgStatTile({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <View className="flex-1 rounded-lg border border-line-tertiary bg-bg-primary px-md py-md items-center">
+      <Text className="text-[11px] uppercase tracking-[0.6px] font-semibold text-fg-tertiary">
+        {label}
+      </Text>
+      <View className="flex-row items-baseline gap-[3px] mt-xs">
+        <Text
+          className="text-fg-primary font-semibold"
+          style={{ fontSize: 20, fontVariant: ["tabular-nums"] }}
+        >
+          {value}
+        </Text>
+        <Text className="text-caption text-fg-tertiary">{unit}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -646,36 +715,53 @@ function MetadataDivider() {
   return <View className="h-[0.5px] bg-line-tertiary my-xs" />;
 }
 
-function SeedCard({
-  seed,
-  gradeLabel,
-  onPress,
-}: {
-  seed: Seed;
-  gradeLabel: string;
-  onPress: () => void;
-}) {
+function SeedCard({ seed, onPress }: { seed: Seed; onPress: () => void }) {
+  // Prototype: white outer card with hairline; INSIDE sits a cream-tinted
+  // thumb area with a tiny rotated seed silhouette; below the thumb is a
+  // tabular #N on the left + grade chip on the right. The whole tile reads as
+  // "a seed photo with a grade label" rather than "this whole rectangle is
+  // grade X coloured" — keeps the grid scannable across many tiles.
   return (
     <Pressable
       onPress={onPress}
-      className="items-center gap-xs rounded-lg bg-bg-primary border border-line-tertiary px-sm py-md"
+      className="aspect-square rounded-lg border border-line-tertiary bg-bg-primary p-[6px]"
       style={{ flex: 1 }}
     >
-      <Text className="text-h2 font-medium text-fg-primary">{seed.index}</Text>
-      <Pill tone={gradeToTone[seed.grade]} label={gradeLabel} />
-      <Text className="text-caption text-fg-secondary text-center">
-        {Number(seed.length_mm).toFixed(1)} × {Number(seed.width_mm).toFixed(1)} mm
-      </Text>
+      <View
+        className={`flex-1 items-center justify-center overflow-hidden rounded-[6px] ${seedThumbTone[seed.grade]}`}
+      >
+        {/* Tiny seed silhouette — pure decoration */}
+        <Svg width="80%" height="80%" viewBox="0 0 40 40">
+          <Ellipse
+            cx={20}
+            cy={20}
+            rx={13}
+            ry={5.5}
+            fill="#F3E6C8"
+            stroke="#7A5A32"
+            strokeWidth={0.7}
+            transform={`rotate(${(seed.index * 23) % 180} 20 20)`}
+          />
+        </Svg>
+      </View>
+      <View className="flex-row items-center justify-between mt-[4px]">
+        <Text className="text-[10px] text-fg-tertiary" style={{ fontVariant: ["tabular-nums"] }}>
+          #{seed.index}
+        </Text>
+        <GradeChip grade={seed.grade} size="sm" />
+      </View>
     </Pressable>
   );
 }
 
 function GradeFilterChip({
   label,
+  count,
   selected,
   onPress,
 }: {
   label: string;
+  count: number;
   selected: boolean;
   onPress: () => void;
 }) {
@@ -684,15 +770,19 @@ function GradeFilterChip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      className={`rounded-full border px-md py-xs ${
-        selected ? "border-brand bg-brand" : "border-line-tertiary bg-bg-primary"
+      className={`flex-row items-center gap-xs rounded-full border px-md py-xs ${
+        selected ? "border-fg-primary bg-fg-primary" : "border-line-tertiary bg-bg-primary"
       }`}
     >
       <Text
-        className="text-caption font-medium"
-        style={{ color: selected ? "#FFFFFF" : "#171717" }}
+        className={`text-caption font-medium ${selected ? "text-fg-on-dark" : "text-fg-primary"}`}
       >
         {label}
+      </Text>
+      <Text
+        className={`text-caption ${selected ? "text-fg-on-dark opacity-80" : "text-fg-tertiary"}`}
+      >
+        {count}
       </Text>
     </Pressable>
   );

@@ -4,7 +4,15 @@
     "account": "บัญชี",
     "captureAssets": "ความพร้อมโมเดล",
     "reference": "ข้อมูลอ้างอิง",
-    "insights": "ข้อมูลเชิงลึก"
+    "insights": "ข้อมูลเชิงลึก",
+    "inspectionTools": "เครื่องมือตรวจสอบ",
+    "referenceData": "ข้อมูลอ้างอิง",
+    "calibration": "การสอบเทียบ",
+    "modelTuning": "โมเดลและการปรับแต่ง"
+  },
+  "footer": {
+    "appName": "Advance Seeds Field Inspector",
+    "version": "v{{version}} · build {{build}}"
   },
   "menu": {
     "profile": "โปรไฟล์",
@@ -25,6 +33,10 @@
     "newTitle": "เพิ่มพันธุ์ใหม่",
     "editTitle": "แก้ไขพันธุ์",
     "invalidName": "ต้องระบุชื่อ",
+    "basicInfo": "ข้อมูลพื้นฐาน",
+    "referenceDimensions": "ขนาดอ้างอิง",
+    "modelClassesSelected": "แตะเพื่อแมปพันธุ์นี้กับคลาสตัวตรวจจับ เลือกแล้ว {{count}} รายการ",
+    "classesFrom": "คลาสจาก {{name}}",
     "modelClasses": "คลาสของโมเดล",
     "modelClassesHint": "เลือกคลาสจาก {{name}} ที่ระบุพันธุ์นี้ เมื่อกำหนดค่าจะใช้แทนคลาส COCO",
     "modelClassesNoActive": "ยังไม่มีโมเดลที่ใช้งาน ติดตั้งจาก More → Model registry เพื่อแมปคลาส",
@@ -32,6 +44,19 @@
     "classRow": "{{klass}} · COCO #{{id}}",
     "unmapped": "ยังไม่ได้กำหนดคลาส",
     "unmappedShort": "ไม่ระบุ",
+    "filters": {
+      "all": "ทั้งหมด",
+      "mapped": "ระบุคลาสแล้ว",
+      "unmapped": "ยังไม่ระบุ"
+    },
+    "filterWithCount": "{{label}} · {{count}}",
+    "mappedPill": "ระบุคลาสแล้ว",
+    "unmappedPill": "ยังไม่ระบุ",
+    "chips": {
+      "class": "คลาส",
+      "grade": "เกรด",
+      "refDim": "ขนาดอ้างอิง"
+    },
     "refDims": "{{l}} × {{w}} มม.",
     "noRefDims": "ไม่มีขนาดอ้างอิง",
     "refLengthMm": "ความยาวอ้างอิง (มม.)",
@@ -90,8 +115,9 @@
     "noCandidates": "ใส่ URL รายการโมเดลภายในแล้วรีเฟรช",
     "noInstalled": "ยังไม่มีโมเดลที่ดาวน์โหลด",
     "noRollback": "ยังไม่มีโมเดลก่อนหน้าให้ย้อนกลับ",
-    "download": "ดาวน์โหลด",
+    "download": "ติดตั้ง",
     "activate": "เปิดใช้งาน",
+    "reverify": "ตรวจสอบอีกครั้ง",
     "installedTitle": "ติดตั้งโมเดลแล้ว",
     "installedPill": "ติดตั้งแล้ว",
     "activePill": "ใช้งานอยู่",
@@ -114,7 +140,7 @@
     "active": "โมเดลที่ใช้งาน",
     "noActive": "ยังไม่มีโมเดลที่ติดตั้ง — แตะ ตรวจหาอัปเดต",
     "channel": "ช่องทาง",
-    "previousPill": "เคยใช้งาน",
+    "previousPill": "ย้อนกลับ",
     "restore": "กู้คืน",
     "installFailedTitle": "ติดตั้งไม่สำเร็จ",
     "upToDateTitle": "เป็นเวอร์ชันล่าสุด",
@@ -122,6 +148,43 @@
     "deleteConfirmBody": "ไฟล์โมเดลจะถูกลบออกจากอุปกรณ์นี้ คุณสามารถดาวน์โหลดใหม่จาก registry ได้ทุกเมื่อ",
     "showDetails": "แสดงรายละเอียด",
     "hideDetails": "ซ่อนรายละเอียด",
+    "subtitleInstalled": "ติดตั้งแล้ว · {{count}}",
+    "detailNotFound": "ไม่พบโมเดล",
+    "section": {
+      "performance": "ประสิทธิภาพ",
+      "model": "โมเดล",
+      "training": "การฝึก",
+      "artifact": "อาร์ทิแฟกต์",
+      "history": "ประวัติการเปิดใช้งาน"
+    },
+    "kpi": {
+      "acc": "ACC",
+      "map": "MAP",
+      "size": "SIZE",
+      "precision": "Precision",
+      "recall": "Recall"
+    },
+    "field": {
+      "task": "ประเภท",
+      "inputSize": "ขนาดอินพุต",
+      "classes": "คลาส",
+      "outputShape": "Output shape",
+      "calibration": "Calibration",
+      "calibrationNotRequired": "ไม่จำเป็น",
+      "lr0": "Lr0",
+      "batch": "Batch",
+      "imgsz": "Imgsz",
+      "epochs": "Epochs",
+      "patience": "Patience",
+      "versionId": "Version ID",
+      "sha256": "SHA-256",
+      "channel": "ช่องทาง"
+    },
+    "action": {
+      "reverify": "ตรวจสอบอีกครั้ง",
+      "copyId": "คัดลอก ID",
+      "delete": "ลบโมเดลนี้"
+    },
     "details": {
       "performance": "ประสิทธิภาพ",
       "model": "โมเดล",

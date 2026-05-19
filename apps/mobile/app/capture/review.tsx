@@ -5,7 +5,9 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { ChevronLeft, Share2, ChevronRight, Check } from "lucide-react-native";
+import Svg, { Ellipse } from "react-native-svg";
 import type { AnalyzedSeed, SeedGrade } from "@advance-seeds/types";
+import { GradeChip } from "@/components/ui/GradeChip";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useCaptureSession } from "@/lib/capture/session";
@@ -32,11 +34,10 @@ import {
   toInspectionQueuePayload,
   type InspectionSavePayload,
 } from "@/lib/inspections/savePayload";
-import { useCreateInspection } from "@/lib/queries";
+import { useCreateInspection, useVarieties } from "@/lib/queries";
 import { useNotify } from "@/lib/notifications";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
-import { GradeRing } from "@/components/inspections/GradeRing";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 
 type SortMode = "index" | "grade" | "length";
@@ -140,6 +141,11 @@ export default function CaptureReview() {
   const router = useRouter();
   const { profile } = useAuth();
   const session = useCaptureSession();
+  const varieties = useVarieties();
+  const variety = useMemo(
+    () => varieties.data?.find((v) => v.id === session.varietyId) ?? null,
+    [varieties.data, session.varietyId],
+  );
   const create = useCreateInspection();
   const notify = useNotify();
   const [saving, setSaving] = useState(false);
@@ -233,24 +239,6 @@ export default function CaptureReview() {
     dateStyle: "medium",
     timeStyle: "short",
   });
-
-  const openSort = () => {
-    Alert.alert(t("inspections:capture.review.sort"), undefined, [
-      {
-        text: t("inspections:capture.review.sortIndex"),
-        onPress: () => setSortMode("index"),
-      },
-      {
-        text: t("inspections:capture.review.sortGrade"),
-        onPress: () => setSortMode("grade"),
-      },
-      {
-        text: t("inspections:capture.review.sortLength"),
-        onPress: () => setSortMode("length"),
-      },
-      { text: t("common:actions.cancel"), style: "cancel" },
-    ]);
-  };
 
   const onShare = async () => {
     const uri =
@@ -507,7 +495,14 @@ export default function CaptureReview() {
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar
-        title={t("inspections:capture.review.title")}
+        title={
+          variety?.name
+            ? t("inspections:capture.review.subtitle", {
+                variety: variety.name,
+                when: t("inspections:capture.review.justNow"),
+              })
+            : t("inspections:capture.review.title")
+        }
         left={{
           accessibilityLabel: t("common:actions.back"),
           renderIcon: () => <ChevronLeft color="#171717" size={20} />,
@@ -527,62 +522,180 @@ export default function CaptureReview() {
       <FlatList
         data={seeds}
         keyExtractor={(seed) => String(seed.index)}
-        contentContainerClassName="px-xl pb-2xl gap-lg"
+        contentContainerClassName="px-lg pt-sm pb-2xl"
         initialNumToRender={12}
         maxToRenderPerBatch={12}
         windowSize={7}
         removeClippedSubviews
         ListHeaderComponent={
-          <View className="gap-lg">
-            <View
-              className="rounded-lg overflow-hidden"
-              style={{ height: 200, backgroundColor: "#1a1816" }}
-            >
-              <CaptureMediaPreview
-                uri={previewMediaUri}
-                kind={mediaKind}
-                roi={previewRoi}
-                seeds={
-                  mediaKind === "video" ? session.capturedLiveFrameResult?.seeds : result.seeds
-                }
-                seedFrameWidth={
-                  mediaKind === "video"
-                    ? (session.capturedLiveFrameResult?.frameWidth ?? null)
-                    : null
-                }
-                seedFrameHeight={
-                  mediaKind === "video"
-                    ? (session.capturedLiveFrameResult?.frameHeight ?? null)
-                    : null
-                }
-              />
+          <View className="gap-sm pb-sm">
+            {/* Hero card — white card with cream-tinted inner thumb area */}
+            <View className="rounded-lg border border-line-tertiary bg-bg-primary p-xs overflow-hidden">
+              <View className="rounded-md overflow-hidden bg-card-cream" style={{ height: 210 }}>
+                <CaptureMediaPreview
+                  uri={previewMediaUri}
+                  kind={mediaKind}
+                  roi={previewRoi}
+                  seeds={
+                    mediaKind === "video" ? session.capturedLiveFrameResult?.seeds : result.seeds
+                  }
+                  seedFrameWidth={
+                    mediaKind === "video"
+                      ? (session.capturedLiveFrameResult?.frameWidth ?? null)
+                      : null
+                  }
+                  seedFrameHeight={
+                    mediaKind === "video"
+                      ? (session.capturedLiveFrameResult?.frameHeight ?? null)
+                      : null
+                  }
+                />
+              </View>
             </View>
 
+            {/* Headline result card */}
+            <View className="mt-sm flex-row items-center gap-md rounded-lg border border-line-tertiary bg-bg-primary p-md">
+              <View
+                className="items-center justify-center rounded-md bg-grade-a"
+                style={{ width: 40, height: 40 }}
+              >
+                <Text
+                  className="text-grade-a-ink font-semibold"
+                  style={{ fontSize: 20, lineHeight: 22 }}
+                >
+                  {gradeAPct >= 70 ? "A" : gradeAPct >= 40 ? "B" : "C"}
+                </Text>
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="text-[11px] font-semibold uppercase text-fg-tertiary"
+                  style={{ letterSpacing: 0.6 }}
+                >
+                  {t("inspections:capture.review.resultLabel")}
+                </Text>
+                <Text className="mt-[2px] text-title font-semibold text-fg-primary">
+                  Grade {gradeAPct >= 70 ? "A" : gradeAPct >= 40 ? "B" : "C"} · {gradeAPct}%
+                </Text>
+                <Text
+                  className="mt-[2px] text-caption text-fg-secondary"
+                  style={{ fontVariant: ["tabular-nums"] }}
+                >
+                  {t("inspections:capture.review.summary", {
+                    count: result.summary.total_seeds,
+                    length: avgLen.toFixed(2),
+                    width: avgWid.toFixed(2),
+                  })}
+                </Text>
+              </View>
+            </View>
+
+            {/* Mini stats — 4-up grade tiles (white cards, count colored by grade) */}
+            <View className="mt-xs flex-row gap-xs">
+              {(["A", "B", "C", "reject"] as SeedGrade[]).map((g) => {
+                const count = seeds.filter((s) => s.grade === g).length;
+                const tileInk: Record<SeedGrade, string> = {
+                  A: "text-grade-a-ink",
+                  B: "text-grade-b-ink",
+                  C: "text-grade-c-ink",
+                  reject: "text-grade-reject-ink",
+                };
+                const label = g === "reject" ? "REJ" : g;
+                return (
+                  <View
+                    key={g}
+                    className="flex-1 rounded-md py-sm items-center border border-line-tertiary bg-bg-primary"
+                  >
+                    <Text
+                      className={`font-semibold ${tileInk[g]}`}
+                      style={{ fontSize: 20, fontVariant: ["tabular-nums"] }}
+                    >
+                      {count}
+                    </Text>
+                    <Text
+                      className={`mt-[2px] text-[11px] font-semibold uppercase ${tileInk[g]}`}
+                      style={{ letterSpacing: 0.6 }}
+                    >
+                      {label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Per-seed header with sort segmented control */}
+            <View className="mt-md flex-row items-center justify-between px-xs">
+              <Text className="text-body font-semibold text-fg-primary">
+                {t("inspections:capture.review.perSeedTitle")}
+              </Text>
+              <View className="flex-row items-center gap-[2px] rounded-md border border-line-tertiary bg-bg-secondary p-[3px]">
+                {(["index", "grade", "length"] as SortMode[]).map((mode) => {
+                  const active = mode === sortMode;
+                  return (
+                    <Pressable
+                      key={mode}
+                      onPress={() => setSortMode(mode)}
+                      accessibilityRole="button"
+                      className={`h-[26px] items-center justify-center rounded-[5px] px-sm ${
+                        active ? "bg-fg-primary" : ""
+                      }`}
+                    >
+                      <Text
+                        className={`text-[11px] font-semibold capitalize ${
+                          active ? "text-fg-on-dark" : "text-fg-secondary"
+                        }`}
+                      >
+                        {t(`inspections:capture.review.${sortModeLabelKey(mode)}`)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Diagnostics — keeps the rich metadata + detector + diagnostics
+                blocks the live app surfaces; styled as the prototype's KV
+                card so the visual hierarchy matches Review. */}
+          </View>
+        }
+        renderItem={({ item, index }) => (
+          <SeedRow
+            seed={item}
+            isFirst={index === 0}
+            isLast={index === seeds.length - 1}
+            onPress={() => router.push(`/capture/seed/${item.index}` as never)}
+          />
+        )}
+        ListFooterComponent={
+          <View className="mt-lg gap-sm">
             {note ? (
-              <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
-                <Text className="text-caption font-medium uppercase text-fg-secondary">
+              <View className="rounded-lg border border-line-tertiary bg-bg-primary px-md py-md">
+                <Text
+                  className="text-[11px] font-semibold uppercase text-fg-tertiary"
+                  style={{ letterSpacing: 0.6 }}
+                >
                   {t("inspections:detail.notesTitle")}
                 </Text>
                 <Text className="mt-xs text-body text-fg-primary">{note}</Text>
               </View>
             ) : null}
 
-            <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
-              <View className="flex-row items-center justify-between gap-md">
-                <Text className="text-caption font-medium uppercase text-fg-secondary">
-                  {t("inspections:detail.metadata.title")}
+            <View className="flex-row items-center justify-between px-xs pt-sm">
+              <Text className="text-body font-semibold text-fg-primary">
+                {t("inspections:detail.metadata.title")}
+              </Text>
+              <Pressable onPress={() => setMetadataExpanded((v) => !v)} hitSlop={8}>
+                <Text className="text-caption font-medium text-primary">
+                  {t(
+                    metadataExpanded
+                      ? "inspections:detail.metadata.showLess"
+                      : "inspections:detail.metadata.showMore",
+                  )}
                 </Text>
-                <Pressable onPress={() => setMetadataExpanded((v) => !v)} hitSlop={8}>
-                  <Text className="text-caption font-medium text-brand">
-                    {t(
-                      metadataExpanded
-                        ? "inspections:detail.metadata.showLess"
-                        : "inspections:detail.metadata.showMore",
-                    )}
-                  </Text>
-                </Pressable>
-              </View>
-              <View className="mt-sm gap-xs">
+              </Pressable>
+            </View>
+
+            <View className="overflow-hidden rounded-lg border border-line-tertiary bg-bg-primary">
+              <View className="px-md gap-xs py-sm">
                 {session.capturedLocation ? (
                   <>
                     <MetadataRow
@@ -798,64 +911,14 @@ export default function CaptureReview() {
                 ) : null}
               </View>
             </View>
-
-            <View className="flex-row items-center gap-lg">
-              <GradeRing
-                percent={gradeAPct}
-                sublabel={t("inspections:seedGrade.A")
-                  .replace(/^Grade\s+/, "")
-                  .trim()}
-              />
-              <View className="flex-1 gap-md">
-                <View>
-                  <Text className="text-caption text-fg-secondary">
-                    {t("inspections:detail.summary.totalSeeds")}
-                  </Text>
-                  <Text
-                    className="text-fg-primary font-medium"
-                    style={{ fontSize: 22, letterSpacing: -0.4 }}
-                  >
-                    {result.summary.total_seeds}
-                  </Text>
-                </View>
-                <View>
-                  <Text className="text-caption text-fg-secondary">
-                    {t("inspections:detail.summary.meanLength")}
-                  </Text>
-                  <Text className="text-fg-primary font-medium" style={{ fontSize: 16 }}>
-                    {avgLen.toFixed(1)} × {avgWid.toFixed(1)} mm
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View className="flex-row items-center justify-between mt-sm">
-              <Text className="text-title text-fg-primary font-medium">
-                {t("inspections:capture.review.perSeedTitle")}
-              </Text>
-              <Pressable accessibilityRole="button" onPress={openSort}>
-                <Text className="text-brand text-caption font-medium">
-                  {t("inspections:capture.review.sort")} ·{" "}
-                  {t(`inspections:capture.review.${sortModeLabelKey(sortMode)}`)}
-                </Text>
-              </Pressable>
-            </View>
           </View>
         }
-        renderItem={({ item, index }) => (
-          <SeedRow
-            seed={item}
-            isLast={index === seeds.length - 1}
-            onPress={() => router.push(`/capture/seed/${item.index}` as never)}
-          />
-        )}
       />
 
-      <View className="flex-row gap-md px-xl pb-xl pt-sm">
+      <View className="flex-row gap-sm border-t border-line-tertiary bg-bg-primary px-lg pb-xl pt-sm">
         <Button
-          className="flex-1"
-          variant="outline"
-          label={t("common:actions.cancel")}
+          variant="secondary"
+          label={t("common:actions.delete", "Discard")}
           disabled={saving}
           onPress={onCancel}
         />
@@ -890,19 +953,6 @@ function formatCalibrationValue(pxPerMm: number, t: ReturnType<typeof useTransla
   });
 }
 
-const GRADE_BG: Record<SeedGrade, string> = {
-  A: "#DFF6EC",
-  B: "#FFF1B8",
-  C: "#FFE2E0",
-  reject: "#FFE2E0",
-};
-const GRADE_FG: Record<SeedGrade, string> = {
-  A: "#6C47FF",
-  B: "#704B00",
-  C: "#8A1F1B",
-  reject: "#8A1F1B",
-};
-
 function sortModeLabelKey(mode: SortMode) {
   switch (mode) {
     case "grade":
@@ -916,37 +966,87 @@ function sortModeLabelKey(mode: SortMode) {
 
 function SeedRow({
   seed,
+  isFirst,
   isLast,
   onPress,
 }: {
   seed: AnalyzedSeed;
+  isFirst: boolean;
   isLast: boolean;
   onPress?: () => void;
 }) {
+  // Single seed list is rendered as one continuous card; the first row gets
+  // top corners, the last row gets bottom corners + no divider, in between
+  // rows draw a hairline divider.
+  const corners = `${isFirst ? "rounded-t-lg" : ""} ${isLast ? "rounded-b-lg" : ""}`.trim();
+  const border = `border-x border-line-tertiary ${isFirst ? "border-t" : ""} ${
+    isLast ? "border-b" : "border-b border-line-tertiary"
+  }`;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Seed #${seed.index}`}
       onPress={onPress}
-      className={`flex-row items-center gap-md px-lg py-md ${isLast ? "" : "border-b border-line-tertiary"}`}
+      className={`flex-row items-center gap-md bg-bg-primary px-lg py-md ${border} ${corners}`}
     >
-      <View
-        className="h-[26px] w-[26px] items-center justify-center rounded-full"
-        style={{ backgroundColor: GRADE_BG[seed.grade] }}
-      >
-        <Text className="font-medium" style={{ fontSize: 11, color: GRADE_FG[seed.grade] }}>
-          {seed.grade === "reject" ? "R" : seed.grade}
+      <View className="h-[32px] w-[32px] items-center justify-center overflow-hidden rounded-md bg-card-cream">
+        <Svg width={32} height={32} viewBox="0 0 32 32">
+          <Ellipse
+            cx={16}
+            cy={16}
+            rx={11}
+            ry={4.5}
+            transform={`rotate(${(seed.index * 23) % 180} 16 16)`}
+            fill="#f3e6c8"
+            stroke="#7a5a32"
+            strokeWidth={0.8}
+          />
+        </Svg>
+      </View>
+      <View className="w-[34px]">
+        <Text
+          className="text-fg-tertiary font-medium"
+          style={{ fontSize: 11, fontVariant: ["tabular-nums"] }}
+        >
+          #{String(seed.index).padStart(2, "0")}
         </Text>
       </View>
-      <View className="flex-1">
-        <Text className="text-fg-primary font-medium" style={{ fontSize: 14 }}>
-          Seed #{seed.index}
-        </Text>
-        <Text className="text-fg-secondary" style={{ fontSize: 12 }}>
-          {seed.length_mm.toFixed(1)} × {seed.width_mm.toFixed(1)} mm · area{" "}
-          {seed.area_mm2.toFixed(1)} mm²
-        </Text>
+      <View className="flex-1 flex-row gap-md">
+        <View>
+          <Text className="text-label uppercase text-fg-tertiary" style={{ letterSpacing: 0.4 }}>
+            L
+          </Text>
+          <Text
+            className="text-fg-primary font-medium"
+            style={{ fontSize: 13, fontVariant: ["tabular-nums"] }}
+          >
+            {seed.length_mm.toFixed(2)}
+          </Text>
+        </View>
+        <View>
+          <Text className="text-label uppercase text-fg-tertiary" style={{ letterSpacing: 0.4 }}>
+            W
+          </Text>
+          <Text
+            className="text-fg-primary font-medium"
+            style={{ fontSize: 13, fontVariant: ["tabular-nums"] }}
+          >
+            {seed.width_mm.toFixed(2)}
+          </Text>
+        </View>
+        <View>
+          <Text className="text-label uppercase text-fg-tertiary" style={{ letterSpacing: 0.4 }}>
+            A
+          </Text>
+          <Text
+            className="text-fg-primary font-medium"
+            style={{ fontSize: 13, fontVariant: ["tabular-nums"] }}
+          >
+            {seed.area_mm2.toFixed(1)}
+          </Text>
+        </View>
       </View>
+      <GradeChip grade={seed.grade} size="sm" />
       <ChevronRight color="#8C8C87" size={16} />
     </Pressable>
   );

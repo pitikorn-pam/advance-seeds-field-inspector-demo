@@ -16,7 +16,7 @@ export function ModelUpdateBanner() {
   const colors =
     resolved === "dark"
       ? { bg: "#0E2F26", icon: "#7FD1B0", title: "#E7F4EE", caption: "#9EBDB1" }
-      : { bg: "#E6F2EC", icon: "#6C47FF", title: "#0E2F26", caption: "#3F6457" };
+      : { bg: "#E6F2EC", icon: "#6E40E0", title: "#0E2F26", caption: "#3F6457" };
 
   const sizeMb =
     typeof update.size_bytes === "number" && update.size_bytes > 0

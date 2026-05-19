@@ -9,22 +9,22 @@
   "color": {
     "brand": {
       "primary": {
-        "value": "#6C47FF",
+        "value": "#6E40E0",
         "darkValue": "#8F75FF",
         "description": "Signature purple primary action. Use for dominant CTAs, active states, and primary progress."
       },
       "primaryPressed": {
-        "value": "#5936D8",
+        "value": "#5A2EC8",
         "darkValue": "#A492FF",
         "description": "Pressed state for the signature purple action."
       },
       "primaryDeep": {
-        "value": "#3F249B",
+        "value": "#4B22A8",
         "darkValue": "#D8D0FF",
         "description": "Deep purple emphasis and high-contrast tag text."
       },
       "soft": {
-        "value": "#EEE9FF",
+        "value": "#E8E0F4",
         "darkValue": "#2A2054",
         "description": "Soft purple surface for selected tabs and quiet emphasis."
       },
@@ -71,15 +71,22 @@
       "brown": { "value": "#8C5E3C", "darkValue": "#D6B08C" }
     },
     "cardTint": {
-      "peach": { "value": "#FFE8D6", "darkValue": "#412314" },
-      "rose": { "value": "#FFE2EC", "darkValue": "#442033" },
-      "mint": { "value": "#DFF6EC", "darkValue": "#123A31" },
-      "lavender": { "value": "#EEE9FF", "darkValue": "#2A2054" },
-      "sky": { "value": "#E2F0FF", "darkValue": "#122A44" },
-      "yellow": { "value": "#FFF1B8", "darkValue": "#40350B" },
-      "yellowBold": { "value": "#FFD84D", "darkValue": "#F4C430" },
-      "cream": { "value": "#FFF8E8", "darkValue": "#2D281C" },
-      "gray": { "value": "#F5F5F2", "darkValue": "#1F1F22" }
+      "peach": { "value": "#FBEBD9", "darkValue": "#412314" },
+      "rose": { "value": "#FBE0E2", "darkValue": "#442033" },
+      "mint": { "value": "#DEEDD7", "darkValue": "#123A31" },
+      "lavender": { "value": "#E8E0F4", "darkValue": "#2A2054" },
+      "sky": { "value": "#DAE9F2", "darkValue": "#122A44" },
+      "yellow": { "value": "#FAEFC8", "darkValue": "#40350B" },
+      "yellowBold": { "value": "#FFE082", "darkValue": "#F4C430" },
+      "cream": { "value": "#FAF6EC", "darkValue": "#2D281C" },
+      "gray": { "value": "#EFEEEA", "darkValue": "#1F1F22" }
+    },
+    "grade": {
+      "comment": "Grade ink colors paired with cardTint backgrounds for GradeChip. Mint → A, Yellow → B, Peach → C, Rose → reject.",
+      "a":      { "bg": "#DEEDD7", "ink": "#2D6E3F" },
+      "b":      { "bg": "#FAEFC8", "ink": "#7A5A12" },
+      "c":      { "bg": "#FBEBD9", "ink": "#B85518" },
+      "reject": { "bg": "#FBE0E2", "ink": "#A02828" }
     },
     "background": {
       "primary": {

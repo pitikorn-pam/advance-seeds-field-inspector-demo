@@ -4,12 +4,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Trash2 } from "lucide-react-native";
+import { X, Trash2, Cpu } from "lucide-react-native";
 import type { GradeCriteriaGrade, Json, Variety, VarietyGradeCriteria } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useDeleteVariety, useUpsertVariety, useVarieties } from "@/lib/queries";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Toggle } from "@/components/ui/Toggle";
@@ -54,6 +53,21 @@ const EMPTY_FORM: FormState = {
   gradeCriteria: emptyGradeCriteriaForm(),
   isActive: true,
 };
+
+type FamilyKey = "rice" | "corn" | "legume" | "mungbean";
+
+const FAMILY_TINTS: Record<FamilyKey, { bg: string; text: string; seed: string }> = {
+  rice: { bg: "bg-rice-bg", text: "text-rice-text", seed: "#0F6E56" },
+  corn: { bg: "bg-corn-bg", text: "text-corn-text", seed: "#704B00" },
+  legume: { bg: "bg-legume-bg", text: "text-legume-text", seed: "#3F249B" },
+  mungbean: { bg: "bg-mungbean-bg", text: "text-mungbean-text", seed: "#8C3C12" },
+};
+
+const FAMILY_KEYS: FamilyKey[] = ["rice", "corn", "legume", "mungbean"];
+
+function resolveFamily(colorKey: string): FamilyKey {
+  return (FAMILY_KEYS as readonly string[]).includes(colorKey) ? (colorKey as FamilyKey) : "rice";
+}
 
 /**
  * Variety editor — single source of truth for create + edit on the
@@ -172,7 +186,7 @@ export default function VarietyEditor() {
   if (!isCreate && varietiesQuery.isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-        <AppTopBar title={title} left={backAction(router, t)} />
+        <AppTopBar title={title} left={closeAction(router, t)} />
         <LoadingState />
       </SafeAreaView>
     );
@@ -180,47 +194,91 @@ export default function VarietyEditor() {
   if (!isCreate && !editing) {
     return (
       <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-        <AppTopBar title={title} left={backAction(router, t)} />
+        <AppTopBar title={title} left={closeAction(router, t)} />
         <ErrorState onRetry={() => void varietiesQuery.refetch()} />
       </SafeAreaView>
     );
   }
 
   const canDelete = !isCreate && policy.canDeleteVariety();
+  const familyKey = resolveFamily(form.colorKey);
+  const tint = FAMILY_TINTS[familyKey];
+  const familyLabel = t(`varieties:family.${familyKey}`);
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
-      <AppTopBar title={title} left={backAction(router, t)} />
-      <ScrollView contentContainerClassName="px-xl py-md gap-md">
-        <Card>
-          <View className="gap-md">
-            <Field label={t("varieties:fields.name")}>
+      <AppTopBar title={title} left={closeAction(router, t)} />
+      <ScrollView contentContainerClassName="pb-3xl" keyboardShouldPersistTaps="handled">
+        {/* Hero band — family-tinted, full-bleed */}
+        <View className={`px-xl pt-lg pb-xl ${tint.bg}`}>
+          <View className="flex-row items-center gap-md">
+            <View
+              className="items-center justify-center overflow-hidden rounded-lg"
+              style={{ height: 64, width: 64, backgroundColor: "rgba(255,255,255,0.55)" }}
+            >
+              <View className="flex-row gap-[3px]">
+                <SeedShape color={tint.seed} rotate="-15deg" />
+                <SeedShape color={tint.seed} rotate="8deg" />
+                <SeedShape color={tint.seed} rotate="-22deg" />
+              </View>
+            </View>
+            <View className="flex-1">
+              <Text
+                className={`text-label uppercase font-medium ${tint.text}`}
+                style={{ letterSpacing: 0.6 }}
+              >
+                {familyLabel}
+              </Text>
+              <Text
+                className="text-fg-primary font-medium mt-[2px]"
+                style={{ fontSize: 22, letterSpacing: -0.4 }}
+                numberOfLines={2}
+              >
+                {form.name.trim() || title}
+              </Text>
+              {form.scientificName ? (
+                <Text className="text-caption italic text-fg-secondary mt-[2px]" numberOfLines={1}>
+                  {form.scientificName}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        {/* Basic info card */}
+        <View className="px-xl pt-xl">
+          <SectionHeader label={t("more:masterData.basicInfo")} />
+          <View className="rounded-lg bg-bg-primary border border-line-tertiary p-lg gap-md">
+            <LabeledField label={t("varieties:fields.name").toUpperCase()}>
               <Input
                 placeholder={t("varieties:fields.name")}
                 value={form.name}
                 onChangeText={(name) => setForm((s) => ({ ...s, name }))}
                 autoCapitalize="words"
               />
-            </Field>
-            <Field label={t("varieties:fields.scientificName")}>
+            </LabeledField>
+            <LabeledField label={t("varieties:fields.scientificName").toUpperCase()}>
               <Input
                 placeholder={t("varieties:fields.scientificName")}
                 value={form.scientificName}
                 onChangeText={(scientificName) => setForm((s) => ({ ...s, scientificName }))}
                 autoCapitalize="words"
               />
-            </Field>
-            <Field label={t("varieties:fields.description")}>
+            </LabeledField>
+            <LabeledField label={t("varieties:fields.description").toUpperCase()}>
               <Input
                 placeholder={t("more:masterData.descriptionPlaceholder")}
                 value={form.description}
                 onChangeText={(description) => setForm((s) => ({ ...s, description }))}
                 multiline
                 textAlignVertical="top"
-                style={{ height: 140, paddingTop: 12, paddingBottom: 12 }}
+                style={{ height: 96, paddingTop: 12, paddingBottom: 12 }}
               />
-            </Field>
-            <Field label={t("varieties:fields.imageUrl")} hint={t("more:masterData.imageHint")}>
+            </LabeledField>
+            <LabeledField
+              label={t("varieties:fields.imageUrl").toUpperCase()}
+              hint={t("more:masterData.imageHint")}
+            >
               <Input
                 placeholder="https://…"
                 value={form.imageUrl}
@@ -229,16 +287,45 @@ export default function VarietyEditor() {
                 autoCorrect={false}
                 keyboardType="url"
               />
-            </Field>
-            <Field
-              label={t("more:masterData.modelClasses")}
-              hint={
-                modelClassNames.length === 0
+            </LabeledField>
+            <View className="flex-row gap-sm">
+              <LabeledField label={t("more:masterData.colorKey").toUpperCase()} className="flex-1">
+                <FamilyPicker
+                  value={familyKey}
+                  onChange={(colorKey) => setForm((s) => ({ ...s, colorKey }))}
+                  t={t}
+                />
+              </LabeledField>
+              <LabeledField label={t("varieties:fields.status").toUpperCase()} className="flex-1">
+                <ActiveControl
+                  value={form.isActive}
+                  onChange={(isActive) => setForm((s) => ({ ...s, isActive }))}
+                  activeLabel={t("varieties:status.active")}
+                  inactiveLabel={t("varieties:status.inactive")}
+                />
+              </LabeledField>
+            </View>
+          </View>
+        </View>
+
+        {/* Model classes card */}
+        <View className="px-xl pt-xl">
+          <SectionHeader label={t("more:masterData.modelClasses")} />
+          <View className="rounded-lg bg-bg-primary border border-line-tertiary p-lg gap-md">
+            <View className="flex-row items-center gap-sm">
+              <View className="h-5 w-5 items-center justify-center rounded-xs bg-rice-bg">
+                <Cpu color="#6E40E0" size={12} />
+              </View>
+              <Text className="text-caption text-fg-secondary">
+                {modelClassNames.length === 0
                   ? t("more:masterData.modelClassesNoActive")
-                  : t("more:masterData.modelClassesHint", { name: activeModel?.displayName ?? "" })
-              }
-            >
-              {modelClassNames.length > 0 ? (
+                  : t("more:masterData.classesFrom", {
+                      name: activeModel?.displayName ?? "",
+                    })}
+              </Text>
+            </View>
+            {modelClassNames.length > 0 ? (
+              <>
                 <View className="flex-row flex-wrap gap-sm">
                   {modelClassNames.map((cls) => {
                     const active = form.modelClassAliases.includes(cls);
@@ -266,26 +353,54 @@ export default function VarietyEditor() {
                     );
                   })}
                 </View>
-              ) : null}
-            </Field>
+                <Text className="text-caption text-fg-tertiary">
+                  {t("more:masterData.modelClassesSelected", {
+                    count: form.modelClassAliases.length,
+                  })}
+                </Text>
+              </>
+            ) : null}
+          </View>
+        </View>
 
-            <Field label={t("more:masterData.refLengthMm")}>
-              <Input
-                placeholder={t("more:masterData.refLengthMm")}
-                keyboardType="decimal-pad"
-                value={form.refLength}
-                onChangeText={(refLength) => setForm((s) => ({ ...s, refLength }))}
-              />
-            </Field>
-            <Field label={t("more:masterData.refWidthMm")}>
-              <Input
-                placeholder={t("more:masterData.refWidthMm")}
-                keyboardType="decimal-pad"
-                value={form.refWidth}
-                onChangeText={(refWidth) => setForm((s) => ({ ...s, refWidth }))}
-              />
-            </Field>
+        {/* Reference dimensions card */}
+        <View className="px-xl pt-xl">
+          <SectionHeader label={t("more:masterData.referenceDimensions")} />
+          <View className="rounded-lg bg-bg-primary border border-line-tertiary p-lg">
+            <View className="flex-row gap-sm">
+              <LabeledField
+                label={t("more:masterData.refLengthMm").toUpperCase()}
+                className="flex-1"
+              >
+                <Input
+                  placeholder="0.0"
+                  keyboardType="decimal-pad"
+                  value={form.refLength}
+                  onChangeText={(refLength) => setForm((s) => ({ ...s, refLength }))}
+                />
+              </LabeledField>
+              <LabeledField
+                label={t("more:masterData.refWidthMm").toUpperCase()}
+                className="flex-1"
+              >
+                <Input
+                  placeholder="0.0"
+                  keyboardType="decimal-pad"
+                  value={form.refWidth}
+                  onChangeText={(refWidth) => setForm((s) => ({ ...s, refWidth }))}
+                />
+              </LabeledField>
+            </View>
+          </View>
+        </View>
 
+        {/* Grade criteria card */}
+        <View className="px-xl pt-xl">
+          <SectionHeader label={t("more:masterData.gradeCriteria")} />
+          <View className="rounded-lg bg-bg-primary border border-line-tertiary p-lg gap-md">
+            <Text className="text-caption text-fg-tertiary">
+              {t("more:masterData.gradeCriteriaHint")}
+            </Text>
             <GradeCriteriaEditor
               value={form.gradeCriteria}
               onChange={(grade, field, text) =>
@@ -301,95 +416,140 @@ export default function VarietyEditor() {
                 }))
               }
             />
-
-            <StatusToggle
-              label={t("varieties:fields.status")}
-              hint={t("varieties:statusHint")}
-              activeLabel={t("varieties:status.active")}
-              inactiveLabel={t("varieties:status.inactive")}
-              value={form.isActive}
-              onChange={(isActive) => setForm((s) => ({ ...s, isActive }))}
-            />
-
-            <View className="flex-row gap-sm mt-sm">
-              {canDelete ? (
-                <Button
-                  className="flex-1"
-                  variant="danger"
-                  label={t("common:actions.delete")}
-                  disabled={del.isPending}
-                  renderLeadingIcon={() => <Trash2 color="#8A1F1B" size={14} />}
-                  onPress={onDelete}
-                />
-              ) : null}
-              <Button
-                className="flex-1"
-                label={t("common:actions.save")}
-                disabled={upsert.isPending || !form.name.trim()}
-                onPress={() => void onSave()}
-              />
-            </View>
           </View>
-        </Card>
+        </View>
+
+        {/* Danger zone */}
+        {canDelete ? (
+          <View className="px-xl pt-xl">
+            <Button
+              variant="danger"
+              label={t("common:actions.delete")}
+              disabled={del.isPending}
+              renderLeadingIcon={() => <Trash2 color="#8A1F1B" size={14} />}
+              onPress={onDelete}
+            />
+          </View>
+        ) : null}
       </ScrollView>
+
+      {/* Sticky Save CTA */}
+      <View className="px-xl pt-md pb-md border-t border-line-tertiary bg-bg-primary">
+        <Button
+          variant="primary"
+          label={t("common:actions.save")}
+          disabled={upsert.isPending || !form.name.trim()}
+          onPress={() => void onSave()}
+        />
+      </View>
     </SafeAreaView>
   );
 }
 
-function backAction(
+function closeAction(
   router: ReturnType<typeof useRouter>,
   t: ReturnType<typeof useTranslation>["t"],
 ) {
   return {
-    accessibilityLabel: t("common:actions.back"),
-    renderIcon: () => <ChevronLeft color="#171717" size={20} />,
+    accessibilityLabel: t("common:actions.cancel"),
+    renderIcon: () => <X color="#171717" size={20} />,
     onPress: () => router.back(),
   };
 }
 
-function Field({
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <Text
+      className="text-label uppercase font-medium text-fg-tertiary mb-sm"
+      style={{ fontSize: 11, letterSpacing: 0.6 }}
+    >
+      {label}
+    </Text>
+  );
+}
+
+function LabeledField({
   label,
   hint,
+  className = "",
   children,
 }: {
   label: string;
   hint?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <View className="gap-xs">
-      <Text className="text-caption uppercase tracking-wide text-fg-secondary">{label}</Text>
+    <View className={`gap-xs ${className}`}>
+      <Text
+        className="text-label uppercase font-medium text-fg-tertiary"
+        style={{ fontSize: 11, letterSpacing: 0.6 }}
+      >
+        {label}
+      </Text>
       {children}
       {hint ? <Text className="text-caption text-fg-tertiary">{hint}</Text> : null}
     </View>
   );
 }
 
-function StatusToggle({
-  label,
-  hint,
-  activeLabel,
-  inactiveLabel,
+function SeedShape({ color, rotate }: { color: string; rotate: string }) {
+  return (
+    <View
+      style={{
+        width: 12,
+        height: 20,
+        borderRadius: 999,
+        backgroundColor: color,
+        opacity: 0.55,
+        transform: [{ rotate }],
+      }}
+    />
+  );
+}
+
+function FamilyPicker({
   value,
   onChange,
+  t,
 }: {
-  label: string;
-  hint: string;
-  activeLabel: string;
-  inactiveLabel: string;
+  value: FamilyKey;
+  onChange: (next: FamilyKey) => void;
+  t: TFunction;
+}) {
+  const next: Record<FamilyKey, FamilyKey> = {
+    rice: "corn",
+    corn: "legume",
+    legume: "mungbean",
+    mungbean: "rice",
+  };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t("more:masterData.colorKey")}
+      onPress={() => onChange(next[value])}
+      className="h-11 w-full rounded-md border border-line-secondary bg-bg-primary px-lg justify-center active:bg-bg-secondary"
+    >
+      <Text className="text-title text-fg-primary">{t(`varieties:family.${value}`)}</Text>
+    </Pressable>
+  );
+}
+
+function ActiveControl({
+  value,
+  onChange,
+  activeLabel,
+  inactiveLabel,
+}: {
   value: boolean;
   onChange: (next: boolean) => void;
+  activeLabel: string;
+  inactiveLabel: string;
 }) {
   return (
-    <View className="flex-row items-center justify-between gap-md rounded-lg border border-line-tertiary bg-bg-secondary px-md py-md">
-      <View className="flex-1">
-        <Text className="text-caption uppercase tracking-wide text-fg-secondary">{label}</Text>
-        <Text className={`text-title mt-xs ${value ? "text-success-text" : "text-warning-text"}`}>
-          {value ? activeLabel : inactiveLabel}
-        </Text>
-        <Text className="text-caption text-fg-tertiary mt-xs">{hint}</Text>
-      </View>
-      <Toggle value={value} onValueChange={onChange} accessibilityLabel={label} />
+    <View className="h-11 w-full flex-row items-center justify-between rounded-md border border-line-secondary bg-bg-primary px-md">
+      <Text className="text-title text-fg-primary">{value ? activeLabel : inactiveLabel}</Text>
+      <Toggle value={value} onValueChange={onChange} accessibilityLabel={activeLabel} />
     </View>
   );
 }
@@ -406,11 +566,20 @@ function ClassChip({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ selected: active }}
       accessibilityLabel={label}
       onPress={onPress}
-      className={`rounded-full px-md py-sm ${active ? "bg-brand active:opacity-90" : "bg-bg-primary border border-line-tertiary"}`}
+      className={`rounded-full px-md py-sm ${
+        active
+          ? "bg-primary active:opacity-90"
+          : "bg-bg-primary border border-line-secondary active:bg-bg-secondary"
+      }`}
     >
-      <Text className={`text-caption font-medium ${active ? "text-brand-on" : "text-fg-primary"}`}>
+      <Text
+        className={`text-caption ${
+          active ? "font-semibold text-primary-on" : "font-medium text-fg-primary"
+        }`}
+      >
         {label}
       </Text>
     </Pressable>
@@ -426,15 +595,7 @@ function GradeCriteriaEditor({
 }) {
   const { t } = useTranslation(["more"]);
   return (
-    <View className="gap-sm rounded-lg border border-line-tertiary bg-bg-secondary px-md py-md">
-      <View>
-        <Text className="text-caption uppercase tracking-wide text-fg-secondary">
-          {t("more:masterData.gradeCriteria")}
-        </Text>
-        <Text className="text-caption text-fg-tertiary mt-xs">
-          {t("more:masterData.gradeCriteriaHint")}
-        </Text>
-      </View>
+    <View className="gap-md">
       {GRADE_KEYS.map((grade) => (
         <View key={grade} className="gap-xs">
           <Text className="text-title text-fg-primary">{grade}</Text>

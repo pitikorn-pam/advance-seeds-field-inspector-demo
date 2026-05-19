@@ -2,12 +2,14 @@ import type { SeedAnalyzer } from "@advance-seeds/types";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { InteractionManager } from "react-native";
+import { useAuth } from "@/lib/auth";
 import { ClassicalSeedAnalyzer } from "./ClassicalSeedAnalyzer";
 import { selectAnalyzer } from "./selectAnalyzer";
 
 const ctx = createContext<SeedAnalyzer | null>(null);
 
 export function AnalyzerProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
   // Render with the classical analyzer immediately so screens never see a
   // null context; swap in the resolved analyzer once selectAnalyzer settles.
   const initial = useMemo(() => new ClassicalSeedAnalyzer(), []);
@@ -19,15 +21,26 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
     selectAnalyzer().then((picked) => {
       if (!cancelled) setAnalyzer(picked);
     });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    // Defer the registry probe until after the initial cold-start
-    // interaction burst settles. Without this, the resolveDefaultModel
-    // fetch + dynamic imports + publishResolveResult re-render compete
-    // with the Home screen's first paint (greeting, hero card,
-    // inspection query) and make the home menu feel sluggish on
-    // launch. InteractionManager schedules after gesture/animation
-    // queues drain; the extra setTimeout gives slow devices a beat
-    // before we touch the network.
+  useEffect(() => {
+    // The registry probe runs only after sign-in. It publishes the resolve
+    // result so the Models screen and the Home update banner know whether
+    // an install or update is available — but it never DOWNLOADS a model
+    // on its own. First-launch auto-install was removed because the
+    // ~60 MB download made the post-login experience feel stuck; the
+    // user installs manually from /more/models or via the Inspect-tab
+    // gate, both of which surface the missing-model message clearly.
+    //
+    // `runAutoInstallIfEligible` is still wired for the user-opt-in
+    // "auto-install updates on Wi-Fi" pref (default off) — it never
+    // triggers a first-launch download because that path is gone.
+    if (!session) return;
+
+    let cancelled = false;
     let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
     const handle = InteractionManager.runAfterInteractions(() => {
       cleanupTimer = setTimeout(async () => {
@@ -38,16 +51,6 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
           const { publishResolveResult } = await import("@/lib/models/updateStore");
           const active = await readActiveModel();
           if (cancelled) return;
-          if (!active) {
-            const { runFirstLaunchDefaultInstallIfNeeded } =
-              await import("@/lib/models/autoInstall");
-            const installed = await runFirstLaunchDefaultInstallIfNeeded();
-            if (cancelled) return;
-            if (installed) {
-              setAnalyzer(await selectAnalyzer());
-              return;
-            }
-          }
           const res = await resolveDefaultModel({
             channel: "production",
             currentVersion: active?.manifest?.display_name ?? "",
@@ -70,7 +73,7 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
       handle.cancel();
       if (cleanupTimer) clearTimeout(cleanupTimer);
     };
-  }, []);
+  }, [session]);
 
   return <ctx.Provider value={analyzer}>{children}</ctx.Provider>;
 }

@@ -1,20 +1,22 @@
 import { useEffect } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ScanLine, Sprout } from "lucide-react-native";
+import { tokens } from "@advance-seeds/tokens";
+import { useTheme } from "@/lib/theme";
 
 /**
- * First-launch splash. The native splash screen is hidden once i18n boots;
- * this is the JS-side ceremony that opens the welcome flow. Auto-routes to
- * /welcome after 1.5 s, or immediately on tap of the "Get started" CTA.
+ * First-launch splash, ported 1:1 from the prototype PNG: a clean white
+ * canvas with the 64px purple AS brand mark vertically centered, the app
+ * name beneath it, and "Field Inspector" subline. The proto deliberately
+ * drops the progress bar / version caption — the native splash already
+ * covers cold-start latency, so the JS splash is a quiet branded card
+ * that auto-routes to /welcome after a brief delay.
  *
- * Subsequent launches skip this entirely — the StartupGate in the root
- * layout reads the onboarded flag and goes straight to /login or /(tabs).
+ * The StartupGate in the root layout reads the onboarded flag and
+ * bypasses this on subsequent launches.
  */
 export default function Splash() {
-  const { t } = useTranslation(["common", "onboarding"]);
   const router = useRouter();
 
   useEffect(() => {
@@ -25,60 +27,77 @@ export default function Splash() {
   }, [router]);
 
   return (
-    <SafeAreaView className="flex-1 bg-brand-navy" edges={["top", "bottom"]}>
-      <View className="flex-1 items-center justify-center px-xl">
-        <View
-          className="mb-2xl items-center justify-center rounded-md bg-card-yellow-bold"
-          style={{ width: 78, height: 78 }}
+    <SafeAreaView className="flex-1 bg-bg-primary" edges={["top", "bottom"]}>
+      <View className="flex-1 items-center justify-center px-2xl">
+        <BrandMark />
+        <Text
+          className="mt-md font-semibold text-fg-primary text-center"
+          style={{ fontSize: 22, letterSpacing: -0.4 }}
         >
-          <Sprout color="#0D1028" size={34} strokeWidth={1.7} />
-          <View className="absolute -right-2 -top-2 rounded-md bg-primary p-xs">
-            <ScanLine color="#FFFFFF" size={14} strokeWidth={2} />
-          </View>
-        </View>
-        <Text className="font-semibold text-fg-on-dark" style={{ fontSize: 34 }}>
-          {t("common:appName")}
+          Advance Seeds
         </Text>
-        <Text className="mt-xs text-center text-body text-fg-on-dark-muted">
-          {t("onboarding:splash.tagline")}
-        </Text>
-
-        {/* Three progress dots — purely cosmetic, mirrors the prototype. */}
-        <View className="flex-row items-center gap-[6px] mt-3xl">
-          <Dot opacity={0.4} />
-          <Dot opacity={0.7} />
-          <Dot opacity={1} />
-        </View>
-      </View>
-
-      <View className="px-xl pb-xl">
-        <Pressable
-          accessibilityRole="button"
-          className="h-11 items-center justify-center rounded-md bg-primary active:bg-primary-pressed"
-          onPress={() => router.replace("/welcome")}
-        >
-          <Text className="font-medium text-primary-on" style={{ fontSize: 14 }}>
-            {t("onboarding:splash.getStarted")}
-          </Text>
-        </Pressable>
-        <Text className="mt-sm text-center text-caption text-fg-on-dark-muted">
-          {t("onboarding:splash.version")}
-        </Text>
+        <Text className="mt-[2px] text-body text-fg-secondary text-center">Field Inspector</Text>
       </View>
     </SafeAreaView>
   );
 }
 
-function Dot({ opacity }: { opacity: number }) {
+/**
+ * 64px purple square with white "AS" — matches the prototype's BrandMark
+ * default size. Inlined here (and in login/welcome) so the mark renders
+ * identically without an extra import.
+ */
+function BrandMark() {
+  const { resolved } = useTheme();
+  // Brand-tinted soft glow under the purple square — taken from the
+  // prototype's "0 4px 12px rgba(110,64,224,0.25)" drop shadow. Source the
+  // hex from tokens so dark mode inherits the right shade.
+  const glow = pickHex(tokens, ["color", "brand", "primary"], resolved);
   return (
     <View
+      className="items-center justify-center rounded-xl bg-primary"
       style={{
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: "#FFD84D",
-        opacity,
+        width: 64,
+        height: 64,
+        shadowColor: glow,
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 6,
       }}
-    />
+    >
+      <Text
+        className="text-primary-on"
+        style={{ fontSize: 24, fontWeight: "700", letterSpacing: -1 }}
+      >
+        AS
+      </Text>
+    </View>
   );
+}
+
+// Walks the runtime tokens tree to a leaf and returns the theme-correct
+// hex. Mirrors the helper in welcome.tsx; kept inline so this screen can
+// pull tokens for SVG/shadow colours that NativeWind classes can't reach.
+function pickHex(
+  source: Record<string, unknown>,
+  path: readonly string[],
+  resolved: "light" | "dark",
+): string {
+  let node: unknown = source;
+  for (const seg of path) {
+    if (node && typeof node === "object" && seg in (node as object)) {
+      node = (node as Record<string, unknown>)[seg];
+    } else {
+      return "transparent";
+    }
+  }
+  if (typeof node === "string") return node;
+  if (node && typeof node === "object") {
+    const leaf = node as { value?: unknown; darkValue?: unknown };
+    const v =
+      resolved === "dark" && typeof leaf.darkValue === "string" ? leaf.darkValue : leaf.value;
+    if (typeof v === "string") return v;
+  }
+  return "transparent";
 }

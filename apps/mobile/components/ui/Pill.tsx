@@ -1,7 +1,7 @@
 import { View, Text } from "react-native";
 
 const tones = {
-  brand: { bg: "bg-brand-soft", text: "text-brand-deep", dot: "#6C47FF" },
+  brand: { bg: "bg-brand-soft", text: "text-brand-deep", dot: "#6E40E0" },
   success: { bg: "bg-success-bg", text: "text-success-text", dot: "#285B12" },
   warning: { bg: "bg-warning-bg", text: "text-warning-text", dot: "#704B00" },
   danger: { bg: "bg-danger-bg", text: "text-danger-text", dot: "#8A1F1B" },

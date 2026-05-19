@@ -22,12 +22,52 @@ export function modelInstallDir(id: string): string {
   return `${root}${encodeURIComponent(id)}/`;
 }
 
+/**
+ * Re-anchor any stored file URIs against the current `documentDirectory`.
+ *
+ * Why: iOS persists `registry.json` and `active-model.json` inside the
+ * app's Documents container. The container's absolute path includes a
+ * UUID that can rotate on reinstall (full-uninstall + reinstall, certain
+ * OS updates, or simulator container swaps). When that happens, the
+ * artifact URIs we baked at install time point at the *old* container
+ * path that no longer exists. The model files themselves still live on
+ * disk under the new path because the JSON document survived alongside
+ * them — only the *prefix* is stale. We recover by stripping the
+ * stored prefix back to the per-id install dir suffix and reattaching
+ * the current root. The id-derived layout is deterministic
+ * (`model.mlpackage.zip`, `model.tflite`, `model.mlmodelc/`), so the
+ * suffix is enough.
+ */
+function reanchorRecord(record: InstalledModelRecord): InstalledModelRecord {
+  const expectedDir = modelInstallDir(record.id);
+  const reanchor = (uri: string | undefined): string | undefined => {
+    if (!uri) return uri;
+    if (uri.startsWith(expectedDir)) return uri;
+    // Pull the per-id suffix from the stored absolute URI. The install
+    // path always contains `/models/<encoded-id>/` followed by either a
+    // file name or a subdirectory. Match on that anchor to stay robust
+    // against differences in the Documents-prefix that precedes it.
+    const marker = `/models/${encodeURIComponent(record.id)}/`;
+    const idx = uri.indexOf(marker);
+    if (idx === -1) return uri;
+    const suffix = uri.slice(idx + marker.length);
+    return `${expectedDir}${suffix}`;
+  };
+  const artifactUri = reanchor(record.artifactUri) ?? record.artifactUri;
+  const compiledArtifactUri = reanchor(record.compiledArtifactUri);
+  if (artifactUri === record.artifactUri && compiledArtifactUri === record.compiledArtifactUri) {
+    return record;
+  }
+  return { ...record, artifactUri, compiledArtifactUri };
+}
+
 export async function readInstalledModels(): Promise<InstalledModelRecord[]> {
   await ensureModelStore();
   try {
     const raw = await FileSystem.readAsStringAsync(registryUri);
     const parsed = JSON.parse(raw) as InstalledModelRecord[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(reanchorRecord);
   } catch {
     return [];
   }
@@ -57,7 +97,7 @@ export async function readActiveModel(): Promise<InstalledModelRecord | null> {
   await ensureModelStore();
   try {
     const raw = await FileSystem.readAsStringAsync(activeUri);
-    return JSON.parse(raw) as InstalledModelRecord;
+    return reanchorRecord(JSON.parse(raw) as InstalledModelRecord);
   } catch {
     return null;
   }
@@ -67,7 +107,7 @@ export async function readPreviousActiveModel(): Promise<InstalledModelRecord | 
   await ensureModelStore();
   try {
     const raw = await FileSystem.readAsStringAsync(previousUri);
-    return JSON.parse(raw) as InstalledModelRecord;
+    return reanchorRecord(JSON.parse(raw) as InstalledModelRecord);
   } catch {
     return null;
   }

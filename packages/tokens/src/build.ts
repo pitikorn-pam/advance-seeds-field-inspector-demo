@@ -9,9 +9,19 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 import type { DesignTokensJson } from "./types.js";
 import { mapColorsForTailwind } from "./mapping.js";
+
+// Prettier is workspace-hoisted (public-hoist-pattern[]=*prettier* in .npmrc).
+// We resolve it via createRequire so this stays a build-time dependency that
+// the tokens package doesn't have to declare — and so CI's `pnpm install`
+// (which triggers `prepare → pnpm build`) emits already-formatted CSS that
+// passes `prettier --check`. Without this, every fresh install produces a
+// raw-uppercase-hex global.css that fails the format gate.
+const require = createRequire(import.meta.url);
+const prettier = require("prettier") as typeof import("prettier");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "../../..");
@@ -179,6 +189,15 @@ for (const [name, val] of Object.entries(tokens.color.variety)) {
   lightVars.push(`  --as-${name}-text: ${val.text};`);
 }
 
+// grade chips — flat literal pairs, same convention as variety. No dark
+// variant: a graded seed's color must stay constant across themes (the chip
+// reads like a label, not a surface).
+for (const [name, val] of Object.entries(tokens.color.grade ?? {})) {
+  if (typeof val === "string") continue;
+  lightVars.push(`  --as-grade-${name}-bg: ${val.bg};`);
+  lightVars.push(`  --as-grade-${name}-ink: ${val.ink};`);
+}
+
 // glass — viewfinder chrome over live camera preview. No dark variant on
 // purpose: the substrate is the camera image, not a theme surface, so a
 // dark-mode shift would just darken an already-darkening overlay.
@@ -243,6 +262,50 @@ ${indent(darkVars.join("\n"), 2)}
 `;
 
 writeFileSync(resolve(distDir, "css-vars.css"), cssOutput);
+
+// ----- 2b. apps/mobile/global.css ---------------------------------------
+//
+// NativeWind reads CSS variables from the mobile app's own entry stylesheet
+// (it does NOT auto-pick up packages/tokens/dist/css-vars.css). Write the
+// same vars there too, in NativeWind's expected shape: wrapped in
+// `@layer base` and using the `.dark` class selector (instead of the web
+// dashboard's `[data-theme="dark"]`). Without this step, NativeWind bakes
+// stale hex values into the JS bundle at transform time and a token edit
+// only shows up after a hand-paste — exactly the bug that took out the
+// first device build on the Field Inspector redesign.
+const mobileGlobalCssPath = resolve(repoRoot, "apps/mobile/global.css");
+const mobileGlobalCssRaw = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Tokens preset emits Tailwind utilities that resolve to var(--as-*).
+  Browsers handle CSS variables natively; NativeWind 4 needs them defined
+  in this file to translate them at bundle time. AUTO-GENERATED from
+  docs/handoff/design-tokens.json — do not edit by hand.
+  Run \`pnpm -F @advance-seeds/tokens build\` to regenerate.
+*/
+@layer base {
+  :root {
+${lightVars.join("\n")}
+  }
+
+  :root.dark,
+  .dark:root,
+  .dark {
+${darkVars.join("\n")}
+  }
+}
+`;
+// Pipe through prettier so CI's `pnpm install` (which runs `prepare`) emits
+// a file that already passes `prettier --check .`. Resolves the workspace's
+// .prettierrc.json automatically because the target path is inside the repo.
+const mobileGlobalCss = await prettier.format(mobileGlobalCssRaw, {
+  ...(await prettier.resolveConfig(mobileGlobalCssPath)),
+  parser: "css",
+  filepath: mobileGlobalCssPath,
+});
+writeFileSync(mobileGlobalCssPath, mobileGlobalCss);
 
 // ----- 3. tokens.ts (runtime TS) ----------------------------------------
 

@@ -120,7 +120,7 @@ export default function PendingInspectionDetail() {
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-md">
         <View className="flex-row items-center gap-sm">
-          <Cloud color="#6C47FF" size={18} />
+          <Cloud color="#6E40E0" size={18} />
           <Pill tone={statusPill.tone} dot label={statusPill.label} />
           <Text className="text-caption text-fg-secondary">
             {t("inspections:pending.queuedAt", { date: dateFmt.format(createdAt) })}

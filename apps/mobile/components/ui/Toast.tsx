@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Animated, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 
 interface Props {
   /** Visible message. When null, the toast hides. */
@@ -8,6 +8,14 @@ interface Props {
   duration?: number;
   /** Tone — neutral (default) is a glass-style dark pill, success is brand-tinted. */
   tone?: "neutral" | "success" | "danger";
+  /**
+   * Optional inline action button (e.g. "Undo"). When provided the toast
+   * renders as a wider charcoal card with the action on the right and
+   * stays interactive until auto-dismiss.
+   */
+  actionLabel?: string;
+  /** Invoked when the action button is tapped. Does not auto-dismiss the toast. */
+  onAction?: () => void;
 }
 
 /**
@@ -25,7 +33,13 @@ interface Props {
  * The component handles its own auto-clear via parent state — caller
  * doesn't need to setTimeout-clear.
  */
-export function Toast({ message, duration = 1800, tone = "neutral" }: Props) {
+export function Toast({
+  message,
+  duration = 1800,
+  tone = "neutral",
+  actionLabel,
+  onAction,
+}: Props) {
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -49,9 +63,13 @@ export function Toast({ message, duration = 1800, tone = "neutral" }: Props) {
         ? "rgba(121, 31, 31, 0.92)"
         : "rgba(0, 0, 0, 0.78)";
 
+  const hasAction = !!actionLabel && !!onAction;
+
   return (
     <Animated.View
-      pointerEvents="none"
+      // Action toasts need taps; passive toasts stay non-interactive so they
+      // don't block content underneath.
+      pointerEvents={hasAction ? "box-none" : "none"}
       style={{
         opacity,
         position: "absolute",
@@ -59,21 +77,57 @@ export function Toast({ message, duration = 1800, tone = "neutral" }: Props) {
         left: 0,
         right: 0,
         alignItems: "center",
+        paddingHorizontal: 16,
       }}
     >
-      <View
-        style={{
-          backgroundColor: bg,
-          borderRadius: 999,
-          paddingVertical: 8,
-          paddingHorizontal: 16,
-          maxWidth: "85%",
-        }}
-      >
-        <Text style={{ color: "white", fontSize: 13, fontWeight: "500", textAlign: "center" }}>
-          {message}
-        </Text>
-      </View>
+      {hasAction ? (
+        <View
+          style={{
+            backgroundColor: "#191918",
+            borderRadius: 12,
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            width: "100%",
+            shadowColor: "#000",
+            shadowOpacity: 0.25,
+            shadowOffset: { width: 0, height: 8 },
+            shadowRadius: 24,
+            elevation: 8,
+          }}
+        >
+          <Text
+            style={{ color: "white", fontSize: 13, fontWeight: "500", flex: 1 }}
+            numberOfLines={2}
+          >
+            {message}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
+            onPress={onAction}
+            hitSlop={8}
+          >
+            <Text style={{ color: "#9F90F5", fontSize: 13, fontWeight: "600" }}>{actionLabel}</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View
+          style={{
+            backgroundColor: bg,
+            borderRadius: 999,
+            paddingVertical: 8,
+            paddingHorizontal: 16,
+            maxWidth: "85%",
+          }}
+        >
+          <Text style={{ color: "white", fontSize: 13, fontWeight: "500", textAlign: "center" }}>
+            {message}
+          </Text>
+        </View>
+      )}
     </Animated.View>
   );
 }

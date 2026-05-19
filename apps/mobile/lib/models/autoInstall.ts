@@ -3,16 +3,14 @@ import NetInfo from "@react-native-community/netinfo";
 import { useEffect, useState } from "react";
 import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
 import { installCandidate, loadCandidatesFromIndex } from "./modelRegistry";
-import { activateInstalledModel, readActiveModel, readInstalledModels } from "./modelStore";
+import { activateInstalledModel } from "./modelStore";
 import { listDeployedModelsUrl } from "./registryService";
-import { pickFirstLaunchDefaultCandidate } from "./bootstrapPolicy";
 import {
   beginBackgroundModelInstall,
   completeBackgroundModelInstall,
   failBackgroundModelInstall,
   updateBackgroundModelInstall,
 } from "./installProgressStore";
-import type { InstalledModelRecord } from "./types";
 import type { ModelUpdateAvailable } from "./updateStore";
 
 const PREF_KEY = "as.mobile.models.autoInstallOnWifi";
@@ -30,7 +28,10 @@ type Prefs = { autoInstallOnWifi: boolean };
  *
  * Rules:
  * - Wi-Fi only — never spend cellular data on a model artifact.
- * - User must have opted in (`autoInstallOnWifi`); default is off.
+ * - User must have the pref on (`autoInstallOnWifi`); default is ON
+ *   because field-inspector deployments are typically Wi-Fi only when
+ *   docked and benefit from staying current without a manual install
+ *   step. Users can opt out from the Models screen.
  * - We must know the size up-front and it must be under the cap, so we
  *   can't accidentally pull a multi-hundred-MB file in the background.
  */
@@ -52,9 +53,12 @@ const prefSubscribers = new Set<(value: boolean) => void>();
 export async function readAutoInstallOnWifi(): Promise<boolean> {
   if (prefCache !== null) return prefCache;
   try {
-    prefCache = (await AsyncStorage.getItem(PREF_KEY)) === "true";
+    // Default to ON for never-touched installs (stored value === null).
+    // Users who have explicitly toggled it off see "false" persisted.
+    const stored = await AsyncStorage.getItem(PREF_KEY);
+    prefCache = stored === null ? true : stored === "true";
   } catch {
-    prefCache = false;
+    prefCache = true;
   }
   return prefCache;
 }
@@ -70,7 +74,7 @@ export async function setAutoInstallOnWifi(value: boolean): Promise<void> {
 }
 
 export function useAutoInstallOnWifi(): [boolean, (next: boolean) => void] {
-  const [value, setValue] = useState<boolean>(prefCache ?? false);
+  const [value, setValue] = useState<boolean>(prefCache ?? true);
   useEffect(() => {
     if (prefCache === null) {
       void readAutoInstallOnWifi().then((v) => setValue(v));
@@ -84,55 +88,11 @@ export function useAutoInstallOnWifi(): [boolean, (next: boolean) => void] {
 }
 
 let inflightVersionId: string | null = null;
-let firstLaunchInstallInflight = false;
 
-/**
- * First-run bootstrap: when the app has no installed model at all, install
- * and activate the production default if the registry exposes one for this
- * platform. This is intentionally separate from the opt-in update auto-install
- * policy above: first launch needs a usable seed-trained model without making
- * the operator discover the Model Registry screen first.
- */
-export async function runFirstLaunchDefaultInstallIfNeeded(): Promise<InstalledModelRecord | null> {
-  if (firstLaunchInstallInflight) return null;
-  firstLaunchInstallInflight = true;
-  try {
-    const [active, installed] = await Promise.all([readActiveModel(), readInstalledModels()]);
-    if (active || installed.length > 0) return null;
-
-    const indexUrl = listDeployedModelsUrl({ channel: "production", readyOnly: true });
-    if (!indexUrl) return null;
-    const candidates = await loadCandidatesFromIndex(indexUrl);
-    const candidate = pickFirstLaunchDefaultCandidate(candidates);
-    if (!candidate) return null;
-
-    const reg = candidate.metadata?.registry as { version_id?: string } | undefined;
-    const runId = beginBackgroundModelInstall({
-      kind: "firstLaunchDefault",
-      candidateId: candidate.id,
-      displayName: candidate.displayName,
-      versionId: reg?.version_id ?? null,
-    });
-    try {
-      const record = await installCandidate(candidate, (progress) => {
-        updateBackgroundModelInstall(runId, progress);
-      });
-      await activateInstalledModel(record);
-      resetSharedTfliteModel();
-      completeBackgroundModelInstall(runId);
-      console.info("[registry] installed production default model %s on first launch", record.id);
-      return record;
-    } catch (e) {
-      failBackgroundModelInstall(runId, e);
-      throw e;
-    }
-  } catch (e) {
-    console.warn("[registry] first-launch default model install failed", e);
-    return null;
-  } finally {
-    firstLaunchInstallInflight = false;
-  }
-}
+// First-launch default install was removed: it downloaded ~60 MB on
+// post-login wakeup and made the app feel stuck. The Inspect tab gate
+// (useModelInstallInspectionGate) and the Models screen are the two
+// supported install entry points, both user-initiated.
 
 export async function runAutoInstallIfEligible(update: ModelUpdateAvailable): Promise<void> {
   if (inflightVersionId === update.version_id) return;

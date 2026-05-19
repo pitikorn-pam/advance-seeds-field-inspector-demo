@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { Image, View, Text, ActivityIndicator } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Image, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
 import * as VideoThumbnails from "expo-video-thumbnails";
-import { Check } from "lucide-react-native";
+import Svg, { Circle, Text as SvgText } from "react-native-svg";
+import { AlertTriangle, Check, X } from "lucide-react-native";
+import { tokens } from "@advance-seeds/tokens";
+import { useTheme } from "@/lib/theme";
 import type { AnalysisResult } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
@@ -22,7 +25,7 @@ import { replaySyncQueue } from "@/lib/sync/replay";
 import { isQueueableSyncError } from "@/lib/sync/errors";
 import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { useNotify } from "@/lib/notifications";
-import { ProcessingOrb } from "@/components/camera/ProcessingOrb";
+import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Button } from "@/components/ui/Button";
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -85,6 +88,12 @@ export default function CaptureProcessing() {
   const varieties = useVarieties();
   const createRecording = useCreateRecording();
   const notify = useNotify();
+  const { resolved } = useTheme();
+  // Lucide icons take a fixed hex; thread the theme-correct ink so the
+  // close-button glyph stays legible in dark mode. AppTopBar themes its own
+  // icon — this covers the AlertTriangle / Cancel-X usage below.
+  const inkHex = pickHex(tokens, ["color", "text", "primary"], resolved);
+  const dangerHex = pickHex(tokens, ["color", "semantic", "danger", "text"], resolved);
 
   const [completed, setCompleted] = useState<Set<Step>>(new Set());
   const [detectedCount, setDetectedCount] = useState<number | null>(null);
@@ -571,91 +580,256 @@ export default function CaptureProcessing() {
   };
   const onRetry = () => router.replace("/capture/processing");
 
+  // 4 steps × 25% per completed step. Derives a sensible "% done" without
+  // a real progress signal from the analyzer (which only reports completion).
+  const percent = useMemo(() => {
+    const order: Step[] = ["captured", "calibration", "detected", "grading"];
+    const doneCount = order.filter((s) => completed.has(s)).length;
+    return Math.round((doneCount / order.length) * 100);
+  }, [completed]);
+
+  const activeStep: Step | null = useMemo(() => {
+    const order: Step[] = ["captured", "calibration", "detected", "grading"];
+    for (const s of order) if (!completed.has(s)) return s;
+    return null;
+  }, [completed]);
+
   if (error) {
     return (
-      <SafeAreaView className="flex-1 bg-card-cream" edges={["top", "bottom"]}>
+      <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+        <AppTopBar
+          title={t("inspections:capture.processing.failedTitle", "Analysis failed")}
+          left={{
+            accessibilityLabel: t("common:actions.cancel"),
+            renderIcon: () => <X color={inkHex} size={20} />,
+            onPress: onCancel,
+          }}
+        />
         <View className="flex-1 items-center justify-center gap-md px-xl">
-          <Text className="text-h1 text-fg-primary font-medium">{t("common:states.error")}</Text>
-          <Text className="text-body text-fg-secondary text-center">{error}</Text>
-          <View className="flex-row gap-md mt-md">
-            <Button variant="outline" label={t("common:actions.cancel")} onPress={onCancel} />
-            <Button label={t("common:actions.retry")} onPress={onRetry} />
+          <View className="h-[160px] w-[160px] items-center justify-center rounded-3xl border border-line-tertiary bg-bg-primary">
+            <AlertTriangle color={dangerHex} size={56} />
           </View>
+          <Text className="text-h1 text-fg-primary font-semibold mt-md text-center">
+            {t("inspections:capture.processing.failedTitle", "Analysis failed")}
+          </Text>
+          <Text className="text-body text-fg-secondary text-center" style={{ maxWidth: 280 }}>
+            {error}
+          </Text>
+        </View>
+        <View className="gap-sm px-xl pb-xl pt-sm">
+          <Button label={t("common:actions.retry")} onPress={onRetry} />
+          <Button variant="secondary" label={t("common:actions.cancel")} onPress={onCancel} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-card-cream" edges={["top", "bottom"]}>
-      <View className="flex-1 items-center px-xl pt-3xl">
-        <View className="mt-3xl mb-xl">
-          <ProcessingOrb />
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
+      <AppTopBar
+        title={t("inspections:capture.processing.title")}
+        left={{
+          accessibilityLabel: t("common:actions.cancel"),
+          renderIcon: () => <X color={inkHex} size={20} />,
+          onPress: onCancel,
+        }}
+      />
+
+      <View className="flex-1 items-center justify-center px-xl">
+        {/* Concentric progress disc — 160×160 white card with a 120×120
+            SVG ring inside and a percent readout in the centre. The disc
+            stays static-sized across the four steps so the layout doesn't
+            shift as progress advances. */}
+        <View className="h-[160px] w-[160px] items-center justify-center rounded-3xl border border-line-tertiary bg-bg-primary">
+          <ConcentricProgress percent={percent} inkHex={inkHex} />
         </View>
 
-        <Text className="text-h1 text-fg-primary font-medium" style={{ fontSize: 26 }}>
-          {t("inspections:capture.processing.title")}
+        <Text className="text-h2 text-fg-primary font-semibold mt-xl text-center">
+          {t("inspections:capture.processing.analyzingSeeds", {
+            count: detectedCount ?? 0,
+            defaultValue: `Analyzing ${detectedCount ?? 0} seeds`,
+          })}
         </Text>
-        <Text className="text-body text-fg-secondary text-center mt-sm" style={{ maxWidth: 320 }}>
+        <Text className="text-body text-fg-secondary text-center mt-sm" style={{ maxWidth: 280 }}>
           {t("inspections:capture.processing.subtitle")}
         </Text>
 
-        <View className="mt-2xl gap-md self-start" style={{ width: 240, alignSelf: "center" }}>
-          <Step
+        {/* Step list card */}
+        <View className="mt-2xl w-full max-w-[320px] rounded-lg border border-line-tertiary bg-bg-primary p-[4px]">
+          <StepRow
             label={t("inspections:capture.processing.stepCaptured")}
-            done={completed.has("captured")}
+            state={
+              completed.has("captured") ? "done" : activeStep === "captured" ? "active" : "pending"
+            }
+            isLast={false}
           />
-          <Step
+          <StepRow
             label={t("inspections:capture.processing.stepCalibration")}
-            done={completed.has("calibration")}
+            state={
+              completed.has("calibration")
+                ? "done"
+                : activeStep === "calibration"
+                  ? "active"
+                  : "pending"
+            }
+            isLast={false}
           />
-          <Step
+          <StepRow
             label={t("inspections:capture.processing.stepDetected", {
               count: detectedCount ?? 0,
             })}
-            done={completed.has("detected")}
+            state={
+              completed.has("detected") ? "done" : activeStep === "detected" ? "active" : "pending"
+            }
+            isLast={false}
           />
-          <Step
+          <StepRow
             label={t("inspections:capture.processing.stepGrading")}
-            done={completed.has("grading")}
-            spinning={!completed.has("grading") && completed.has("detected")}
+            state={
+              completed.has("grading") ? "done" : activeStep === "grading" ? "active" : "pending"
+            }
+            isLast
           />
         </View>
 
         {done ? (
-          <Text className="mt-3xl text-caption text-fg-secondary">
+          <Text className="mt-2xl text-caption text-fg-secondary">
             {t("inspections:capture.processing.openingResults")}
           </Text>
         ) : null}
+      </View>
+
+      <View className="px-xl pb-xl pt-sm">
+        <Button variant="secondary" label={t("common:actions.cancel")} onPress={onCancel} />
       </View>
     </SafeAreaView>
   );
 }
 
-function Step({
+/**
+ * SVG-based concentric progress ring matching the prototype: thick light
+ * track, primary-coloured arc, percent readout at the centre. Pure visual —
+ * the `percent` prop is what drives the dash offset.
+ */
+function ConcentricProgress({ percent, inkHex }: { percent: number; inkHex: string }) {
+  const { resolved } = useTheme();
+  // SVG strokes can't read NativeWind classes, so resolve theme-aware hex
+  // out of the canonical tokens tree. Track uses the same value as the
+  // `line-tertiary` border so the ring sits flush against the surrounding
+  // card border; the arc is the brand purple primary.
+  const trackHex = pickHex(tokens, ["color", "border", "tertiary"], resolved);
+  const arcHex = pickHex(tokens, ["color", "brand", "primary"], resolved);
+  const size = 120;
+  const stroke = 8;
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - Math.max(0, Math.min(100, percent)) / 100);
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        stroke={trackHex}
+        strokeWidth={stroke}
+        fill="none"
+      />
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        stroke={arcHex}
+        strokeWidth={stroke}
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
+      <SvgText
+        x={size / 2}
+        y={size / 2 + 7}
+        textAnchor="middle"
+        fontSize={22}
+        fontWeight="600"
+        fill={inkHex}
+      >
+        {`${percent}%`}
+      </SvgText>
+    </Svg>
+  );
+}
+
+type StepRowState = "pending" | "active" | "done";
+function StepRow({
   label,
-  done,
-  spinning = false,
+  state,
+  isLast,
 }: {
   label: string;
-  done: boolean;
-  spinning?: boolean;
+  state: StepRowState;
+  isLast: boolean;
 }) {
+  const { t } = useTranslation(["inspections"]);
+  const { resolved } = useTheme();
+  // Check glyph rides on a coloured circle (success/primary), so use the
+  // token-defined onDark ink to stay legible in both themes.
+  const onDarkHex = pickHex(tokens, ["color", "text", "onDark"], resolved);
   return (
-    <View className="flex-row items-center gap-md">
-      {done ? (
-        <Check color="#6C47FF" size={16} />
-      ) : spinning ? (
-        <ActivityIndicator color="#6C47FF" size="small" />
-      ) : (
-        <View
-          className="h-4 w-4 rounded-full"
-          style={{ borderWidth: 1.5, borderColor: "rgba(23,23,23,0.14)" }}
-        />
-      )}
-      <Text className={done ? "text-fg-primary" : "text-fg-secondary"} style={{ fontSize: 13 }}>
+    <View
+      className={`flex-row items-center gap-md px-md py-[10px] ${isLast ? "" : "border-b border-line-tertiary"}`}
+    >
+      <View
+        className={`h-[22px] w-[22px] items-center justify-center rounded-full ${
+          state === "done"
+            ? "bg-success-text"
+            : state === "active"
+              ? "bg-primary"
+              : "bg-line-tertiary"
+        }`}
+      >
+        {state === "done" ? (
+          <Check color={onDarkHex} size={14} strokeWidth={3} />
+        ) : state === "active" ? (
+          <View className="h-[6px] w-[6px] rounded-full bg-primary-on" />
+        ) : null}
+      </View>
+      <Text
+        className={`flex-1 ${state === "active" ? "text-body font-medium text-fg-primary" : state === "done" ? "text-caption text-fg-primary" : "text-caption text-fg-tertiary"}`}
+      >
         {label}
       </Text>
+      {state === "active" ? (
+        <Text className="text-[11px] font-semibold text-primary">
+          {t("inspections:capture.processing.inProgress", "in progress")}
+        </Text>
+      ) : null}
     </View>
   );
+}
+
+// Walks the runtime tokens tree to a leaf and returns the theme-correct
+// hex. Mirrors the helper in welcome.tsx / splash.tsx; SVG strokes and
+// Lucide icon colours need raw hex strings that NativeWind can't supply.
+function pickHex(
+  source: Record<string, unknown>,
+  path: readonly string[],
+  resolved: "light" | "dark",
+): string {
+  let node: unknown = source;
+  for (const seg of path) {
+    if (node && typeof node === "object" && seg in (node as object)) {
+      node = (node as Record<string, unknown>)[seg];
+    } else {
+      return "transparent";
+    }
+  }
+  if (typeof node === "string") return node;
+  if (node && typeof node === "object") {
+    const leaf = node as { value?: unknown; darkValue?: unknown };
+    const v =
+      resolved === "dark" && typeof leaf.darkValue === "string" ? leaf.darkValue : leaf.value;
+    if (typeof v === "string") return v;
+  }
+  return "transparent";
 }

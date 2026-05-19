@@ -3,22 +3,41 @@
   "fields": {
     "name": "Profile name",
     "pxPerMm": "Pixels per millimeter",
-    "source": "Source"
+    "source": "Source",
+    "drift": "Drift"
   },
   "sources": {
     "lidar": "LiDAR",
     "aruco": "ArUco marker"
   },
+  "sourceLabels": {
+    "lidar": "LiDAR depth",
+    "aruco": "ArUco",
+    "manual": "Manual"
+  },
+  "lastVerified": "last verified · {{time}}",
   "marker": {
     "title": "ArUco marker",
     "size": "5 cm",
-    "description": "Share the calibration card with another inspector, then print or display it at actual size with the white border visible.",
+    "description": "Print at exact 5×5 cm size. Place flat in frame for fallback calibration.",
     "download": "Download calibration card",
+    "share": "Share",
+    "savePdf": "Save PDF",
     "sharing": "Preparing marker...",
     "shareTitle": "Share ArUco calibration card",
     "imageAlt": "ArUco calibration card",
     "errorTitle": "Marker unavailable",
     "errorBody": "The calibration marker image could not be prepared. Try again."
   },
-  "honestFallback": "Calibration unavailable. Measurements may be inaccurate."
+  "honestFallback": "Calibration unavailable. Measurements may be inaccurate.",
+  "active": {
+    "label": "Active",
+    "sectionTitle": "Active profile"
+  },
+  "other": {
+    "sectionTitle": "Other profiles"
+  },
+  "units": {
+    "pxPerMm": "px / mm"
+  }
 }

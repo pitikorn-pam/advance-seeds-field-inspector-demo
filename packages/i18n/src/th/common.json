@@ -41,8 +41,18 @@
   },
   "sync": {
     "allSynced": "ซิงก์ครบแล้ว",
-    "pending": "ค้าง {{count}} รายการ",
+    "synced": "ซิงก์แล้ว",
+    "syncing": "กำลังซิงก์…",
+    "pending": "ค้างคิว",
+    "pendingCount": "ค้าง {{count}} รายการ",
+    "failed": "ล้มเหลว",
     "offline": "ออฟไลน์"
+  },
+  "grade": {
+    "A": "เกรด A",
+    "B": "เกรด B",
+    "C": "เกรด C",
+    "reject": "ตัดทิ้ง"
   },
   "fields": {
     "name": "ชื่อ",

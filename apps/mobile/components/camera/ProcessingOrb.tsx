@@ -35,7 +35,7 @@ export function ProcessingOrb({ size = 120 }: { size?: number }) {
         height: size,
         borderRadius: size / 2,
         borderWidth: 4,
-        borderColor: "#6C47FF",
+        borderColor: "#6E40E0",
         borderTopColor: "transparent",
         backgroundColor: "#EEE9FF",
         transform: [{ rotate: spin }],

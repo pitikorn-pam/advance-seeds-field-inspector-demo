@@ -1,13 +1,17 @@
 {
   "greeting": "สวัสดี {{name}}",
+  "goodMorning": "สวัสดีตอนเช้า",
+  "recentHeader": "ล่าสุด",
   "heroLabel": "วันนี้",
   "dashboardTitle": "ชีพจรการตรวจสอบ",
   "heroSubtitle": "ตรวจแล้ว {{seeds}} เมล็ด",
   "heroSubtitleEmpty": "ยังไม่มีการตรวจสอบวันนี้",
   "metricInspections": "รอบตรวจ",
   "metricSeeds": "เมล็ด",
-  "metricAvgLength": "มม. เฉลี่ย",
+  "metricAvgLength": "ความยาวเฉลี่ย",
   "metricLastRun": "รอบล่าสุด",
+  "metricGradeA": "เกรด A %",
+  "trendTitle": "7 วันล่าสุด",
   "datePresets": {
     "today": "วันนี้",
     "last7": "7 วัน",

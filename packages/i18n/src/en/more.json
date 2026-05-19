@@ -4,7 +4,15 @@
     "account": "Account",
     "captureAssets": "Model readiness",
     "reference": "Reference",
-    "insights": "Insights"
+    "insights": "Insights",
+    "inspectionTools": "Inspection tools",
+    "referenceData": "Reference data",
+    "calibration": "Calibration",
+    "modelTuning": "Model & tuning"
+  },
+  "footer": {
+    "appName": "Advance Seeds Field Inspector",
+    "version": "v{{version}} · build {{build}}"
   },
   "menu": {
     "profile": "Profile",
@@ -25,6 +33,10 @@
     "newTitle": "New variety",
     "editTitle": "Edit variety",
     "invalidName": "Name is required.",
+    "basicInfo": "Basic info",
+    "referenceDimensions": "Reference dimensions",
+    "modelClassesSelected": "Tap to map this variety to one or more detector classes. {{count}} selected.",
+    "classesFrom": "Classes from {{name}}",
     "modelClasses": "Model classes",
     "modelClassesHint": "Tap classes from {{name}} that identify this variety. When set, takes precedence over the COCO detector class.",
     "modelClassesNoActive": "No active registry model. Install one from More → Model registry to map variety classes.",
@@ -32,6 +44,19 @@
     "classRow": "{{klass}} · COCO #{{id}}",
     "unmapped": "No detector class assigned",
     "unmappedShort": "Unmapped",
+    "filters": {
+      "all": "All",
+      "mapped": "Mapped",
+      "unmapped": "Unmapped"
+    },
+    "filterWithCount": "{{label}} · {{count}}",
+    "mappedPill": "Mapped",
+    "unmappedPill": "Unmapped",
+    "chips": {
+      "class": "class",
+      "grade": "grade",
+      "refDim": "ref dim"
+    },
     "refDims": "{{l}} × {{w}} mm",
     "noRefDims": "No reference",
     "refLengthMm": "Reference length (mm)",
@@ -90,8 +115,9 @@
     "noCandidates": "Enter a local HTTP index URL and refresh.",
     "noInstalled": "No downloaded models yet.",
     "noRollback": "No previous active model is available.",
-    "download": "Download",
+    "download": "Install",
     "activate": "Activate",
+    "reverify": "Re-verify",
     "installedTitle": "Model installed",
     "installedPill": "Installed",
     "activePill": "Active",
@@ -114,7 +140,7 @@
     "active": "Active model",
     "noActive": "No model installed yet — tap Check for updates.",
     "channel": "Channel",
-    "previousPill": "Previously active",
+    "previousPill": "Rollback",
     "restore": "Restore",
     "installFailedTitle": "Install failed",
     "upToDateTitle": "Up to date",
@@ -122,6 +148,43 @@
     "deleteConfirmBody": "Model files will be removed from this device. You can re-download from the registry at any time.",
     "showDetails": "Show details",
     "hideDetails": "Hide details",
+    "subtitleInstalled": "Installed · {{count}}",
+    "detailNotFound": "Model not found",
+    "section": {
+      "performance": "Performance",
+      "model": "Model",
+      "training": "Training",
+      "artifact": "Artifact",
+      "history": "Activation history"
+    },
+    "kpi": {
+      "acc": "ACC",
+      "map": "MAP",
+      "size": "SIZE",
+      "precision": "Precision",
+      "recall": "Recall"
+    },
+    "field": {
+      "task": "Task",
+      "inputSize": "Input size",
+      "classes": "Classes",
+      "outputShape": "Output shape",
+      "calibration": "Calibration",
+      "calibrationNotRequired": "Not required",
+      "lr0": "Lr0",
+      "batch": "Batch",
+      "imgsz": "Imgsz",
+      "epochs": "Epochs",
+      "patience": "Patience",
+      "versionId": "Version ID",
+      "sha256": "SHA-256",
+      "channel": "Channel"
+    },
+    "action": {
+      "reverify": "Re-verify",
+      "copyId": "Copy ID",
+      "delete": "Delete this model"
+    },
     "details": {
       "performance": "Performance",
       "model": "Model",

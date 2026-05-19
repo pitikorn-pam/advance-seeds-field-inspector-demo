@@ -1,24 +1,26 @@
-import { useEffect, useState } from "react";
-import { Alert, ScrollView, View, Text, Image as RNImage } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Pressable, ScrollView, View, Text, Image as RNImage } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft, Edit3 } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import type { BoundingBox, SeedGrade } from "@advance-seeds/types";
 import { Card } from "@/components/ui/Card";
-import { Pill } from "@/components/ui/Pill";
-import { Button } from "@/components/ui/Button";
+import { GradeChip } from "@/components/ui/GradeChip";
 import { AppTopBar } from "@/components/ui/AppTopBar";
-
-const GRADE_TONE: Record<SeedGrade, "success" | "info" | "warning" | "danger"> = {
-  A: "success",
-  B: "info",
-  C: "warning",
-  reject: "danger",
-};
+import { Toast } from "@/components/ui/Toast";
 
 const HERO_SIZE = 200;
 const HERO_PADDING = 16;
+
+// Bbox ring colours map to the grade-* ink tokens. Kept as raw hex because
+// the projection ring is a stroke on a positioned <View>, not a Tailwind class.
+const GRADE_RING_HEX: Record<SeedGrade, string> = {
+  A: "#2D6E3F",
+  B: "#7A5A12",
+  C: "#B85518",
+  reject: "#A02828",
+};
 
 export interface SeedDetailSeed {
   index: number;
@@ -38,12 +40,14 @@ interface Props {
   /**
    * Persist a new grade. Saved-inspection wires this to a Supabase
    * UPDATE; in-capture wires it to a session mutation. When omitted,
-   * Edit grade / Reject buttons are hidden (read-only mode).
+   * the override row is hidden (read-only mode).
    */
   onUpdateGrade?: (grade: SeedGrade) => void | Promise<void>;
   /** Disable the action buttons while a previous mutation is in flight. */
   busy?: boolean;
 }
+
+const GRADE_OPTIONS: SeedGrade[] = ["A", "B", "C", "reject"];
 
 /**
  * Shared per-seed detail UI. Used by:
@@ -57,43 +61,53 @@ interface Props {
 export function SeedDetailView({ seed, sourceUri, title, onUpdateGrade, busy }: Props) {
   const { t } = useTranslation(["common", "inspections"]);
   const router = useRouter();
-  const aspectRatio = seed.length_mm / Math.max(seed.width_mm, 0.001);
   const grade = seed.grade;
-  const passed = grade === "A" || grade === "B";
+  const confidence = grade === "A" ? "98.4" : grade === "B" ? "92.1" : "78.0";
 
-  const onEdit = () => {
+  // Toast lifecycle — show "Grade changed to X · Undo" for 3 s when the
+  // operator picks a new grade. `prevGrade` is captured the moment the
+  // change is applied so Undo can roll back even if `seed.grade` updates
+  // mid-flight via props.
+  const [toast, setToast] = useState<{ label: string; prev: SeedGrade } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const applyGrade = (next: SeedGrade) => {
     if (!onUpdateGrade) return;
-    // Lightweight grade picker via Alert. The Settings/Master-data style
-    // chip picker we use elsewhere doesn't fit this screen's footer
-    // layout, but Alert is good enough for a 4-option pick.
-    const opts: SeedGrade[] = ["A", "B", "C", "reject"];
-    Alert.alert(
-      t("inspections:seed.actions.editGrade"),
-      t("inspections:seed.editGradeBody", { current: t(`inspections:seedGrade.${grade}`) }),
-      [
-        { text: t("common:actions.cancel"), style: "cancel" },
-        ...opts
-          .filter((g) => g !== grade)
-          .map((g) => ({
-            text: t(`inspections:seedGrade.${g}`),
-            onPress: () => void onUpdateGrade(g),
-            style: g === "reject" ? ("destructive" as const) : ("default" as const),
-          })),
-      ],
-    );
+    if (next === grade) return;
+    const prev = grade;
+    void onUpdateGrade(next);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ label: t(`inspections:seedGrade.${next}`), prev });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
   };
 
-  const onReject = () => {
-    if (!onUpdateGrade) return;
-    if (grade === "reject") return;
-    Alert.alert(t("inspections:seed.actions.reject"), t("inspections:seed.rejectConfirm"), [
-      { text: t("common:actions.cancel"), style: "cancel" },
-      {
-        text: t("inspections:seed.actions.reject"),
-        style: "destructive",
-        onPress: () => void onUpdateGrade("reject"),
-      },
-    ]);
+  const onPickGrade = (next: SeedGrade) => {
+    if (!onUpdateGrade || busy) return;
+    if (next === "reject" && grade !== "reject") {
+      Alert.alert(t("inspections:seed.actions.reject"), t("inspections:seed.rejectConfirm"), [
+        { text: t("common:actions.cancel"), style: "cancel" },
+        {
+          text: t("inspections:seed.actions.reject"),
+          style: "destructive",
+          onPress: () => applyGrade("reject"),
+        },
+      ]);
+      return;
+    }
+    applyGrade(next);
+  };
+
+  const onUndo = () => {
+    if (!toast || !onUpdateGrade) return;
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    const prev = toast.prev;
+    setToast(null);
+    void onUpdateGrade(prev);
   };
 
   return (
@@ -106,86 +120,155 @@ export function SeedDetailView({ seed, sourceUri, title, onUpdateGrade, busy }: 
           onPress: () => router.back(),
         }}
       />
-      <ScrollView contentContainerClassName="px-xl py-md gap-lg">
+      <ScrollView contentContainerClassName="px-xl py-md gap-lg pb-2xl">
         <SeedHero seed={seed} sourceUri={sourceUri} />
 
-        <View className="flex-row items-center justify-between">
-          <View>
+        <Card className="flex-row items-center gap-md p-lg">
+          <View className="flex-1 flex-row items-center gap-md">
+            <GradeChip grade={grade} size="md" />
+            <View className="flex-1">
+              <Text className="text-caption text-fg-secondary">
+                {t("inspections:seed.detectedGrade")}
+              </Text>
+              <Text className="text-title text-fg-primary font-semibold mt-[2px]">
+                {t(`inspections:seedGrade.${grade}`)}
+              </Text>
+            </View>
+          </View>
+          <View className="items-end">
             <Text className="text-caption text-fg-secondary">
-              {t("inspections:seed.qualityGrade")}
+              {t("inspections:seed.fields.confidence")}
             </Text>
-            <Text
-              className="text-fg-primary font-medium"
-              style={{ fontSize: 26, letterSpacing: -0.4 }}
-            >
-              {t(`inspections:seedGrade.${grade}`)}
+            <Text className="text-title text-fg-primary font-semibold mt-[2px]">{confidence}%</Text>
+          </View>
+        </Card>
+
+        <View>
+          <Text className="px-xs pb-sm text-caption font-semibold text-fg-secondary uppercase tracking-[0.4px]">
+            {t("inspections:seed.measurementsTitle")}
+          </Text>
+          <View className="flex-row gap-sm">
+            <MeasurementTile
+              label={t("inspections:seed.fields.length")}
+              value={Number(seed.length_mm).toFixed(1)}
+              unit="mm"
+            />
+            <MeasurementTile
+              label={t("inspections:seed.fields.width")}
+              value={Number(seed.width_mm).toFixed(1)}
+              unit="mm"
+            />
+            <MeasurementTile
+              label={t("inspections:seed.fields.area")}
+              value={Number(seed.area_mm2).toFixed(1)}
+              unit="mm²"
+            />
+          </View>
+        </View>
+
+        {onUpdateGrade ? (
+          <View>
+            <Text className="px-xs pb-sm text-caption font-semibold text-fg-secondary uppercase tracking-[0.4px]">
+              {t("inspections:seed.overrideTitle")}
+            </Text>
+            <View className="flex-row gap-sm">
+              {GRADE_OPTIONS.map((g) => (
+                <GradeOverrideButton
+                  key={g}
+                  grade={g}
+                  active={g === grade}
+                  disabled={!!busy}
+                  label={t(`inspections:seedGrade.${g}`)}
+                  onPress={() => onPickGrade(g)}
+                />
+              ))}
+            </View>
+            <Text className="mt-sm text-caption text-fg-tertiary">
+              {t("inspections:seed.overrideHint")}
             </Text>
           </View>
-          <Pill
-            tone={passed ? "success" : "danger"}
-            dot
-            label={passed ? t("inspections:seed.passed") : t("inspections:seed.rejected")}
-          />
-        </View>
-
-        <Card className="p-0">
-          <Row
-            label={t("inspections:seed.fields.length")}
-            value={`${Number(seed.length_mm).toFixed(1)} mm`}
-          />
-          <Divider />
-          <Row
-            label={t("inspections:seed.fields.width")}
-            value={`${Number(seed.width_mm).toFixed(1)} mm`}
-          />
-          <Divider />
-          <Row
-            label={t("inspections:seed.fields.area")}
-            value={`${Number(seed.area_mm2).toFixed(1)} mm²`}
-          />
-          <Divider />
-          <Row label={t("inspections:seed.fields.aspectRatio")} value={aspectRatio.toFixed(2)} />
-          <Divider />
-          <Row
-            label={t("inspections:seed.fields.confidence")}
-            value={`${grade === "A" ? "98.4" : grade === "B" ? "92.1" : "78.0"}%`}
-          />
-        </Card>
+        ) : null}
       </ScrollView>
 
-      {onUpdateGrade ? (
-        <View className="flex-row gap-md px-xl pb-xl">
-          <Button
-            className="flex-1"
-            variant="outline"
-            label={t("inspections:seed.actions.editGrade")}
-            renderLeadingIcon={() => <Edit3 color="#171717" size={14} />}
-            onPress={onEdit}
-            disabled={busy}
-          />
-          <Button
-            className="flex-1"
-            variant="danger"
-            label={t("inspections:seed.actions.reject")}
-            onPress={onReject}
-            disabled={busy || grade === "reject"}
-          />
-        </View>
-      ) : null}
+      <Toast
+        message={toast ? t("inspections:seed.gradeChangedTo", { grade: toast.label }) : null}
+        duration={3000}
+        actionLabel={toast ? t("inspections:seed.undo") : undefined}
+        onAction={onUndo}
+      />
     </SafeAreaView>
   );
 }
 
+function MeasurementTile({ label, value, unit }: { label: string; value: string; unit: string }) {
+  return (
+    <View className="flex-1 items-center rounded-[12px] bg-bg-primary border border-line-tertiary p-md">
+      <Text className="text-caption text-fg-secondary uppercase tracking-[0.4px]">{label}</Text>
+      <View className="flex-row items-baseline gap-[3px] mt-[4px]">
+        <Text className="text-fg-primary font-semibold" style={{ fontSize: 20 }}>
+          {value}
+        </Text>
+        <Text className="text-caption text-fg-tertiary">{unit}</Text>
+      </View>
+    </View>
+  );
+}
+
+function GradeOverrideButton({
+  grade,
+  active,
+  disabled,
+  label,
+  onPress,
+}: {
+  grade: SeedGrade;
+  active: boolean;
+  disabled: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  // Active state echoes the grade-tile colour; inactive is a neutral canvas
+  // chip. We keep the active border thick so the selection is obvious even
+  // when the chip's tint is faint (e.g. grade-a on a near-white background).
+  const activeBg =
+    grade === "A"
+      ? "bg-grade-a"
+      : grade === "B"
+        ? "bg-grade-b"
+        : grade === "C"
+          ? "bg-grade-c"
+          : "bg-grade-reject";
+  const activeInk =
+    grade === "A"
+      ? "text-grade-a-ink"
+      : grade === "B"
+        ? "text-grade-b-ink"
+        : grade === "C"
+          ? "text-grade-c-ink"
+          : "text-grade-reject-ink";
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active, disabled }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      disabled={disabled}
+      className={`flex-1 items-center justify-center rounded-[10px] py-md border ${
+        active ? `${activeBg} border-transparent` : "bg-bg-primary border-line-tertiary"
+      } ${disabled ? "opacity-60" : ""}`}
+    >
+      <Text
+        className={`text-body font-semibold ${active ? activeInk : "text-fg-primary"}`}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string | null }) {
-  const tone = GRADE_TONE[seed.grade];
-  const ringColor =
-    tone === "success"
-      ? "#5DCAA5"
-      : tone === "info"
-        ? "#6C47FF"
-        : tone === "warning"
-          ? "#EF9F27"
-          : "#DC2828";
+  const ringColor = GRADE_RING_HEX[seed.grade];
 
   const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
   const [getSizeError, setGetSizeError] = useState<string | null>(null);
@@ -371,17 +454,4 @@ function SeedShape({ ringColor }: { ringColor: string }) {
       />
     </View>
   );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-row items-center justify-between px-lg py-md">
-      <Text className="text-caption text-fg-secondary">{label}</Text>
-      <Text className="text-title text-fg-primary font-medium">{value}</Text>
-    </View>
-  );
-}
-
-function Divider() {
-  return <View className="h-[0.5px] bg-line-tertiary" />;
 }

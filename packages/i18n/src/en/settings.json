@@ -12,6 +12,10 @@
     "autoInstallOnWifiHint": "Quietly download and activate new production models when connected to Wi-Fi. Cellular is never used."
   },
   "appearanceHint": "Choose Light, Dark, or follow your device.",
+  "rows": {
+    "theme": "Theme",
+    "language": "Language"
+  },
   "version": "Version",
   "build": "Build",
   "sync": {

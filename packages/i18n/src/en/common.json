@@ -41,8 +41,18 @@
   },
   "sync": {
     "allSynced": "All synced",
-    "pending": "{{count}} pending",
+    "synced": "Synced",
+    "syncing": "Syncing…",
+    "pending": "Pending",
+    "pendingCount": "{{count}} pending",
+    "failed": "Failed",
     "offline": "Offline"
+  },
+  "grade": {
+    "A": "Grade A",
+    "B": "Grade B",
+    "C": "Grade C",
+    "reject": "Reject"
   },
   "fields": {
     "name": "Name",

@@ -37,6 +37,23 @@ const queryClient = new QueryClient({
  *      out of /login or /splash or /welcome — let them keep navigating
  *      anywhere else.
  */
+/**
+ * Background workers (sync replay, model-install toast) are gated behind an
+ * authenticated session. Mounting them during onboarding wakes AsyncStorage,
+ * NetInfo, and model-update channels for a user who can't act on them yet —
+ * which manifests as sluggish onboarding taps on cold start.
+ */
+function BackgroundWorkers() {
+  const { session } = useAuth();
+  if (!session) return null;
+  return (
+    <>
+      <SyncQueueWorker />
+      <ModelInstallNotifier />
+    </>
+  );
+}
+
 function StartupGate() {
   const { session, loading } = useAuth();
   const onboarded = useOnboarded();
@@ -46,14 +63,18 @@ function StartupGate() {
   useEffect(() => {
     if (loading || onboarded === null) return;
     const top = segments[0] ?? "";
-    const inOnboarding = top === "splash" || top === "welcome";
+    const inOnboarding = top === "splash" || top === "welcome" || top === "welcome-permission";
     const inAuth = top === "login";
 
     if (!onboarded) {
       if (!inOnboarding) router.replace("/splash");
       return;
     }
-    if (!session && !inAuth) {
+    // Onboarding screens own their own forward navigation (welcome →
+    // welcome-permission → login). Without this guard, fire-and-forget
+    // setOnboarded() flips the flag mid-flow and the next render kicks
+    // the permission screen straight to /login.
+    if (!session && !inAuth && !inOnboarding) {
       router.replace("/login");
       return;
     }
@@ -95,8 +116,7 @@ export default function RootLayout() {
               <AnalyzerProvider>
                 <StatusBar style="auto" />
                 <StartupGate />
-                <SyncQueueWorker />
-                <ModelInstallNotifier />
+                <BackgroundWorkers />
                 <Stack
                   screenOptions={{
                     headerShown: false,
@@ -115,6 +135,10 @@ export default function RootLayout() {
                   <Stack.Screen name="login" options={{ animation: "fade" }} />
                   <Stack.Screen name="splash" options={{ animation: "fade" }} />
                   <Stack.Screen name="welcome" options={{ animation: "slide_from_right" }} />
+                  <Stack.Screen
+                    name="welcome-permission"
+                    options={{ animation: "slide_from_right" }}
+                  />
                   <Stack.Screen name="profile" options={{ headerShown: false }} />
                   <Stack.Screen name="settings" options={{ headerShown: false }} />
                   {/* `notifications` is a route group with its own
@@ -139,6 +163,10 @@ export default function RootLayout() {
                   <Stack.Screen name="more/recordings" options={{ headerShown: false }} />
                   <Stack.Screen name="more/models" options={{ headerShown: false }} />
                   <Stack.Screen name="varieties/[id]" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="varieties/edit/[id]"
+                    options={{ headerShown: false, presentation: "modal" }}
+                  />
                   <Stack.Screen name="reports" options={{ headerShown: false }} />
                   <Stack.Screen name="calibration" options={{ headerShown: false }} />
                 </Stack>
