@@ -336,19 +336,24 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
               height: projection.imageHeight,
             }}
           />
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: projection.bboxLeft,
-              top: projection.bboxTop,
-              width: projection.bboxWidth,
-              height: projection.bboxHeight,
-              borderRadius: 8,
-              borderWidth: 2,
-              borderColor: ringColor,
-            }}
-          />
+          {/* Bbox ring is shown only when no mask polygon is available
+              — once we have a real segmentation polygon it carries the
+              localization signal more accurately than the bbox. */}
+          {!(dims && seed.mask && seed.mask.polygon.length >= 3) ? (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: projection.bboxLeft,
+                top: projection.bboxTop,
+                width: projection.bboxWidth,
+                height: projection.bboxHeight,
+                borderRadius: 8,
+                borderWidth: 2,
+                borderColor: ringColor,
+              }}
+            />
+          ) : null}
           {dims && seed.mask && seed.mask.polygon.length >= 3 ? (
             <MaskPolygonOverlay
               polygon={seed.mask.polygon}

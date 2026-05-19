@@ -25,11 +25,26 @@ test("Android TFLite frame processor selects YOLO detection output by shape", ()
 test("Android TFLite frame processor compacts segmentation output before JS bridge", () => {
   const source = readFileSync(androidPlugin, "utf8");
 
+  // Detection-only path (wantMask=false) still compacts seg rows to 6
+  // fields. The full-row path activates only when the caller opts in via
+  // wantMask=true on the throttled mask-extraction frames.
   assert.match(source, /private const val LIVE_OUTPUT_FIELDS = 6/);
   assert.match(source, /val bridgeOutputShape: IntArray/);
   assert.match(source, /bridgeCompactsSegmentationOutput/);
-  assert.match(source, /"shape" to activeRunner\.bridgeOutputShape\.toList\(\)/);
+  assert.match(source, /detectionShape = activeRunner\.bridgeOutputShape\.toList\(\)/);
+  assert.match(source, /detectionValues = activeRunner\.outputValues\(\)/);
   assert.match(source, /for \(field in 0 until LIVE_OUTPUT_FIELDS\)/);
+});
+
+test("Android TFLite frame processor surfaces mask prototype tensor when wantMask is set", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.match(source, /selectPrototypeOutputTensorIndex/);
+  assert.match(source, /prototypeOutputIndex/);
+  assert.match(source, /val wantMask = \(params\?\.get\("wantMask"\) as\? Boolean\) == true/);
+  assert.match(source, /result\["protoShape"\] = protoShape\.toList\(\)/);
+  assert.match(source, /fun fullOutputValues\(\): List<Double>/);
+  assert.match(source, /fun prototypeValues\(\): List<Double>\?/);
 });
 
 test("Android TFLite CPU runner uses four XNNPACK threads for live inference", () => {

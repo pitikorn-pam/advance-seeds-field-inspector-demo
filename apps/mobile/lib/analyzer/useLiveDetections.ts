@@ -8,14 +8,16 @@ import {
   useFrameProcessor,
 } from "react-native-vision-camera";
 import type { ReadonlyFrameProcessor } from "react-native-vision-camera";
-import { Worklets } from "react-native-worklets-core";
+import { Worklets, useSharedValue } from "react-native-worklets-core";
 import type { AnalysisFrameResult, AnalysisRoi, SeedGradingConfig } from "@advance-seeds/types";
 import {
   YOLO_INPUT_SIZE,
+  attachSegmentationPolygons,
   decodeYolo,
   decodeYoloNms,
   decodeYoloSegmentationNms,
   unrotateBbox,
+  unrotatePoint,
   mapDetectionsToSeeds,
   nonMaxSuppression,
   summarizeSeeds,
@@ -263,6 +265,12 @@ function useLiveDetectionsCoreML(options: Options): State {
           frameTimestampMs: number,
           inferElapsedMs: number,
           orientation: string,
+          // Optional mask prototype tensor — present on frames where the
+          // native plugin was asked to surface it (every Nth frame, per
+          // the JS-side throttle). When null we fall back to bbox-only
+          // measurements for this frame's seeds.
+          protoValues: number[] | null,
+          protoShape: number[] | null,
         ) => {
           recordInference("coreml", inferElapsedMs);
           const out = Float32Array.from(values);
@@ -300,11 +308,40 @@ function useLiveDetectionsCoreML(options: Options): State {
               : outputKind === "segmentation"
                 ? decodeYoloSegmentationNms(out, shape, decodeOpts)
                 : decodeYolo(out, shape, decodeOpts);
+          // Decode mask polygons FIRST, while detections are still in
+          // post-rotation source-image space (which is what the
+          // letterbox describes and what the prototype tensor encodes).
+          // The subsequent unrotateBbox step then carries both bbox and
+          // polygon through the same rotation back to sensor coords.
+          if (
+            outputKind === "segmentation" &&
+            protoValues &&
+            protoShape &&
+            protoValues.length > 0
+          ) {
+            attachSegmentationPolygons(rawDetections, {
+              prototypes: Float32Array.from(protoValues),
+              protoShape,
+              letterbox: decodeOpts.letterbox,
+              srcWidth: postW,
+              srcHeight: postH,
+            });
+          }
           // Bboxes are now in post-rotation pixel space. Inverse-rotate
           // each one back to sensor (frame.width × frame.height) coords
           // so DetectionOverlay can project them onto the camera preview.
+          // Same rotation applies to polygon vertices when present.
           const sensorDetections = rotates
-            ? rawDetections.map((d) => unrotateBbox(d, postW, postH, orientation))
+            ? rawDetections.map((d) => {
+                const r = unrotateBbox(d, postW, postH, orientation);
+                if (d.polygon) {
+                  r.polygon = d.polygon.map((p) =>
+                    unrotatePoint(p.x, p.y, postW, postH, orientation),
+                  );
+                  r.maskPixelCount = d.maskPixelCount;
+                }
+                return r;
+              })
             : rawDetections;
           const kept =
             outputKind === "raw"
@@ -341,6 +378,12 @@ function useLiveDetectionsCoreML(options: Options): State {
     [mappedClassFilter, pxPerMm, roi, gradingConfig, scoreThreshold, iouThreshold],
   );
 
+  // Throttle mask-prototype extraction to one frame in N. Bridging the
+  // ~820k-float prototype tensor every frame would dominate the worklet
+  // budget; one in three is enough to keep a fresh polygon on screen
+  // while bbox-from-cache keeps responsiveness in between.
+  const maskFrameCounter = useSharedValue(0);
+  const MASK_THROTTLE = 3;
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
@@ -349,6 +392,9 @@ function useLiveDetectionsCoreML(options: Options): State {
       runAtTargetFps(targetFps, () => {
         "worklet";
         try {
+          const counter = maskFrameCounter.value + 1;
+          maskFrameCounter.value = counter;
+          const wantMask = counter % MASK_THROTTLE === 0;
           // Time only the native plugin call, which is where the Core ML
           // VNCoreMLRequest runs synchronously on the worklet thread; that
           // dominates everything else this worklet does.
@@ -357,6 +403,7 @@ function useLiveDetectionsCoreML(options: Options): State {
             assetName: COREML_ASSET,
             modelPath,
             preprocessProfile,
+            wantMask,
           });
           const inferElapsedMs = Date.now() - startedAt;
           if (!result) return;
@@ -364,6 +411,8 @@ function useLiveDetectionsCoreML(options: Options): State {
             shape: number[];
             values: number[];
             orientation?: string;
+            protoShape?: number[];
+            protoValues?: number[];
           };
           const shape = r.shape;
           decodeOnJS(
@@ -376,13 +425,15 @@ function useLiveDetectionsCoreML(options: Options): State {
             frame.timestamp,
             inferElapsedMs,
             r.orientation ?? "up",
+            r.protoValues ?? null,
+            r.protoShape ?? null,
           );
         } catch (err) {
           console.warn("[live-detections coreml] frame processing failed", err);
         }
       });
     },
-    [enabled, plugin, decodeOnJS, targetFps, modelPath, preprocessProfile],
+    [enabled, plugin, decodeOnJS, targetFps, modelPath, preprocessProfile, maskFrameCounter],
   );
 
   return useMemo(
@@ -506,6 +557,10 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           frameTimestampMs: number,
           inferElapsedMs: number,
           delegate: string,
+          // Optional mask prototype tensor — present on frames where
+          // the native plugin was asked to surface it (throttled).
+          protoValues: number[] | null,
+          protoShape: number[] | null,
         ) => {
           const source: InferenceSource = delegate === "gpu" ? "tflite-android-gpu" : "tflite-cpu";
           recordInference(source, inferElapsedMs);
@@ -541,6 +596,25 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               : outputKind === "segmentation"
                 ? decodeYoloSegmentationNms(out, shape, decodeOpts)
                 : decodeYolo(out, shape, decodeOpts);
+          // Attach mask polygons before NMS so the polygon flows with
+          // whichever detections survive. On Android the live path
+          // doesn't apply per-detection rotation (the cropped square
+          // input is already oriented for display), so polygons stay in
+          // the same source-image pixel space as the bboxes.
+          if (
+            outputKind === "segmentation" &&
+            protoValues &&
+            protoShape &&
+            protoValues.length > 0
+          ) {
+            attachSegmentationPolygons(raw, {
+              prototypes: Float32Array.from(protoValues),
+              protoShape,
+              letterbox: decodeOpts.letterbox,
+              srcWidth: frameWidth,
+              srcHeight: frameHeight,
+            });
+          }
           const kept = outputKind === "raw" ? nonMaxSuppression(raw, iouThreshold) : raw;
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,
@@ -613,6 +687,10 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     ],
   );
 
+  // Mirror of the CoreML throttle: only ask the native plugin for the
+  // mask prototype tensor every Nth frame.
+  const maskFrameCounter = useSharedValue(0);
+  const MASK_THROTTLE = 3;
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
@@ -636,6 +714,9 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               cropX = Math.round((frame.width - cropSize) / 2);
               cropY = Math.round((frame.height - cropSize) / 2);
             }
+            const counter = maskFrameCounter.value + 1;
+            maskFrameCounter.value = counter;
+            const wantMask = counter % MASK_THROTTLE === 0;
             const startedAt = Date.now();
             const result = plugin.call(frame, {
               modelPath: activeModel.artifactUri,
@@ -643,6 +724,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               cropY,
               cropSize,
               preprocessProfile,
+              wantMask,
             });
             const inferElapsedMs = Date.now() - startedAt;
             if (!result) return;
@@ -650,6 +732,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               shape: number[];
               values: number[];
               delegate?: string;
+              protoShape?: number[];
+              protoValues?: number[];
             };
             const shape = r.shape;
             decodeOnJS(
@@ -665,6 +749,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               frame.timestamp,
               inferElapsedMs,
               r.delegate ?? "cpu",
+              r.protoValues ?? null,
+              r.protoShape ?? null,
             );
           } catch (err) {
             console.warn("[live-detections tflite-native] frame processing failed", err);
@@ -672,7 +758,16 @@ function useLiveDetectionsAndroidNative(options: Options): State {
         });
       });
     },
-    [enabled, plugin, decodeOnJS, targetFps, roiCropNorm, activeModel, preprocessProfile],
+    [
+      enabled,
+      plugin,
+      decodeOnJS,
+      targetFps,
+      roiCropNorm,
+      activeModel,
+      preprocessProfile,
+      maskFrameCounter,
+    ],
   );
 
   return useMemo(

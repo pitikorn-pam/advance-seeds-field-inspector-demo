@@ -51,6 +51,13 @@ private object AndroidTfliteRunner {
       val preprocessProfile = (params?.get("preprocessProfile") as? String)
         ?.takeIf { it == "morph_fused_v1" }
         ?: "raw_rgb"
+      // Caller throttles mask prototype extraction: ~820k floats per frame
+      // on top of the existing detection bridge cost is too much for every
+      // frame on most devices. When wantMask=false we keep the existing
+      // 6-field-truncated detection-only path; on wantMask=true we also
+      // surface the full segmentation row (mask coefs preserved) and the
+      // mask prototype tensor.
+      val wantMask = (params?.get("wantMask") as? Boolean) == true
 
       val activeRunner = getRunner(modelPath)
       val startedAtMs = System.currentTimeMillis()
@@ -75,12 +82,29 @@ private object AndroidTfliteRunner {
           "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} preprocess=$preprocessProfile elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")} bridgeOutput=${activeRunner.bridgeOutputShape.joinToString("x")}"
         )
       }
-      return mapOf(
-        "shape" to activeRunner.bridgeOutputShape.toList(),
-        "values" to activeRunner.outputValues(),
-        "delegate" to activeRunner.delegateName,
-        "outputIndex" to activeRunner.selectedOutputIndex,
-      )
+      val detectionShape: List<Int>
+      val detectionValues: List<Double>
+      if (wantMask) {
+        detectionShape = activeRunner.outputShape.toList()
+        detectionValues = activeRunner.fullOutputValues()
+      } else {
+        detectionShape = activeRunner.bridgeOutputShape.toList()
+        detectionValues = activeRunner.outputValues()
+      }
+      val result = HashMap<String, Any>(6)
+      result["shape"] = detectionShape
+      result["values"] = detectionValues
+      result["delegate"] = activeRunner.delegateName
+      result["outputIndex"] = activeRunner.selectedOutputIndex
+      if (wantMask) {
+        val protoShape = activeRunner.prototypeShape
+        val protoValues = activeRunner.prototypeValues()
+        if (protoShape != null && protoValues != null) {
+          result["protoShape"] = protoShape.toList()
+          result["protoValues"] = protoValues
+        }
+      }
+      return result
     } catch (t: Throwable) {
       Log.w(TAG, "live TFLite frame processing failed", t)
       return null
@@ -117,10 +141,17 @@ private object AndroidTfliteRunner {
     val selectedOutputIndex = selectDetectionOutputTensorIndex(cpuInterpreter)
     private val outputTensor = cpuInterpreter.getOutputTensor(selectedOutputIndex)
     val outputShape: IntArray = outputTensor.shape()
+    /** Rank-4 mask prototype tensor index for YOLO seg models; -1 otherwise. */
+    private val prototypeOutputIndex = selectPrototypeOutputTensorIndex(cpuInterpreter, selectedOutputIndex)
+    /** Cached prototype shape; null when the model emits no rank-4 output. */
+    val prototypeShape: IntArray? =
+      if (prototypeOutputIndex >= 0) cpuInterpreter.getOutputTensor(prototypeOutputIndex).shape() else null
     private val inputType = inputTensor.dataType()
     private val outputType = outputTensor.dataType()
     private val inputBuffer: ByteBuffer
     private val outputBuffer: ByteBuffer
+    private val prototypeBuffer: ByteBuffer?
+    private val prototypeFloatCount: Int = prototypeShape?.fold(1) { acc, v -> acc * v } ?: 0
     private val outputFloatCount = outputShape.fold(1) { acc, v -> acc * v }
     private val bridgeCompactsSegmentationOutput =
       outputShape.size == 3 && outputShape[2] > LIVE_OUTPUT_FIELDS
@@ -149,7 +180,12 @@ private object AndroidTfliteRunner {
       }
       inputBuffer = ByteBuffer.allocateDirect(inputBytes).order(ByteOrder.nativeOrder())
       outputBuffer = ByteBuffer.allocateDirect(outputFloatCount * FLOAT_BYTES).order(ByteOrder.nativeOrder())
-      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType outputIndex=$selectedOutputIndex output=${outputShape.joinToString("x")} bridgeOutput=${bridgeOutputShape.joinToString("x")} delegate=cpu threads=$CPU_NUM_THREADS gpuLazy=true")
+      prototypeBuffer = if (prototypeFloatCount > 0) {
+        ByteBuffer.allocateDirect(prototypeFloatCount * FLOAT_BYTES).order(ByteOrder.nativeOrder())
+      } else {
+        null
+      }
+      Log.i(TAG, "loaded $sourceKey input=${inputShape.joinToString("x")} type=$inputType outputIndex=$selectedOutputIndex output=${outputShape.joinToString("x")} bridgeOutput=${bridgeOutputShape.joinToString("x")} protoIndex=$prototypeOutputIndex proto=${prototypeShape?.joinToString("x") ?: "none"} delegate=cpu threads=$CPU_NUM_THREADS gpuLazy=true")
     }
 
     fun fillInputFromYuv(
@@ -299,23 +335,24 @@ private object AndroidTfliteRunner {
 
     fun run() {
       outputBuffer.rewind()
+      prototypeBuffer?.rewind()
       val interpreter = selectedInterpreter
       val inferenceStartedAtMs = System.currentTimeMillis()
+      val outputsMap = HashMap<Int, Any>(2)
+      outputsMap[selectedOutputIndex] = outputBuffer
+      if (prototypeBuffer != null && prototypeOutputIndex >= 0) {
+        outputsMap[prototypeOutputIndex] = prototypeBuffer
+      }
       try {
-        interpreter.runForMultipleInputsOutputs(
-          arrayOf(inputBuffer),
-          mapOf(selectedOutputIndex to outputBuffer as Any),
-        )
+        interpreter.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputsMap)
       } catch (err: Throwable) {
         if (delegateName != "cpu") {
           Log.w(TAG, "delegate=$delegateName failed during live inference; falling back to cpu", err)
           selectedInterpreter = cpuInterpreter
           delegateName = "cpu"
           outputBuffer.rewind()
-          cpuInterpreter.runForMultipleInputsOutputs(
-            arrayOf(inputBuffer),
-            mapOf(selectedOutputIndex to outputBuffer as Any),
-          )
+          prototypeBuffer?.rewind()
+          cpuInterpreter.runForMultipleInputsOutputs(arrayOf(inputBuffer), outputsMap)
         } else {
           throw err
         }
@@ -326,6 +363,7 @@ private object AndroidTfliteRunner {
         startGpuBenchmarkAsync()
       }
       outputBuffer.rewind()
+      prototypeBuffer?.rewind()
     }
 
     private fun startGpuBenchmarkAsync() {
@@ -416,6 +454,37 @@ private object AndroidTfliteRunner {
         }
       }
       outputBuffer.rewind()
+      return values
+    }
+
+    /**
+     * Full (non-truncated) detection output as a List<Double>. Caller pays
+     * the extra bridge cost only when it has set `wantMask=true` and
+     * actually needs the mask coefficient fields downstream.
+     */
+    fun fullOutputValues(): List<Double> {
+      outputBuffer.rewind()
+      val values = ArrayList<Double>(outputFloatCount)
+      repeat(outputFloatCount) {
+        values.add(outputBuffer.float.toDouble())
+      }
+      outputBuffer.rewind()
+      return values
+    }
+
+    /**
+     * Mask prototype tensor as a flat List<Double> (~820k entries for
+     * `[1, 160, 160, 32]`). Returns null when the model has no
+     * prototype output or the prototype buffer is unavailable.
+     */
+    fun prototypeValues(): List<Double>? {
+      val buf = prototypeBuffer ?: return null
+      buf.rewind()
+      val values = ArrayList<Double>(prototypeFloatCount)
+      repeat(prototypeFloatCount) {
+        values.add(buf.float.toDouble())
+      }
+      buf.rewind()
       return values
     }
 
@@ -555,6 +624,20 @@ private object AndroidTfliteRunner {
       }
     }
     return bestIndex
+  }
+
+  /**
+   * Picks the YOLO segmentation mask prototype output tensor — a rank-4
+   * tensor of roughly `[1, 160, 160, 32]` for Ultralytics seg exports.
+   * Returns -1 when no rank-4 output exists (detection-only model).
+   */
+  private fun selectPrototypeOutputTensorIndex(interpreter: Interpreter, skipIndex: Int): Int {
+    for (i in 0 until interpreter.outputTensorCount) {
+      if (i == skipIndex) continue
+      val shape = interpreter.getOutputTensor(i).shape()
+      if (shape.size == 4 && shape[0] == 1) return i
+    }
+    return -1
   }
 
   private fun createGpuDelegate(): GpuDelegate? {

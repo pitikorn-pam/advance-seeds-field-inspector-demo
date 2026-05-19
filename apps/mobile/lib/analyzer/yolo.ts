@@ -405,6 +405,28 @@ export function unrotateBbox(
   return d;
 }
 
+/**
+ * Point variant of `unrotateBbox` — maps a single (x, y) from post-rotation
+ * image space to sensor-frame space. Used to carry mask polygon vertices
+ * through the same rotation that the bbox goes through, so the live
+ * overlay polygon aligns with its bbox on screen.
+ */
+export function unrotatePoint(
+  x: number,
+  y: number,
+  postW: number,
+  postH: number,
+  orientation: string,
+): Point {
+  if (orientation === "right" || orientation === "right-mirrored") {
+    return { x: y, y: postW - x };
+  }
+  if (orientation === "left" || orientation === "left-mirrored") {
+    return { x: postH - y, y: x };
+  }
+  return { x, y };
+}
+
 export function nonMaxSuppression(detections: RawDetection[], iouThreshold = 0.45): RawDetection[] {
   const sorted = detections.slice().sort((a, b) => b.score - a.score);
   const kept: RawDetection[] = [];

@@ -69,11 +69,19 @@ static MLModel *loadModel(NSString *assetName, NSString *modelPath) {
 // dwarfs detections (~11k); picking by element count returns the mask
 // tensor and the JS decoder reads garbage. Match by shape signature
 // instead so segmentation models work.
-static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLFeatureValueObservation *> *byName) {
+//
+// `includeMaskPrototype=YES` additionally locates and serializes the
+// rank-4 prototype tensor under `protoShape` + `protoValues`, used by
+// the live-mode segmentation polygon path. Skipped most frames to
+// protect the bridge / JS budget (~820k float copy per frame).
+static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLFeatureValueObservation *> *byName,
+                                              BOOL includeMaskPrototype) {
   NSString *bestName = nil;
   MLMultiArray *bestArr = nil;
   NSInteger bestRank = -1; // 0 = none, 1 = fallback largest, 2 = 3D non-detection, 3 = detection signature
   NSInteger bestCount = -1;
+  MLMultiArray *protoArr = nil;
+  NSInteger protoCount = -1;
   for (NSString *name in byName) {
     VNCoreMLFeatureValueObservation *obs = byName[name];
     MLFeatureValue *fv = obs.featureValue;
@@ -93,6 +101,14 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
         // Other 3D outputs (raw heads etc.) — preferred over 4D mask
         // prototypes but lose to a clear detection signature.
         rank = 2;
+      }
+    } else if (shape.count == 4 && includeMaskPrototype) {
+      // Rank-4 candidate is the mask prototype tensor. Keep the largest
+      // (a model with two rank-4 outputs is exotic; we just pick whichever
+      // has the most elements).
+      if ((NSInteger)arr.count > protoCount) {
+        protoArr = arr;
+        protoCount = arr.count;
       }
     }
     if (rank > bestRank || (rank == bestRank && (NSInteger)arr.count > bestCount)) {
@@ -135,11 +151,39 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
       break;
     }
   }
-  return @{
+  NSMutableDictionary *out = [@{
     @"outputName": bestName,
     @"shape": bestArr.shape,
     @"values": values,
-  };
+  } mutableCopy];
+  if (protoArr != nil) {
+    NSMutableArray<NSNumber *> *protoValues = [NSMutableArray arrayWithCapacity:protoArr.count];
+    switch (protoArr.dataType) {
+      case MLMultiArrayDataTypeFloat32: {
+        Float32 *p = (Float32 *)protoArr.dataPointer;
+        for (NSInteger i = 0; i < (NSInteger)protoArr.count; i++) {
+          [protoValues addObject:@((double)p[i])];
+        }
+        break;
+      }
+      case MLMultiArrayDataTypeDouble: {
+        double *p = (double *)protoArr.dataPointer;
+        for (NSInteger i = 0; i < (NSInteger)protoArr.count; i++) {
+          [protoValues addObject:@(p[i])];
+        }
+        break;
+      }
+      default: {
+        for (NSInteger i = 0; i < (NSInteger)protoArr.count; i++) {
+          [protoValues addObject:@(protoArr[i].doubleValue)];
+        }
+        break;
+      }
+    }
+    out[@"protoShape"] = protoArr.shape;
+    out[@"protoValues"] = protoValues;
+  }
+  return out;
 }
 
 } // namespace
@@ -161,6 +205,11 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
   if (modelPath == nil || modelPath.length == 0) {
     return nil;
   }
+  // Caller throttles mask prototype extraction (it's ~820k floats per
+  // frame across the JS bridge). When wantMask=NO we skip the prototype
+  // copy entirely; the live overlay falls back to bbox until the next
+  // wantMask=YES frame lands.
+  BOOL wantMask = [arguments[@"wantMask"] boolValue];
   NSString *modelKey = (modelPath != nil && modelPath.length > 0) ? modelPath : assetName;
   CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   if (imageBuffer == nil) {
@@ -201,7 +250,7 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
                                VNCoreMLFeatureValueObservation *fvObs = (VNCoreMLFeatureValueObservation *)obs;
                                byName[fvObs.featureName ?: @"_"] = fvObs;
                              }
-                             result = flattenLargestMultiArray(byName);
+                             result = flattenLargestMultiArray(byName, wantMask);
                            }];
   request.imageCropAndScaleOption = VNImageCropAndScaleOptionScaleFit;
 

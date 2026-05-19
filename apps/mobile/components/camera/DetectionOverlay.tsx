@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Platform, View, Text } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
+import Svg, { Polygon as SvgPolygon } from "react-native-svg";
 import type { AnalysisFrameResult } from "@advance-seeds/types";
 import { glass } from "@advance-seeds/tokens";
 import { DEFAULT_CAPTURE_CLASSES } from "@/lib/analyzer/captureClasses";
@@ -89,6 +90,13 @@ export function DetectionOverlay({
       const y = s.bbox.y * scale - dy;
       const w = s.bbox.width * scale;
       const h = s.bbox.height * scale;
+      // Project mask polygon vertices through the same fill mapping so
+      // they align with the bbox on screen. When this is non-empty the
+      // overlay draws the polygon outline instead of the bbox rectangle.
+      const projectedPolygon =
+        s.mask && s.mask.polygon.length >= 3
+          ? s.mask.polygon.map((p) => ({ x: p.x * scale - dx, y: p.y * scale - dy }))
+          : null;
       // Label resolution priority:
       //  1. Operator's variety selection — what they chose, what they expect.
       //  2. Active model's class_names[id] — surfaces "item"/"seed" etc when
@@ -111,6 +119,7 @@ export function DetectionOverlay({
         projY: y,
         projW: w,
         projH: h,
+        projectedPolygon,
         className,
         key: `${bucketKey}-${bucketIndex}`,
       };
@@ -123,15 +132,19 @@ export function DetectionOverlay({
     <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
       {projected.map((p) => {
         const color = PALETTE[p.className] ?? "#7DD3C7";
+        const hasPolygon = p.projectedPolygon !== null;
         const boxStyle = {
           position: "absolute" as const,
           left: p.projX,
           top: p.projY,
           width: p.projW,
           height: p.projH,
-          borderColor: color,
-          borderWidth: 2,
-          borderRadius: 4,
+          // When a mask polygon is available we draw it instead of the
+          // bbox rectangle, so the outer container becomes positioning-
+          // only (no border). The polygon SVG carries the outline.
+          borderColor: hasPolygon ? "transparent" : color,
+          borderWidth: hasPolygon ? 0 : 2,
+          borderRadius: hasPolygon ? 0 : 4,
         };
         const label = (
           <View
@@ -150,6 +163,16 @@ export function DetectionOverlay({
             </Text>
           </View>
         );
+        const polygonSvg = hasPolygon ? (
+          <PolygonOutline
+            polygon={p.projectedPolygon!}
+            bboxX={p.projX}
+            bboxY={p.projY}
+            bboxW={p.projW}
+            bboxH={p.projH}
+            color={color}
+          />
+        ) : null;
         return SUPPORTS_LAYOUT_ANIMATION ? (
           <Animated.View
             key={p.key}
@@ -162,14 +185,55 @@ export function DetectionOverlay({
             layout={LinearTransition.springify().damping(18).stiffness(160).mass(0.4)}
             style={boxStyle}
           >
+            {polygonSvg}
             {label}
           </Animated.View>
         ) : (
           <View key={p.key} style={boxStyle}>
+            {polygonSvg}
             {label}
           </View>
         );
       })}
     </View>
+  );
+}
+
+/**
+ * Draws a mask polygon outline inside the bbox-positioned container.
+ * Points arrive in stage-absolute pixels; we shift them by the container's
+ * own offset so they render in container-local coordinates and clip with
+ * the absolute-positioned outer View.
+ */
+function PolygonOutline({
+  polygon,
+  bboxX,
+  bboxY,
+  bboxW,
+  bboxH,
+  color,
+}: {
+  polygon: ReadonlyArray<{ x: number; y: number }>;
+  bboxX: number;
+  bboxY: number;
+  bboxW: number;
+  bboxH: number;
+  color: string;
+}) {
+  const pointStr = polygon.map((p) => `${p.x - bboxX},${p.y - bboxY}`).join(" ");
+  return (
+    <Svg
+      style={{
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: bboxW,
+        height: bboxH,
+        overflow: "visible",
+      }}
+      pointerEvents="none"
+    >
+      <SvgPolygon points={pointStr} fill={`${color}22`} stroke={color} strokeWidth={1.5} />
+    </Svg>
   );
 }
