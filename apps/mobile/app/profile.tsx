@@ -1,9 +1,9 @@
-import { Alert, Pressable, ScrollView, View, Text } from "react-native";
+import { ScrollView, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
-import { ChevronLeft, LogOut } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
 import { RolePill } from "@/components/ui/RolePill";
@@ -18,23 +18,9 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
  * app version).
  */
 export default function ProfileScreen() {
-  const { t } = useTranslation(["common", "profile", "more"]);
+  const { t } = useTranslation(["common", "profile"]);
   const router = useRouter();
-  const { profile, signOut } = useAuth();
-
-  const onSignOut = () => {
-    Alert.alert(t("more:menu.signOut"), t("more:menu.signOutConfirm"), [
-      { text: t("common:actions.cancel"), style: "cancel" },
-      {
-        text: t("more:menu.signOut"),
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/login");
-        },
-      },
-    ]);
-  };
+  const { profile } = useAuth();
 
   const initials =
     (profile?.full_name ?? profile?.email ?? "")
@@ -130,22 +116,6 @@ export default function ProfileScreen() {
             <MetaRow label={t("profile:meta.appVersion")} value={appVersion} />
           </Card>
         </View>
-
-        {/* Sign out — destructive account action lives on Profile rather
-            than Settings because it ends the current user's session, not
-            an app preference. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("more:menu.signOut")}
-          onPress={onSignOut}
-          className="flex-row items-center justify-center gap-sm rounded-md bg-bg-primary py-md active:opacity-80"
-          style={{ borderWidth: 1, borderColor: "#FBC4C4" }}
-        >
-          <LogOut color="#8A1F1B" size={16} />
-          <Text className="text-body font-medium" style={{ color: "#8A1F1B" }}>
-            {t("more:menu.signOut")}
-          </Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

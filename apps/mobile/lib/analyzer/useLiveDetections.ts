@@ -31,6 +31,27 @@ import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
 
 const COREML_ASSET = "yolo26n";
 
+// Dev-only: rate-limited log so we can confirm at a glance whether the
+// active model is producing a segmentation output and whether the native
+// plugin is surfacing the mask prototype tensor. If outputKind stays
+// "raw"/"nms" → not a seg model. If outputKind="segmentation" but
+// hasProto=false → native binary predates a369aa2 (rebuild needed).
+let __lastMaskDiagAtMs = 0;
+function logMaskDiagnostic(
+  source: string,
+  outputKind: "raw" | "nms" | "segmentation",
+  hasProto: boolean,
+  polygonCount: number,
+) {
+  if (!__DEV__) return;
+  const now = Date.now();
+  if (now - __lastMaskDiagAtMs < 2000) return;
+  __lastMaskDiagAtMs = now;
+  console.info(
+    `[live-detections ${source}] outputKind=${outputKind} hasProto=${hasProto} polygons=${polygonCount}`,
+  );
+}
+
 /** Bounding box of a ROI in normalized [0..1] frame coords, padded to a square
  *  so the YOLO input keeps its trained 1:1 aspect. */
 interface RoiBboxNorm {
@@ -327,6 +348,12 @@ function useLiveDetectionsCoreML(options: Options): State {
               srcHeight: postH,
             });
           }
+          logMaskDiagnostic(
+            "coreml",
+            outputKind,
+            !!(protoValues && protoShape && protoValues.length > 0),
+            rawDetections.reduce((n, d) => n + (d.polygon ? 1 : 0), 0),
+          );
           // Bboxes are now in post-rotation pixel space. Inverse-rotate
           // each one back to sensor (frame.width × frame.height) coords
           // so DetectionOverlay can project them onto the camera preview.
@@ -615,6 +642,12 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               srcHeight: frameHeight,
             });
           }
+          logMaskDiagnostic(
+            "tflite",
+            outputKind,
+            !!(protoValues && protoShape && protoValues.length > 0),
+            raw.reduce((n, d) => n + (d.polygon ? 1 : 0), 0),
+          );
           const kept = outputKind === "raw" ? nonMaxSuppression(raw, iouThreshold) : raw;
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,

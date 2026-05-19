@@ -389,12 +389,12 @@ function RecordingRow({
           {formatDuration(recording.duration_ms)}
         </Text>
         <Text className="text-caption text-fg-secondary">{captionDate}</Text>
-        <View className="flex-row gap-md mt-auto pt-xs items-center">
+        <View className="flex-row gap-md mt-auto pt-xs items-center justify-end">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={labels.share}
             onPress={onShare}
-            className="flex-row items-center gap-xs"
+            className="flex-row items-center gap-xs p-xs"
           >
             <Share2 color="#171717" size={14} />
             <Text className="text-caption font-medium text-fg-primary">{labels.share}</Text>
@@ -403,7 +403,7 @@ function RecordingRow({
             accessibilityRole="button"
             accessibilityLabel={labels.delete}
             onPress={onDelete}
-            className="ml-auto flex-row items-center gap-xs p-xs"
+            className="flex-row items-center gap-xs p-xs"
           >
             <Trash2 color="#8A1F1B" size={14} />
             <Text className="text-caption font-medium" style={{ color: "#8A1F1B" }}>
