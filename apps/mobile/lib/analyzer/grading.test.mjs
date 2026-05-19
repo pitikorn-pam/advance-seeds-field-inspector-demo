@@ -65,7 +65,7 @@ test("gradeSeedByConfig grades below fallback dimensions as C", () => {
   );
 });
 
-test("gradeSeedByConfig maps above fallback dimensions to reject until D exists in the DB enum", () => {
+test("gradeSeedByConfig maps above fallback dimensions to reject", () => {
   assert.equal(
     gradeSeedByConfig(1.1, 1, {
       targetLengthMm: 1,
@@ -74,6 +74,24 @@ test("gradeSeedByConfig maps above fallback dimensions to reject until D exists 
     }),
     "reject",
   );
+});
+
+test("gradeSeedByConfig supports grade tiers beyond C (D, E, ...)", () => {
+  // Variety defines A through D in letter order; analyzer must walk
+  // GRADE_LETTERS not a hardcoded [A,B,C] array, so a D-matching seed
+  // resolves to "D" instead of falling through to "reject".
+  const criteria = {
+    A: { length_mm: { min: 1.5, max: 2.0 }, width_mm: { min: 0, max: 10 } },
+    B: { length_mm: { min: 1.2, max: 1.49 }, width_mm: { min: 0, max: 10 } },
+    C: { length_mm: { min: 0.9, max: 1.19 }, width_mm: { min: 0, max: 10 } },
+    D: { length_mm: { min: 0.5, max: 0.89 }, width_mm: { min: 0, max: 10 } },
+  };
+  assert.equal(gradeSeedByConfig(0.7, 1, { criteria }), "D");
+  assert.equal(gradeSeedByConfig(1.0, 1, { criteria }), "C");
+  assert.equal(gradeSeedByConfig(1.3, 1, { criteria }), "B");
+  assert.equal(gradeSeedByConfig(1.7, 1, { criteria }), "A");
+  // No tier matches → reject
+  assert.equal(gradeSeedByConfig(0.3, 1, { criteria }), "reject");
 });
 
 test("gradeSeedByConfig keeps fallback grading without configured dimensions", () => {

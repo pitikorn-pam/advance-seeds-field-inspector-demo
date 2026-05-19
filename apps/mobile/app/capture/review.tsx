@@ -6,8 +6,9 @@ import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { ChevronLeft, Share2, ChevronRight, Check } from "lucide-react-native";
 import Svg, { Ellipse } from "react-native-svg";
-import type { AnalyzedSeed, SeedGrade } from "@advance-seeds/types";
+import { GRADE_LETTERS, type AnalyzedSeed, type SeedGrade } from "@advance-seeds/types";
 import { GradeChip } from "@/components/ui/GradeChip";
+import { gradePalette } from "@/lib/grading/palette";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useCaptureSession } from "@/lib/capture/session";
@@ -157,8 +158,9 @@ export default function CaptureReview() {
     if (!result) return [];
     const next = [...result.seeds];
     if (sortMode === "grade") {
-      const order: Record<SeedGrade, number> = { A: 0, B: 1, C: 2, reject: 3 };
-      return next.sort((a, b) => order[a.grade] - order[b.grade] || a.index - b.index);
+      return next.sort(
+        (a, b) => gradeSortKey(a.grade) - gradeSortKey(b.grade) || a.index - b.index,
+      );
     }
     if (sortMode === "length") {
       return next.sort((a, b) => b.length_mm - a.length_mm || a.index - b.index);
@@ -589,16 +591,13 @@ export default function CaptureReview() {
               </View>
             </View>
 
-            {/* Mini stats — 4-up grade tiles (white cards, count colored by grade) */}
+            {/* Mini stats — grade tiles, count coloured by grade. Tiles
+                render in letter order (A→H) for whatever grades the
+                detected seeds actually have, with "reject" pinned last. */}
             <View className="mt-xs flex-row gap-xs">
-              {(["A", "B", "C", "reject"] as SeedGrade[]).map((g) => {
+              {gradeTileLetters(seeds.map((s) => s.grade)).map((g) => {
                 const count = seeds.filter((s) => s.grade === g).length;
-                const tileInk: Record<SeedGrade, string> = {
-                  A: "text-grade-a-ink",
-                  B: "text-grade-b-ink",
-                  C: "text-grade-c-ink",
-                  reject: "text-grade-reject-ink",
-                };
+                const ink = gradePalette(g).ink;
                 const label = g === "reject" ? "REJ" : g;
                 return (
                   <View
@@ -606,14 +605,14 @@ export default function CaptureReview() {
                     className="flex-1 rounded-md py-sm items-center border border-line-tertiary bg-bg-primary"
                   >
                     <Text
-                      className={`font-semibold ${tileInk[g]}`}
-                      style={{ fontSize: 20, fontVariant: ["tabular-nums"] }}
+                      className="font-semibold"
+                      style={{ fontSize: 20, fontVariant: ["tabular-nums"], color: ink }}
                     >
                       {count}
                     </Text>
                     <Text
-                      className={`mt-[2px] text-[11px] font-semibold uppercase ${tileInk[g]}`}
-                      style={{ letterSpacing: 0.6 }}
+                      className="mt-[2px] text-[11px] font-semibold uppercase"
+                      style={{ letterSpacing: 0.6, color: ink }}
                     >
                       {label}
                     </Text>
@@ -1050,4 +1049,25 @@ function SeedRow({
       <ChevronRight color="#8C8C87" size={16} />
     </Pressable>
   );
+}
+
+// Letter tiers come first in A→H order; "reject" is pinned last so the
+// row reads quality-best → reject without a stray gap.
+function gradeSortKey(grade: SeedGrade): number {
+  if (grade === "reject") return GRADE_LETTERS.length;
+  const idx = GRADE_LETTERS.indexOf(grade);
+  return idx >= 0 ? idx : GRADE_LETTERS.length;
+}
+
+// Letter-tier set actually observed in the current capture, in A→H order
+// with "reject" pinned last. Empty captures still render Grade A as a
+// placeholder so the strip isn't blank during a fresh ROI scan.
+function gradeTileLetters(grades: SeedGrade[]): SeedGrade[] {
+  const present = new Set(grades);
+  const out: SeedGrade[] = [];
+  for (const letter of GRADE_LETTERS) {
+    if (present.has(letter)) out.push(letter);
+  }
+  if (present.has("reject")) out.push("reject");
+  return out.length > 0 ? out : ["A"];
 }

@@ -8,20 +8,16 @@ import Svg, { Polygon as SvgPolygon } from "react-native-svg";
 import type { BoundingBox, SeedGrade, SeedMaskMeasurement } from "@advance-seeds/types";
 import { Card } from "@/components/ui/Card";
 import { GradeChip } from "@/components/ui/GradeChip";
+import { gradePalette } from "@/lib/grading/palette";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Toast } from "@/components/ui/Toast";
 
 const HERO_SIZE = 200;
 const HERO_PADDING = 16;
 
-// Bbox ring colours map to the grade-* ink tokens. Kept as raw hex because
-// the projection ring is a stroke on a positioned <View>, not a Tailwind class.
-const GRADE_RING_HEX: Record<SeedGrade, string> = {
-  A: "#2D6E3F",
-  B: "#7A5A12",
-  C: "#B85518",
-  reject: "#A02828",
-};
+// Bbox ring colours map to the grade-* ink tokens via the shared
+// runtime palette. Kept as raw hex because the projection ring is a
+// stroke on a positioned <View>, not a Tailwind class.
 
 export interface SeedDetailSeed {
   index: number;
@@ -53,9 +49,17 @@ interface Props {
   onUpdateGrade?: (grade: SeedGrade) => void | Promise<void>;
   /** Disable the action buttons while a previous mutation is in flight. */
   busy?: boolean;
+  /**
+   * Grade options shown in the override picker. Defaults to the legacy
+   * A/B/C + reject set. Callers with access to the inspection's variety
+   * (or the set of grades the analyzer produced) should pass the
+   * variety-specific list so newer multi-tier varieties can be overridden
+   * cleanly without exposing tiers the variety never defined.
+   */
+  availableGrades?: SeedGrade[];
 }
 
-const GRADE_OPTIONS: SeedGrade[] = ["A", "B", "C", "reject"];
+const DEFAULT_GRADE_OPTIONS: SeedGrade[] = ["A", "B", "C", "reject"];
 
 /**
  * Shared per-seed detail UI. Used by:
@@ -66,7 +70,15 @@ const GRADE_OPTIONS: SeedGrade[] = ["A", "B", "C", "reject"];
  * Owns its own AppTopBar with a back chevron so the screen reads the
  * same regardless of which stack pushed it.
  */
-export function SeedDetailView({ seed, sourceUri, title, onUpdateGrade, busy }: Props) {
+export function SeedDetailView({
+  seed,
+  sourceUri,
+  title,
+  onUpdateGrade,
+  busy,
+  availableGrades,
+}: Props) {
+  const gradeOptions = availableGrades ?? DEFAULT_GRADE_OPTIONS;
   const { t } = useTranslation(["common", "inspections"]);
   const router = useRouter();
   const grade = seed.grade;
@@ -180,7 +192,7 @@ export function SeedDetailView({ seed, sourceUri, title, onUpdateGrade, busy }: 
               {t("inspections:seed.overrideTitle")}
             </Text>
             <View className="flex-row gap-sm">
-              {GRADE_OPTIONS.map((g) => (
+              {gradeOptions.map((g) => (
                 <GradeOverrideButton
                   key={g}
                   grade={g}
@@ -276,7 +288,7 @@ function GradeOverrideButton({
 }
 
 function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string | null }) {
-  const ringColor = GRADE_RING_HEX[seed.grade];
+  const ringColor = gradePalette(seed.grade).ink;
 
   const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
   const [getSizeError, setGetSizeError] = useState<string | null>(null);

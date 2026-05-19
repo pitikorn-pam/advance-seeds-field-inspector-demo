@@ -65,6 +65,7 @@
     "fieldLengthMm": "ความยาว (mm)",
     "fieldWidthMm": "ความกว้าง (mm)",
     "gradeLabel": "เกรด {{grade}}",
+    "addGrade": "เพิ่มเกรด {{letter}}",
     "lengthRange": "ความยาว",
     "classesFrom": "คลาสจาก {{model}}",
     "searchClasses": "ค้นหาคลาส",

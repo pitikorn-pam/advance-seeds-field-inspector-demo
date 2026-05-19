@@ -65,6 +65,7 @@
     "fieldLengthMm": "Length (mm)",
     "fieldWidthMm": "Width (mm)",
     "gradeLabel": "Grade {{grade}}",
+    "addGrade": "Add grade {{letter}}",
     "lengthRange": "Length",
     "classesFrom": "Classes from {{model}}",
     "searchClasses": "Search classes",

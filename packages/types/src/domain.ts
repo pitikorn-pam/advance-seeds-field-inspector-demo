@@ -14,11 +14,26 @@ export type CalibrationSource = "lidar" | "aruco";
 
 export type InspectionStatus = "pending" | "analyzing" | "complete" | "failed";
 
-export type SeedGrade = "A" | "B" | "C" | "reject";
+export type SeedGrade = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "reject";
 
 // ----- Reference data ----------------------------------------------------
 
-export type GradeCriteriaGrade = Extract<SeedGrade, "A" | "B" | "C">;
+// A grade tier is any letter; "reject" is a special classification, not a tier.
+export type GradeCriteriaGrade = Exclude<SeedGrade, "reject">;
+
+// Ordered list of grade letters in tier order (A is best). Kept here so
+// downstream code that needs to render or iterate "all possible grade
+// letters" has a single source of truth.
+export const GRADE_LETTERS: readonly GradeCriteriaGrade[] = [
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+] as const;
 
 export interface GradeDimensionRange {
   min: number | null;

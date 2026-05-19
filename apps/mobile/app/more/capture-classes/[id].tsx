@@ -4,8 +4,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { X, Trash2, Cpu } from "lucide-react-native";
-import type { GradeCriteriaGrade, Json, Variety, VarietyGradeCriteria } from "@advance-seeds/types";
+import { X, Trash2, Cpu, Plus } from "lucide-react-native";
+import {
+  GRADE_LETTERS,
+  type GradeCriteriaGrade,
+  type Json,
+  type Variety,
+  type VarietyGradeCriteria,
+} from "@advance-seeds/types";
+import { gradePalette } from "@/lib/grading/palette";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useDeleteVariety, useUpsertVariety, useVarieties } from "@/lib/queries";
@@ -31,15 +38,21 @@ interface FormState {
 }
 
 type GradeCriteriaField = "lengthMin" | "lengthMax" | "widthMin" | "widthMax";
-type GradeCriteriaForm = Record<GradeCriteriaGrade, Record<GradeCriteriaField, string>>;
+type GradeCriteriaFields = Record<GradeCriteriaField, string>;
+type GradeCriteriaForm = Partial<Record<GradeCriteriaGrade, GradeCriteriaFields>>;
 
-const GRADE_KEYS: GradeCriteriaGrade[] = ["A", "B", "C"];
-
-const EMPTY_GRADE_CRITERIA: GradeCriteriaForm = {
-  A: { lengthMin: "", lengthMax: "", widthMin: "", widthMax: "" },
-  B: { lengthMin: "", lengthMax: "", widthMin: "", widthMax: "" },
-  C: { lengthMin: "", lengthMax: "", widthMin: "", widthMax: "" },
+const EMPTY_FIELDS: GradeCriteriaFields = {
+  lengthMin: "",
+  lengthMax: "",
+  widthMin: "",
+  widthMax: "",
 };
+
+// Letter tiers present in the form, in A→H order. Lets the editor iterate
+// only what the operator has actually added rather than a fixed [A,B,C].
+function gradesInForm(form: GradeCriteriaForm): GradeCriteriaGrade[] {
+  return GRADE_LETTERS.filter((letter) => form[letter] !== undefined);
+}
 
 const EMPTY_FORM: FormState = {
   name: "",
@@ -409,11 +422,26 @@ export default function VarietyEditor() {
                   gradeCriteria: {
                     ...s.gradeCriteria,
                     [grade]: {
-                      ...s.gradeCriteria[grade],
+                      ...(s.gradeCriteria[grade] ?? EMPTY_FIELDS),
                       [field]: text,
                     },
                   },
                 }))
+              }
+              onAddGrade={(letter) =>
+                setForm((s) => ({
+                  ...s,
+                  gradeCriteria: { ...s.gradeCriteria, [letter]: { ...EMPTY_FIELDS } },
+                }))
+              }
+              onRemoveGrade={(letter) =>
+                setForm((s) => {
+                  const next = { ...s.gradeCriteria };
+                  delete next[letter];
+                  // Keep at least one tier so the editor never goes empty.
+                  if (Object.keys(next).length === 0) next.A = { ...EMPTY_FIELDS };
+                  return { ...s, gradeCriteria: next };
+                })
               }
             />
           </View>
@@ -589,50 +617,98 @@ function ClassChip({
 function GradeCriteriaEditor({
   value,
   onChange,
+  onAddGrade,
+  onRemoveGrade,
 }: {
   value: GradeCriteriaForm;
   onChange: (grade: GradeCriteriaGrade, field: GradeCriteriaField, text: string) => void;
+  onAddGrade: (letter: GradeCriteriaGrade) => void;
+  onRemoveGrade: (letter: GradeCriteriaGrade) => void;
 }) {
-  const { t } = useTranslation(["more"]);
+  const { t } = useTranslation(["more", "varieties", "common"]);
+  const presentGrades = gradesInForm(value);
+  const nextLetter = GRADE_LETTERS.find((l) => !presentGrades.includes(l));
+  const canRemove = presentGrades.length > 1;
   return (
     <View className="gap-md">
-      {GRADE_KEYS.map((grade) => (
-        <View key={grade} className="gap-xs">
-          <Text className="text-title text-fg-primary">{grade}</Text>
-          <View className="flex-row gap-sm">
-            <Input
-              className="flex-1"
-              placeholder={t("more:masterData.gradeLengthMin")}
-              keyboardType="decimal-pad"
-              value={value[grade].lengthMin}
-              onChangeText={(text) => onChange(grade, "lengthMin", text)}
-            />
-            <Input
-              className="flex-1"
-              placeholder={t("more:masterData.gradeLengthMax")}
-              keyboardType="decimal-pad"
-              value={value[grade].lengthMax}
-              onChangeText={(text) => onChange(grade, "lengthMax", text)}
-            />
+      {presentGrades.map((grade) => {
+        const fields = value[grade] ?? EMPTY_FIELDS;
+        const palette = gradePalette(grade);
+        return (
+          <View key={grade} className="gap-xs">
+            <View className="flex-row items-center gap-sm">
+              <View
+                className="rounded-sm items-center justify-center"
+                style={{ width: 24, height: 24, backgroundColor: palette.bg }}
+              >
+                <Text className="font-semibold" style={{ fontSize: 12, color: palette.ink }}>
+                  {grade}
+                </Text>
+              </View>
+              <Text className="text-title text-fg-primary flex-1">
+                {t("varieties:editor.gradeLabel", { grade, defaultValue: `Grade ${grade}` })}
+              </Text>
+              {canRemove ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("common:actions.delete", { defaultValue: "Delete" })}
+                  onPress={() => onRemoveGrade(grade)}
+                  className="h-8 w-8 items-center justify-center rounded-md active:bg-bg-secondary"
+                >
+                  <Trash2 color="#8A1F1B" size={16} />
+                </Pressable>
+              ) : null}
+            </View>
+            <View className="flex-row gap-sm">
+              <Input
+                className="flex-1"
+                placeholder={t("more:masterData.gradeLengthMin")}
+                keyboardType="decimal-pad"
+                value={fields.lengthMin}
+                onChangeText={(text) => onChange(grade, "lengthMin", text)}
+              />
+              <Input
+                className="flex-1"
+                placeholder={t("more:masterData.gradeLengthMax")}
+                keyboardType="decimal-pad"
+                value={fields.lengthMax}
+                onChangeText={(text) => onChange(grade, "lengthMax", text)}
+              />
+            </View>
+            <View className="flex-row gap-sm">
+              <Input
+                className="flex-1"
+                placeholder={t("more:masterData.gradeWidthMin")}
+                keyboardType="decimal-pad"
+                value={fields.widthMin}
+                onChangeText={(text) => onChange(grade, "widthMin", text)}
+              />
+              <Input
+                className="flex-1"
+                placeholder={t("more:masterData.gradeWidthMax")}
+                keyboardType="decimal-pad"
+                value={fields.widthMax}
+                onChangeText={(text) => onChange(grade, "widthMax", text)}
+              />
+            </View>
           </View>
-          <View className="flex-row gap-sm">
-            <Input
-              className="flex-1"
-              placeholder={t("more:masterData.gradeWidthMin")}
-              keyboardType="decimal-pad"
-              value={value[grade].widthMin}
-              onChangeText={(text) => onChange(grade, "widthMin", text)}
-            />
-            <Input
-              className="flex-1"
-              placeholder={t("more:masterData.gradeWidthMax")}
-              keyboardType="decimal-pad"
-              value={value[grade].widthMax}
-              onChangeText={(text) => onChange(grade, "widthMax", text)}
-            />
-          </View>
-        </View>
-      ))}
+        );
+      })}
+      {nextLetter ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onAddGrade(nextLetter)}
+          className="flex-row items-center justify-center gap-xs rounded-md border border-line-secondary bg-bg-primary px-md py-md active:bg-bg-secondary"
+        >
+          <Plus color="#171717" size={16} />
+          <Text className="text-body font-medium text-fg-primary">
+            {t("varieties:editor.addGrade", {
+              letter: nextLetter,
+              defaultValue: `Add grade ${nextLetter}`,
+            })}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -654,9 +730,9 @@ function hydrateForm(v: Variety): FormState {
 }
 
 function hydrateGradeCriteria(criteria: VarietyGradeCriteria | null): GradeCriteriaForm {
-  const next = emptyGradeCriteriaForm();
-  if (!criteria) return next;
-  for (const grade of GRADE_KEYS) {
+  if (!criteria) return emptyGradeCriteriaForm();
+  const next: GradeCriteriaForm = {};
+  for (const grade of GRADE_LETTERS) {
     const rule = criteria[grade];
     if (!rule) continue;
     next[grade] = {
@@ -666,16 +742,21 @@ function hydrateGradeCriteria(criteria: VarietyGradeCriteria | null): GradeCrite
       widthMax: formatCriteriaNumber(rule.width_mm?.max),
     };
   }
+  // Always keep at least the A tier present in the form so the editor
+  // has something to render even if the persisted column is null.
+  if (Object.keys(next).length === 0) next.A = { ...EMPTY_FIELDS };
   return next;
 }
 
 function buildGradeCriteria(form: GradeCriteriaForm): VarietyGradeCriteria | null {
   const criteria: VarietyGradeCriteria = {};
-  for (const grade of GRADE_KEYS) {
-    const lengthMin = parseCriteriaNumber(form[grade].lengthMin);
-    const lengthMax = parseCriteriaNumber(form[grade].lengthMax);
-    const widthMin = parseCriteriaNumber(form[grade].widthMin);
-    const widthMax = parseCriteriaNumber(form[grade].widthMax);
+  for (const grade of GRADE_LETTERS) {
+    const fields = form[grade];
+    if (!fields) continue;
+    const lengthMin = parseCriteriaNumber(fields.lengthMin);
+    const lengthMax = parseCriteriaNumber(fields.lengthMax);
+    const widthMin = parseCriteriaNumber(fields.widthMin);
+    const widthMax = parseCriteriaNumber(fields.widthMax);
     assertValidRange(lengthMin, lengthMax);
     assertValidRange(widthMin, widthMax);
     if (lengthMin === null && lengthMax === null && widthMin === null && widthMax === null) {
@@ -690,11 +771,9 @@ function buildGradeCriteria(form: GradeCriteriaForm): VarietyGradeCriteria | nul
 }
 
 function emptyGradeCriteriaForm(): GradeCriteriaForm {
-  return {
-    A: { ...EMPTY_GRADE_CRITERIA.A },
-    B: { ...EMPTY_GRADE_CRITERIA.B },
-    C: { ...EMPTY_GRADE_CRITERIA.C },
-  };
+  // New varieties start with the single A tier. Admin appends B/C/…/H
+  // on demand via the "Add grade" affordance in the editor.
+  return { A: { ...EMPTY_FIELDS } };
 }
 
 function formatCriteriaNumber(value: number | null | undefined): string {

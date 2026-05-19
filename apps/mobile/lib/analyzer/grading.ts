@@ -7,7 +7,22 @@ import type {
 } from "@advance-seeds/types";
 
 const DEFAULT_TOLERANCE_MM = 0.05;
-const GRADE_ORDER: GradeCriteriaGrade[] = ["A", "B", "C"];
+
+// Local mirror of `GRADE_LETTERS` from @advance-seeds/types. Kept here as
+// a runtime constant so `node --test` (no bundler) can resolve this
+// module's tests without traversing the workspace package boundary. The
+// two arrays must stay in sync; the types package owns the canonical
+// definition.
+const GRADE_LETTERS: readonly GradeCriteriaGrade[] = [
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+] as const;
 
 export function gradeSeedByConfig(
   lengthMm: number,
@@ -39,7 +54,10 @@ function gradeFromCriteria(
   criteria: VarietyGradeCriteria | null | undefined,
 ): AnalyzedSeed["grade"] | null {
   if (!hasAnyCriteria(criteria)) return null;
-  for (const grade of GRADE_ORDER) {
+  // Evaluate tiers in letter order (A→H). First match wins; "reject"
+  // when no tier matches. GRADE_LETTERS is the single source of truth
+  // for which letters exist — varieties only declare a subset.
+  for (const grade of GRADE_LETTERS) {
     const rule = criteria?.[grade];
     if (rule && matchesRule(lengthMm, widthMm, rule)) return grade;
   }
@@ -50,7 +68,7 @@ function hasAnyCriteria(
   criteria: VarietyGradeCriteria | null | undefined,
 ): criteria is VarietyGradeCriteria {
   if (!criteria || typeof criteria !== "object") return false;
-  return GRADE_ORDER.some((grade) => {
+  return GRADE_LETTERS.some((grade) => {
     const rule = criteria[grade];
     return Boolean(rule && (hasRange(rule.length_mm) || hasRange(rule.width_mm)));
   });

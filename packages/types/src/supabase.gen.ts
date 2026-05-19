@@ -303,7 +303,7 @@ export type Database = {
       inspection_status: "pending" | "analyzing" | "complete" | "failed"
       locale: "en" | "th"
       role: "inspector" | "admin"
-      seed_grade: "A" | "B" | "C" | "reject"
+      seed_grade: "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "reject"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -435,7 +435,7 @@ export const Constants = {
       inspection_status: ["pending", "analyzing", "complete", "failed"],
       locale: ["en", "th"],
       role: ["inspector", "admin"],
-      seed_grade: ["A", "B", "C", "reject"],
+      seed_grade: ["A", "B", "C", "D", "E", "F", "G", "H", "reject"],
     },
   },
 } as const

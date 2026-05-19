@@ -4,7 +4,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Pencil } from "lucide-react-native";
-import type { GradeCriteriaRule, GradeDimensionRange } from "@advance-seeds/types";
+import {
+  GRADE_LETTERS,
+  type GradeCriteriaGrade,
+  type GradeCriteriaRule,
+  type GradeDimensionRange,
+} from "@advance-seeds/types";
 import { useVarieties, useInspections } from "@/lib/queries";
 import { useCaptureSession } from "@/lib/capture/session";
 import { useAuth } from "@/lib/auth";
@@ -270,31 +275,34 @@ export default function VarietyDetail() {
           </Card>
         </View>
 
-        {/* Grade thresholds */}
-        <View className="px-xl pt-lg">
-          <Text className="text-h2 font-medium text-fg-primary mb-md">
-            {t("varieties:detail.gradeThresholdsTitle")}
-          </Text>
-          <Card className="p-0">
-            <ThresholdRow
-              grade="A"
-              rule={variety.grade_criteria?.A ?? null}
-              notSetLabel={t("varieties:detail.gradeNotSet")}
-            />
-            <Divider />
-            <ThresholdRow
-              grade="B"
-              rule={variety.grade_criteria?.B ?? null}
-              notSetLabel={t("varieties:detail.gradeNotSet")}
-            />
-            <Divider />
-            <ThresholdRow
-              grade="C"
-              rule={variety.grade_criteria?.C ?? null}
-              notSetLabel={t("varieties:detail.gradeNotSet")}
-            />
-          </Card>
-        </View>
+        {/* Grade thresholds — render only the tiers this variety actually
+            defines, in letter order. Old A/B/C varieties show those three;
+            new varieties may have just A or extend through H. */}
+        {(() => {
+          const definedLetters = GRADE_LETTERS.filter(
+            (letter): letter is GradeCriteriaGrade => !!variety.grade_criteria?.[letter],
+          );
+          if (definedLetters.length === 0) return null;
+          return (
+            <View className="px-xl pt-lg">
+              <Text className="text-h2 font-medium text-fg-primary mb-md">
+                {t("varieties:detail.gradeThresholdsTitle")}
+              </Text>
+              <Card className="p-0">
+                {definedLetters.map((letter, idx) => (
+                  <View key={letter}>
+                    {idx > 0 ? <Divider /> : null}
+                    <ThresholdRow
+                      grade={letter}
+                      rule={variety.grade_criteria?.[letter] ?? null}
+                      notSetLabel={t("varieties:detail.gradeNotSet")}
+                    />
+                  </View>
+                ))}
+              </Card>
+            </View>
+          );
+        })()}
       </ScrollView>
 
       <View className="px-xl pb-xl pt-md border-t border-line-tertiary bg-bg-primary">
@@ -434,7 +442,7 @@ function ThresholdRow({
   rule,
   notSetLabel,
 }: {
-  grade: "A" | "B" | "C";
+  grade: GradeCriteriaGrade;
   rule: GradeCriteriaRule | null;
   notSetLabel: string;
 }) {

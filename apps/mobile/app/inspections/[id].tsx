@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Share2, Trash2 } from "lucide-react-native";
-import type { Seed } from "@advance-seeds/types";
+import { GRADE_LETTERS, type Seed, type SeedGrade } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
 import { shareImage, shareVideo } from "@/lib/capture/imageActions";
 import { useAuth } from "@/lib/auth";
@@ -28,22 +28,9 @@ import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
+import { gradePalette } from "@/lib/grading/palette";
 
 type GradeFilter = "all" | Seed["grade"];
-
-const gradeFilters: GradeFilter[] = ["all", "A", "B", "C", "reject"];
-
-// Per-grade tile-thumb tint. The prototype keeps the OUTER card white with a
-// hairline border, and tints only the small interior thumb area where a seed
-// silhouette sits — the grade is communicated by the corner GradeChip, not by
-// the whole card. Tints stay subtle so a wall of cards reads as a grid, not a
-// rainbow.
-const seedThumbTone: Record<Seed["grade"], string> = {
-  A: "bg-grade-a",
-  B: "bg-grade-b",
-  C: "bg-grade-c",
-  reject: "bg-grade-reject",
-};
 
 /**
  * Read the captured ROI off of `inspection.metadata.roi`. Returns the
@@ -134,11 +121,22 @@ export default function InspectionDetail() {
     [gradeFilter, allSeeds],
   );
   // Counts shown next to each filter chip (prototype shows "All 18 · A 14 …").
+  // Derived from the actual seeds in this inspection so old A/B/C/reject
+  // captures and new variants extending through H both render cleanly.
   const gradeCounts = useMemo(() => {
-    const counts: Record<Seed["grade"], number> = { A: 0, B: 0, C: 0, reject: 0 };
-    for (const s of allSeeds) counts[s.grade] += 1;
+    const counts: Partial<Record<SeedGrade, number>> = {};
+    for (const s of allSeeds) counts[s.grade] = (counts[s.grade] ?? 0) + 1;
     return counts;
   }, [allSeeds]);
+  // Letter tiers present, in A→H order; "reject" pinned last when used.
+  const gradeFilters = useMemo<GradeFilter[]>(() => {
+    const out: GradeFilter[] = ["all"];
+    for (const letter of GRADE_LETTERS) {
+      if (gradeCounts[letter]) out.push(letter);
+    }
+    if (gradeCounts.reject) out.push("reject");
+    return out;
+  }, [gradeCounts]);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
     dateStyle: "medium",
@@ -595,14 +593,19 @@ export default function InspectionDetail() {
               >
                 {gradeFilters.map((filter) => {
                   const count =
-                    filter === "all" ? allSeeds.length : gradeCounts[filter as Seed["grade"]];
+                    filter === "all" ? allSeeds.length : (gradeCounts[filter as SeedGrade] ?? 0);
                   return (
                     <GradeFilterChip
                       key={filter}
                       label={
                         filter === "all"
                           ? t("inspections:detail.gradeFilterAll")
-                          : t(`inspections:seedGrade.${filter}`)
+                          : filter === "reject"
+                            ? t("inspections:seedGrade.reject")
+                            : t("inspections:seedGradeLabel", {
+                                letter: filter,
+                                defaultValue: `Grade ${filter}`,
+                              })
                       }
                       count={count}
                       selected={gradeFilter === filter}
@@ -701,7 +704,8 @@ function SeedCard({ seed, onPress }: { seed: Seed; onPress: () => void }) {
       style={{ flex: 1 }}
     >
       <View
-        className={`flex-1 items-center justify-center overflow-hidden rounded-[6px] ${seedThumbTone[seed.grade]}`}
+        className="flex-1 items-center justify-center overflow-hidden rounded-[6px]"
+        style={{ backgroundColor: gradePalette(seed.grade).bg }}
       >
         {/* Tiny seed silhouette — pure decoration */}
         <Svg width="80%" height="80%" viewBox="0 0 40 40">

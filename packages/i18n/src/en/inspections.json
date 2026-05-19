@@ -287,8 +287,14 @@
     "A": "Grade A",
     "B": "Grade B",
     "C": "Grade C",
+    "D": "Grade D",
+    "E": "Grade E",
+    "F": "Grade F",
+    "G": "Grade G",
+    "H": "Grade H",
     "reject": "Reject"
   },
+  "seedGradeLabel": "Grade {{letter}}",
   "seed": {
     "qualityGrade": "Quality grade",
     "passed": "Passed",
