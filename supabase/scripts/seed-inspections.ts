@@ -5,6 +5,7 @@
 // `notes` prefix and re-inserts only what's missing.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SeedGrade } from "@advance-seeds/types";
 import { loadEnv } from "./_env.js";
 import { gradeSeed, varietyBaselines } from "./grade-seed.js";
 
@@ -99,7 +100,10 @@ interface SeedRow {
   length_mm: number;
   width_mm: number;
   area_mm2: number;
-  grade: "A" | "B" | "C" | "reject";
+  // Mirror the DB enum (now A–H + reject) rather than the legacy
+  // [A,B,C,reject] literal — gradeSeed() returns the wider SeedGrade
+  // type even though the seeder itself never picks letters past C.
+  grade: SeedGrade;
   defects: { cracked?: boolean; discolored?: boolean };
   bbox: { x: number; y: number; width: number; height: number };
 }
