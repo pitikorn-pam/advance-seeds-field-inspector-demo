@@ -295,30 +295,85 @@ static NSArray<NSArray<NSNumber *> *> *decodeAllPolygons(
   ProtoLayout layout = {};
   if (!pickProtoLayout(protoArr.shape, coefCount, &layout)) return out;
 
-  // Coerce both tensors to float32 contiguous pointers. Vision/CoreML
-  // outputs are nearly always float32 already; fall back to a strided
-  // copy when they aren't.
+  // Coerce both tensors to packed-contiguous float32 buffers. Apple's
+  // CoreML often returns MLMultiArrays with non-packed strides (the
+  // higher-rank dimensions can be padded for GPU alignment). Reading
+  // through dataPointer with packed-stride assumptions silently fetches
+  // wrong values — the symptom is a degenerate ~2×2 mask (sigmoid
+  // hovers near 0.5 with garbage coefficients) producing a tiny
+  // 4-vertex polygon. The strided copy below is correct in all cases.
+  auto isPacked = [](MLMultiArray *arr) -> BOOL {
+    NSArray<NSNumber *> *shape = arr.shape;
+    NSArray<NSNumber *> *strides = arr.strides;
+    if (shape.count != strides.count) return NO;
+    NSInteger expected = 1;
+    for (NSInteger i = shape.count - 1; i >= 0; i--) {
+      if (strides[i].integerValue != expected) return NO;
+      expected *= shape[i].integerValue;
+    }
+    return YES;
+  };
+  auto packArray = [](MLMultiArray *arr, std::vector<float> &storage) -> const float * {
+    const NSInteger count = arr.count;
+    storage.resize(count);
+    NSArray<NSNumber *> *shape = arr.shape;
+    NSArray<NSNumber *> *strides = arr.strides;
+    const NSInteger rank = shape.count;
+    std::vector<NSInteger> dims(rank);
+    std::vector<NSInteger> str(rank);
+    for (NSInteger i = 0; i < rank; i++) {
+      dims[i] = shape[i].integerValue;
+      str[i] = strides[i].integerValue;
+    }
+    const BOOL isFloat = (arr.dataType == MLMultiArrayDataTypeFloat32);
+    const BOOL isDouble = (arr.dataType == MLMultiArrayDataTypeDouble);
+    const float *srcF = isFloat ? (const float *)arr.dataPointer : nullptr;
+    const double *srcD = isDouble ? (const double *)arr.dataPointer : nullptr;
+    // Walk the packed index space, computing the strided source offset
+    // for each. For rank-3/4 this is just a few nested loops; the
+    // generic implementation handles either.
+    std::vector<NSInteger> idx(rank, 0);
+    for (NSInteger packedIdx = 0; packedIdx < count; packedIdx++) {
+      NSInteger srcOff = 0;
+      for (NSInteger i = 0; i < rank; i++) srcOff += idx[i] * str[i];
+      if (srcF != nullptr) {
+        storage[packedIdx] = srcF[srcOff];
+      } else if (srcD != nullptr) {
+        storage[packedIdx] = (float)srcD[srcOff];
+      } else {
+        storage[packedIdx] = (float)arr[srcOff].doubleValue;
+      }
+      // Increment idx as a row-major counter.
+      for (NSInteger i = rank - 1; i >= 0; i--) {
+        if (++idx[i] < dims[i]) break;
+        idx[i] = 0;
+      }
+    }
+    return storage.data();
+  };
   std::vector<float> detStorage;
   const float *detPtr = nullptr;
-  if (detectionArr.dataType == MLMultiArrayDataTypeFloat32) {
+  if (isPacked(detectionArr) && detectionArr.dataType == MLMultiArrayDataTypeFloat32) {
     detPtr = (const float *)detectionArr.dataPointer;
   } else {
-    detStorage.resize(detectionArr.count);
-    for (NSInteger i = 0; i < (NSInteger)detectionArr.count; i++) {
-      detStorage[i] = (float)detectionArr[i].doubleValue;
-    }
-    detPtr = detStorage.data();
+    detPtr = packArray(detectionArr, detStorage);
   }
   std::vector<float> protoStorage;
   const float *protoPtr = nullptr;
-  if (protoArr.dataType == MLMultiArrayDataTypeFloat32) {
+  if (isPacked(protoArr) && protoArr.dataType == MLMultiArrayDataTypeFloat32) {
     protoPtr = (const float *)protoArr.dataPointer;
   } else {
-    protoStorage.resize(protoArr.count);
-    for (NSInteger i = 0; i < (NSInteger)protoArr.count; i++) {
-      protoStorage[i] = (float)protoArr[i].doubleValue;
-    }
-    protoPtr = protoStorage.data();
+    protoPtr = packArray(protoArr, protoStorage);
+  }
+  // One-shot diagnostic so we can confirm the stride/packed status of
+  // each output the active model produces. Logs only on the first
+  // wantMask frame after a model load (the caller resets the flag).
+  static BOOL loggedStrides = NO;
+  if (!loggedStrides) {
+    loggedStrides = YES;
+    NSLog(@"[CoreML FP] det shape=%@ strides=%@ packed=%@ proto shape=%@ strides=%@ packed=%@",
+          detectionArr.shape, detectionArr.strides, isPacked(detectionArr) ? @"YES" : @"NO",
+          protoArr.shape, protoArr.strides, isPacked(protoArr) ? @"YES" : @"NO");
   }
 
   // Pre-resolve class filter into a small lookup. Empty / nil means "any".
