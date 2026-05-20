@@ -427,12 +427,15 @@ function useLiveDetectionsCoreML(options: Options): State {
     [mappedClassFilter, pxPerMm, roi, gradingConfig, scoreThreshold, iouThreshold],
   );
 
-  // Throttle mask-prototype extraction to one frame in N. Bridging the
-  // ~820k-float prototype tensor every frame would dominate the worklet
-  // budget; one in three is enough to keep a fresh polygon on screen
-  // while bbox-from-cache keeps responsiveness in between.
+  // Polygon decode runs every frame now that the mask matmul + trace
+  // happen natively in the plugin: only a small per-detection polygon
+  // array crosses the bridge, not the ~820k-float prototype tensor that
+  // forced the previous 1-in-3 throttle. Decoding every frame keeps the
+  // polygon continuously on screen — without this gate, two of every
+  // three frames produced no polygon and the overlay fell back to the
+  // raw bbox, which read as a flickering bbox in live preview.
   const maskFrameCounter = useSharedValue(0);
-  const MASK_THROTTLE = 3;
+  const MASK_THROTTLE = 1;
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
@@ -774,10 +777,12 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     ],
   );
 
-  // Mirror of the CoreML throttle: only ask the native plugin for the
-  // mask prototype tensor every Nth frame.
+  // Polygon decode runs every frame now that the mask matmul + trace
+  // happen natively (see CoreML branch's matching comment). One-in-three
+  // gate was the JS-perf workaround for the old prototype-tensor bridge
+  // crossing; obsolete now that polygons are computed in-plugin.
   const maskFrameCounter = useSharedValue(0);
-  const MASK_THROTTLE = 3;
+  const MASK_THROTTLE = 1;
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";

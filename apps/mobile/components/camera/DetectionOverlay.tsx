@@ -137,26 +137,30 @@ export function DetectionOverlay({
   return (
     <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
       {polygonSeeds.length > 0 ? (
+        // react-native-svg's <Svg> needs width/height as PROPS (not
+        // style) — otherwise the inner SVG canvas can default to 0x0
+        // and polygons render but are clipped/invisible. Pass viewBox
+        // explicitly so vertex coords are in stage pixel space, not
+        // the default 100x100 normalized box.
         <Svg
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            width: stageWidth,
-            height: stageHeight,
-          }}
+          width={stageWidth}
+          height={stageHeight}
+          viewBox={`0 0 ${stageWidth} ${stageHeight}`}
+          style={{ position: "absolute", left: 0, top: 0 }}
           pointerEvents="none"
         >
           {polygonSeeds.map((p) => {
             const color = PALETTE[p.className] ?? "#7DD3C7";
-            const points = p.projectedPolygon!.map((pt) => `${pt.x},${pt.y}`).join(" ");
+            const points = p
+              .projectedPolygon!.map((pt) => `${pt.x.toFixed(2)},${pt.y.toFixed(2)}`)
+              .join(" ");
             return (
               <SvgPolygon
                 key={`${p.key}-poly`}
                 points={points}
-                fill={`${color}22`}
+                fill={`${color}33`}
                 stroke={color}
-                strokeWidth={1.5}
+                strokeWidth={2}
               />
             );
           })}
