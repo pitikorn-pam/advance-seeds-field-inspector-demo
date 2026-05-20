@@ -252,7 +252,11 @@ export function extractPolygonFromMask(maskRect) {
         dir = (d + 6) % 8;
         const vx = x0 + cx + 0.5;
         const vy = y0 + cy + 0.5;
-        if (polygon.length === 0 || polygon[polygon.length - 1].x !== vx || polygon[polygon.length - 1].y !== vy) {
+        if (
+          polygon.length === 0 ||
+          polygon[polygon.length - 1].x !== vx ||
+          polygon[polygon.length - 1].y !== vy
+        ) {
           polygon.push({ x: vx, y: vy });
         }
         found = true;

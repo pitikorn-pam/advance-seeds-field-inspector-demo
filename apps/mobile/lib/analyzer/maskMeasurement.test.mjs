@@ -100,11 +100,7 @@ test("minAreaRect on a 30°-rotated rectangle recovers the same side lengths", (
     rotate(-w / 2, h / 2),
   ];
   // Sample a few extra interior points to mimic a real mask polygon.
-  const points = corners.concat([
-    rotate(0, 0),
-    rotate(2, 1),
-    rotate(-3, -2),
-  ]);
+  const points = corners.concat([rotate(0, 0), rotate(2, 1), rotate(-3, -2)]);
   const m = minAreaRect(points);
   const sides = [m.width, m.height].sort((a, b) => b - a);
   assert.ok(Math.abs(sides[0] - w) < 0.05, `long side ${sides[0]} ≠ ${w}`);
@@ -116,7 +112,13 @@ test("minAreaRect on a 30°-rotated rectangle recovers the same side lengths", (
 test("measureInstance returns {} for fewer than 3 vertices (script parity)", () => {
   assert.deepEqual(measureInstance([]), {});
   assert.deepEqual(measureInstance([{ x: 0, y: 0 }]), {});
-  assert.deepEqual(measureInstance([{ x: 0, y: 0 }, { x: 1, y: 1 }]), {});
+  assert.deepEqual(
+    measureInstance([
+      { x: 0, y: 0 },
+      { x: 1, y: 1 },
+    ]),
+    {},
+  );
 });
 
 test("measureInstance on a 12×4 rect: bbox area when no mask, mask count when given", () => {

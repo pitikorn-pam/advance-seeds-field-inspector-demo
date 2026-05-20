@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  decodeMaskForDetection,
-  extractPolygonFromMask,
-  maskPixelCount,
-} from "./yoloSegMask.mjs";
+import { decodeMaskForDetection, extractPolygonFromMask, maskPixelCount } from "./yoloSegMask.mjs";
 
 // Build a tiny prototype tensor (channels-last) that produces a known mask
 // when combined with a known coefficient vector. We pick one channel that

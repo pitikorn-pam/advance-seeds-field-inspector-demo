@@ -201,8 +201,7 @@ export function measureInstance(polygon, options = {}) {
       : polygonArea(polygon);
   const perimeterPx = polygonPerimeter(polygon);
   const aspectRatio = lengthPx / Math.max(widthPx, 1e-6);
-  const circularity =
-    (4 * Math.PI * areaPx) / Math.max(perimeterPx * perimeterPx, 1e-6);
+  const circularity = (4 * Math.PI * areaPx) / Math.max(perimeterPx * perimeterPx, 1e-6);
 
   const out = {
     aabb_w_px: aabb.w,
