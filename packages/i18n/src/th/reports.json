@@ -21,6 +21,7 @@
   },
   "byVariety": {
     "title": "ตามพันธุ์",
+    "runs_one": "{{count}} ครั้ง",
     "runs_other": "{{count}} ครั้ง",
     "gradeA": "เกรด A {{pct}}%"
   },
