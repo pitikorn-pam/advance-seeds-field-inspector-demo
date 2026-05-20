@@ -235,7 +235,12 @@ export default function CaptureScan() {
         capturedCalibrationProfileName: automaticCalibrationProfileName,
       });
       setCameraActive(false);
-      setTimeout(() => router.push("/capture/processing"), 60);
+      // Same Android-only SurfaceView teardown gap as in onShutter.
+      if (Platform.OS === "android") {
+        setTimeout(() => router.push("/capture/processing"), 60);
+      } else {
+        router.push("/capture/processing");
+      }
     },
     onRecordingError: (err) => {
       console.error("[scan] recording error", err);
@@ -351,12 +356,18 @@ export default function CaptureScan() {
         capturedCalibrationProfileName: automaticCalibrationProfileName,
       });
 
-      // Deactivate the camera, then wait a frame before navigating so Android
-      // releases the SurfaceView before react-native-screens draws the
-      // transition. Without this gap we hit IndexOutOfBoundsException in
-      // ScreenStack.performDraw on certain devices (Z Flip 7 FE among them).
+      // Deactivate the camera, then wait a frame before navigating *on
+      // Android* so CameraX releases the SurfaceView before react-native-
+      // screens draws the transition. Without this gap we hit
+      // IndexOutOfBoundsException in ScreenStack.performDraw on certain
+      // devices (Z Flip 7 FE among them). iOS doesn't have that teardown
+      // race, so the delay just makes the capture feel sluggish — skip it.
       setCameraActive(false);
-      setTimeout(() => router.push("/capture/processing"), 60);
+      if (Platform.OS === "android") {
+        setTimeout(() => router.push("/capture/processing"), 60);
+      } else {
+        router.push("/capture/processing");
+      }
     } catch (err) {
       console.error("[scan] takePhoto failed", err);
       setBusy(false);

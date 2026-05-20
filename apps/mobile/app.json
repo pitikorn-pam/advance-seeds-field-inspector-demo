@@ -17,7 +17,8 @@
         "NSMicrophoneUsageDescription": "Advance Seeds records audio with videos to capture field notes.",
         "NSLocationWhenInUseUsageDescription": "Advance Seeds tags inspections with the field location when you turn on auto-tag location.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "CH382U22B6"
     },
     "android": {
       "package": "com.advanceseeds.fieldinspector",
@@ -33,7 +34,10 @@
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_AUDIO"
       ]
     },
     "web": {

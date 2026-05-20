@@ -124,11 +124,14 @@ export default function CaptureProcessing() {
     // by the time we land on this screen.
     markStep("captured");
 
-    // Step 2 fires shortly after for ceremony. Real LiveCalibrator output
-    // (Phase 5) replaces this timer with a `reading.confidence >= 0.6` gate.
+    // Step 2 fires almost immediately — capture screen's ensureCalibrationLock
+    // already gates entry on a real px/mm reading, so the operator doesn't
+    // need to watch a 600 ms ceremony to confirm what's already true. A
+    // 120 ms tick keeps the UI from flashing all steps at once, which would
+    // be just as confusing.
     const calibrationTimer = setTimeout(() => {
       if (!cancelledRef.current) markStep("calibration");
-    }, 600);
+    }, 120);
 
     // Cached thumbnail extracted from the video. Reused across:
     //   • inspection.image_url upload (must be a JPG so seed-detail can crop)
@@ -536,12 +539,16 @@ export default function CaptureProcessing() {
 
         session.set({ analysisResult: result, analysisDiagnostics: diagnostics });
 
+        // Tight grading ceremony — analyzer.analyze() above already took
+        // hundreds of ms, so the operator has read enough progress UI.
+        // 80 ms is just long enough for the grading checkmark animation
+        // to start before we transition to Review.
         setTimeout(() => {
           if (cancelledRef.current) return;
           markStep("grading");
           setDone(true);
           router.replace("/capture/review");
-        }, 350);
+        }, 80);
       } catch (err) {
         if (cancelledRef.current) return;
         // Surface as much detail as possible — Network failures often arrive

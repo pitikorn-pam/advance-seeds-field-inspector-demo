@@ -194,6 +194,11 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
 @implementation AdvanceSeedsCoreMLFrameProcessorPlugin {
   VNCoreMLModel *_visionModel;
   NSString *_visionModelAssetName;
+  // Dev diagnostic: print observed output shapes once per model load,
+  // the first time wantMask=YES. Confirms whether a rank-4 prototype
+  // tensor is actually emitted at runtime (vs. declared in the model
+  // description). Reset when the active model changes.
+  BOOL _maskOutputShapesLogged;
 }
 
 - (id _Nullable)callback:(Frame *)frame withArguments:(NSDictionary *_Nullable)arguments {
@@ -222,7 +227,20 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
       NSLog(@"[CoreML FP] FAILED to load model — modelPath=%@ asset=%@", modelPath, assetName);
       return nil;
     }
-    NSLog(@"[CoreML FP] LOADED model — key=%@ outputs=%@", modelKey, model.modelDescription.outputDescriptionsByName.allKeys);
+    // Log output names + their declared multi-array shapes. Surfaces at
+    // a glance whether this model exposes a rank-4 prototype tensor that
+    // the segmentation polygon pipeline can use. Models with NMS baked
+    // into the export usually strip the prototype, leaving only
+    // detection rows — that's the diagnostic story behind a
+    // `outputKind=segmentation hasProto=false` log line on the JS side.
+    NSMutableString *outputsSummary = [NSMutableString string];
+    NSDictionary<NSString *, MLFeatureDescription *> *outputDescs = model.modelDescription.outputDescriptionsByName;
+    for (NSString *outName in outputDescs.allKeys) {
+      MLFeatureDescription *desc = outputDescs[outName];
+      NSArray<NSNumber *> *shape = desc.multiArrayConstraint.shape;
+      [outputsSummary appendFormat:@"%@%@=%@", outputsSummary.length > 0 ? @"," : @"", outName, shape ?: @"<unknown>"];
+    }
+    NSLog(@"[CoreML FP] LOADED model — key=%@ outputs=[%@]", modelKey, outputsSummary);
     NSError *err = nil;
     _visionModel = [VNCoreMLModel modelForMLModel:model error:&err];
     if (_visionModel == nil) {
@@ -230,6 +248,7 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
       return nil;
     }
     _visionModelAssetName = modelKey;
+    _maskOutputShapesLogged = NO;
   }
 
   // Vision handles YUV→RGB conversion + the model's image-input
@@ -249,6 +268,19 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
                                if (![obs isKindOfClass:[VNCoreMLFeatureValueObservation class]]) continue;
                                VNCoreMLFeatureValueObservation *fvObs = (VNCoreMLFeatureValueObservation *)obs;
                                byName[fvObs.featureName ?: @"_"] = fvObs;
+                             }
+                             if (wantMask && !self->_maskOutputShapesLogged) {
+                               self->_maskOutputShapesLogged = YES;
+                               NSMutableString *obsSummary = [NSMutableString string];
+                               for (NSString *name in byName.allKeys) {
+                                 MLMultiArray *arr = byName[name].featureValue.multiArrayValue;
+                                 [obsSummary appendFormat:@"%@%@=%@(rank%lu)",
+                                  obsSummary.length > 0 ? @"," : @"",
+                                  name,
+                                  arr ? arr.shape : @"<nil>",
+                                  (unsigned long)(arr ? arr.shape.count : 0)];
+                               }
+                               NSLog(@"[CoreML FP] wantMask=YES observed outputs=[%@]", obsSummary);
                              }
                              result = flattenLargestMultiArray(byName, wantMask);
                            }];
