@@ -78,6 +78,13 @@ export interface DecodeOptions {
   letterbox: LetterboxInverse;
   scoreThreshold?: number;
   classFilter?: number[] | null;
+  /**
+   * When true, segmentation decoders skip the per-row `Float32Array(coefCount)`
+   * allocation that would otherwise feed JS-side mask reconstruction. Live
+   * paths use this because mask polygons are computed natively now; coefs
+   * never get used on the JS side and the allocation is pure churn.
+   */
+  skipMaskCoefs?: boolean;
 }
 
 export function decodeYolo(
@@ -307,7 +314,7 @@ export function decodeYoloSegmentationNms(
     // decoder match against the prototype tensor's channel count.
     const coefCount = fields - 6;
     let maskCoefs: Float32Array | undefined;
-    if (coefCount > 0) {
+    if (coefCount > 0 && !options.skipMaskCoefs) {
       maskCoefs = new Float32Array(coefCount);
       for (let c = 0; c < coefCount; c++) maskCoefs[c] = output[base + 6 + c];
     }

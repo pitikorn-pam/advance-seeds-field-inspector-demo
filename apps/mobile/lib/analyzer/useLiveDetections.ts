@@ -9,6 +9,12 @@ import {
 } from "react-native-vision-camera";
 import type { ReadonlyFrameProcessor } from "react-native-vision-camera";
 import { Worklets, useSharedValue } from "react-native-worklets-core";
+import {
+  runOnJS,
+  useAnimatedReaction,
+  useSharedValue as useReanimatedSharedValue,
+} from "react-native-reanimated";
+import type { SharedValue } from "react-native-reanimated";
 import type { AnalysisFrameResult, AnalysisRoi, SeedGradingConfig } from "@advance-seeds/types";
 import {
   YOLO_INPUT_SIZE,
@@ -30,6 +36,25 @@ import { mapClassFilterForModel } from "@/lib/models/compatibility";
 import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
 
 const COREML_ASSET = "yolo26n";
+
+// Per-frame buffer reuse: avoid re-allocating an ~11400-element Float32Array
+// every frame (Float32Array.from copies values into a fresh allocation). The
+// buffer grows on demand if a model with a different output shape lands. Two
+// buffers — one per branch — so iOS and Android can run independently without
+// stepping on each other's slot.
+let __coremlValuesBuf: Float32Array | null = null;
+let __tfliteValuesBuf: Float32Array | null = null;
+function reuseFloat32Array(slot: Float32Array | null, src: number[]): Float32Array {
+  let buf = slot;
+  if (buf === null || buf.length < src.length) {
+    buf = new Float32Array(Math.max(src.length, 8192));
+  }
+  // Copy into the (possibly oversized) reusable buffer. Downstream readers
+  // honor the logical length via shape/maxDet, so trailing capacity is
+  // harmless. Using set() avoids `Float32Array.from`'s allocation.
+  buf.set(src as unknown as ArrayLike<number>);
+  return buf;
+}
 
 // Dev-only: rate-limited log so we can confirm at a glance whether the
 // active model is producing a segmentation output and whether the native
@@ -125,6 +150,17 @@ interface Options {
 
 interface State {
   detections: AnalysisFrameResult | null;
+  /**
+   * Reanimated shared value mirroring `detections`. Phase 3 groundwork:
+   * consumers that render at frame rate (overlays, KPI strips) can
+   * subscribe via `useAnimatedReaction` and avoid forcing the parent
+   * component to re-render 15× per second. The React-state `detections`
+   * field is kept for event-handler reads (button presses etc.) where
+   * synchronous JS-thread access is what we want. Writes happen
+   * together inside the same runOnJS callback, so the two views never
+   * drift more than one frame.
+   */
+  detectionsShared: SharedValue<AnalysisFrameResult | null>;
   /** True once the model is loaded; consumers can hide a "warming up" hint. */
   ready: boolean;
   /** Pass to <Camera frameProcessor= /> when this hook owns the camera frame stream. */
@@ -161,6 +197,11 @@ function useLiveDetectionsCoreML(options: Options): State {
     options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
+  // Phase 3 groundwork: Reanimated shared value mirroring the React
+  // state. Worklet-thread readers (overlays migrated to Skia or to
+  // useAnimatedReaction subscriptions) can read from here without
+  // forcing parent re-renders on every frame.
+  const detectionsShared = useReanimatedSharedValue<AnalysisFrameResult | null>(null);
   const [modelPath, setModelPath] = useState<string | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const modelReady = Boolean(modelPath && activeModel);
@@ -185,8 +226,11 @@ function useLiveDetectionsCoreML(options: Options): State {
   const enabledRef = useRef(enabled);
   useEffect(() => {
     enabledRef.current = enabled;
-    if (!enabled) setDetections(null);
-  }, [enabled]);
+    if (!enabled) {
+      setDetections(null);
+      detectionsShared.value = null;
+    }
+  }, [enabled, detectionsShared]);
 
   // Initialised once. Vision Camera proxies the native plugin lookup
   // through JSI; the resulting object is worklet-shareable.
@@ -299,7 +343,8 @@ function useLiveDetectionsCoreML(options: Options): State {
           polygonsByRow: number[][] | null,
         ) => {
           recordInference("coreml", inferElapsedMs);
-          const out = Float32Array.from(values);
+          __coremlValuesBuf = reuseFloat32Array(__coremlValuesBuf, values);
+          const out = __coremlValuesBuf;
           const outputKind: "raw" | "nms" | "segmentation" =
             shape2 === 6 ? "nms" : shape2 > 6 ? "segmentation" : "raw";
           // Vision rotates the camera buffer based on `frame.orientation`
@@ -326,6 +371,9 @@ function useLiveDetectionsCoreML(options: Options): State {
             letterbox: { scale, padX, padY, target: YOLO_INPUT_SIZE },
             scoreThreshold,
             classFilter: mappedClassFilter,
+            // Native plugin computes mask polygons; skip per-row Float32Array
+            // allocation for mask coefs that JS no longer reads.
+            skipMaskCoefs: true,
           };
           const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
           const rawDetections =
@@ -413,7 +461,7 @@ function useLiveDetectionsCoreML(options: Options): State {
           const now = Date.now();
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
           lastSetAtRef.current = now;
-          setDetections({
+          const nextResult: AnalysisFrameResult = {
             seeds,
             summary: summarizeSeeds(seeds),
             frameTimestampMs,
@@ -421,10 +469,20 @@ function useLiveDetectionsCoreML(options: Options): State {
             frameHeight,
             frameOrientation: orientation,
             analyzerId: "coreml-yolo-live",
-          });
+          };
+          setDetections(nextResult);
+          detectionsShared.value = nextResult;
         },
       ),
-    [mappedClassFilter, pxPerMm, roi, gradingConfig, scoreThreshold, iouThreshold],
+    [
+      mappedClassFilter,
+      pxPerMm,
+      roi,
+      gradingConfig,
+      scoreThreshold,
+      iouThreshold,
+      detectionsShared,
+    ],
   );
 
   // Polygon decode runs every frame now that the mask matmul + trace
@@ -507,10 +565,11 @@ function useLiveDetectionsCoreML(options: Options): State {
   return useMemo(
     () => ({
       detections,
+      detectionsShared,
       ready: plugin !== null && modelReady,
       frameProcessor: enabled && plugin && modelReady ? frameProcessor : undefined,
     }),
-    [detections, enabled, frameProcessor, modelReady, plugin],
+    [detections, detectionsShared, enabled, frameProcessor, modelReady, plugin],
   );
 }
 
@@ -526,6 +585,11 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
+  // Phase 3 groundwork: Reanimated shared value mirroring the React
+  // state. Worklet-thread readers (overlays migrated to Skia or to
+  // useAnimatedReaction subscriptions) can read from here without
+  // forcing parent re-renders on every frame.
+  const detectionsShared = useReanimatedSharedValue<AnalysisFrameResult | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const lastSetAtRef = useRef(0);
   const lastDecodeLogAtRef = useRef(0);
@@ -549,8 +613,11 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const enabledRef = useRef(enabled);
   useEffect(() => {
     enabledRef.current = enabled;
-    if (!enabled) setDetections(null);
-  }, [enabled]);
+    if (!enabled) {
+      setDetections(null);
+      detectionsShared.value = null;
+    }
+  }, [enabled, detectionsShared]);
 
   const plugin = useMemo(
     () => VisionCameraProxy.initFrameProcessorPlugin("advanceSeedsRunTFLite", {}),
@@ -649,7 +716,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               `[live-detections android-native] delegate=${delegate} (first inference: ${inferElapsedMs}ms)`,
             );
           }
-          const out = Float32Array.from(values);
+          __tfliteValuesBuf = reuseFloat32Array(__tfliteValuesBuf, values);
+          const out = __tfliteValuesBuf;
           const outputKind: "raw" | "nms" | "segmentation" =
             shape2 === 6 ? "nms" : shape2 > 6 ? "segmentation" : "raw";
           const fpScale = YOLO_INPUT_SIZE / cropSize;
@@ -667,6 +735,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               varietyNames,
               modelClassAliases,
             ),
+            skipMaskCoefs: true,
           };
           const shape = [shape0, shape1, shape2] as unknown as readonly [number, number, number];
           const raw =
@@ -753,17 +822,20 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           const now = Date.now();
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
           lastSetAtRef.current = now;
-          setDetections({
+          const nextResult: AnalysisFrameResult = {
             seeds,
             summary: summarizeSeeds(seeds),
             frameTimestampMs,
             frameWidth,
             frameHeight,
             analyzerId: "tflite-yolo-live-native",
-          });
+          };
+          setDetections(nextResult);
+          detectionsShared.value = nextResult;
         },
       ),
     [
+      detectionsShared,
       classFilter,
       varietyNames,
       modelClassAliases,
@@ -871,9 +943,38 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   return useMemo(
     () => ({
       detections,
+      detectionsShared,
       ready: plugin !== null && activeModel !== null,
       frameProcessor: enabled && plugin && activeModel ? frameProcessor : undefined,
     }),
-    [activeModel, detections, enabled, frameProcessor, plugin],
+    [activeModel, detections, detectionsShared, enabled, frameProcessor, plugin],
   );
+}
+
+/**
+ * Subscribe to a live-detections SharedValue inside a leaf component
+ * (an overlay, a KPI strip). The hook runs `useAnimatedReaction` on the
+ * UI thread, then funnels each change back to React state on the JS
+ * thread — so only the leaf component re-renders, not the whole
+ * capture screen.
+ *
+ * Drop-in replacement for reading `liveDetections.detections` directly,
+ * but the parent no longer sees the state churn. Use sparingly: each
+ * subscriber adds a runOnJS hop per frame, so colocating multiple HUD
+ * pieces into one subscriber is cheaper than spreading them across many.
+ */
+export function useLiveDetectionsSnapshot(
+  shared: SharedValue<AnalysisFrameResult | null>,
+): AnalysisFrameResult | null {
+  const [snapshot, setSnapshot] = useState<AnalysisFrameResult | null>(null);
+  useAnimatedReaction(
+    () => shared.value,
+    (current, previous) => {
+      if (current !== previous) {
+        runOnJS(setSnapshot)(current);
+      }
+    },
+    [shared],
+  );
+  return snapshot;
 }
