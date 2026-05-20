@@ -128,8 +128,40 @@ export function DetectionOverlay({
 
   if (projected.length === 0) return null;
 
+  // Render polygons in a single stage-level SVG so vertices can extend
+  // beyond their detection's bbox without being clipped by the per-bbox
+  // wrapper. The previous nested-inside-bbox layout silently dropped any
+  // polygon vertex outside the bbox rect — and seg masks routinely
+  // extend slightly past the bbox, especially on irregular shapes.
+  const polygonSeeds = projected.filter((p) => p.projectedPolygon !== null);
   return (
     <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
+      {polygonSeeds.length > 0 ? (
+        <Svg
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: stageWidth,
+            height: stageHeight,
+          }}
+          pointerEvents="none"
+        >
+          {polygonSeeds.map((p) => {
+            const color = PALETTE[p.className] ?? "#7DD3C7";
+            const points = p.projectedPolygon!.map((pt) => `${pt.x},${pt.y}`).join(" ");
+            return (
+              <SvgPolygon
+                key={`${p.key}-poly`}
+                points={points}
+                fill={`${color}22`}
+                stroke={color}
+                strokeWidth={1.5}
+              />
+            );
+          })}
+        </Svg>
+      ) : null}
       {projected.map((p) => {
         const color = PALETTE[p.className] ?? "#7DD3C7";
         const hasPolygon = p.projectedPolygon !== null;
@@ -139,9 +171,9 @@ export function DetectionOverlay({
           top: p.projY,
           width: p.projW,
           height: p.projH,
-          // When a mask polygon is available we draw it instead of the
-          // bbox rectangle, so the outer container becomes positioning-
-          // only (no border). The polygon SVG carries the outline.
+          // When a polygon is drawn at stage level, the bbox container
+          // is positioning-only — no border, no fill. Just carries the
+          // label so it sits at the top-left of the detection.
           borderColor: hasPolygon ? "transparent" : color,
           borderWidth: hasPolygon ? 0 : 2,
           borderRadius: hasPolygon ? 0 : 4,
@@ -163,16 +195,6 @@ export function DetectionOverlay({
             </Text>
           </View>
         );
-        const polygonSvg = hasPolygon ? (
-          <PolygonOutline
-            polygon={p.projectedPolygon!}
-            bboxX={p.projX}
-            bboxY={p.projY}
-            bboxW={p.projW}
-            bboxH={p.projH}
-            color={color}
-          />
-        ) : null;
         return SUPPORTS_LAYOUT_ANIMATION ? (
           <Animated.View
             key={p.key}
@@ -185,55 +207,14 @@ export function DetectionOverlay({
             layout={LinearTransition.springify().damping(18).stiffness(160).mass(0.4)}
             style={boxStyle}
           >
-            {polygonSvg}
             {label}
           </Animated.View>
         ) : (
           <View key={p.key} style={boxStyle}>
-            {polygonSvg}
             {label}
           </View>
         );
       })}
     </View>
-  );
-}
-
-/**
- * Draws a mask polygon outline inside the bbox-positioned container.
- * Points arrive in stage-absolute pixels; we shift them by the container's
- * own offset so they render in container-local coordinates and clip with
- * the absolute-positioned outer View.
- */
-function PolygonOutline({
-  polygon,
-  bboxX,
-  bboxY,
-  bboxW,
-  bboxH,
-  color,
-}: {
-  polygon: ReadonlyArray<{ x: number; y: number }>;
-  bboxX: number;
-  bboxY: number;
-  bboxW: number;
-  bboxH: number;
-  color: string;
-}) {
-  const pointStr = polygon.map((p) => `${p.x - bboxX},${p.y - bboxY}`).join(" ");
-  return (
-    <Svg
-      style={{
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: bboxW,
-        height: bboxH,
-        overflow: "visible",
-      }}
-      pointerEvents="none"
-    >
-      <SvgPolygon points={pointStr} fill={`${color}22`} stroke={color} strokeWidth={1.5} />
-    </Svg>
   );
 }

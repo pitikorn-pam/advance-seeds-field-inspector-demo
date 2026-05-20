@@ -344,6 +344,15 @@ export default function CaptureProcessing() {
           // ArUco moves with it so pxPerMm stays in the same pixel space as
           // the bboxes the analyzer produces.
           photoAnalyzerUri = optimized.uri;
+          // Fire upload in the background while ArUco + analyze run on
+          // the local URI. The upload typically takes ~1 s — blocking
+          // on it before analyze stalls the user staring at "Detecting
+          // seeds…" when the analyzer is actually ready in ~150 ms.
+          // Set the local URI on session immediately so Review can render
+          // the image; the remote URL overwrites when upload resolves
+          // (usually well before the user taps Save and sync).
+          session.set({ uploadedImageUrl: photoAnalyzerUri });
+          const localUriForFallback = photoAnalyzerUri;
           const path = `${profile.id}/${Date.now()}.jpg`;
           const fd = new FormData();
           fd.append("file", {
@@ -351,15 +360,23 @@ export default function CaptureProcessing() {
             type: "image/jpeg",
             name: "capture.jpg",
           } as unknown as Blob);
-          const { error: uploadErr } = await monitorPilotStage("photo.upload", () =>
-            supabase.storage
+          // Intentionally NOT awaited — runs in parallel with ArUco +
+          // analyzer + the eventual review transition. Errors fall back
+          // to the local URI, which the sync queue can re-upload on a
+          // later online attempt.
+          void monitorPilotStage("photo.upload", async () => {
+            const { error: uploadErr } = await supabase.storage
               .from("inspection-images")
-              .upload(path, fd, { contentType: "image/jpeg", upsert: false }),
-          );
-          const { data: urlData } = supabase.storage.from("inspection-images").getPublicUrl(path);
-          if (cancelledRef.current) return;
-          if (uploadErr) console.warn("[processing] photo upload queued", uploadErr);
-          session.set({ uploadedImageUrl: uploadErr ? photoAnalyzerUri : urlData.publicUrl });
+              .upload(path, fd, { contentType: "image/jpeg", upsert: false });
+            const { data: urlData } = supabase.storage.from("inspection-images").getPublicUrl(path);
+            if (cancelledRef.current) return;
+            if (uploadErr) {
+              console.warn("[processing] photo upload queued", uploadErr);
+              session.set({ uploadedImageUrl: localUriForFallback });
+            } else {
+              session.set({ uploadedImageUrl: urlData.publicUrl });
+            }
+          });
         }
         if (cancelledRef.current) return;
 
