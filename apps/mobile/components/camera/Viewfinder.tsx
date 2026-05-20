@@ -159,6 +159,13 @@ export function Viewfinder({
         // paired with `fps` for Camera2/AVFoundation to honor the request.
         format={format}
         fps={cameraFps}
+        // Prioritize shutter latency over edge-detection / distortion-
+        // correction passes. The captured photo still feeds a full YOLO
+        // analyzer in the next screen, so AVFoundation's extra image
+        // polish would be wasted work — and it adds 200–500 ms of
+        // perceived lag between tap and the Review transition. Parent
+        // can override via cameraProps if a flow ever needs "quality".
+        photoQualityBalance="speed"
         style={{ flex: 1 }}
         // `video` + `audio` deliberately omitted from defaults — they spin up
         // additional native surfaces (encoder, mic stream) that we don't need

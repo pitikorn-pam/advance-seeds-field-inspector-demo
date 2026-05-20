@@ -165,7 +165,11 @@ function useLiveDetectionsCoreML(options: Options): State {
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const modelReady = Boolean(modelPath && activeModel);
   const lastSetAtRef = useRef(0);
-  const RENDER_THROTTLE_MS = 33;
+  // Cap detection→React re-renders to ~15 fps. With live-detection
+  // target lowered to 15 fps the worklet itself produces results at
+  // most that often, so a 66 ms gate just prevents accidental
+  // back-to-back setState() bursts when frame timings cluster.
+  const RENDER_THROTTLE_MS = 66;
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -488,7 +492,11 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const lastSetAtRef = useRef(0);
   const lastDecodeLogAtRef = useRef(0);
-  const RENDER_THROTTLE_MS = 33;
+  // Cap detection→React re-renders to ~15 fps. With live-detection
+  // target lowered to 15 fps the worklet itself produces results at
+  // most that often, so a 66 ms gate just prevents accidental
+  // back-to-back setState() bursts when frame timings cluster.
+  const RENDER_THROTTLE_MS = 66;
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;

@@ -29,16 +29,20 @@ export const DEFAULT_HYPERPARAMS: HyperParams = {
   // 0.75 favours precision over recall — appropriate for the field-grade
   // detector where false positives are more disruptive than missed seeds.
   // 0.85 IoU keeps NMS tight against duplicate boxes around the same seed.
-  // Operators can dial these back via More → Hyperparameters when testing
-  // a fresh training run.
+  // 15 fps for live detection leaves headroom on iPhone Air and budget
+  // Android devices: at 30 fps the YOLO worklet (~35–50 ms per frame)
+  // saturates the camera thread and steals cycles from `takePhoto`, so
+  // the shutter feels sluggish. 15 fps halves the inference budget and
+  // is more than enough for a stable live overlay. Operators can dial
+  // any of these via More → Hyperparameters.
   scoreThreshold: 0.75,
   iouThreshold: 0.85,
-  targetFps: 30,
+  targetFps: 15,
   preprocessProfile: "model",
 };
 
-// v7: defaults raised to 0.75 / 0.85 / 30 (was 0.25 / 0.65 / 30).
-const STORAGE_KEY = "advance-seeds.hyperparams.v7";
+// v8: live detection default fps 30 → 15 for snappier capture.
+const STORAGE_KEY = "advance-seeds.hyperparams.v8";
 const LEGACY_STORAGE_KEYS = [
   "advance-seeds.hyperparams.v5",
   "advance-seeds.hyperparams.v4",
