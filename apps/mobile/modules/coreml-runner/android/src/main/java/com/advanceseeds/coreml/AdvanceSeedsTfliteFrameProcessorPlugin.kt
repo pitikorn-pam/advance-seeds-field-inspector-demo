@@ -12,6 +12,9 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.concurrent.thread
+import kotlin.math.exp
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
@@ -51,13 +54,37 @@ private object AndroidTfliteRunner {
       val preprocessProfile = (params?.get("preprocessProfile") as? String)
         ?.takeIf { it == "morph_fused_v1" }
         ?: "raw_rgb"
-      // Caller throttles mask prototype extraction: ~820k floats per frame
-      // on top of the existing detection bridge cost is too much for every
-      // frame on most devices. When wantMask=false we keep the existing
-      // 6-field-truncated detection-only path; on wantMask=true we also
-      // surface the full segmentation row (mask coefs preserved) and the
-      // mask prototype tensor.
+      // Caller throttles mask polygon decode: even with the matmul + trace
+      // in native, sigmoid over ~820k float ops per wantMask frame stays
+      // expensive enough to keep gated. When wantMask=false we keep the
+      // existing 6-field-truncated detection-only path. On wantMask=true
+      // the plugin runs the YOLO segmentation post-process natively and
+      // returns `polygons` parallel to the JS row iteration — the
+      // ~820k-float prototype tensor never crosses the bridge.
       val wantMask = (params?.get("wantMask") as? Boolean) == true
+      // Mask-decode args; consulted only when wantMask=true and the model
+      // emits a rank-4 prototype tensor. Must match JS-side filtering for
+      // index alignment between the i-th JS detection and the i-th
+      // non-empty polygons[] entry.
+      val maskScoreThreshold = numberParam(params, "scoreThreshold", 0.25).toFloat()
+      @Suppress("UNCHECKED_CAST")
+      val maskClassFilterRaw = params?.get("classFilter") as? List<Any>
+      val maskClassFilter: IntArray? = maskClassFilterRaw?.mapNotNull {
+        (it as? Number)?.toInt()
+      }?.takeIf { it.isNotEmpty() }?.toIntArray()
+      val maskBinThreshold = numberParam(params, "maskThreshold", 0.5).toFloat()
+      // Derive letterbox from cropX/cropY/cropSize. The Android path
+      // feeds a square crop directly into TFLite at 640×640, so the
+      // "letterbox-inverse" the polygon decoder runs is simply
+      //   x_src = cropX + x_canvas * (cropSize / 640)
+      // which we encode as scale = 640/cropSize, padX = -cropX*scale,
+      // padY = -cropY*scale — matching the JS-side decodeOpts.letterbox.
+      val maskLetterboxTarget = INPUT_SIZE.toFloat()
+      val maskLetterboxScale = if (cropSize > 0) maskLetterboxTarget / cropSize else 0f
+      val maskLetterboxPadX = -cropX * maskLetterboxScale
+      val maskLetterboxPadY = -cropY * maskLetterboxScale
+      val maskSrcW = image.width
+      val maskSrcH = image.height
 
       val activeRunner = getRunner(modelPath)
       val startedAtMs = System.currentTimeMillis()
@@ -97,11 +124,28 @@ private object AndroidTfliteRunner {
       result["delegate"] = activeRunner.delegateName
       result["outputIndex"] = activeRunner.selectedOutputIndex
       if (wantMask) {
+        // Native polygon decode — runs on the worklet thread inside the
+        // plugin, after model inference, while the prototype tensor is
+        // still in-process. Emits `polygons` parallel to the JS row
+        // iteration; the ~820k-float prototype is never copied to JS.
         val protoShape = activeRunner.prototypeShape
-        val protoValues = activeRunner.prototypeValues()
-        if (protoShape != null && protoValues != null) {
-          result["protoShape"] = protoShape.toList()
-          result["protoValues"] = protoValues
+        val canDecode = protoShape != null && maskLetterboxScale > 0f &&
+            maskLetterboxTarget > 0f && maskSrcW > 0 && maskSrcH > 0
+        if (canDecode) {
+          val polygons = activeRunner.decodeAllPolygonsToBridge(
+            scoreThreshold = maskScoreThreshold,
+            classFilter = maskClassFilter,
+            scale = maskLetterboxScale,
+            padX = maskLetterboxPadX,
+            padY = maskLetterboxPadY,
+            target = maskLetterboxTarget,
+            srcW = maskSrcW,
+            srcH = maskSrcH,
+            maskThreshold = maskBinThreshold,
+          )
+          if (polygons != null) {
+            result["polygons"] = polygons
+          }
         }
       }
       return result
@@ -476,6 +520,10 @@ private object AndroidTfliteRunner {
      * Mask prototype tensor as a flat List<Double> (~820k entries for
      * `[1, 160, 160, 32]`). Returns null when the model has no
      * prototype output or the prototype buffer is unavailable.
+     *
+     * Retained as a fallback for diagnostic / non-standard model paths.
+     * The hot path uses [decodeAllPolygonsToBridge] which keeps these
+     * floats native and returns just polygons.
      */
     fun prototypeValues(): List<Double>? {
       val buf = prototypeBuffer ?: return null
@@ -486,6 +534,269 @@ private object AndroidTfliteRunner {
       }
       buf.rewind()
       return values
+    }
+
+    /**
+     * Run the YOLO segmentation mask post-process natively. Iterates
+     * raw detection rows applying the same score + class filter as
+     * JS-side `decodeYoloSegmentationNms`, decodes each row's mask
+     * against the cached prototype tensor (sigmoid + threshold), traces
+     * the largest connected component's boundary, and returns flat
+     * `[x0, y0, x1, y1, ...]` arrays in source-image pixel space —
+     * parallel to the JS row iteration so JS attaches by index.
+     *
+     * Assumes the Ultralytics NMS-fused xyxy-in-canvas-pixel format.
+     * Non-standard exports return an empty list per row; the JS fallback
+     * path (proto serialization) is no longer triggered, so polygons
+     * simply won't appear for exotic models.
+     */
+    fun decodeAllPolygonsToBridge(
+      scoreThreshold: Float,
+      classFilter: IntArray?,
+      scale: Float,
+      padX: Float,
+      padY: Float,
+      target: Float,
+      srcW: Int,
+      srcH: Int,
+      maskThreshold: Float,
+    ): List<List<Double>>? {
+      if (prototypeBuffer == null || prototypeShape == null) return null
+      if (outputShape.size != 3) return null
+      val maxDet = outputShape[1]
+      val fields = outputShape[2]
+      if (fields < 7) return null
+      val coefCount = fields - 6
+
+      // Channel-last/first detection. Mirrors yoloSegMask.ts.
+      val protoDims = if (prototypeShape.size == 4 && prototypeShape[0] == 1) {
+        intArrayOf(prototypeShape[1], prototypeShape[2], prototypeShape[3])
+      } else if (prototypeShape.size == 3) {
+        prototypeShape
+      } else {
+        return null
+      }
+      val channelLast: Boolean
+      val protoH: Int
+      val protoW: Int
+      val protoC: Int
+      if (protoDims[2] == coefCount) {
+        protoH = protoDims[0]; protoW = protoDims[1]; protoC = protoDims[2]; channelLast = true
+      } else if (protoDims[0] == coefCount) {
+        protoC = protoDims[0]; protoH = protoDims[1]; protoW = protoDims[2]; channelLast = false
+      } else {
+        return null
+      }
+
+      val det = FloatArray(outputFloatCount)
+      outputBuffer.rewind()
+      outputBuffer.asFloatBuffer().get(det)
+      outputBuffer.rewind()
+      val proto = FloatArray(prototypeFloatCount)
+      prototypeBuffer.rewind()
+      prototypeBuffer.asFloatBuffer().get(proto)
+      prototypeBuffer.rewind()
+
+      val out = ArrayList<List<Double>>(maxDet)
+      val sx = (protoW.toFloat() / target) * scale
+      val sy = (protoH.toFloat() / target) * scale
+      val ox = (padX * protoW) / target
+      val oy = (padY * protoH) / target
+
+      for (i in 0 until maxDet) {
+        val base = i * fields
+        val score = det[base + 4]
+        if (score < scoreThreshold) { out.add(emptyList()); continue }
+        val classId = Math.round(det[base + 5])
+        if (classFilter != null && !classFilter.any { it == classId }) {
+          out.add(emptyList()); continue
+        }
+        // xyxy in 0..target canvas pixel space; apply letterbox-inverse.
+        val rawX1 = det[base + 0]
+        val rawY1 = det[base + 1]
+        val rawX2 = det[base + 2]
+        val rawY2 = det[base + 3]
+        val fx1 = (rawX1 - padX) / scale
+        val fy1 = (rawY1 - padY) / scale
+        val fx2 = (rawX2 - padX) / scale
+        val fy2 = (rawY2 - padY) / scale
+        if (fx2 - fx1 <= 1f || fy2 - fy1 <= 1f) { out.add(emptyList()); continue }
+        val x0 = max(0, floor(fx1).toInt())
+        val y0 = max(0, floor(fy1).toInt())
+        val x1 = min(srcW, ceil(fx2).toInt())
+        val y1 = min(srcH, ceil(fy2).toInt())
+        val w = max(0, x1 - x0)
+        val h = max(0, y1 - y0)
+        if (w <= 0 || h <= 0) { out.add(emptyList()); continue }
+
+        // Decode bbox-cropped mask in source pixel space.
+        val mask = ByteArray(w * h)
+        var pixelCount = 0
+        val coefBase = base + 6
+        if (channelLast) {
+          val pwc = protoW * protoC
+          for (py in 0 until h) {
+            val sy0 = (y0 + py) * sy + oy
+            val ry = sy0.toInt().coerceIn(0, protoH - 1)
+            val protoRow = ry * pwc
+            for (px in 0 until w) {
+              val sx0 = (x0 + px) * sx + ox
+              val rx = sx0.toInt().coerceIn(0, protoW - 1)
+              val cellBase = protoRow + rx * protoC
+              var acc = 0f
+              for (c in 0 until coefCount) acc += det[coefBase + c] * proto[cellBase + c]
+              if (sigmoidf(acc) > maskThreshold) {
+                mask[py * w + px] = 1
+                pixelCount++
+              }
+            }
+          }
+        } else {
+          val planeStride = protoH * protoW
+          for (py in 0 until h) {
+            val sy0 = (y0 + py) * sy + oy
+            val ry = sy0.toInt().coerceIn(0, protoH - 1)
+            val rowOff = ry * protoW
+            for (px in 0 until w) {
+              val sx0 = (x0 + px) * sx + ox
+              val rx = sx0.toInt().coerceIn(0, protoW - 1)
+              val off = rowOff + rx
+              var acc = 0f
+              for (c in 0 until coefCount) acc += det[coefBase + c] * proto[c * planeStride + off]
+              if (sigmoidf(acc) > maskThreshold) {
+                mask[py * w + px] = 1
+                pixelCount++
+              }
+            }
+          }
+        }
+        if (pixelCount == 0) { out.add(emptyList()); continue }
+        val poly = extractPolygonFromMask(mask, w, h, x0, y0)
+        if (poly.size < 6) { out.add(emptyList()); continue }
+        val boxed = ArrayList<Double>(poly.size)
+        for (v in poly) boxed.add(v.toDouble())
+        out.add(boxed)
+      }
+      return out
+    }
+
+    private fun extractPolygonFromMask(
+      mask: ByteArray,
+      w: Int,
+      h: Int,
+      x0: Int,
+      y0: Int,
+    ): FloatArray {
+      val labels = IntArray(w * h)
+      val sizes = ArrayList<Int>()
+      sizes.add(0)
+      var nextLabel = 1
+      val stack = IntArray(w * h)
+      var sp: Int
+      for (y in 0 until h) {
+        for (x in 0 until w) {
+          val idx = y * w + x
+          if (mask[idx].toInt() == 0 || labels[idx] != 0) continue
+          val label = nextLabel++
+          var size = 0
+          sp = 0
+          stack[sp++] = idx
+          labels[idx] = label
+          while (sp > 0) {
+            val cur = stack[--sp]
+            size++
+            val cy = cur / w
+            val cx = cur - cy * w
+            if (cx > 0) {
+              val n = cur - 1
+              if (mask[n].toInt() != 0 && labels[n] == 0) {
+                labels[n] = label; stack[sp++] = n
+              }
+            }
+            if (cx + 1 < w) {
+              val n = cur + 1
+              if (mask[n].toInt() != 0 && labels[n] == 0) {
+                labels[n] = label; stack[sp++] = n
+              }
+            }
+            if (cy > 0) {
+              val n = cur - w
+              if (mask[n].toInt() != 0 && labels[n] == 0) {
+                labels[n] = label; stack[sp++] = n
+              }
+            }
+            if (cy + 1 < h) {
+              val n = cur + w
+              if (mask[n].toInt() != 0 && labels[n] == 0) {
+                labels[n] = label; stack[sp++] = n
+              }
+            }
+          }
+          sizes.add(size)
+        }
+      }
+      if (nextLabel == 1) return FloatArray(0)
+      var bestLabel = 1
+      for (l in 2 until sizes.size) {
+        if (sizes[l] > sizes[bestLabel]) bestLabel = l
+      }
+      var start = -1
+      for (i in labels.indices) {
+        if (labels[i] == bestLabel) { start = i; break }
+      }
+      if (start < 0) return FloatArray(0)
+      val dx = intArrayOf(-1, -1, 0, 1, 1, 1, 0, -1)
+      val dy = intArrayOf(0, -1, -1, -1, 0, 1, 1, 1)
+      val startX = start % w
+      val startY = start / w
+      val poly = ArrayList<Float>(64)
+      poly.add(x0 + startX + 0.5f)
+      poly.add(y0 + startY + 0.5f)
+      var cx = startX
+      var cy = startY
+      var dir = 6
+      var advanced = false
+      val safetyLimit = 4L * (w.toLong() * h.toLong() + 1L)
+      var safety = 0L
+      while (safety < safetyLimit) {
+        safety++
+        var found = false
+        for (step in 0 until 8) {
+          val d = (dir + step) % 8
+          val nx = cx + dx[d]
+          val ny = cy + dy[d]
+          if (nx in 0 until w && ny in 0 until h && labels[ny * w + nx] == bestLabel) {
+            cx = nx
+            cy = ny
+            dir = (d + 6) % 8
+            val vx = x0 + cx + 0.5f
+            val vy = y0 + cy + 0.5f
+            val n = poly.size
+            if (n < 2 || poly[n - 2] != vx || poly[n - 1] != vy) {
+              poly.add(vx); poly.add(vy)
+            }
+            found = true
+            advanced = true
+            break
+          }
+        }
+        if (!found) break
+        if (advanced && cx == startX && cy == startY) break
+      }
+      if (poly.size >= 4) {
+        val n = poly.size
+        if (poly[n - 2] == poly[0] && poly[n - 1] == poly[1]) {
+          poly.removeAt(n - 1); poly.removeAt(n - 2)
+        }
+      }
+      val arr = FloatArray(poly.size)
+      for (i in poly.indices) arr[i] = poly[i]
+      return arr
+    }
+
+    private fun sigmoidf(z: Float): Float {
+      return if (z >= 0f) 1f / (1f + exp(-z))
+      else { val e = exp(z); e / (1f + e) }
     }
 
     private fun updateCoordinateMaps(
