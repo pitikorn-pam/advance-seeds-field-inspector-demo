@@ -754,7 +754,12 @@ private object AndroidTfliteRunner {
       poly.add(y0 + startY + 0.5f)
       var cx = startX
       var cy = startY
-      var dir = 6
+      // Initial scan direction = SE (5). South (6) is pathological for
+      // the common case where the topmost-leftmost FG pixel sits at the
+      // corner of a larger blob — the scan loops back to start after 4
+      // pixels without ever walking the actual boundary. See iOS plugin
+      // for the longer rationale.
+      var dir = 5
       var advanced = false
       val safetyLimit = 4L * (w.toLong() * h.toLong() + 1L)
       var safety = 0L

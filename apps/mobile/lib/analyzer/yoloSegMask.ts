@@ -231,7 +231,13 @@ export function extractPolygonFromMask(maskRect: MaskRect | null): Point[] {
   const polygon: Point[] = [{ x: x0 + startX + 0.5, y: y0 + startY + 0.5 }];
   let cx = startX;
   let cy = startY;
-  let dir = 6;
+  // Initial scan direction = SE (5). South (6) is pathological for the
+  // common case where the topmost-leftmost FG pixel sits at the corner
+  // of a larger blob — the trace goes S → E → N → W and closes a
+  // 4-pixel loop back to start without ever turning right onto the
+  // actual boundary. SE represents "we entered from BG to the west;
+  // scan clockwise starting at the diagonal".
+  let dir = 5;
   let advanced = false;
   const safetyLimit = 4 * (w * h + 1);
   for (let safety = 0; safety < safetyLimit; safety++) {

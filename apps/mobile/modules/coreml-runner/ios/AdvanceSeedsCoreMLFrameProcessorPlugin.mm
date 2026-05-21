@@ -224,7 +224,15 @@ static std::vector<float> extractPolygon(
   out.push_back(static_cast<float>(y0 + startY) + 0.5f);
   int cx = startX;
   int cy = startY;
-  int dir = 6;
+  // Initial scan direction = SE (5). The conventional Moore-Neighbor
+  // start direction of "south" (6) is pathological for the common case
+  // where the topmost-leftmost FG pixel sits at the corner of a larger
+  // blob: the scan goes S → E → N → W and closes a 4-pixel loop back
+  // to start without ever turning right onto the actual boundary. SE
+  // represents "we entered from the BG to the west, scan clockwise
+  // starting at the diagonal", which makes the trace continue along
+  // the top edge of the blob into the rest of the shape.
+  int dir = 5;
   bool advanced = false;
   const long safetyLimit = 4L * (static_cast<long>(w) * static_cast<long>(h) + 1L);
   for (long safety = 0; safety < safetyLimit; safety++) {
@@ -365,17 +373,6 @@ static NSArray<NSArray<NSNumber *> *> *decodeAllPolygons(
   } else {
     protoPtr = packArray(protoArr, protoStorage);
   }
-  // One-shot diagnostic so we can confirm the stride/packed status of
-  // each output the active model produces. Logs only on the first
-  // wantMask frame after a model load (the caller resets the flag).
-  static BOOL loggedStrides = NO;
-  if (!loggedStrides) {
-    loggedStrides = YES;
-    NSLog(@"[CoreML FP] det shape=%@ strides=%@ packed=%@ proto shape=%@ strides=%@ packed=%@",
-          detectionArr.shape, detectionArr.strides, isPacked(detectionArr) ? @"YES" : @"NO",
-          protoArr.shape, protoArr.strides, isPacked(protoArr) ? @"YES" : @"NO");
-  }
-
   // Pre-resolve class filter into a small lookup. Empty / nil means "any".
   NSMutableSet<NSNumber *> *classSet = nil;
   if (classFilter != nil && classFilter.count > 0) {

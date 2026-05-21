@@ -235,7 +235,10 @@ export function extractPolygonFromMask(maskRect) {
   const polygon = [{ x: x0 + startX + 0.5, y: y0 + startY + 0.5 }];
   let cx = startX;
   let cy = startY;
-  let dir = 6; // came from "south" → start scanning at south-west neighbour.
+  // Initial scan = SE (5). South (6) is pathological for L-shape corners
+  // where the topmost-leftmost FG pixel sits at a 2×2 corner of a larger
+  // blob: the trace closes S → E → N → W back to start without escaping.
+  let dir = 5;
   // Single-pixel blob: bail out with one vertex (caller will treat as < 3).
   let advanced = false;
   for (let safety = 0; safety < 4 * (w * h + 1); safety++) {
