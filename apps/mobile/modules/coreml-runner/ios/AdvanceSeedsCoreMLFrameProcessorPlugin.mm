@@ -266,9 +266,22 @@ static std::vector<float> simplifyPolygonDP(
 }
 
 // Connected-components label (4-neighborhood), pick the largest, then
-// trace its boundary with Moore-Neighbor (clockwise). Returns flat
+// trace its outer boundary using Suzuki-Abe border following (the same
+// algorithm OpenCV's `findContours` uses internally). Returns flat
 // [x0, y0, x1, y1, ...] in source-image pixel space (mask offsets x0/y0
 // added). Empty when the mask is degenerate.
+//
+// Suzuki-Abe vs. our previous Moore-Neighbor:
+//   * Uses Freeman chain-code direction encoding (clockwise from East)
+//     instead of an ad-hoc convention, which makes the corner-handling
+//     match what OpenCV produces for the same binary mask.
+//   * Implements Jacob's stopping criterion (stop only when returning
+//     to start AND about to step to the same second pixel as the first
+//     move), which correctly handles convex corners that previously
+//     caused pathological 4-pixel loops.
+//   * Initial search direction is derived from "we entered from the
+//     BG west of the topmost-leftmost FG pixel" — a property
+//     guaranteed by the start-finding logic.
 static std::vector<float> extractPolygon(
     const std::vector<uint8_t> &mask, int w, int h, int x0, int y0) {
   std::vector<float> out;
@@ -323,39 +336,56 @@ static std::vector<float> extractPolygon(
     if (labels[i] == bestLabel) { start = i; break; }
   }
   if (start < 0) return out;
-  static const int DX[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+
+  // Freeman chain code (clockwise from East). Index = direction code,
+  // value = (dx, dy).
+  //   0 = E,  1 = NE, 2 = N,  3 = NW,
+  //   4 = W,  5 = SW, 6 = S,  7 = SE.
+  static const int DX[8] = {1, 1, 0, -1, -1, -1, 0, 1};
   static const int DY[8] = {0, -1, -1, -1, 0, 1, 1, 1};
   auto isFg = [&](int x, int y) {
     return x >= 0 && y >= 0 && x < w && y < h && labels[y * w + x] == bestLabel;
   };
+
   const int startX = start % w;
   const int startY = start / w;
   out.reserve(64);
   out.push_back(static_cast<float>(x0 + startX) + 0.5f);
   out.push_back(static_cast<float>(y0 + startY) + 0.5f);
+
+  // The start pixel is the topmost-leftmost FG pixel of its component
+  // (per the raster scan above), so its WEST neighbor is guaranteed to
+  // be background (or the image boundary). The classical Suzuki-Abe
+  // initial setup: "entry direction" = W (4), so we begin scanning at
+  // (entry + 1) % 8 = 5 (SW), continuing clockwise through SE → E → NE
+  // → N → NW → W. This convention is what OpenCV uses internally and
+  // produces the canonical "outer boundary" trace.
+  int searchStart = 5;
   int cx = startX;
   int cy = startY;
-  // Initial scan direction = SE (5). The conventional Moore-Neighbor
-  // start direction of "south" (6) is pathological for the common case
-  // where the topmost-leftmost FG pixel sits at the corner of a larger
-  // blob: the scan goes S → E → N → W and closes a 4-pixel loop back
-  // to start without ever turning right onto the actual boundary. SE
-  // represents "we entered from the BG to the west, scan clockwise
-  // starting at the diagonal", which makes the trace continue along
-  // the top edge of the blob into the rest of the shape.
-  int dir = 5;
-  bool advanced = false;
+
+  // Track the SECOND boundary pixel for Jacob's stopping criterion:
+  // the trace is complete when we arrive back at start AND the next
+  // move would re-step onto the second pixel. Without this, traces of
+  // figure-8 or pinched shapes can terminate prematurely.
+  int secondX = -1;
+  int secondY = -1;
+
   const long safetyLimit = 4L * (static_cast<long>(w) * static_cast<long>(h) + 1L);
   for (long safety = 0; safety < safetyLimit; safety++) {
     bool found = false;
     for (int step = 0; step < 8; step++) {
-      const int d = (dir + step) % 8;
+      const int d = (searchStart + step) % 8;
       const int nx = cx + DX[d];
       const int ny = cy + DY[d];
       if (isFg(nx, ny)) {
         cx = nx;
         cy = ny;
-        dir = (d + 6) % 8;
+        // After moving in direction d, the next scan begins at the
+        // direction that's clockwise-just-past the back-pointer:
+        // back-pointer = (d + 4) % 8 (opposite of forward),
+        // next searchStart = (back + 1) % 8 = (d + 5) % 8.
+        searchStart = (d + 5) % 8;
         const float vx = static_cast<float>(x0 + cx) + 0.5f;
         const float vy = static_cast<float>(y0 + cy) + 0.5f;
         const size_t n = out.size();
@@ -363,14 +393,39 @@ static std::vector<float> extractPolygon(
           out.push_back(vx);
           out.push_back(vy);
         }
+        if (secondX < 0) {
+          secondX = cx;
+          secondY = cy;
+        }
         found = true;
-        advanced = true;
         break;
       }
     }
     if (!found) break;
-    if (advanced && cx == startX && cy == startY) break;
+    // Jacob's stopping criterion. Closed border requires us to (a) be
+    // back at start, (b) have advanced past the initial pair, and (c)
+    // see the second pixel as our next destination if we kept going.
+    if (cx == startX && cy == startY && secondX >= 0 && out.size() > 4) {
+      // Peek the next destination without moving.
+      for (int step = 0; step < 8; step++) {
+        const int d = (searchStart + step) % 8;
+        const int nx = cx + DX[d];
+        const int ny = cy + DY[d];
+        if (isFg(nx, ny)) {
+          if (nx == secondX && ny == secondY) {
+            // Border closed cleanly; drop the duplicate closing vertex.
+            out.pop_back();
+            out.pop_back();
+            return out;
+          }
+          break;
+        }
+      }
+    }
   }
+  // Defensive cleanup: if the trace bailed out without Jacob closure
+  // (very small components, or pathological masks), still trim a
+  // trivial duplicate-of-first closing vertex if present.
   if (out.size() >= 4) {
     const size_t n = out.size();
     if (out[n - 2] == out[0] && out[n - 1] == out[1]) {

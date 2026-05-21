@@ -862,7 +862,9 @@ private object AndroidTfliteRunner {
         if (labels[i] == bestLabel) { start = i; break }
       }
       if (start < 0) return FloatArray(0)
-      val dx = intArrayOf(-1, -1, 0, 1, 1, 1, 0, -1)
+      // Freeman chain code (clockwise from East):
+      // 0=E, 1=NE, 2=N, 3=NW, 4=W, 5=SW, 6=S, 7=SE.
+      val dx = intArrayOf(1, 1, 0, -1, -1, -1, 0, 1)
       val dy = intArrayOf(0, -1, -1, -1, 0, 1, 1, 1)
       val startX = start % w
       val startY = start / w
@@ -871,39 +873,58 @@ private object AndroidTfliteRunner {
       poly.add(y0 + startY + 0.5f)
       var cx = startX
       var cy = startY
-      // Initial scan direction = SE (5). South (6) is pathological for
-      // the common case where the topmost-leftmost FG pixel sits at the
-      // corner of a larger blob — the scan loops back to start after 4
-      // pixels without ever walking the actual boundary. See iOS plugin
-      // for the longer rationale.
-      var dir = 5
-      var advanced = false
+      // Suzuki-Abe outer border trace (same algorithm OpenCV's findContours
+      // uses). The start pixel is the topmost-leftmost FG pixel of its
+      // component, so its west neighbor is guaranteed background. Initial
+      // entry direction = W (4), so we begin scanning at (4+1) % 8 = 5
+      // (SW), continuing clockwise: SW → S → SE → E → NE → N → NW → W.
+      // See iOS plugin for the longer rationale.
+      var searchStart = 5
+      var secondX = -1
+      var secondY = -1
       val safetyLimit = 4L * (w.toLong() * h.toLong() + 1L)
       var safety = 0L
-      while (safety < safetyLimit) {
+      var closed = false
+      while (safety < safetyLimit && !closed) {
         safety++
         var found = false
         for (step in 0 until 8) {
-          val d = (dir + step) % 8
+          val d = (searchStart + step) % 8
           val nx = cx + dx[d]
           val ny = cy + dy[d]
           if (nx in 0 until w && ny in 0 until h && labels[ny * w + nx] == bestLabel) {
             cx = nx
             cy = ny
-            dir = (d + 6) % 8
+            // Next scan begins one position clockwise of the back-pointer.
+            searchStart = (d + 5) % 8
             val vx = x0 + cx + 0.5f
             val vy = y0 + cy + 0.5f
             val n = poly.size
             if (n < 2 || poly[n - 2] != vx || poly[n - 1] != vy) {
               poly.add(vx); poly.add(vy)
             }
+            if (secondX < 0) { secondX = cx; secondY = cy }
             found = true
-            advanced = true
             break
           }
         }
         if (!found) break
-        if (advanced && cx == startX && cy == startY) break
+        // Jacob's stopping criterion: arrived back at start AND next
+        // move would re-step to the second pixel.
+        if (cx == startX && cy == startY && secondX >= 0 && poly.size > 4) {
+          for (step in 0 until 8) {
+            val d = (searchStart + step) % 8
+            val nx = cx + dx[d]
+            val ny = cy + dy[d]
+            if (nx in 0 until w && ny in 0 until h && labels[ny * w + nx] == bestLabel) {
+              if (nx == secondX && ny == secondY) {
+                poly.removeAt(poly.size - 1); poly.removeAt(poly.size - 1)
+                closed = true
+              }
+              break
+            }
+          }
+        }
       }
       if (poly.size >= 4) {
         val n = poly.size
