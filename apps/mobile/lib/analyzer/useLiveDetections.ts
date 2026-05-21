@@ -290,12 +290,19 @@ function useLiveDetectionsCoreML(options: Options): State {
     [classFilter, activeModel, varietyNames, modelClassAliases],
   );
   // One-line diagnostic per change — useful for confirming which model
-  // is loaded and which class indices the live filter resolves to.
+  // is loaded, which class indices the live filter resolves to, and
+  // what each of those class indices actually means in the active
+  // model's class_names list (resolves the "what is class 2?" question
+  // when the displayed detection doesn't match the expected variety).
   useEffect(() => {
+    const classNames = (activeModel?.metadata?.class_names as string[] | undefined) ?? [];
+    const filterLabels = (mappedClassFilter ?? []).map((idx) => classNames[idx] ?? `<#${idx}>`);
     console.info(
-      "[live-detections coreml] model=%s mappedFilter=%o",
+      "[live-detections coreml] model=%s mappedFilter=%o resolves-to=%o classNames=%o",
       activeModel?.id ?? "none",
       mappedClassFilter,
+      filterLabels,
+      classNames,
     );
   }, [activeModel, mappedClassFilter]);
 
