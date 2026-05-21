@@ -161,7 +161,10 @@
     "modelInactiveTitle": "Activate installed model",
     "modelInactiveBody": "A model is installed on this device but is not active yet. Open Models and tap Activate before starting an inspection.",
     "modelRequiredTitle": "Model readiness required",
-    "modelRequiredBody": "Live inspection needs an installed and active model for this device. Please wait for automatic setup to finish, or install the default model from Models.",
+    "modelRequiredBody": "Live inspection needs an installed and active model for this device. Tap Install model to download and activate the recommended one.",
+    "cancel": "Cancel",
+    "installModel": "Install model",
+    "openModels": "Open Models",
     "preflight": {
       "singleTitle": "Fix this before capture",
       "multiTitle": "Fix {{count}} items to continue",

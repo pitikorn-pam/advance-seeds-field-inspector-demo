@@ -89,10 +89,18 @@ export function useAutoInstallOnWifi(): [boolean, (next: boolean) => void] {
 
 let inflightVersionId: string | null = null;
 
-// First-launch default install was removed: it downloaded ~60 MB on
-// post-login wakeup and made the app feel stuck. The Inspect tab gate
+// Both first-launch default install AND post-login auto-update install
+// have been removed from app startup. They downloaded ~60 MB in the
+// background which made the app feel stuck and caused navigation errors
+// when users tapped during the install. The Inspect-tab gate
 // (useModelInstallInspectionGate) and the Models screen are the two
-// supported install entry points, both user-initiated.
+// supported install entry points, both explicitly user-initiated.
+//
+// `runAutoInstallIfEligible` and the `autoInstallOnWifi` pref are kept
+// for a possible future re-enable behind a clearer UX (e.g., an
+// explicit "Auto-update on Wi-Fi" toggle with progress visible on the
+// Models screen), but nothing in the codebase currently calls this
+// function from the startup path.
 
 export async function runAutoInstallIfEligible(update: ModelUpdateAvailable): Promise<void> {
   if (inflightVersionId === update.version_id) return;
