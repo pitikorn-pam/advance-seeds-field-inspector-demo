@@ -264,10 +264,7 @@ export function extractPolygonFromMask(maskRect: MaskRect | null): Point[] {
   }
   if (start < 0) return [];
 
-  // Freeman chain code (clockwise from East), matching the iOS / Android
-  // native implementations. Index = direction code:
-  //   0 = E, 1 = NE, 2 = N, 3 = NW, 4 = W, 5 = SW, 6 = S, 7 = SE.
-  const DX = [1, 1, 0, -1, -1, -1, 0, 1];
+  const DX = [-1, -1, 0, 1, 1, 1, 0, -1];
   const DY = [0, -1, -1, -1, 0, 1, 1, 1];
   const isFg = (x: number, y: number) =>
     x >= 0 && y >= 0 && x < w && y < h && labels[y * w + x] === bestLabel;
@@ -277,57 +274,36 @@ export function extractPolygonFromMask(maskRect: MaskRect | null): Point[] {
   const polygon: Point[] = [{ x: x0 + startX + 0.5, y: y0 + startY + 0.5 }];
   let cx = startX;
   let cy = startY;
-  // Suzuki-Abe outer border trace — same algorithm OpenCV uses internally.
-  // The start pixel is the topmost-leftmost FG pixel of its component
-  // (per the raster scan above), so its WEST neighbor is background.
-  // Initial entry direction = W (4), so we begin scanning at (4+1) % 8 = 5
-  // (SW) and continue clockwise: SW → S → SE → E → NE → N → NW → W.
-  let searchStart = 5;
-  let secondX = -1;
-  let secondY = -1;
-  let closed = false;
+  // Initial scan direction = SE (5). South (6) is pathological for the
+  // common case where the topmost-leftmost FG pixel sits at the corner
+  // of a larger blob — the trace goes S → E → N → W and closes a
+  // 4-pixel loop back to start without ever turning right onto the
+  // actual boundary. SE represents "we entered from BG to the west;
+  // scan clockwise starting at the diagonal".
+  let dir = 5;
+  let advanced = false;
   const safetyLimit = 4 * (w * h + 1);
-  for (let safety = 0; safety < safetyLimit && !closed; safety++) {
+  for (let safety = 0; safety < safetyLimit; safety++) {
     let found = false;
     for (let step = 0; step < 8; step++) {
-      const d = (searchStart + step) % 8;
+      const d = (dir + step) % 8;
       const nx = cx + DX[d];
       const ny = cy + DY[d];
       if (isFg(nx, ny)) {
         cx = nx;
         cy = ny;
-        // Next scan begins one position clockwise of the back-pointer.
-        searchStart = (d + 5) % 8;
+        dir = (d + 6) % 8;
         const vx = x0 + cx + 0.5;
         const vy = y0 + cy + 0.5;
         const last = polygon[polygon.length - 1];
         if (!last || last.x !== vx || last.y !== vy) polygon.push({ x: vx, y: vy });
-        if (secondX < 0) {
-          secondX = cx;
-          secondY = cy;
-        }
         found = true;
+        advanced = true;
         break;
       }
     }
     if (!found) break;
-    // Jacob's stopping criterion: closed border requires (a) back at start,
-    // (b) advanced past the initial pair, (c) next move would re-step to
-    // the second pixel.
-    if (cx === startX && cy === startY && secondX >= 0 && polygon.length > 2) {
-      for (let step = 0; step < 8; step++) {
-        const d = (searchStart + step) % 8;
-        const nx = cx + DX[d];
-        const ny = cy + DY[d];
-        if (isFg(nx, ny)) {
-          if (nx === secondX && ny === secondY) {
-            polygon.pop();
-            closed = true;
-          }
-          break;
-        }
-      }
-    }
+    if (advanced && cx === startX && cy === startY) break;
   }
   if (polygon.length > 1) {
     const last = polygon[polygon.length - 1];

@@ -266,10 +266,9 @@ export function extractPolygonFromMask(maskRect) {
   }
   if (start < 0) return [];
 
-  // Suzuki-Abe outer-border trace — same algorithm OpenCV's findContours
-  // uses. Freeman chain code (clockwise from East):
-  //   0=E, 1=NE, 2=N, 3=NW, 4=W, 5=SW, 6=S, 7=SE.
-  const DX = [1, 1, 0, -1, -1, -1, 0, 1];
+  // Moore-Neighbor tracing. 8-direction lookup, starting "west" of the
+  // first foreground pixel and rotating clockwise.
+  const DX = [-1, -1, 0, 1, 1, 1, 0, -1];
   const DY = [0, -1, -1, -1, 0, 1, 1, 1];
   const isFg = (x, y) => x >= 0 && y >= 0 && x < w && y < h && labels[y * w + x] === bestLabel;
 
@@ -278,24 +277,24 @@ export function extractPolygonFromMask(maskRect) {
   const polygon = [{ x: x0 + startX + 0.5, y: y0 + startY + 0.5 }];
   let cx = startX;
   let cy = startY;
-  // The start pixel is the topmost-leftmost FG pixel, so its west neighbor
-  // is background. Entry direction = W (4); scanning starts at (4+1)%8 = 5
-  // (SW), continuing clockwise: SW → S → SE → E → NE → N → NW → W.
-  let searchStart = 5;
-  let secondX = -1;
-  let secondY = -1;
-  let closed = false;
-  for (let safety = 0; safety < 4 * (w * h + 1) && !closed; safety++) {
+  // Initial scan = SE (5). South (6) is pathological for L-shape corners
+  // where the topmost-leftmost FG pixel sits at a 2×2 corner of a larger
+  // blob: the trace closes S → E → N → W back to start without escaping.
+  let dir = 5;
+  // Single-pixel blob: bail out with one vertex (caller will treat as < 3).
+  let advanced = false;
+  for (let safety = 0; safety < 4 * (w * h + 1); safety++) {
     let found = false;
     for (let step = 0; step < 8; step++) {
-      const d = (searchStart + step) % 8;
+      const d = (dir + step) % 8;
       const nx = cx + DX[d];
       const ny = cy + DY[d];
       if (isFg(nx, ny)) {
         cx = nx;
         cy = ny;
-        // Next scan begins one position clockwise of the back-pointer.
-        searchStart = (d + 5) % 8;
+        // Next scan starts "to the right" of where we came from, in the
+        // standard Moore convention.
+        dir = (d + 6) % 8;
         const vx = x0 + cx + 0.5;
         const vy = y0 + cy + 0.5;
         if (
@@ -305,31 +304,15 @@ export function extractPolygonFromMask(maskRect) {
         ) {
           polygon.push({ x: vx, y: vy });
         }
-        if (secondX < 0) {
-          secondX = cx;
-          secondY = cy;
-        }
         found = true;
+        advanced = true;
         break;
       }
     }
     if (!found) break;
-    // Jacob's stopping criterion.
-    if (cx === startX && cy === startY && secondX >= 0 && polygon.length > 2) {
-      for (let step = 0; step < 8; step++) {
-        const d = (searchStart + step) % 8;
-        const nx = cx + DX[d];
-        const ny = cy + DY[d];
-        if (isFg(nx, ny)) {
-          if (nx === secondX && ny === secondY) {
-            polygon.pop();
-            closed = true;
-          }
-          break;
-        }
-      }
-    }
+    if (advanced && cx === startX && cy === startY) break;
   }
+  // Drop the duplicate closing vertex (we already returned to start).
   if (polygon.length > 1) {
     const last = polygon[polygon.length - 1];
     const first = polygon[0];
