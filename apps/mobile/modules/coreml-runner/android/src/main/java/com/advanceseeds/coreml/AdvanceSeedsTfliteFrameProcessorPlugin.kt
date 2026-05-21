@@ -633,18 +633,39 @@ private object AndroidTfliteRunner {
         val mask = ByteArray(w * h)
         var pixelCount = 0
         val coefBase = base + 6
+        // Bilinear sampling of the proto tensor — each source pixel reads
+        // 4 adjacent proto cells weighted by its fractional position
+        // instead of snapping to a single cell. Sub-cell accuracy at the
+        // mask boundary; otherwise the mask snaps to 12-source-pixel
+        // cell edges and the polygon trace walks a chunky staircase.
         if (channelLast) {
           val pwc = protoW * protoC
           for (py in 0 until h) {
             val sy0 = (y0 + py) * sy + oy
-            val ry = sy0.toInt().coerceIn(0, protoH - 1)
-            val protoRow = ry * pwc
+            val sy0c = sy0.coerceIn(0f, (protoH - 1).toFloat())
+            val ry0 = sy0c.toInt().coerceIn(0, protoH - 1)
+            val ry1 = (ry0 + 1).coerceIn(0, protoH - 1)
+            val fy = sy0c - ry0
             for (px in 0 until w) {
               val sx0 = (x0 + px) * sx + ox
-              val rx = sx0.toInt().coerceIn(0, protoW - 1)
-              val cellBase = protoRow + rx * protoC
+              val sx0c = sx0.coerceIn(0f, (protoW - 1).toFloat())
+              val rx0 = sx0c.toInt().coerceIn(0, protoW - 1)
+              val rx1 = (rx0 + 1).coerceIn(0, protoW - 1)
+              val fx = sx0c - rx0
+              val base00 = (ry0 * protoW + rx0) * protoC
+              val base01 = (ry0 * protoW + rx1) * protoC
+              val base10 = (ry1 * protoW + rx0) * protoC
+              val base11 = (ry1 * protoW + rx1) * protoC
+              val w00 = (1f - fx) * (1f - fy)
+              val w01 = fx * (1f - fy)
+              val w10 = (1f - fx) * fy
+              val w11 = fx * fy
               var acc = 0f
-              for (c in 0 until coefCount) acc += det[coefBase + c] * proto[cellBase + c]
+              for (c in 0 until coefCount) {
+                val v = w00 * proto[base00 + c] + w01 * proto[base01 + c] +
+                        w10 * proto[base10 + c] + w11 * proto[base11 + c]
+                acc += det[coefBase + c] * v
+              }
               if (sigmoidf(acc) > maskThreshold) {
                 mask[py * w + px] = 1
                 pixelCount++
@@ -655,14 +676,33 @@ private object AndroidTfliteRunner {
           val planeStride = protoH * protoW
           for (py in 0 until h) {
             val sy0 = (y0 + py) * sy + oy
-            val ry = sy0.toInt().coerceIn(0, protoH - 1)
-            val rowOff = ry * protoW
+            val sy0c = sy0.coerceIn(0f, (protoH - 1).toFloat())
+            val ry0 = sy0c.toInt().coerceIn(0, protoH - 1)
+            val ry1 = (ry0 + 1).coerceIn(0, protoH - 1)
+            val fy = sy0c - ry0
             for (px in 0 until w) {
               val sx0 = (x0 + px) * sx + ox
-              val rx = sx0.toInt().coerceIn(0, protoW - 1)
-              val off = rowOff + rx
+              val sx0c = sx0.coerceIn(0f, (protoW - 1).toFloat())
+              val rx0 = sx0c.toInt().coerceIn(0, protoW - 1)
+              val rx1 = (rx0 + 1).coerceIn(0, protoW - 1)
+              val fx = sx0c - rx0
+              val off00 = ry0 * protoW + rx0
+              val off01 = ry0 * protoW + rx1
+              val off10 = ry1 * protoW + rx0
+              val off11 = ry1 * protoW + rx1
+              val w00 = (1f - fx) * (1f - fy)
+              val w01 = fx * (1f - fy)
+              val w10 = (1f - fx) * fy
+              val w11 = fx * fy
               var acc = 0f
-              for (c in 0 until coefCount) acc += det[coefBase + c] * proto[c * planeStride + off]
+              for (c in 0 until coefCount) {
+                val channelBase = c * planeStride
+                val v = w00 * proto[channelBase + off00] +
+                        w01 * proto[channelBase + off01] +
+                        w10 * proto[channelBase + off10] +
+                        w11 * proto[channelBase + off11]
+                acc += det[coefBase + c] * v
+              }
               if (sigmoidf(acc) > maskThreshold) {
                 mask[py * w + px] = 1
                 pixelCount++
@@ -671,11 +711,88 @@ private object AndroidTfliteRunner {
           }
         }
         if (pixelCount == 0) { out.add(emptyList()); continue }
-        val poly = extractPolygonFromMask(mask, w, h, x0, y0)
-        if (poly.size < 6) { out.add(emptyList()); continue }
-        val boxed = ArrayList<Double>(poly.size)
-        for (v in poly) boxed.add(v.toDouble())
+        val rawPoly = extractPolygonFromMask(mask, w, h, x0, y0)
+        if (rawPoly.size < 6) { out.add(emptyList()); continue }
+        // Douglas-Peucker simplification, epsilon = 1.5 source pixels.
+        // Collapses cell-resolution staircase artifacts into clean
+        // diagonals; preserves real corners.
+        val simplified = simplifyPolygonDP(rawPoly, 1.5f)
+        val finalPoly = if (simplified.size >= 6) simplified else rawPoly
+        val boxed = ArrayList<Double>(finalPoly.size)
+        for (v in finalPoly) boxed.add(v.toDouble())
         out.add(boxed)
+      }
+      return out
+    }
+
+    /**
+     * Iterative Douglas-Peucker simplification on a flat polygon
+     * [x0, y0, x1, y1, ...]. Keeps only vertices whose perpendicular
+     * distance from the chord between two endpoints exceeds `epsilon`.
+     * Collapses cell-resolution staircase artifacts into clean
+     * diagonals while preserving real corners. See iOS plugin for
+     * the matching implementation rationale.
+     */
+    private fun simplifyPolygonDP(poly: FloatArray, epsilon: Float): FloatArray {
+      val n = poly.size / 2
+      if (n < 4) return poly
+      val keep = BooleanArray(n)
+      keep[0] = true
+      keep[n - 1] = true
+      val eps2 = epsilon * epsilon
+      // (lo, hi) pairs packed into two IntArrays as a stack.
+      val stackLo = IntArray(n * 2)
+      val stackHi = IntArray(n * 2)
+      var sp = 0
+      stackLo[sp] = 0
+      stackHi[sp] = n - 1
+      sp++
+      while (sp > 0) {
+        sp--
+        val lo = stackLo[sp]
+        val hi = stackHi[sp]
+        if (hi <= lo + 1) continue
+        val ax = poly[lo * 2]
+        val ay = poly[lo * 2 + 1]
+        val bx = poly[hi * 2]
+        val by = poly[hi * 2 + 1]
+        val dx = bx - ax
+        val dy = by - ay
+        val len2 = dx * dx + dy * dy
+        var bestDist2 = -1f
+        var bestIdx = lo
+        for (i in (lo + 1) until hi) {
+          val px = poly[i * 2]
+          val py = poly[i * 2 + 1]
+          val dist2: Float = if (len2 <= 1e-9f) {
+            val ex = px - ax
+            val ey = py - ay
+            ex * ex + ey * ey
+          } else {
+            val cross = (px - ax) * dy - (py - ay) * dx
+            (cross * cross) / len2
+          }
+          if (dist2 > bestDist2) {
+            bestDist2 = dist2
+            bestIdx = i
+          }
+        }
+        if (bestDist2 > eps2) {
+          keep[bestIdx] = true
+          stackLo[sp] = lo; stackHi[sp] = bestIdx; sp++
+          stackLo[sp] = bestIdx; stackHi[sp] = hi; sp++
+        }
+      }
+      var kept = 0
+      for (k in keep) if (k) kept++
+      val out = FloatArray(kept * 2)
+      var w = 0
+      for (i in 0 until n) {
+        if (keep[i]) {
+          out[w * 2] = poly[i * 2]
+          out[w * 2 + 1] = poly[i * 2 + 1]
+          w++
+        }
       }
       return out
     }

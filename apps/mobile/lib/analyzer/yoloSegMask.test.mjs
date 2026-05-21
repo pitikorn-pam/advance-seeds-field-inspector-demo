@@ -55,9 +55,15 @@ test("decodeMaskForDetection returns a binary mask aligned with the active regio
   // Confirm a center pixel is inside, a corner is outside.
   assert.equal(decoded.mask[64 * 128 + 64], 1, "center of active region must be foreground");
   assert.equal(decoded.mask[0], 0, "top-left corner must be background");
-  // Pixel count should roughly equal (64 × 64) = 4096, within rounding.
+  // Active proto region (8..24) covers half of a 32-cell proto, which
+  // maps to source pixels (32..96) = 64×64 = 4096 with floor-based
+  // sampling. Bilinear sampling slightly extends the boundary because
+  // cells at the edge get non-zero interpolated values from their hot
+  // neighbors — pixelCount grows ~10–15% over the floor baseline. The
+  // bilinear behavior is the desired one (smoother mask boundaries);
+  // bounds are widened accordingly.
   assert.ok(
-    decoded.pixelCount >= 60 * 60 && decoded.pixelCount <= 64 * 64,
+    decoded.pixelCount >= 60 * 60 && decoded.pixelCount <= 70 * 70,
     `unexpected pixelCount ${decoded.pixelCount}`,
   );
   assert.equal(maskPixelCount(decoded), decoded.pixelCount);

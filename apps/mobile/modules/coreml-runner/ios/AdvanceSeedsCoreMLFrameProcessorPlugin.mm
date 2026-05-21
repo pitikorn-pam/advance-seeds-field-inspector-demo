@@ -111,19 +111,44 @@ static std::vector<uint8_t> decodeMaskRect(
   const float oy = (padY * layout.protoH) / target;
   std::vector<uint8_t> mask(static_cast<size_t>(w) * static_cast<size_t>(h), 0);
   int pixelCount = 0;
+  // Bilinear sampling of the proto tensor: each source pixel reads 4
+  // adjacent proto cells weighted by its fractional position, instead
+  // of snapping to a single cell via floor(). This gives sub-cell
+  // accuracy at the mask boundary — without it, the mask snaps to
+  // 12-source-pixel cell edges (proto is 160 cells over a 640-pixel
+  // input canvas) and the polygon trace ends up walking a chunky
+  // staircase. Net cost: 4 reads per channel instead of 1, but still
+  // only 1 dot product per pixel.
+  const int pwI = (int)layout.protoW;
+  const int phI = (int)layout.protoH;
   if (layout.channelLast) {
-    const NSInteger pw = layout.protoW;
     const NSInteger pc = layout.protoC;
     for (int py = 0; py < h; py++) {
       const float sy0 = static_cast<float>(y0 + py) * sy + oy;
-      int ry = clampi(static_cast<int>(std::floor(sy0)), 0, static_cast<int>(layout.protoH) - 1);
-      const NSInteger protoRow = ry * pw * pc;
+      const float sy0c = std::min(std::max(sy0, 0.0f), (float)(phI - 1));
+      const int ry0 = clampi((int)std::floor(sy0c), 0, phI - 1);
+      const int ry1 = clampi(ry0 + 1, 0, phI - 1);
+      const float fy = sy0c - (float)ry0;
       for (int px = 0; px < w; px++) {
         const float sx0 = static_cast<float>(x0 + px) * sx + ox;
-        int rx = clampi(static_cast<int>(std::floor(sx0)), 0, static_cast<int>(pw) - 1);
-        const NSInteger base = protoRow + rx * pc;
+        const float sx0c = std::min(std::max(sx0, 0.0f), (float)(pwI - 1));
+        const int rx0 = clampi((int)std::floor(sx0c), 0, pwI - 1);
+        const int rx1 = clampi(rx0 + 1, 0, pwI - 1);
+        const float fx = sx0c - (float)rx0;
+        const NSInteger base00 = (ry0 * pwI + rx0) * pc;
+        const NSInteger base01 = (ry0 * pwI + rx1) * pc;
+        const NSInteger base10 = (ry1 * pwI + rx0) * pc;
+        const NSInteger base11 = (ry1 * pwI + rx1) * pc;
+        const float w00 = (1.0f - fx) * (1.0f - fy);
+        const float w01 = fx * (1.0f - fy);
+        const float w10 = (1.0f - fx) * fy;
+        const float w11 = fx * fy;
         float acc = 0.0f;
-        for (NSInteger c = 0; c < coefCount; c++) acc += coefs[c] * prototypes[base + c];
+        for (NSInteger c = 0; c < coefCount; c++) {
+          const float v = w00 * prototypes[base00 + c] + w01 * prototypes[base01 + c] +
+                          w10 * prototypes[base10 + c] + w11 * prototypes[base11 + c];
+          acc += coefs[c] * v;
+        }
         if (sigmoidf(acc) > threshold) {
           mask[py * w + px] = 1;
           pixelCount++;
@@ -132,17 +157,35 @@ static std::vector<uint8_t> decodeMaskRect(
     }
   } else {
     const NSInteger planeStride = layout.protoH * layout.protoW;
-    const NSInteger pw = layout.protoW;
     for (int py = 0; py < h; py++) {
       const float sy0 = static_cast<float>(y0 + py) * sy + oy;
-      int ry = clampi(static_cast<int>(std::floor(sy0)), 0, static_cast<int>(layout.protoH) - 1);
-      const NSInteger rowOff = ry * pw;
+      const float sy0c = std::min(std::max(sy0, 0.0f), (float)(phI - 1));
+      const int ry0 = clampi((int)std::floor(sy0c), 0, phI - 1);
+      const int ry1 = clampi(ry0 + 1, 0, phI - 1);
+      const float fy = sy0c - (float)ry0;
       for (int px = 0; px < w; px++) {
         const float sx0 = static_cast<float>(x0 + px) * sx + ox;
-        int rx = clampi(static_cast<int>(std::floor(sx0)), 0, static_cast<int>(pw) - 1);
-        const NSInteger off = rowOff + rx;
+        const float sx0c = std::min(std::max(sx0, 0.0f), (float)(pwI - 1));
+        const int rx0 = clampi((int)std::floor(sx0c), 0, pwI - 1);
+        const int rx1 = clampi(rx0 + 1, 0, pwI - 1);
+        const float fx = sx0c - (float)rx0;
+        const NSInteger off00 = ry0 * pwI + rx0;
+        const NSInteger off01 = ry0 * pwI + rx1;
+        const NSInteger off10 = ry1 * pwI + rx0;
+        const NSInteger off11 = ry1 * pwI + rx1;
+        const float w00 = (1.0f - fx) * (1.0f - fy);
+        const float w01 = fx * (1.0f - fy);
+        const float w10 = (1.0f - fx) * fy;
+        const float w11 = fx * fy;
         float acc = 0.0f;
-        for (NSInteger c = 0; c < coefCount; c++) acc += coefs[c] * prototypes[c * planeStride + off];
+        for (NSInteger c = 0; c < coefCount; c++) {
+          const NSInteger channelBase = c * planeStride;
+          const float v = w00 * prototypes[channelBase + off00] +
+                          w01 * prototypes[channelBase + off01] +
+                          w10 * prototypes[channelBase + off10] +
+                          w11 * prototypes[channelBase + off11];
+          acc += coefs[c] * v;
+        }
         if (sigmoidf(acc) > threshold) {
           mask[py * w + px] = 1;
           pixelCount++;
@@ -152,6 +195,74 @@ static std::vector<uint8_t> decodeMaskRect(
   }
   *outPixelCount = pixelCount;
   return mask;
+}
+
+// Iterative Douglas-Peucker simplification on a flat polygon
+// [x0, y0, x1, y1, ...]. Recursively keeps only vertices whose
+// perpendicular distance from the chord between two endpoints exceeds
+// `epsilon`. Collapses staircase artifacts from cell-resolution mask
+// boundaries into clean diagonals while preserving real corners.
+//
+// Iterative (stack-based) instead of recursive to avoid stack overflow
+// on very long polygons (cell-resolution masks can produce 500+ verts).
+static std::vector<float> simplifyPolygonDP(
+    const std::vector<float> &poly, float epsilon) {
+  const size_t n = poly.size() / 2;
+  if (n < 4) return poly;
+  std::vector<uint8_t> keep(n, 0);
+  keep[0] = 1;
+  keep[n - 1] = 1;
+  const float eps2 = epsilon * epsilon;
+  std::vector<std::pair<size_t, size_t>> stack;
+  stack.reserve(64);
+  stack.push_back({0, n - 1});
+  while (!stack.empty()) {
+    const auto [lo, hi] = stack.back();
+    stack.pop_back();
+    if (hi <= lo + 1) continue;
+    const float ax = poly[lo * 2];
+    const float ay = poly[lo * 2 + 1];
+    const float bx = poly[hi * 2];
+    const float by = poly[hi * 2 + 1];
+    const float dx = bx - ax;
+    const float dy = by - ay;
+    const float len2 = dx * dx + dy * dy;
+    float bestDist2 = -1.0f;
+    size_t bestIdx = lo;
+    for (size_t i = lo + 1; i < hi; i++) {
+      const float px = poly[i * 2];
+      const float py = poly[i * 2 + 1];
+      float dist2;
+      if (len2 <= 1e-9f) {
+        // Endpoints coincide: use plain Euclidean distance.
+        const float ex = px - ax;
+        const float ey = py - ay;
+        dist2 = ex * ex + ey * ey;
+      } else {
+        // Perpendicular distance from (px,py) to the line through (ax,ay)-(bx,by).
+        const float cross = (px - ax) * dy - (py - ay) * dx;
+        dist2 = (cross * cross) / len2;
+      }
+      if (dist2 > bestDist2) {
+        bestDist2 = dist2;
+        bestIdx = i;
+      }
+    }
+    if (bestDist2 > eps2) {
+      keep[bestIdx] = 1;
+      stack.push_back({lo, bestIdx});
+      stack.push_back({bestIdx, hi});
+    }
+  }
+  std::vector<float> out;
+  out.reserve(poly.size());
+  for (size_t i = 0; i < n; i++) {
+    if (keep[i]) {
+      out.push_back(poly[i * 2]);
+      out.push_back(poly[i * 2 + 1]);
+    }
+  }
+  return out;
 }
 
 // Connected-components label (4-neighborhood), pick the largest, then
@@ -433,8 +544,16 @@ static NSArray<NSArray<NSNumber *> *> *decodeAllPolygons(
       [out addObject:@[]];
       continue;
     }
-    NSMutableArray<NSNumber *> *polyArr = [NSMutableArray arrayWithCapacity:poly.size()];
-    for (float v : poly) [polyArr addObject:@(v)];
+    // Douglas-Peucker simplification. Epsilon ~1.5 source pixels means
+    // we keep any vertex whose perpendicular distance from the chord is
+    // > ~1.5px in source space (translates to ~1.3 stage pixels with
+    // typical projection scale). This collapses cell-resolution
+    // staircases into clean diagonals while preserving real corners.
+    // Empirical: 200+ vertex traces drop to ~30-50 vertices.
+    std::vector<float> simplified = simplifyPolygonDP(poly, 1.5f);
+    if (simplified.size() < 6) simplified = poly; // fall back if DP collapsed too aggressively
+    NSMutableArray<NSNumber *> *polyArr = [NSMutableArray arrayWithCapacity:simplified.size()];
+    for (float v : simplified) [polyArr addObject:@(v)];
     [out addObject:polyArr];
   }
   return out;
