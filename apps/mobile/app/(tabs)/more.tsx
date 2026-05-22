@@ -93,7 +93,6 @@ export default function MoreScreen() {
             renderIcon={() => <Sliders color={ROW_INK.peach} size={16} />}
             tint="bg-card-peach"
             label={t("more:menu.hyperparams")}
-            admin
             onPress={() => router.push("/more/hyperparams" as never)}
           />
           <Divider />
@@ -101,7 +100,6 @@ export default function MoreScreen() {
             renderIcon={() => <Cpu color={ROW_INK.lavender} size={16} />}
             tint="bg-card-lavender"
             label={t("more:menu.models")}
-            admin
             onPress={() => router.push("/more/models" as never)}
           />
         </Section>

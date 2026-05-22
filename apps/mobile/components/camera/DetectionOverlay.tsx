@@ -103,16 +103,17 @@ export function DetectionOverlay({
     const scale = Math.max(stageWidth / dispW, stageHeight / dispH);
     const dx = (dispW * scale - stageWidth) / 2;
     const dy = (dispH * scale - stageHeight) / 2;
-    // Sensor → display-space mapping. `dispH = postH = sensor.width` for
-    // left/right rotation; the formulas below mirror the inverse of
-    // `unrotateBbox` in yolo.ts so display coords end up aligned with
-    // what Vision Camera's preview actually renders.
+    // Sensor → display-space mapping. `frameOrientation` is the orientation
+    // used to unrotate model output back into sensor space, but the iOS
+    // preview renders the reciprocal display transform. The measured
+    // portrait case reports orientation="left"; applying the reciprocal
+    // projection places the sensor-space polygon back over the preview.
     const rotatePt = (sx: number, sy: number): { x: number; y: number } => {
       if (orientation === "left" || orientation === "left-mirrored") {
-        return { x: sy, y: dispH - sx };
+        return { x: dispW - sy, y: sx };
       }
       if (orientation === "right" || orientation === "right-mirrored") {
-        return { x: dispW - sy, y: sx };
+        return { x: sy, y: dispH - sx };
       }
       if (orientation === "down" || orientation === "down-mirrored") {
         return { x: dispW - sx, y: dispH - sy };
@@ -181,6 +182,7 @@ export function DetectionOverlay({
         projH: h,
         projectedPolygon,
         className,
+        labelText: liveLabel(className, s.length_mm, s.area_mm2, s.volume_ml),
         key: `${bucketKey}-${bucketIndex}`,
       };
     });
@@ -254,8 +256,8 @@ export function DetectionOverlay({
               borderRadius: 4,
             }}
           >
-            <Text style={{ color: glass.text, fontSize: 10, letterSpacing: 0.2 }}>
-              {p.className} · {Math.round(p.length_mm)} mm
+            <Text style={{ color: glass.text, fontSize: 10, letterSpacing: 0 }} numberOfLines={1}>
+              {p.labelText}
             </Text>
           </View>
         );
@@ -281,4 +283,11 @@ export function DetectionOverlay({
       })}
     </View>
   );
+}
+
+function liveLabel(className: string, lengthMm: number, areaMm2: number, volumeMl?: number) {
+  const parts = [`${className}`, `${Math.round(lengthMm)} mm`];
+  if (areaMm2 > 0) parts.push(`${Math.round(areaMm2)} mm²`);
+  if (typeof volumeMl === "number" && volumeMl > 0) parts.push(`${volumeMl.toFixed(1)} ml`);
+  return parts.join(" · ");
 }

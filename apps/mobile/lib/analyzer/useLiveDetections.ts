@@ -206,11 +206,10 @@ function useLiveDetectionsCoreML(options: Options): State {
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const modelReady = Boolean(modelPath && activeModel);
   const lastSetAtRef = useRef(0);
-  // Cap detection→React re-renders to ~15 fps. With live-detection
-  // target lowered to 15 fps the worklet itself produces results at
-  // most that often, so a 66 ms gate just prevents accidental
-  // back-to-back setState() bursts when frame timings cluster.
-  const RENDER_THROTTLE_MS = 66;
+  // Cap detection→React re-renders to ~30 fps. The camera preview stays at
+  // its native cadence, while this guard prevents accidental back-to-back
+  // setState() bursts when frame timings cluster.
+  const RENDER_THROTTLE_MS = 33;
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -600,9 +599,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const lastSetAtRef = useRef(0);
   const lastDecodeLogAtRef = useRef(0);
-  // Cap detection→React re-renders to ~15 fps. With live-detection
-  // target lowered to 15 fps the worklet itself produces results at
-  // most that often, so a 66 ms gate just prevents accidental
+  // Android native inference is still capped below the shared hyperparameter
+  // default, so a 66 ms render gate remains enough to prevent accidental
   // back-to-back setState() bursts when frame timings cluster.
   const RENDER_THROTTLE_MS = 66;
   const mountedRef = useRef(true);

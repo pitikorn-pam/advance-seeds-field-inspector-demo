@@ -5,7 +5,7 @@ Manage varieties, calibration profiles, and user profiles as reference data for 
 
 ## Requirements
 ### Requirement: Varieties CRUD (admin only)
-Both apps SHALL allow admins to create, read, update, and delete `varieties`. Inspectors SHALL only read.
+The mobile app SHALL allow admins to create, read, update, and delete `varieties`. Inspectors SHALL only read.
 
 #### Scenario: Admin creates a variety
 - **GIVEN** Alex is signed in
@@ -24,9 +24,9 @@ Both apps SHALL allow admins to create, read, update, and delete `varieties`. In
 - **THEN** the row's `description` is updated and reflected in the list
 
 #### Scenario: Admin configures grading criteria
-- **WHEN** Alex edits grade A, B, and C length/width millimeter ranges on a variety
+- **WHEN** Alex edits grade A-H length/width millimeter ranges on a variety
 - **THEN** those criteria are saved on the variety row as `grade_criteria`
-- **AND** future inspections of that variety grade seeds from the configured A/B/C ranges
+- **AND** future inspections of that variety grade seeds from the configured ranges
 - **AND** legacy reference length and width remain available as a fallback when no criteria are configured
 
 #### Scenario: Admin deletes an unused variety
@@ -34,7 +34,7 @@ Both apps SHALL allow admins to create, read, update, and delete `varieties`. In
 - **THEN** the row is removed
 
 ### Requirement: Calibration profiles read-only
-Both apps SHALL display the configured calibration profiles (px/mm value and source LiDAR/ArUco). The demo SHALL NOT expose CRUD actions for these.
+The mobile app SHALL display the configured calibration profiles (px/mm value and source LiDAR/ArUco). The demo SHALL NOT expose CRUD actions for these.
 
 #### Scenario: Calibration view shows honest values
 - **GIVEN** any user is signed in
@@ -43,7 +43,7 @@ Both apps SHALL display the configured calibration profiles (px/mm value and sou
 - **AND** no edit / delete controls are shown
 
 ### Requirement: User profiles read-only
-Both apps SHALL provide a read-only Profile section in Settings showing the signed-in user's full name, email, role, and locale.
+The mobile app SHALL provide a read-only Profile section in Settings showing the signed-in user's full name, email, role, and locale.
 
 #### Scenario: Profile renders signed-in user
 - **WHEN** the user opens Settings

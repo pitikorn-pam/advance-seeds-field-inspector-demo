@@ -22,34 +22,11 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
-type VarietyTintKey = "corn" | "rice" | "legume" | "mungbean";
-
-// Token-backed tint pairs. The hex `seed` is only used for the seed-shape
-// placeholder (React Native can't currentColor an inline ellipse), and
-// mirrors the `--as-{key}-text` token value.
-const VARIETY_TINTS: Record<VarietyTintKey, { bg: string; text: string; seed: string }> = {
-  corn: { bg: "bg-corn-bg", text: "text-corn-text", seed: "#704B00" },
-  rice: { bg: "bg-rice-bg", text: "text-rice-text", seed: "#0F6E56" },
-  legume: { bg: "bg-legume-bg", text: "text-legume-text", seed: "#3F249B" },
-  mungbean: { bg: "bg-mungbean-bg", text: "text-mungbean-text", seed: "#8C3C12" },
-};
-
-function resolveTint(colorKey: string | null | undefined): {
-  key: VarietyTintKey;
-  bg: string;
-  text: string;
-  seed: string;
-} {
-  const k = (colorKey ?? "rice") as VarietyTintKey;
-  const tint = VARIETY_TINTS[k] ?? VARIETY_TINTS.rice;
-  return { key: k in VARIETY_TINTS ? k : "rice", ...tint };
-}
-
 /**
  * Variety detail screen.
  *
- * Tinted hero band (family + name + scientific + active/model-class pills)
- * over white reference / histogram / grade-threshold cards. Admin-only edit
+ * Neutral hero band with name + active state over white reference /
+ * histogram / grade-threshold cards. Admin-only edit
  * + capture-classes actions appear inline; the bottom dock holds the primary
  * "Start inspection" CTA. Visual fidelity port of the prototype's
  * `VarietyDetailScreen`.
@@ -85,7 +62,6 @@ export default function VarietyDetail() {
     return <ErrorState onRetry={() => void varieties.refetch()} />;
   }
 
-  const tint = resolveTint(variety.color_key);
   const meanL = avg(recent, "mean_length_mm");
   const meanW = avg(recent, "mean_width_mm");
   // Grade range "anchors" derive from the recent mean length when present so
@@ -105,15 +81,6 @@ export default function VarietyDetail() {
     session.reset({ varietyId: variety.id });
     router.push("/capture/setup");
   };
-
-  const familyLabel = t(`varieties:family.${tint.key}`);
-  // Mirrors the prototype's "model · oryza_sativa" purple pill — uses the
-  // scientific name slug as a stand-in for the (not-yet-stored) detector
-  // class mapping so the band carries the same information density.
-  const modelSlug = (variety.scientific_name ?? variety.name)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_|_$/g, "");
 
   return (
     <SafeAreaView className="flex-1 bg-bg-primary" edges={["top", "bottom"]}>
@@ -135,9 +102,9 @@ export default function VarietyDetail() {
         }
       />
       <ScrollView contentContainerClassName="pb-md">
-        {/* Hero band — tinted full-bleed with white seed thumb + family + sci name */}
-        <View className={`px-xl pt-lg pb-xl ${tint.bg}`}>
-          <View className="flex-row items-center gap-md">
+        {/* Hero band — neutral full-bleed with active state */}
+        <View className="px-xl pt-lg pb-xl bg-bg-secondary border-b border-line-tertiary">
+          <View className="flex-row items-start gap-md">
             <View
               className="items-center justify-center overflow-hidden rounded-lg bg-bg-primary"
               style={{ height: 64, width: 64 }}
@@ -149,20 +116,12 @@ export default function VarietyDetail() {
                   resizeMode="cover"
                 />
               ) : (
-                <View className="flex-row gap-[3px]">
-                  <SeedShape color={tint.seed} rotate="-15deg" />
-                  <SeedShape color={tint.seed} rotate="8deg" />
-                  <SeedShape color={tint.seed} rotate="-22deg" />
-                </View>
+                <Text className="font-semibold text-fg-secondary" style={{ fontSize: 24 }}>
+                  {variety.name.trim().charAt(0).toUpperCase() || "?"}
+                </Text>
               )}
             </View>
             <View className="flex-1">
-              <Text
-                className="text-label uppercase font-semibold text-primary-deep"
-                style={{ letterSpacing: 0.6 }}
-              >
-                {familyLabel}
-              </Text>
               <Text
                 className="text-fg-primary font-semibold mt-[2px]"
                 style={{ fontSize: 22, letterSpacing: -0.4 }}
@@ -171,14 +130,16 @@ export default function VarietyDetail() {
                 {variety.name}
               </Text>
               {variety.scientific_name ? (
-                <Text className="text-caption italic text-fg-secondary mt-[2px]" numberOfLines={1}>
+                <Text className="text-caption italic text-fg-secondary mt-[3px]" numberOfLines={1}>
                   {variety.scientific_name}
                 </Text>
               ) : null}
+              {variety.description ? (
+                <Text className="text-body text-fg-primary mt-sm" numberOfLines={3}>
+                  {variety.description}
+                </Text>
+              ) : null}
             </View>
-          </View>
-
-          <View className="flex-row gap-xs mt-md">
             <Pill
               tone={variety.is_active === false ? "warning" : "success"}
               dot
@@ -188,15 +149,8 @@ export default function VarietyDetail() {
                   : t("varieties:status.active")
               }
             />
-            <Pill tone="brand" label={t("varieties:detail.modelClassLabel", { name: modelSlug })} />
           </View>
         </View>
-
-        {variety.description ? (
-          <View className="px-xl pt-md">
-            <Text className="text-body text-fg-primary">{variety.description}</Text>
-          </View>
-        ) : null}
 
         {/* Stat tiles */}
         <View className="px-xl pt-md flex-row gap-sm">
@@ -486,18 +440,4 @@ function formatRange(range: GradeDimensionRange | null | undefined): string | nu
 
 function formatMm(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
-}
-
-function SeedShape({ color, rotate }: { color: string; rotate: string }) {
-  return (
-    <View
-      style={{
-        width: 18,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: color,
-        transform: [{ rotate }],
-      }}
-    />
-  );
 }

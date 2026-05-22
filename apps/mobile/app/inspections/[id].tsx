@@ -7,11 +7,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Share2, Trash2 } from "lucide-react-native";
 import { GRADE_LETTERS, type Seed, type SeedGrade } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
-import { shareImage, shareVideo } from "@/lib/capture/imageActions";
+import { shareAnnotatedImage, shareVideo } from "@/lib/capture/imageActions";
 import { useAuth } from "@/lib/auth";
 import { policyFor } from "@/lib/access";
 import { useInspection, useDeleteInspection } from "@/lib/queries";
-import { displayInspectionNote } from "@/lib/inspections/notes";
 import {
   type AnalysisDiagnosticsMetadata,
   readAnalyzerModelMetadata,
@@ -20,6 +19,7 @@ import {
   readCalibrationMetadata,
   readDeviceUsageMetadata,
   readLocationMetadata,
+  readSeedAnnotationMetadata,
   locationDisplayName,
 } from "@/lib/inspections/metadata";
 import { Pill } from "@/components/ui/Pill";
@@ -82,15 +82,22 @@ function roiBadge(roi: Roi | null): { kind: Roi["kind"]; vertices?: number } | n
   return { kind: roi.kind };
 }
 
-function readCaptureMedia(metadata: unknown): { kind: "photo" | "video"; url: string | null } {
-  if (!metadata || typeof metadata !== "object") return { kind: "photo", url: null };
+function readCaptureMedia(metadata: unknown): {
+  kind: "photo" | "video";
+  url: string | null;
+  videoDeleted: boolean;
+} {
+  if (!metadata || typeof metadata !== "object")
+    return { kind: "photo", url: null, videoDeleted: false };
   const media = (metadata as { capture_media?: unknown }).capture_media;
-  if (!media || typeof media !== "object") return { kind: "photo", url: null };
+  if (!media || typeof media !== "object") return { kind: "photo", url: null, videoDeleted: false };
   const kind = (media as { kind?: unknown }).kind;
   const url = (media as { url?: unknown }).url;
+  const deletedAt = (media as { video_deleted_at?: unknown }).video_deleted_at;
   return {
     kind: kind === "video" ? "video" : "photo",
     url: typeof url === "string" ? url : null,
+    videoDeleted: typeof deletedAt === "string" && deletedAt.length > 0,
   };
 }
 
@@ -150,23 +157,36 @@ export default function InspectionDetail() {
   const roi = readRoi(metadata);
   const roiLabel = roiBadge(roi);
   const captureMedia = readCaptureMedia(metadata);
-  const mediaUrl = captureMedia.url ?? inspection.image_url;
-  const note = displayInspectionNote(inspection.notes);
+  const previewKind =
+    captureMedia.kind === "video" && captureMedia.videoDeleted ? "photo" : captureMedia.kind;
+  const mediaUrl = captureMedia.videoDeleted
+    ? inspection.image_url
+    : (captureMedia.url ?? inspection.image_url);
   const location = readLocationMetadata(metadata);
   const deviceUsage = readDeviceUsageMetadata(metadata);
   const captureDetail = readCaptureMetadata(metadata);
   const calibration = readCalibrationMetadata(metadata);
   const analyzerModel = readAnalyzerModelMetadata(metadata);
   const analysisDiagnostics = readAnalysisDiagnosticsMetadata(metadata);
+  const seedAnnotations = readSeedAnnotationMetadata(metadata);
+  const annotatedSeeds = seeds.map((seed) => {
+    const annotation = seedAnnotations.get(seed.index);
+    return {
+      ...seed,
+      label: annotation?.label ?? inspection.variety?.name ?? null,
+      ...(typeof annotation?.volume_ml === "number" ? { volume_ml: annotation.volume_ml } : {}),
+      ...(annotation?.mask ? { mask: annotation.mask } : {}),
+    };
+  });
 
   const onShare = async () => {
     if (!mediaUrl) return;
     try {
       const title = t("inspections:detail.title");
-      if (captureMedia.kind === "video") {
+      if (captureMedia.kind === "video" && !captureMedia.videoDeleted) {
         await shareVideo(mediaUrl, title);
       } else {
-        await shareImage(mediaUrl, title);
+        await shareAnnotatedImage(mediaUrl, { roi, seeds: annotatedSeeds }, title);
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -231,9 +251,9 @@ export default function InspectionDetail() {
               {mediaUrl ? (
                 <CaptureMediaPreview
                   uri={mediaUrl}
-                  kind={captureMedia.kind}
+                  kind={previewKind}
                   roi={roi}
-                  seeds={seeds}
+                  seeds={annotatedSeeds}
                 />
               ) : (
                 <View className="flex-1 items-center justify-center px-md">
@@ -313,15 +333,6 @@ export default function InspectionDetail() {
                 </View>
               );
             })()}
-
-            {note ? (
-              <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
-                <Text className="text-caption font-medium uppercase text-fg-secondary">
-                  {t("inspections:detail.notesTitle")}
-                </Text>
-                <Text className="mt-xs text-body text-fg-primary">{note}</Text>
-              </View>
-            ) : null}
 
             {location || deviceUsage || captureDetail || calibration ? (
               <View className="rounded-lg border border-line-tertiary bg-bg-primary px-lg py-md">
@@ -627,7 +638,7 @@ export default function InspectionDetail() {
           <View className="mt-xl gap-sm">
             {policy.canDeleteInspection(inspection) ? (
               <Button
-                variant="ghost"
+                variant="danger"
                 renderLeadingIcon={() => <Trash2 color="#A02828" size={16} />}
                 onPress={() =>
                   Alert.alert(t("common:actions.delete"), t("inspections:detail.deleteConfirm"), [

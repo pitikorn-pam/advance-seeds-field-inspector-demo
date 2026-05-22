@@ -31,6 +31,17 @@ export function orientLiveSeeds(
         width: Math.round(box.width * scaleX),
         height: Math.round(box.height * scaleY),
       },
+      ...(seed.mask?.polygon?.length
+        ? {
+            mask: {
+              ...seed.mask,
+              polygon: seed.mask.polygon.map((point) => {
+                const p = rotateLivePoint(point.x, point.y, frameWidth, frameHeight, orientation);
+                return { x: p.x * scaleX, y: p.y * scaleY };
+              }),
+            },
+          }
+        : null),
     };
   });
 }
@@ -66,4 +77,23 @@ export function rotateLiveBox(
     };
   }
   return box;
+}
+
+export function rotateLivePoint(
+  x: number,
+  y: number,
+  frameWidth: number,
+  frameHeight: number,
+  orientation: string,
+): { x: number; y: number } {
+  if (orientation === "right" || orientation === "right-mirrored") {
+    return { x: frameHeight - y, y: x };
+  }
+  if (orientation === "left" || orientation === "left-mirrored") {
+    return { x: y, y: frameWidth - x };
+  }
+  if (orientation === "down" || orientation === "down-mirrored") {
+    return { x: frameWidth - x, y: frameHeight - y };
+  }
+  return { x, y };
 }

@@ -163,10 +163,6 @@ export default function RootLayout() {
                   <Stack.Screen name="more/recordings" options={{ headerShown: false }} />
                   <Stack.Screen name="more/models" options={{ headerShown: false }} />
                   <Stack.Screen name="varieties/[id]" options={{ headerShown: false }} />
-                  <Stack.Screen
-                    name="varieties/edit/[id]"
-                    options={{ headerShown: false, presentation: "modal" }}
-                  />
                   <Stack.Screen name="reports" options={{ headerShown: false }} />
                   <Stack.Screen name="calibration" options={{ headerShown: false }} />
                 </Stack>

@@ -14,8 +14,8 @@ const i18nSource = readFileSync(
 
 test("live inference defaults to requested 30 fps and migrates the old 15 fps default", () => {
   assert.match(hyperparamsSource, /targetFps:\s*30/);
-  assert.match(hyperparamsSource, /advance-seeds\.hyperparams\.v6/);
-  assert.match(hyperparamsSource, /"advance-seeds\.hyperparams\.v5"/);
+  assert.match(hyperparamsSource, /advance-seeds\.hyperparams\.v9/);
+  assert.match(hyperparamsSource, /"advance-seeds\.hyperparams\.v8"/);
   assert.match(hyperparamsSource, /parsed\.targetFps === undefined \|\| parsed\.targetFps === 15/);
   assert.doesNotMatch(hyperparamsSource, /parsed\.targetFps === 30\)/);
 });
@@ -41,6 +41,6 @@ test("live detectors log requested and effective inference fps for QA", () => {
 test("iOS live detector keeps the worklet enabled ref synchronized", () => {
   assert.match(
     liveSource,
-    /function useLiveDetectionsCoreML[\s\S]*enabledRef\.current = enabled;[\s\S]*if \(!enabled\) setDetections\(null\);[\s\S]*\}, \[enabled\]\);/,
+    /function useLiveDetectionsCoreML[\s\S]*enabledRef\.current = enabled;[\s\S]*if \(!enabled\) \{[\s\S]*setDetections\(null\);[\s\S]*detectionsShared\.value = null;[\s\S]*\}, \[enabled, detectionsShared\]\);/,
   );
 });

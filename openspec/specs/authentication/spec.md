@@ -1,7 +1,7 @@
 # authentication Specification
 
 ## Purpose
-TBD - created by archiving change seed-inspector-demo-foundation. Update Purpose after archive.
+Define mobile authentication, session persistence, sign-out, and role-aware UI gates backed by Supabase Auth and RLS.
 ## Requirements
 ### Requirement: Email and password sign-in
 The mobile app SHALL allow a user to sign in with email and password using Supabase Auth.
@@ -16,7 +16,7 @@ The mobile app SHALL allow a user to sign in with email and password using Supab
 - **THEN** an inline error appears below the form and no navigation occurs
 
 ### Requirement: Session persistence and auto sign-in
-The applications SHALL persist the Supabase session and auto sign-in on next launch until the user signs out or the session expires.
+The mobile app SHALL persist the Supabase session and auto sign-in on next launch until the user signs out or the session expires.
 
 #### Scenario: Reload does not require re-auth
 - **GIVEN** the user is signed in
@@ -24,14 +24,14 @@ The applications SHALL persist the Supabase session and auto sign-in on next lau
 - **THEN** they land on the home screen without re-entering credentials
 
 ### Requirement: Sign-out clears session
-The applications SHALL provide a sign-out action that clears the persisted session and returns the user to the login screen.
+The mobile app SHALL provide a sign-out action that clears the persisted session and returns the user to the login screen.
 
 #### Scenario: Sign-out from settings
 - **WHEN** the user taps "Sign out" from Settings
 - **THEN** the persisted session is cleared and the next protected route redirects to login
 
 ### Requirement: Role-based UI gating
-The applications SHALL hide admin-only actions from inspectors and SHALL still rely on RLS as the security boundary.
+The mobile app SHALL hide admin-only actions from inspectors and SHALL still rely on RLS as the security boundary.
 
 #### Scenario: Inspector cannot see "Create variety" button
 - **GIVEN** Jane is signed in
@@ -42,4 +42,3 @@ The applications SHALL hide admin-only actions from inspectors and SHALL still r
 - **GIVEN** Alex is signed in
 - **WHEN** he opens the Varieties screen
 - **THEN** the create / edit / delete controls are visible
-

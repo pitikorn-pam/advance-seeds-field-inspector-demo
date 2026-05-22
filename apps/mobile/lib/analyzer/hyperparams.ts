@@ -29,21 +29,22 @@ export const DEFAULT_HYPERPARAMS: HyperParams = {
   // 0.75 favours precision over recall — appropriate for the field-grade
   // detector where false positives are more disruptive than missed seeds.
   // 0.85 IoU keeps NMS tight against duplicate boxes around the same seed.
-  // 15 fps for live detection leaves headroom on iPhone Air and budget
-  // Android devices: at 30 fps the YOLO worklet (~35–50 ms per frame)
-  // saturates the camera thread and steals cycles from `takePhoto`, so
-  // the shutter feels sluggish. 15 fps halves the inference budget and
-  // is more than enough for a stable live overlay. Operators can dial
-  // any of these via More → Hyperparameters.
+  // 30 fps keeps the iOS Core ML live overlay matched to the camera
+  // preview cadence by default. Android still applies its platform
+  // safety cap in useLiveDetections. Operators can dial any of these
+  // via More → Hyperparameters.
   scoreThreshold: 0.75,
   iouThreshold: 0.85,
-  targetFps: 15,
+  targetFps: 30,
   preprocessProfile: "model",
 };
 
-// v8: live detection default fps 30 → 15 for snappier capture.
-const STORAGE_KEY = "advance-seeds.hyperparams.v8";
+// v9: live detection default fps 15 → 30.
+const STORAGE_KEY = "advance-seeds.hyperparams.v9";
 const LEGACY_STORAGE_KEYS = [
+  "advance-seeds.hyperparams.v8",
+  "advance-seeds.hyperparams.v7",
+  "advance-seeds.hyperparams.v6",
   "advance-seeds.hyperparams.v5",
   "advance-seeds.hyperparams.v4",
   "advance-seeds.hyperparams.v3",
@@ -153,9 +154,9 @@ function clamp(p: HyperParams): HyperParams {
 
 function migrateLegacyHyperParams(parsed: Partial<HyperParams>): HyperParams {
   const migrated = { ...DEFAULT_HYPERPARAMS, ...parsed };
-  // v5 shipped with a 15 fps inference default. v6 restores the shared default
-  // request to 30 fps on both platforms; Android still applies its native
-  // safety cap in useLiveDetections. Preserve explicit low tuning values.
+  // v8 shipped with a 15 fps inference default. v9 restores the iOS default
+  // request to 30 fps; Android still applies its native safety cap in
+  // useLiveDetections. Treat 15 as the old default during migration.
   if (parsed.targetFps === undefined || parsed.targetFps === 15) {
     migrated.targetFps = DEFAULT_HYPERPARAMS.targetFps;
   }

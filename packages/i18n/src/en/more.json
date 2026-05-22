@@ -68,9 +68,8 @@
     "gradeLengthMax": "Length max",
     "gradeWidthMin": "Width min",
     "gradeWidthMax": "Width max",
-    "colorKey": "Family color",
     "descriptionPlaceholder": "Notes inspectors will see in the catalog",
-    "imageHint": "Public URL — paste a hero image link or leave blank for the family-tinted placeholder.",
+    "imageHint": "Public URL — paste a hero image link or leave blank for a neutral placeholder.",
     "invalidClass": "Detector class must be a whole number.",
     "invalidLength": "Reference length must be a positive number.",
     "invalidWidth": "Reference width must be a positive number.",
@@ -80,8 +79,6 @@
     "title": "Model hyperparameters",
     "scoreThreshold": "Confidence threshold",
     "scoreThresholdHint": "Drop detections below this score before NMS. Higher = fewer false positives.",
-    "iouThreshold": "NMS IoU threshold",
-    "iouThresholdHint": "JS-side NMS overlap cutoff. YOLO26 (NMS-baked) ignores this.",
     "targetFps": "Inference fps",
     "targetFpsHint": "Model sampling rate for live detection. The camera preview keeps its native smoothness; lower values skip more frames before inference.",
     "preprocessProfile": "Input preprocessing",
@@ -98,9 +95,7 @@
     "defaults": "Defaults",
     "reset": "Reset to defaults",
     "resetTitle": "Reset hyperparameters?",
-    "resetBody": "All values revert to the shipped defaults.",
-    "inferenceStats": "Inference timings",
-    "inferenceStatsHint": "Rolling p50 / p95 / p99 over the last ~100 inferences per delegate. Shape your fps target against the p95, not the p50."
+    "resetBody": "All values revert to the shipped defaults."
   },
   "models": {
     "title": "Model registry",

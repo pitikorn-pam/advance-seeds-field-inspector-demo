@@ -31,7 +31,9 @@ The mobile app SHALL allow the user to save snapshots of the current camera fram
 #### Scenario: Tapping the snapshot button saves a frame
 - **GIVEN** the user is in live mode
 - **WHEN** they tap the snapshot button (separate from shutter and record)
-- **THEN** the most recent frame is saved to the device Photos library at full resolution
+- **THEN** the current camera frame is saved to the device Photos library
+- **AND** when live detections or ROI are available, the app attempts to export the snapshot with the same annotation overlay currently shown on live capture
+- **AND** if the platform cannot import the annotated SVG artifact, the raw JPEG is saved instead of failing the snapshot action
 - **AND** a brief toast "Snapshot saved" appears
 - **AND** the live preview continues uninterrupted
 
@@ -53,7 +55,15 @@ Recorded videos SHALL be stored in a separate `recordings` Supabase Storage buck
 #### Scenario: Recordings bucket exists with separate RLS
 - **WHEN** a maintainer applies the migration
 - **THEN** a `recordings` bucket exists (public read, authenticated write, owner-delete)
-- **AND** the `recordings` table is RLS-gated like `inspections`: inspectors see their own; admins see all but cannot delete others'
+- **AND** the `recordings` table is RLS-gated like `inspections`: inspectors see their own and admins see all
+- **AND** admins may delete recording rows and recording storage objects
+
+#### Scenario: Deleting a recording preserves linked inspection history
+- **GIVEN** a recording is referenced from an inspection's `metadata.capture_media.recording_id`
+- **WHEN** the recording is deleted from the Recordings page
+- **THEN** the recording row and storage object are removed when policy allows
+- **AND** the linked inspection metadata is marked with `capture_media.video_deleted_at`
+- **AND** the inspection detail renders the captured still thumbnail instead of the deleted video
 
 #### Scenario: Storage size guard
 - **GIVEN** a recording's local file exceeds 100 MB

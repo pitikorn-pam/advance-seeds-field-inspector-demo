@@ -2,7 +2,7 @@
 // Mirrors yolo.ts so node --test can exercise the decode/NMS/mapping logic
 // without pulling in react-native-fast-tflite or expo-file-system.
 
-import { measureInstance } from "./maskMeasurement.mjs";
+import { estimateOblongVolumeMl, measureInstance } from "./maskMeasurement.mjs";
 import { decodeMaskForDetection, extractPolygonFromMask } from "./yoloSegMask.mjs";
 
 export const YOLO_INPUT_SIZE = 640;
@@ -238,6 +238,7 @@ export function mapDetectionsToSeeds(detections, options) {
     let length_mm;
     let width_mm;
     let area_mm2;
+    let volume_ml;
     let mask;
     if (d.polygon && d.polygon.length >= 3 && pxPerMm > 0) {
       const measured = measureInstance(d.polygon, {
@@ -247,6 +248,7 @@ export function mapDetectionsToSeeds(detections, options) {
       length_mm = round(measured.length_mm ?? 0, 2);
       width_mm = round(measured.width_mm ?? 0, 2);
       area_mm2 = round(measured.area_mm2 ?? 0, 2);
+      volume_ml = round(measured.volume_ml ?? estimateOblongVolumeMl(length_mm, area_mm2), 3);
       mask = {
         polygon: d.polygon.map((p) => ({ x: p.x, y: p.y })),
         area_px: measured.area_px ?? 0,
@@ -263,12 +265,14 @@ export function mapDetectionsToSeeds(detections, options) {
       length_mm = round(longPx / pxPerMm, 2);
       width_mm = round(shortPx / pxPerMm, 2);
       area_mm2 = round((d.width * d.height) / (pxPerMm * pxPerMm), 2);
+      volume_ml = round(estimateOblongVolumeMl(length_mm, area_mm2), 3);
     }
     seeds.push({
       index: seeds.length + 1,
       length_mm,
       width_mm,
       area_mm2,
+      volume_ml,
       grade: gradeSeed(length_mm, width_mm),
       defects: {},
       class_id: d.classId,
@@ -286,14 +290,22 @@ export function mapDetectionsToSeeds(detections, options) {
 
 export function summarizeSeeds(seeds) {
   if (seeds.length === 0) {
-    return { total_seeds: 0, mean_length_mm: 0, mean_width_mm: 0, mean_area_mm2: 0 };
+    return {
+      total_seeds: 0,
+      mean_length_mm: 0,
+      mean_width_mm: 0,
+      mean_area_mm2: 0,
+      mean_volume_ml: 0,
+    };
   }
   const sum = (key) => seeds.reduce((t, s) => t + s[key], 0);
+  const volumeSum = seeds.reduce((t, s) => t + (s.volume_ml ?? 0), 0);
   return {
     total_seeds: seeds.length,
     mean_length_mm: round(sum("length_mm") / seeds.length, 3),
     mean_width_mm: round(sum("width_mm") / seeds.length, 3),
     mean_area_mm2: round(sum("area_mm2") / seeds.length, 3),
+    mean_volume_ml: round(volumeSum / seeds.length, 3),
   };
 }
 

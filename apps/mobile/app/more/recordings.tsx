@@ -1,11 +1,20 @@
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, View, Text, Alert, Pressable } from "react-native";
+import { ActivityIndicator, FlatList, View, Text, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Calendar, ChevronLeft, Play, RefreshCw, Share2, Trash2, X } from "lucide-react-native";
+import {
+  Calendar,
+  Check,
+  ChevronLeft,
+  Play,
+  RefreshCw,
+  Share2,
+  Trash2,
+  X,
+} from "lucide-react-native";
 import type { Recording } from "@advance-seeds/types";
-import { useRecordings, useDeleteRecording } from "@/lib/queries";
+import { useRecordings, useDeleteRecording, useDeleteRecordings } from "@/lib/queries";
 import {
   removeQueueEntry,
   retryAllFailedQueueEntries,
@@ -39,10 +48,13 @@ export default function RecordingsScreen() {
   const router = useRouter();
   const recordings = useRecordings();
   const deleteRecording = useDeleteRecording();
+  const deleteRecordings = useDeleteRecordings();
   const queueEntries = useSyncQueueEntries();
   const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [durationFilter, setDurationFilter] = useState<DurationFilter>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [selectionMode, setSelectionMode] = useState(false);
 
   // Surface offline-saved recordings: any sync-queue row whose payload is a
   // recording, still in pending/syncing/failed state. They're not in the
@@ -85,6 +97,60 @@ export default function RecordingsScreen() {
   }, [recordings.data, dateRange, durationFilter]);
 
   const hasDateRange = !!dateRange.start || !!dateRange.end;
+  const selectedCount = selectedIds.size;
+  const selectedRecordings = useMemo(() => {
+    const byId = new Map((recordings.data ?? []).map((rec) => [rec.id, rec]));
+    return [...selectedIds].flatMap((id) => {
+      const rec = byId.get(id);
+      return rec ? [rec] : [];
+    });
+  }, [recordings.data, selectedIds]);
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  }, []);
+  const selectAll = useCallback(
+    () => setSelectedIds(new Set(filtered.map((rec) => rec.id))),
+    [filtered],
+  );
+  const onDeleteSelected = useCallback(() => {
+    const rows = selectedRecordings;
+    if (rows.length === 0) return;
+    Alert.alert(
+      t("common:actions.delete"),
+      `Delete ${rows.length} selected recording${rows.length === 1 ? "" : "s"}?`,
+      [
+        { text: t("common:actions.cancel"), style: "cancel" },
+        {
+          text: t("common:actions.delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const result = await deleteRecordings.mutateAsync(rows);
+              clearSelection();
+              if (result.deleted < result.requested) {
+                Alert.alert(
+                  t("common:states.error"),
+                  `Deleted ${result.deleted} of ${result.requested}. Some records could not be deleted.`,
+                );
+              }
+            } catch (err) {
+              const reason = err instanceof Error ? err.message : String(err);
+              Alert.alert(t("common:states.error"), reason);
+            }
+          },
+        },
+      ],
+    );
+  }, [clearSelection, deleteRecordings, selectedRecordings, t]);
 
   // Stable row renderer — keeps FlatList's recycler from re-rendering rows
   // when unrelated parent state (filters, date picker) changes.
@@ -92,6 +158,13 @@ export default function RecordingsScreen() {
     ({ item: rec }: { item: Recording }) => (
       <RecordingRow
         recording={rec}
+        selectionMode={selectionMode}
+        selected={selectedIds.has(rec.id)}
+        onToggleSelected={() => toggleSelected(rec.id)}
+        onEnterSelection={() => {
+          setSelectionMode(true);
+          toggleSelected(rec.id);
+        }}
         onShare={async () => {
           try {
             await shareVideo(rec.video_url, t("profile:recordings.share"));
@@ -118,7 +191,7 @@ export default function RecordingsScreen() {
         }}
       />
     ),
-    [t, deleteRecording],
+    [selectionMode, selectedIds, t, deleteRecording, toggleSelected],
   );
   const durationOptions: Array<{ value: DurationFilter; label: string }> = [
     { value: "all", label: t("profile:recordings.filters.duration.all") },
@@ -148,7 +221,7 @@ export default function RecordingsScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(rec) => rec.id}
-        contentContainerClassName="px-xl py-md gap-md pb-2xl"
+        contentContainerClassName="px-xl py-md gap-md pb-[132px]"
         keyboardShouldPersistTaps="handled"
         // Virtualization tuning: each row is tall (4:3 video preview) so a
         // small initial batch + modest window keeps offscreen memory bounded
@@ -157,16 +230,38 @@ export default function RecordingsScreen() {
         maxToRenderPerBatch={4}
         windowSize={7}
         removeClippedSubviews
+        extraData={`${selectionMode}:${[...selectedIds].sort().join("|")}`}
         renderItem={renderRecordingRow}
         ListHeaderComponent={
           <View className="gap-lg pb-md">
-            <Segmented
-              value={durationFilter}
-              onChange={setDurationFilter}
-              options={durationOptions}
-              variant="tag"
-              scrollable
-            />
+            <View className="flex-row items-center gap-sm">
+              <View className="flex-1">
+                <Segmented
+                  value={durationFilter}
+                  onChange={setDurationFilter}
+                  options={durationOptions}
+                  variant="tag"
+                  scrollable
+                />
+              </View>
+              {!selectionMode ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Select to delete"
+                  onPress={() => setSelectionMode(true)}
+                  disabled={filtered.length === 0}
+                  className={`h-8 justify-center rounded-md border px-sm ${
+                    filtered.length === 0
+                      ? "border-line-tertiary bg-bg-tertiary opacity-60"
+                      : "border-danger-text bg-danger-bg active:opacity-80"
+                  }`}
+                >
+                  <Text className="text-caption font-medium text-danger-text">
+                    Select to delete
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
 
             <View className="flex-row items-center gap-xs">
               <Pressable
@@ -263,6 +358,31 @@ export default function RecordingsScreen() {
           ) : null
         }
       />
+      {selectionMode ? (
+        <View
+          pointerEvents="box-none"
+          className="absolute left-0 right-0 bottom-xl items-center px-xl"
+        >
+          <View className="flex-row items-center gap-sm rounded-full border border-line-tertiary bg-bg-primary px-sm py-sm shadow-sm">
+            <Button variant="tinted" size="sm" label="Clear" onPress={clearSelection} />
+            <Button
+              variant="tinted"
+              size="sm"
+              label={selectedIds.size === filtered.length ? "All selected" : "Select all"}
+              onPress={selectAll}
+              disabled={filtered.length === 0}
+            />
+            <Button
+              variant="danger"
+              size="sm"
+              label={`Delete ${selectedCount}`}
+              renderLeadingIcon={() => <Trash2 color="#8A1F1B" size={14} />}
+              onPress={onDeleteSelected}
+              disabled={deleteRecordings.isPending || selectedCount === 0}
+            />
+          </View>
+        </View>
+      ) : null}
       <DateRangePicker
         visible={datePickerOpen}
         value={dateRange}
@@ -365,11 +485,19 @@ function formatDuration(ms: number): string {
 
 function RecordingRow({
   recording,
+  selectionMode,
+  selected,
+  onToggleSelected,
+  onEnterSelection,
   onShare,
   onDelete,
   labels,
 }: {
   recording: Recording;
+  selectionMode: boolean;
+  selected: boolean;
+  onToggleSelected: () => void;
+  onEnterSelection: () => void;
   onShare: () => void;
   onDelete: () => void;
   labels: { share: string; delete: string };
@@ -382,48 +510,108 @@ function RecordingRow({
     minute: "2-digit",
   });
   return (
-    <Card className="p-md flex-row gap-md overflow-hidden">
-      <Thumbnail uri={recording.video_url} duration={formatDuration(recording.duration_ms)} />
-      <View className="flex-1 gap-xs">
-        <Text className="text-title font-semibold text-fg-primary" numberOfLines={1}>
-          {formatDuration(recording.duration_ms)}
-        </Text>
-        <Text className="text-caption text-fg-secondary">{captionDate}</Text>
-        <View className="flex-row gap-md mt-auto pt-xs items-center justify-end">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={labels.share}
-            onPress={onShare}
-            className="flex-row items-center gap-xs p-xs"
-          >
-            <Share2 color="#171717" size={14} />
-            <Text className="text-caption font-medium text-fg-primary">{labels.share}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={labels.delete}
-            onPress={onDelete}
-            className="flex-row items-center gap-xs p-xs"
-          >
-            <Trash2 color="#8A1F1B" size={14} />
-            <Text className="text-caption font-medium" style={{ color: "#8A1F1B" }}>
-              {labels.delete}
-            </Text>
-          </Pressable>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={selectionMode ? onToggleSelected : undefined}
+      onLongPress={onEnterSelection}
+    >
+      <Card
+        className={`p-md flex-row gap-md overflow-hidden border ${
+          selected ? "border-primary bg-primary-soft" : "border-line-tertiary bg-bg-primary"
+        }`}
+      >
+        {selectionMode ? (
+          <View className="h-[88px] justify-center">
+            <SelectionMark selected={selected} />
+          </View>
+        ) : null}
+        <Thumbnail
+          uri={recording.video_url}
+          duration={formatDuration(recording.duration_ms)}
+          disabled={selectionMode}
+        />
+        <View className="flex-1 gap-xs">
+          <Text className="text-title font-semibold text-fg-primary" numberOfLines={1}>
+            {formatDuration(recording.duration_ms)}
+          </Text>
+          <Text className="text-caption text-fg-secondary">{captionDate}</Text>
+          <View className="flex-row gap-md mt-auto pt-xs items-center justify-end">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={labels.share}
+              onPress={onShare}
+              disabled={selectionMode}
+              className="flex-row items-center gap-xs p-xs"
+            >
+              <Share2 color="#171717" size={14} />
+              <Text className="text-caption font-medium text-fg-primary">{labels.share}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={labels.delete}
+              onPress={onDelete}
+              disabled={selectionMode}
+              className="flex-row items-center gap-xs rounded-md bg-danger-bg px-sm py-xs"
+            >
+              <Trash2 color="#8A1F1B" size={14} />
+              <Text className="text-caption font-medium" style={{ color: "#8A1F1B" }}>
+                {labels.delete}
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </Card>
+      </Card>
+    </Pressable>
   );
 }
 
-function Thumbnail({ uri, duration }: { uri: string; duration: string }) {
+function SelectionMark({ selected }: { selected: boolean }) {
+  return (
+    <View
+      className={`h-7 w-7 items-center justify-center rounded-md border ${
+        selected ? "border-primary bg-primary" : "border-line-secondary bg-bg-secondary"
+      }`}
+    >
+      {selected ? <Check color="#FFFFFF" size={17} strokeWidth={2.5} /> : null}
+    </View>
+  );
+}
+
+function Thumbnail({
+  uri,
+  duration,
+  disabled = false,
+}: {
+  uri: string;
+  duration: string;
+  disabled?: boolean;
+}) {
+  const [loading, setLoading] = useState(false);
   return (
     <View className="h-[88px] w-[88px] overflow-hidden rounded-md bg-black">
-      {uri ? <CaptureMediaPreview uri={uri} kind="video" /> : null}
+      {uri ? (
+        <CaptureMediaPreview
+          uri={uri}
+          kind="video"
+          openOnPress={!disabled}
+          deferVideoPreview
+          onVideoLoadingChange={setLoading}
+        />
+      ) : null}
       <View className="absolute inset-0 items-center justify-center">
-        <View className="h-8 w-8 items-center justify-center rounded-full bg-black/55">
-          <Play color="#FFFFFF" size={14} fill="#FFFFFF" />
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-black/60 border border-white/25">
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Play color="#FFFFFF" size={14} fill="#FFFFFF" />
+          )}
         </View>
+        {!disabled ? (
+          <Text className="mt-xs text-[10px] font-medium text-white/85">
+            {loading ? "Loading" : "Tap to load"}
+          </Text>
+        ) : null}
       </View>
       <View className="absolute bottom-xs right-xs rounded-sm bg-black/70 px-xs">
         <Text className="text-[10px] font-semibold text-white">{duration}</Text>

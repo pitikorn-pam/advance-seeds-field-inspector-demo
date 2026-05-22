@@ -1,7 +1,7 @@
 # internationalization Specification
 
 ## Purpose
-TBD - created by archiving change seed-inspector-demo-foundation. Update Purpose after archive.
+Define the English/Thai localization contract for mobile UI, default locale behavior, and the no-raw-strings convention.
 ## Requirements
 ### Requirement: English and Thai locales
 The mobile app SHALL ship complete UI translations for English (`en`) and Thai (`th`) covering every visible string in the demo flows.
@@ -30,4 +30,3 @@ The codebase SHALL keep all user-facing strings in i18n resource files; no raw E
 #### Scenario: Lint blocks raw string
 - **WHEN** a developer adds `<Text>Save</Text>` and runs `pnpm lint`
 - **THEN** the lint check flags the file with a "use t()" violation
-

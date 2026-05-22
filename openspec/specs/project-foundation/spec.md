@@ -1,7 +1,7 @@
 # project-foundation Specification
 
 ## Purpose
-TBD - created by archiving change seed-inspector-demo-foundation. Update Purpose after archive.
+Define the pnpm monorepo, token pipeline, TypeScript strictness, and commit conventions that keep the mobile demo maintainable.
 ## Requirements
 ### Requirement: Monorepo workspace
 The repository SHALL be a pnpm workspace with `apps/mobile`, `packages/tokens`, `packages/types`, `packages/i18n`, and `supabase/` as discoverable workspace members.
@@ -39,4 +39,3 @@ The repository SHALL block commits that do not follow the conventional commit fo
 #### Scenario: Bad commit message rejected
 - **WHEN** a developer runs `git commit -m "stuff"`
 - **THEN** commitlint fails the commit hook and the commit is not created
-

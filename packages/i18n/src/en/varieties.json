@@ -7,7 +7,6 @@
     "scientificName": "Scientific name",
     "description": "Description",
     "imageUrl": "Image URL",
-    "colorKey": "Color theme",
     "status": "Usage status"
   },
   "status": {
@@ -45,12 +44,6 @@
     "mmAvgLengthLabel": "mm avg L (last {{count}} runs)",
     "modelClassLabel": "model · {{name}}"
   },
-  "family": {
-    "rice": "Rice",
-    "corn": "Corn",
-    "legume": "Legume",
-    "mungbean": "Mungbean"
-  },
   "editor": {
     "title": "Edit · {{name}}",
     "adminSubtitle": "Admin",
@@ -61,7 +54,6 @@
     "sectionCaptureDefaults": "Capture defaults",
     "fieldName": "Name",
     "fieldScientific": "Scientific name",
-    "fieldFamily": "Family",
     "fieldLengthMm": "Length (mm)",
     "fieldWidthMm": "Width (mm)",
     "gradeLabel": "Grade {{grade}}",

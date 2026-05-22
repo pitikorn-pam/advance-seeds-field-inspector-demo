@@ -1,6 +1,6 @@
 import type { Roi } from "@/lib/capture/roi";
 import type { CapturedLocation } from "@/lib/capture/location";
-import type { CalibrationReading } from "@advance-seeds/types";
+import type { AnalyzedSeed, CalibrationReading, SeedMaskMeasurement } from "@advance-seeds/types";
 import type {
   CaptureCameraPosition,
   CaptureAnalysisDiagnostics,
@@ -53,6 +53,8 @@ export interface AnalyzerModelMetadata {
   iou_threshold: number;
   /** Input preprocessing profile applied before detector inference. */
   preprocess_profile: PreprocessProfile;
+  /** Model class labels captured with the result so saved inspections can render detected class names later. */
+  class_names?: readonly string[] | null;
 }
 
 export interface CalibrationMetadata {
@@ -65,6 +67,22 @@ export interface CalibrationMetadata {
 }
 
 export type AnalysisDiagnosticsMetadata = CaptureAnalysisDiagnostics;
+
+export interface SeedMaskMetadata {
+  index: number;
+  mask: SeedMaskMeasurement;
+  class_id?: number | null;
+  label?: string | null;
+  volume_ml?: number | null;
+}
+
+export interface SeedAnnotationMetadata {
+  index: number;
+  mask?: SeedMaskMeasurement;
+  class_id?: number | null;
+  label?: string | null;
+  volume_ml?: number | null;
+}
 
 interface BuildInspectionMetadataArgs {
   roi: Roi | null;
@@ -84,6 +102,7 @@ interface BuildInspectionMetadataArgs {
   capture: Omit<CaptureMetadata, "media_kind" | "roi_kind">;
   analyzerModel: AnalyzerModelMetadata | null;
   analysisDiagnostics?: AnalysisDiagnosticsMetadata | null;
+  seeds?: readonly AnalyzedSeed[] | null;
 }
 
 export function buildInspectionMetadata(
@@ -115,11 +134,80 @@ export function buildInspectionMetadata(
   };
   if (args.analyzerModel) metadata.analyzer_model = args.analyzerModel;
   if (args.analysisDiagnostics) metadata.analysis_diagnostics = args.analysisDiagnostics;
+  const seedMasks = compactSeedMasks(args.seeds, args.analyzerModel?.class_names ?? null);
+  if (seedMasks.length > 0) metadata.seed_masks = seedMasks;
   if (args.locationTagEnabled) {
     metadata.location_capture_enabled = true;
     if (args.capturedLocation) metadata.location = args.capturedLocation;
   }
   return metadata;
+}
+
+export function compactSeedMasks(
+  seeds: readonly AnalyzedSeed[] | null | undefined,
+  classNames?: readonly string[] | null,
+): SeedMaskMetadata[] {
+  if (!seeds?.length) return [];
+  return seeds
+    .filter((seed): seed is AnalyzedSeed & { mask: SeedMaskMeasurement } =>
+      Boolean(seed.mask?.polygon?.length && seed.mask.polygon.length >= 3),
+    )
+    .map((seed) => ({
+      index: seed.index,
+      mask: seed.mask,
+      ...(typeof seed.class_id === "number" ? { class_id: seed.class_id } : {}),
+      ...(typeof seed.class_id === "number" && classNames?.[seed.class_id]
+        ? { label: classNames[seed.class_id] }
+        : {}),
+      ...(typeof seed.volume_ml === "number" && Number.isFinite(seed.volume_ml)
+        ? { volume_ml: seed.volume_ml }
+        : {}),
+    }));
+}
+
+export function readSeedMaskMetadata(metadata: unknown): Map<number, SeedMaskMeasurement> {
+  const annotations = readSeedAnnotationMetadata(metadata);
+  const out = new Map<number, SeedMaskMeasurement>();
+  for (const [index, row] of annotations) {
+    if (row.mask) out.set(index, row.mask);
+  }
+  return out;
+}
+
+export function readSeedAnnotationMetadata(metadata: unknown): Map<number, SeedAnnotationMetadata> {
+  const out = new Map<number, SeedAnnotationMetadata>();
+  if (!metadata || typeof metadata !== "object") return out;
+  const rows = (metadata as { seed_masks?: unknown }).seed_masks;
+  if (!Array.isArray(rows)) return out;
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const index = (row as { index?: unknown }).index;
+    const mask = (row as { mask?: unknown }).mask;
+    if (typeof index !== "number") continue;
+    const annotation: SeedAnnotationMetadata = { index };
+    if (typeof (row as { class_id?: unknown }).class_id === "number") {
+      annotation.class_id = (row as { class_id: number }).class_id;
+    }
+    if (typeof (row as { label?: unknown }).label === "string") {
+      annotation.label = (row as { label: string }).label;
+    }
+    if (typeof (row as { volume_ml?: unknown }).volume_ml === "number") {
+      annotation.volume_ml = (row as { volume_ml: number }).volume_ml;
+    }
+    if (!mask || typeof mask !== "object") {
+      out.set(index, annotation);
+      continue;
+    }
+    const polygon = (mask as { polygon?: unknown }).polygon;
+    if (
+      Array.isArray(polygon) &&
+      polygon.every((p) => p && typeof p.x === "number" && typeof p.y === "number")
+    ) {
+      annotation.mask = mask as SeedMaskMeasurement;
+    }
+    out.set(index, annotation);
+  }
+  return out;
 }
 
 export function readAnalysisDiagnosticsMetadata(
@@ -249,6 +337,9 @@ export function readAnalyzerModelMetadata(metadata: unknown): AnalyzerModelMetad
     score_threshold: typeof m.score_threshold === "number" ? m.score_threshold : 0,
     iou_threshold: typeof m.iou_threshold === "number" ? m.iou_threshold : 0,
     preprocess_profile: m.preprocess_profile === "morph_fused_v1" ? "morph_fused_v1" : "raw_rgb",
+    class_names: Array.isArray(m.class_names)
+      ? m.class_names.filter((name): name is string => typeof name === "string")
+      : null,
   };
 }
 

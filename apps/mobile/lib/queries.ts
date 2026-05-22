@@ -397,23 +397,105 @@ export function useDeleteRecording() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (rec: Recording) => {
-      // Best-effort: delete the storage object too. Failure here is logged
-      // and the row deletion proceeds — orphaned objects are recoverable
-      // via the bucket's owner-delete policy.
-      const path = rec.video_url.split("/recordings/")[1];
-      if (path) {
-        const { error: objErr } = await supabase.storage.from("recordings").remove([path]);
-        if (objErr) console.warn("[recordings] storage delete failed", objErr);
+      const result = await deleteRecordingsRemote([rec]);
+      if (result.deleted === 0) {
+        throw new Error("Recording was not deleted.");
       }
-      const { error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from("recordings" as any)
-        .delete()
-        .eq("id", rec.id);
-      if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.recordings }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.recordings });
+      qc.invalidateQueries({ queryKey: keys.inspections });
+    },
   });
+}
+
+export function useDeleteRecordings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deleteRecordingsRemote,
+    onMutate: async (rows) => {
+      await qc.cancelQueries({ queryKey: keys.recordings });
+      const previous = qc.getQueryData<Recording[]>(keys.recordings);
+      const ids = new Set(rows.map((row) => row.id));
+      qc.setQueryData<Recording[]>(keys.recordings, (current) =>
+        current ? current.filter((row) => !ids.has(row.id)) : current,
+      );
+      return { previous };
+    },
+    onError: (_error, _rows, context) => {
+      if (context?.previous) qc.setQueryData(keys.recordings, context.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: keys.recordings });
+      qc.invalidateQueries({ queryKey: keys.inspections });
+    },
+  });
+}
+
+async function deleteRecordingsRemote(
+  rows: readonly Recording[],
+): Promise<{ requested: number; deleted: number }> {
+  if (rows.length === 0) return { requested: 0, deleted: 0 };
+  await markRecordingReferencesDeleted(rows);
+  // Best-effort: delete storage objects too. Failure here is logged and the row
+  // deletion proceeds; orphaned objects are recoverable via bucket policy.
+  const paths = rows
+    .map((rec) => rec.video_url.split("/recordings/")[1])
+    .filter((path): path is string => !!path);
+  if (paths.length > 0) {
+    const { error: objErr } = await supabase.storage.from("recordings").remove(paths);
+    if (objErr) console.warn("[recordings] storage delete failed", objErr);
+  }
+  const ids = rows.map((rec) => rec.id);
+  const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .from("recordings" as any)
+    .delete()
+    .in("id", ids)
+    .select("id");
+  if (error) throw error;
+  return { requested: ids.length, deleted: (data ?? []).length };
+}
+
+async function markRecordingReferencesDeleted(rows: readonly Recording[]) {
+  const deletedAt = new Date().toISOString();
+  for (const rec of rows) {
+    const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("inspections" as any)
+      .select("id, metadata")
+      .contains("metadata", { capture_media: { recording_id: rec.id } });
+    if (error) {
+      console.warn("[recordings] inspection reference lookup failed", rec.id, error);
+      continue;
+    }
+    const inspections = (data ?? []) as unknown as Array<{ id: string; metadata: unknown }>;
+    for (const inspection of inspections) {
+      const metadata =
+        inspection.metadata && typeof inspection.metadata === "object"
+          ? { ...(inspection.metadata as Record<string, unknown>) }
+          : {};
+      const captureMedia =
+        metadata.capture_media && typeof metadata.capture_media === "object"
+          ? { ...(metadata.capture_media as Record<string, unknown>) }
+          : {};
+      metadata.capture_media = {
+        ...captureMedia,
+        kind: "video",
+        recording_id: rec.id,
+        url: typeof captureMedia.url === "string" ? captureMedia.url : rec.video_url,
+        video_deleted_at: deletedAt,
+      };
+      const { error: updateError } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("inspections" as any)
+        .update({ metadata })
+        .eq("id", inspection.id);
+      if (updateError) {
+        console.warn("[recordings] inspection reference mark deleted failed", rec.id, updateError);
+      }
+    }
+  }
 }
 
 export function useCreateInspection() {

@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Link, useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
-import Svg, { Ellipse } from "react-native-svg";
 import type { SeedGrade } from "@advance-seeds/types";
 import { useInspectionsPaged } from "@/lib/queries";
 import type { InspectionRow } from "@/lib/queries";
@@ -25,19 +24,6 @@ type HistoryItem =
 type HistoryListEntry =
   | { kind: "section"; key: string; groupKey: GroupKey; count: number }
   | { kind: "item"; key: string; item: HistoryItem };
-
-// Map a variety's family `color_key` to the small 40x40 tinted thumb shown on
-// each row. Only the icon square is tinted — the row surface itself stays
-// white. Hex mirrors the family-text token for the seed-dot SVG fill (SVG
-// `fill` cannot consume Tailwind classes).
-const FAMILY_TINT: Record<string, { thumb: string; inkHex: string }> = {
-  rice: { thumb: "bg-card-lavender", inkHex: "#3F249B" },
-  corn: { thumb: "bg-card-yellow", inkHex: "#704B00" },
-  legume: { thumb: "bg-card-mint", inkHex: "#2D6E3F" },
-  mungbean: { thumb: "bg-card-peach", inkHex: "#8C3C12" },
-};
-
-const DEFAULT_TINT = FAMILY_TINT.rice;
 
 /**
  * History screen — chronological list of the user's inspections.
@@ -206,7 +192,6 @@ function HistoryRow({ item }: { item: HistoryItem }) {
   const { t } = useTranslation("history");
   const row = item.kind === "remote" ? item.row : null;
   const entry = item.kind === "local" ? item.entry : null;
-  const tint = FAMILY_TINT[row?.variety?.color_key ?? ""] ?? DEFAULT_TINT;
   const syncState = item.syncState;
   const capturedAt = row?.captured_at ?? entry?.createdAt ?? new Date().toISOString();
   const title = row?.variety?.name ?? t("pendingInspection");
@@ -222,10 +207,12 @@ function HistoryRow({ item }: { item: HistoryItem }) {
   const content = (
     <View className="flex-row items-center gap-md bg-bg-primary px-xl py-md border-b border-line-tertiary">
       <View
-        className={`items-center justify-center rounded-lg ${tint.thumb}`}
+        className="items-center justify-center rounded-lg bg-bg-tertiary border border-line-tertiary"
         style={{ width: 40, height: 40 }}
       >
-        <SeedDotIcon color={tint.inkHex} size={40} />
+        <Text className="text-title font-semibold text-fg-secondary">
+          {title.trim().charAt(0).toUpperCase() || "?"}
+        </Text>
       </View>
       <View className="flex-1 min-w-0">
         <View className="flex-row items-center gap-xs">
@@ -251,35 +238,6 @@ function HistoryRow({ item }: { item: HistoryItem }) {
     <Link href={`/inspections/${row.id}`} asChild>
       <Pressable>{content}</Pressable>
     </Link>
-  );
-}
-
-/**
- * Small seed-dot illustration. Same primitive used by the Varieties tab — four
- * tilted ellipses on a tinted square — but rendered at 40px to suit the row.
- */
-function SeedDotIcon({ color, size = 40 }: { color: string; size?: number }) {
-  const dots: Array<[number, number, number]> = [
-    [13, 14, 0],
-    [25, 16, 30],
-    [16, 26, 60],
-    [27, 28, 90],
-  ];
-  return (
-    <Svg viewBox="0 0 40 40" width={size} height={size}>
-      {dots.map(([x, y, r], i) => (
-        <Ellipse
-          key={i}
-          cx={x}
-          cy={y}
-          rx={3.2}
-          ry={2}
-          fill={color}
-          opacity={0.55}
-          transform={`rotate(${r} ${x} ${y})`}
-        />
-      ))}
-    </Svg>
   );
 }
 
