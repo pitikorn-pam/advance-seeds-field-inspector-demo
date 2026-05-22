@@ -23,8 +23,7 @@ interface Options {
  *
  * Phase 4 replaces this with a real worklet-thread frame processor calling
  * the analyzer with vision-camera's native Frame. The hook's return shape
- * stays the same, so consumers (KpiStrip, future DetectionOverlay) don't
- * need to change.
+ * stays the same so scan-screen consumers don't need to change.
  */
 export function useFrameTicker(active: boolean, options: Options = {}): AnalysisFrameResult | null {
   const analyzer: SeedAnalyzer = useAnalyzer();

@@ -64,11 +64,6 @@ export default function VarietyDetail() {
 
   const meanL = avg(recent, "mean_length_mm");
   const meanW = avg(recent, "mean_width_mm");
-  // Grade range "anchors" derive from the recent mean length when present so
-  // the thresholds card stays oriented around real data. Width follows the
-  // same ±10/20% bands. These are display-only stand-ins until a
-  // `grade_thresholds` column lands on `varieties`.
-  const _thresholds = buildThresholds(meanL, meanW);
   const gradeAPct = recent.length > 0 ? gradeAPercent(recent) : 0;
   const histogram = buildHistogram(recent, meanL);
 
@@ -288,39 +283,6 @@ function gradeAPercent(rows: Array<{ total_seeds: number | null }>): number {
   const total = rows.reduce((s, r) => s + (r.total_seeds ?? 0), 0);
   if (total === 0) return 0;
   return Math.round(85);
-}
-
-interface GradeRange {
-  lLo: string;
-  lHi: string;
-  wLo: string;
-  wHi: string;
-}
-
-function buildThresholds(meanL: number, meanW: number): Record<"A" | "B" | "C", GradeRange> {
-  const safeL = meanL > 0 ? meanL : 0;
-  const safeW = meanW > 0 ? meanW : 0;
-  const fmt = (n: number) => (n > 0 ? n.toFixed(1) : "—");
-  return {
-    A: {
-      lLo: fmt(safeL * 0.9),
-      lHi: fmt(safeL * 1.07),
-      wLo: fmt(safeW * 0.92),
-      wHi: fmt(safeW * 1.08),
-    },
-    B: {
-      lLo: fmt(safeL * 0.78),
-      lHi: fmt(safeL * 0.9),
-      wLo: fmt(safeW * 0.82),
-      wHi: fmt(safeW * 1.12),
-    },
-    C: {
-      lLo: fmt(safeL * 0.66),
-      lHi: fmt(safeL * 0.78),
-      wLo: fmt(safeW * 0.7),
-      wHi: fmt(safeW * 1.18),
-    },
-  };
 }
 
 // 15-bucket histogram around mean length. When no data is available we emit a
