@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Image, View, Text } from "react-native";
+import { Image, Platform, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -537,9 +537,11 @@ export default function CaptureProcessing() {
           session.capturedLiveFrameResult?.seeds.some(
             (seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3,
           ) ?? false;
+        const shouldPromoteLiveMasks =
+          Platform.OS === "android" && !analysisHasMasks && liveFrameHasMasks;
         const shouldUseLiveFrameFallback =
           result.analyzerId !== "skip-video" &&
-          (result.seeds.length === 0 || (!analysisHasMasks && liveFrameHasMasks));
+          (result.seeds.length === 0 || shouldPromoteLiveMasks);
         if (shouldUseLiveFrameFallback) {
           const fallback = await liveFrameFallbackResult(
             session.capturedLiveFrameResult,

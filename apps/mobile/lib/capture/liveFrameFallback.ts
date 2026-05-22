@@ -1,6 +1,6 @@
 import { Image } from "react-native";
 import type { AnalysisFrameResult, AnalysisResult } from "@advance-seeds/types";
-import { orientLiveSeeds } from "./liveFrameGeometry";
+import { graftLiveMasksOntoAnalysisSeeds, orientLiveSeeds } from "./liveFrameGeometry";
 
 export async function liveFrameFallbackResult(
   frameResult: AnalysisFrameResult | null,
@@ -28,6 +28,32 @@ export async function liveFrameFallbackResult(
       mean_width_mm: frameResult.summary.mean_width_mm,
       mean_area_mm2: frameResult.summary.mean_area_mm2,
     },
+  };
+}
+
+export function graftLiveMasksOntoAnalysis(
+  analysis: AnalysisResult,
+  liveFrame: AnalysisFrameResult | null,
+  image: { width: number | null; height: number | null },
+): AnalysisResult | null {
+  const frameWidth = liveFrame?.frameWidth ?? 0;
+  const frameHeight = liveFrame?.frameHeight ?? 0;
+  if (!liveFrame || frameWidth <= 0 || frameHeight <= 0 || !image.width || !image.height) {
+    return null;
+  }
+  const orientedLiveSeeds = orientLiveSeeds(liveFrame.seeds, {
+    frameWidth,
+    frameHeight,
+    imageWidth: image.width,
+    imageHeight: image.height,
+    orientation: liveFrame.frameOrientation ?? "up",
+  });
+  const seeds = graftLiveMasksOntoAnalysisSeeds(analysis.seeds, orientedLiveSeeds);
+  if (!seeds) return null;
+  return {
+    ...analysis,
+    analyzerId: `${analysis.analyzerId}+live-mask-graft`,
+    seeds,
   };
 }
 

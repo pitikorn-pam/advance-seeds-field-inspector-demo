@@ -38,6 +38,16 @@ test("live detectors log requested and effective inference fps for QA", () => {
   assert.match(liveSource, /\[live-detections tflite\] inferenceFps requested=%d effective=%d/);
 });
 
+test("Android live detector does not call orientation normalizer inside the worklet", () => {
+  const androidSource = liveSource.split("// Android — native TFLite frame-processor plugin")[1];
+  assert.ok(androidSource);
+  const androidWorklet = androidSource.match(
+    /const frameProcessor = useFrameProcessor\([\s\S]*?console\.warn\("\[live-detections tflite-native\] frame processing failed"/,
+  )?.[0];
+  assert.ok(androidWorklet);
+  assert.doesNotMatch(androidWorklet, /normalizeFrameOrientation/);
+});
+
 test("iOS live detector keeps the worklet enabled ref synchronized", () => {
   assert.match(
     liveSource,

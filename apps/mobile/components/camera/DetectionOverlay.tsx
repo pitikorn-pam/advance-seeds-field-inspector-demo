@@ -5,6 +5,7 @@ import Svg, { Polygon as SvgPolygon } from "react-native-svg";
 import type { AnalysisFrameResult } from "@advance-seeds/types";
 import { glass } from "@advance-seeds/tokens";
 import { DEFAULT_CAPTURE_CLASSES } from "@/lib/analyzer/captureClasses";
+import { normalizeFrameOrientation } from "@/lib/capture/frameOrientation";
 
 interface Props {
   /** Latest per-frame analyzer output. Null hides the overlay. */
@@ -90,7 +91,7 @@ export function DetectionOverlay({
     // sees. Honor frameOrientation here: swap dims for the projection
     // scale and rotate each (x,y) from sensor → display space before
     // projecting.
-    const orientation = frameResult.frameOrientation ?? "up";
+    const orientation = normalizeFrameOrientation(frameResult.frameOrientation);
     const isRotated =
       orientation === "left" ||
       orientation === "right" ||

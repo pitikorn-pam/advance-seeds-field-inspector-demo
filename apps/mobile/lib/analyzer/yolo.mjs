@@ -50,6 +50,8 @@ export function decodeYolo(output, shape, options) {
   const scoreThreshold = options.scoreThreshold ?? 0.25;
   const classFilter = options.classFilter ?? null; // null = accept any class
   const { scale, padX, padY } = options.letterbox;
+  const scaleX = options.letterbox.scaleX ?? scale;
+  const scaleY = options.letterbox.scaleY ?? scale;
 
   const detections = [];
   // Output is channel-major: index for channel c, anchor a is c*anchors + a.
@@ -72,10 +74,10 @@ export function decodeYolo(output, shape, options) {
     const h = output[3 * anchors + a];
 
     // Invert letterbox: subtract padding, then divide by scale.
-    const x = (cx - w / 2 - padX) / scale;
-    const y = (cy - h / 2 - padY) / scale;
-    const width = w / scale;
-    const height = h / scale;
+    const x = (cx - w / 2 - padX) / scaleX;
+    const y = (cy - h / 2 - padY) / scaleY;
+    const width = w / scaleX;
+    const height = h / scaleY;
     if (width <= 1 || height <= 1) continue;
 
     detections.push({ x, y, width, height, score: bestScore, classId: bestClass });
@@ -95,6 +97,8 @@ export function decodeYoloNms(output, shape, options) {
   const scoreThreshold = options.scoreThreshold ?? 0.25;
   const classFilter = options.classFilter ?? null;
   const { scale, padX, padY, target } = options.letterbox;
+  const scaleX = options.letterbox.scaleX ?? scale;
+  const scaleY = options.letterbox.scaleY ?? scale;
 
   const detections = [];
   for (let i = 0; i < maxDet; i++) {
@@ -110,10 +114,10 @@ export function decodeYoloNms(output, shape, options) {
     const normalized =
       Math.max(Math.abs(rawX1), Math.abs(rawY1), Math.abs(rawX2), Math.abs(rawY2)) <= 1.5;
     const factor = normalized ? target : 1;
-    const x1 = (rawX1 * factor - padX) / scale;
-    const y1 = (rawY1 * factor - padY) / scale;
-    const x2 = (rawX2 * factor - padX) / scale;
-    const y2 = (rawY2 * factor - padY) / scale;
+    const x1 = (rawX1 * factor - padX) / scaleX;
+    const y1 = (rawY1 * factor - padY) / scaleY;
+    const x2 = (rawX2 * factor - padX) / scaleX;
+    const y2 = (rawY2 * factor - padY) / scaleY;
     const width = x2 - x1;
     const height = y2 - y1;
     if (width <= 1 || height <= 1) continue;
@@ -130,6 +134,8 @@ export function decodeYoloSegmentationNms(output, shape, options) {
   const scoreThreshold = options.scoreThreshold ?? 0.25;
   const classFilter = options.classFilter ?? null;
   const { scale, padX, padY, target } = options.letterbox;
+  const scaleX = options.letterbox.scaleX ?? scale;
+  const scaleY = options.letterbox.scaleY ?? scale;
 
   const detections = [];
   for (let i = 0; i < maxDet; i++) {
@@ -145,10 +151,10 @@ export function decodeYoloSegmentationNms(output, shape, options) {
     const normalized =
       Math.max(Math.abs(rawX1), Math.abs(rawY1), Math.abs(rawX2), Math.abs(rawY2)) <= 1.5;
     const factor = normalized ? target : 1;
-    const x1 = (rawX1 * factor - padX) / scale;
-    const y1 = (rawY1 * factor - padY) / scale;
-    const x2 = (rawX2 * factor - padX) / scale;
-    const y2 = (rawY2 * factor - padY) / scale;
+    const x1 = (rawX1 * factor - padX) / scaleX;
+    const y1 = (rawY1 * factor - padY) / scaleY;
+    const x2 = (rawX2 * factor - padX) / scaleX;
+    const y2 = (rawY2 * factor - padY) / scaleY;
     const width = x2 - x1;
     const height = y2 - y1;
     if (width <= 1 || height <= 1) continue;

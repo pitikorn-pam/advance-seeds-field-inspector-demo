@@ -41,6 +41,9 @@ interface Props {
   seed: SeedDetailSeed;
   /** Source image URI (https or file://). Null falls back to a placeholder. */
   sourceUri: string | null;
+  /** Source pixel dimensions used when the analyzer produced bbox/mask coordinates. */
+  sourceFrameWidth?: number | null;
+  sourceFrameHeight?: number | null;
   /** Optional override for the AppTopBar title. Defaults to `Seed #N`. */
   title?: string;
   /**
@@ -75,6 +78,8 @@ const DEFAULT_GRADE_OPTIONS: SeedGrade[] = ["A", "B", "C", "reject"];
 export function SeedDetailView({
   seed,
   sourceUri,
+  sourceFrameWidth = null,
+  sourceFrameHeight = null,
   title,
   onUpdateGrade,
   busy,
@@ -137,7 +142,12 @@ export function SeedDetailView({
     try {
       await shareAnnotatedImage(
         sourceUri,
-        { roi: null, seeds: [seed] },
+        {
+          roi: null,
+          seeds: [seed],
+          seedFrameWidth: sourceFrameWidth,
+          seedFrameHeight: sourceFrameHeight,
+        },
         title ?? `Seed #${seed.index}`,
       );
     } catch (err) {
@@ -166,7 +176,12 @@ export function SeedDetailView({
         }
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg pb-2xl">
-        <SeedHero seed={seed} sourceUri={sourceUri} />
+        <SeedHero
+          seed={seed}
+          sourceUri={sourceUri}
+          sourceFrameWidth={sourceFrameWidth}
+          sourceFrameHeight={sourceFrameHeight}
+        />
 
         <Card className="flex-row items-center gap-md p-lg">
           <View className="flex-1 flex-row items-center gap-md">
@@ -320,7 +335,17 @@ function GradeOverrideButton({
   );
 }
 
-function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string | null }) {
+function SeedHero({
+  seed,
+  sourceUri,
+  sourceFrameWidth,
+  sourceFrameHeight,
+}: {
+  seed: SeedDetailSeed;
+  sourceUri: string | null;
+  sourceFrameWidth: number | null;
+  sourceFrameHeight: number | null;
+}) {
   const ringColor = gradePalette(seed.grade).ink;
   const label = annotationLabel(seed);
 
@@ -329,6 +354,10 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
   const [getSizeError, setGetSizeError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   useEffect(() => {
+    if (sourceFrameWidth && sourceFrameHeight) {
+      setDims({ width: sourceFrameWidth, height: sourceFrameHeight });
+      return;
+    }
     if (!sourceUri) return;
     let cancelled = false;
     RNImage.getSize(
@@ -345,7 +374,7 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
     return () => {
       cancelled = true;
     };
-  }, [sourceUri]);
+  }, [sourceFrameHeight, sourceFrameWidth, sourceUri]);
 
   const projection = projectBboxToHero(seed.bbox, dims, stage);
   const bboxInvalid = seed.bbox.width <= 0 || seed.bbox.height <= 0;

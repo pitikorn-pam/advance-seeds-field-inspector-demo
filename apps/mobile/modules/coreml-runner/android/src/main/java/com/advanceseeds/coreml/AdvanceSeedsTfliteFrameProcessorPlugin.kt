@@ -42,15 +42,20 @@ private object AndroidTfliteRunner {
       val image = frame.imageProxy
       val modelPath = (params?.get("modelPath") as? String)?.takeIf { it.isNotBlank() }
         ?: return null
-      val cropSize = numberParam(params, "cropSize", min(image.width, image.height).toDouble())
+      val orientation = normalizeOrientation(params?.get("orientation") as? String)
+      val rotates = orientation == "left" || orientation == "right" ||
+          orientation == "left-mirrored" || orientation == "right-mirrored"
+      val postWidth = if (rotates) image.height else image.width
+      val postHeight = if (rotates) image.width else image.height
+      val cropSize = numberParam(params, "cropSize", min(postWidth, postHeight).toDouble())
         .toInt()
-        .coerceAtLeast(1)
-      val cropX = numberParam(params, "cropX", ((image.width - cropSize) / 2.0))
+        .coerceIn(1, max(1, min(postWidth, postHeight)))
+      val cropX = numberParam(params, "cropX", ((postWidth - cropSize) / 2.0))
         .toInt()
-        .coerceIn(0, max(0, image.width - cropSize))
-      val cropY = numberParam(params, "cropY", ((image.height - cropSize) / 2.0))
+        .coerceIn(0, max(0, postWidth - cropSize))
+      val cropY = numberParam(params, "cropY", ((postHeight - cropSize) / 2.0))
         .toInt()
-        .coerceIn(0, max(0, image.height - cropSize))
+        .coerceIn(0, max(0, postHeight - cropSize))
       val preprocessProfile = (params?.get("preprocessProfile") as? String)
         ?.takeIf { it == "morph_fused_v1" }
         ?: "raw_rgb"
@@ -73,18 +78,19 @@ private object AndroidTfliteRunner {
         (it as? Number)?.toInt()
       }?.takeIf { it.isNotEmpty() }?.toIntArray()
       val maskBinThreshold = numberParam(params, "maskThreshold", 0.5).toFloat()
-      // Derive letterbox from cropX/cropY/cropSize. The Android path
-      // feeds a square crop directly into TFLite at 640×640, so the
-      // "letterbox-inverse" the polygon decoder runs is simply
-      //   x_src = cropX + x_canvas * (cropSize / 640)
-      // which we encode as scale = 640/cropSize, padX = -cropX*scale,
-      // padY = -cropY*scale — matching the JS-side decodeOpts.letterbox.
+      val maskMaxPolygons = numberParam(params, "maxPolygons", Int.MAX_VALUE.toDouble())
+        .toInt()
+        .coerceAtLeast(0)
+      // Derive letterbox from the post-rotation crop. Android live
+      // samples YUV through the same orientation transform iOS Vision
+      // applies before inference, so boxes/polygons decode in upright
+      // source space first and JS maps them back to sensor space.
       val maskLetterboxTarget = INPUT_SIZE.toFloat()
       val maskLetterboxScale = if (cropSize > 0) maskLetterboxTarget / cropSize else 0f
       val maskLetterboxPadX = -cropX * maskLetterboxScale
       val maskLetterboxPadY = -cropY * maskLetterboxScale
-      val maskSrcW = image.width
-      val maskSrcH = image.height
+      val maskSrcW = postWidth
+      val maskSrcH = postHeight
 
       val activeRunner = getRunner(modelPath)
       val startedAtMs = System.currentTimeMillis()
@@ -96,6 +102,7 @@ private object AndroidTfliteRunner {
           cropX,
           cropY,
           cropSize,
+          orientation,
           preprocessProfile,
         )
         activeRunner.run()
@@ -106,7 +113,7 @@ private object AndroidTfliteRunner {
         lastTimingLogAtMs = now
         Log.d(
           TAG,
-          "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} preprocess=$preprocessProfile elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")} bridgeOutput=${activeRunner.bridgeOutputShape.joinToString("x")}"
+          "native live inference ${image.width}x${image.height} post=${postWidth}x${postHeight} orientation=$orientation crop=${cropX},${cropY},${cropSize} preprocess=$preprocessProfile elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")} bridgeOutput=${activeRunner.bridgeOutputShape.joinToString("x")}"
         )
       }
       val detectionShape: List<Int>
@@ -122,6 +129,7 @@ private object AndroidTfliteRunner {
       result["shape"] = detectionShape
       result["values"] = detectionValues
       result["delegate"] = activeRunner.delegateName
+      result["orientation"] = orientation
       result["outputIndex"] = activeRunner.selectedOutputIndex
       if (wantMask) {
         // Native polygon decode — runs on the worklet thread inside the
@@ -131,6 +139,9 @@ private object AndroidTfliteRunner {
         val protoShape = activeRunner.prototypeShape
         val canDecode = protoShape != null && maskLetterboxScale > 0f &&
             maskLetterboxTarget > 0f && maskSrcW > 0 && maskSrcH > 0
+        if (protoShape != null) {
+          result["protoShape"] = protoShape.toList()
+        }
         if (canDecode) {
           val polygons = activeRunner.decodeAllPolygonsToBridge(
             scoreThreshold = maskScoreThreshold,
@@ -142,6 +153,7 @@ private object AndroidTfliteRunner {
             srcW = maskSrcW,
             srcH = maskSrcH,
             maskThreshold = maskBinThreshold,
+            maxPolygons = maskMaxPolygons,
           )
           if (polygons != null) {
             result["polygons"] = polygons
@@ -171,6 +183,19 @@ private object AndroidTfliteRunner {
 
   private fun numberParam(params: Map<String, Any>?, name: String, fallback: Double): Double {
     return (params?.get(name) as? Number)?.toDouble() ?: fallback
+  }
+
+  private fun normalizeOrientation(value: String?): String {
+    val normalized = (value ?: "up").lowercase().replace('_', '-')
+    val mirrored = if (normalized.endsWith("-mirrored")) "-mirrored" else ""
+    val base = if (mirrored.isNotEmpty()) normalized.removeSuffix("-mirrored") else normalized
+    return when (base) {
+      "portrait", "portrait-up", "up" -> "up$mirrored"
+      "portrait-down", "portrait-upside-down", "upside-down", "down" -> "down$mirrored"
+      "landscape-left", "left" -> "left$mirrored"
+      "landscape-right", "right" -> "right$mirrored"
+      else -> normalized.ifBlank { "up" }
+    }
   }
 
   private class Runner(modelBuffer: ByteBuffer, val sourceKey: String) {
@@ -239,12 +264,21 @@ private object AndroidTfliteRunner {
       cropX: Int,
       cropY: Int,
       cropSize: Int,
+      orientation: String,
       preprocessProfile: String,
     ) {
       if (preprocessProfile == "morph_fused_v1") {
-        fillInputMorphFusedFromYuv(planes, frameWidth, frameHeight, cropX, cropY, cropSize)
+        fillInputMorphFusedFromYuv(
+          planes,
+          frameWidth,
+          frameHeight,
+          cropX,
+          cropY,
+          cropSize,
+          orientation,
+        )
       } else {
-        fillInputRawFromYuv(planes, frameWidth, frameHeight, cropX, cropY, cropSize)
+        fillInputRawFromYuv(planes, frameWidth, frameHeight, cropX, cropY, cropSize, orientation)
       }
     }
 
@@ -255,6 +289,7 @@ private object AndroidTfliteRunner {
       cropX: Int,
       cropY: Int,
       cropSize: Int,
+      orientation: String,
     ) {
       inputBuffer.rewind()
       val yPlane = planes[0]
@@ -263,7 +298,7 @@ private object AndroidTfliteRunner {
       val yBuffer = yPlane.buffer.duplicate()
       val uBuffer = uPlane.buffer.duplicate()
       val vBuffer = vPlane.buffer.duplicate()
-      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize)
+      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize, orientation)
       val yRowStride = yPlane.rowStride
       val yPixelStride = yPlane.pixelStride
       val uRowStride = uPlane.rowStride
@@ -316,6 +351,7 @@ private object AndroidTfliteRunner {
       cropX: Int,
       cropY: Int,
       cropSize: Int,
+      orientation: String,
     ) {
       inputBuffer.rewind()
       val yPlane = planes[0]
@@ -324,7 +360,7 @@ private object AndroidTfliteRunner {
       val yBuffer = yPlane.buffer.duplicate()
       val uBuffer = uPlane.buffer.duplicate()
       val vBuffer = vPlane.buffer.duplicate()
-      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize)
+      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize, orientation)
       val yRowStride = yPlane.rowStride
       val yPixelStride = yPlane.pixelStride
       val uRowStride = uPlane.rowStride
@@ -560,6 +596,7 @@ private object AndroidTfliteRunner {
       srcW: Int,
       srcH: Int,
       maskThreshold: Float,
+      maxPolygons: Int,
     ): List<List<Double>>? {
       if (prototypeBuffer == null || prototypeShape == null) return null
       if (outputShape.size != 3) return null
@@ -602,8 +639,11 @@ private object AndroidTfliteRunner {
       val sy = (protoH.toFloat() / target) * scale
       val ox = (padX * protoW) / target
       val oy = (padY * protoH) / target
+      val useXyxy = pickBoxFormat(det, maxDet, fields, scoreThreshold)
+      val selectedRows = selectPolygonRows(det, maxDet, fields, scoreThreshold, classFilter, maxPolygons)
 
       for (i in 0 until maxDet) {
+        if (!selectedRows[i]) { out.add(emptyList()); continue }
         val base = i * fields
         val score = det[base + 4]
         if (score < scoreThreshold) { out.add(emptyList()); continue }
@@ -611,15 +651,59 @@ private object AndroidTfliteRunner {
         if (classFilter != null && !classFilter.any { it == classId }) {
           out.add(emptyList()); continue
         }
-        // xyxy in 0..target canvas pixel space; apply letterbox-inverse.
-        val rawX1 = det[base + 0]
-        val rawY1 = det[base + 1]
-        val rawX2 = det[base + 2]
-        val rawY2 = det[base + 3]
-        val fx1 = (rawX1 - padX) / scale
-        val fy1 = (rawY1 - padY) / scale
-        val fx2 = (rawX2 - padX) / scale
-        val fy2 = (rawY2 - padY) / scale
+        val rawA = det[base + 0]
+        val rawB = det[base + 1]
+        val rawC = det[base + 2]
+        val rawD = det[base + 3]
+        val rowMaxAbs = max(max(kotlin.math.abs(rawA), kotlin.math.abs(rawB)), max(kotlin.math.abs(rawC), kotlin.math.abs(rawD)))
+        val rawX1: Float
+        val rawY1: Float
+        val rawX2: Float
+        val rawY2: Float
+        if (useXyxy) {
+          rawX1 = rawA
+          rawY1 = rawB
+          rawX2 = rawC
+          rawY2 = rawD
+        } else {
+          rawX1 = rawA - rawC / 2f
+          rawY1 = rawB - rawD / 2f
+          rawX2 = rawA + rawC / 2f
+          rawY2 = rawB + rawD / 2f
+        }
+        val fx1: Float
+        val fy1: Float
+        val fx2: Float
+        val fy2: Float
+        if (rowMaxAbs > target * 1.1f) {
+          fx1 = rawX1
+          fy1 = rawY1
+          fx2 = rawX2
+          fy2 = rawY2
+        } else if (rowMaxAbs <= 1.5f) {
+          val ax1 = (rawX1 * target - padX) / scale
+          val ay1 = (rawY1 * target - padY) / scale
+          val ax2 = (rawX2 * target - padX) / scale
+          val ay2 = (rawY2 * target - padY) / scale
+          val aFits = ax1 >= -4f && ay1 >= -4f && ax2 <= srcW + 4f &&
+              ay2 <= srcH + 4f && ax2 > ax1 && ay2 > ay1
+          if (aFits) {
+            fx1 = ax1
+            fy1 = ay1
+            fx2 = ax2
+            fy2 = ay2
+          } else {
+            fx1 = rawX1 * srcW
+            fy1 = rawY1 * srcH
+            fx2 = rawX2 * srcW
+            fy2 = rawY2 * srcH
+          }
+        } else {
+          fx1 = (rawX1 - padX) / scale
+          fy1 = (rawY1 - padY) / scale
+          fx2 = (rawX2 - padX) / scale
+          fy2 = (rawY2 - padY) / scale
+        }
         if (fx2 - fx1 <= 1f || fy2 - fy1 <= 1f) { out.add(emptyList()); continue }
         val x0 = max(0, floor(fx1).toInt())
         val y0 = max(0, floor(fy1).toInt())
@@ -723,6 +807,60 @@ private object AndroidTfliteRunner {
         out.add(boxed)
       }
       return out
+    }
+
+    private fun selectPolygonRows(
+      det: FloatArray,
+      maxDet: Int,
+      fields: Int,
+      scoreThreshold: Float,
+      classFilter: IntArray?,
+      maxPolygons: Int,
+    ): BooleanArray {
+      val selected = BooleanArray(maxDet)
+      if (maxPolygons <= 0) return selected
+      val candidates = ArrayList<Pair<Int, Float>>(maxDet)
+      for (i in 0 until maxDet) {
+        val base = i * fields
+        val score = det[base + 4]
+        if (score < scoreThreshold) continue
+        val classId = Math.round(det[base + 5])
+        if (classFilter != null && !classFilter.any { it == classId }) continue
+        candidates.add(Pair(i, score))
+      }
+      candidates.sortByDescending { it.second }
+      val limit = min(maxPolygons, candidates.size)
+      for (i in 0 until limit) selected[candidates[i].first] = true
+      return selected
+    }
+
+    private fun pickBoxFormat(
+      det: FloatArray,
+      maxDet: Int,
+      fields: Int,
+      scoreThreshold: Float,
+    ): Boolean {
+      var xyxyHits = 0
+      var cxywhHits = 0
+      var inspected = 0
+      val topK = 5
+      for (i in 0 until maxDet) {
+        if (inspected >= topK) break
+        val base = i * fields
+        val score = det[base + 4]
+        if (score < scoreThreshold) continue
+        inspected++
+        val a = det[base + 0]
+        val b = det[base + 1]
+        val c = det[base + 2]
+        val d = det[base + 3]
+        if (c > a + 1f && d > b + 1f) xyxyHits++
+        val cxywhPx = c > 5f && d > 5f
+        val cxywhNorm = c > 0.01f && c <= 1.5f && d > 0.01f && d <= 1.5f
+        if (cxywhPx || cxywhNorm) cxywhHits++
+      }
+      if (inspected == 0) return true
+      return !(xyxyHits == 0 && cxywhHits > 0)
     }
 
     /**
@@ -927,14 +1065,41 @@ private object AndroidTfliteRunner {
       cropX: Int,
       cropY: Int,
       cropSize: Int,
+      orientation: String,
     ) {
-      val key = "$frameWidth:$frameHeight:$cropX:$cropY:$cropSize"
+      val key = "$frameWidth:$frameHeight:$cropX:$cropY:$cropSize:$orientation"
       if (key == mapKey) return
       mapKey = key
       val scale = cropSize.toDouble() / INPUT_SIZE
+      val rotates = orientation == "left" || orientation == "right" ||
+          orientation == "left-mirrored" || orientation == "right-mirrored"
+      val postWidth = if (rotates) frameHeight else frameWidth
+      val postHeight = if (rotates) frameWidth else frameHeight
       for (i in 0 until INPUT_SIZE) {
-        srcXMap[i] = (cropX + ((i + 0.5) * scale).toInt()).coerceIn(0, frameWidth - 1)
-        srcYMap[i] = (cropY + ((i + 0.5) * scale).toInt()).coerceIn(0, frameHeight - 1)
+        val postX = (cropX + ((i + 0.5) * scale).toInt()).coerceIn(0, postWidth - 1)
+        val postY = (cropY + ((i + 0.5) * scale).toInt()).coerceIn(0, postHeight - 1)
+        val sensor = postToSensor(postX, postY, postWidth, postHeight, frameWidth, frameHeight, orientation)
+        srcXMap[i] = sensor.first
+        srcYMap[i] = sensor.second
+      }
+    }
+
+    private fun postToSensor(
+      x: Int,
+      y: Int,
+      postW: Int,
+      postH: Int,
+      frameW: Int,
+      frameH: Int,
+      orientation: String,
+    ): Pair<Int, Int> {
+      return when (orientation) {
+        "right", "right-mirrored" -> Pair(y, postW - x)
+        "left", "left-mirrored" -> Pair(postH - y, x)
+        "down", "down-mirrored" -> Pair(postW - x, postH - y)
+        else -> Pair(x, y)
+      }.let { (sx, sy) ->
+        Pair(sx.coerceIn(0, frameW - 1), sy.coerceIn(0, frameH - 1))
       }
     }
 

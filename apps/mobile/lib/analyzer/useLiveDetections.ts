@@ -34,6 +34,7 @@ import { recordInference, type InferenceSource } from "./inferenceStats";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
 import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
+import { normalizeFrameOrientation } from "@/lib/capture/frameOrientation";
 
 const COREML_ASSET = "yolo26n";
 
@@ -44,6 +45,7 @@ const COREML_ASSET = "yolo26n";
 // stepping on each other's slot.
 let __coremlValuesBuf: Float32Array | null = null;
 let __tfliteValuesBuf: Float32Array | null = null;
+const ANDROID_LIVE_MAX_DETECTIONS = 2;
 function reuseFloat32Array(slot: Float32Array | null, src: number[]): Float32Array {
   let buf = slot;
   if (buf === null || buf.length < src.length) {
@@ -598,6 +600,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const detectionsShared = useReanimatedSharedValue<AnalysisFrameResult | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   const lastSetAtRef = useRef(0);
+  const lastAcceptedFrameTimestampRef = useRef(0);
   const lastDecodeLogAtRef = useRef(0);
   // Android native inference is still capped below the shared hyperparameter
   // default, so a 66 ms render gate remains enough to prevent accidental
@@ -621,6 +624,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     if (!enabled) {
       setDetections(null);
       detectionsShared.value = null;
+      lastAcceptedFrameTimestampRef.current = 0;
     }
   }, [enabled, detectionsShared]);
 
@@ -630,7 +634,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   );
 
   const scoreThreshold = hp.scoreThreshold;
-  const liveScoreThreshold = Math.min(scoreThreshold, 0.25);
+  const liveScoreThreshold = scoreThreshold;
   const iouThreshold = hp.iouThreshold;
   // Pre-resolve the class filter into the active model's class index
   // space so the native polygon decode can apply the same filter
@@ -709,10 +713,12 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           frameTimestampMs: number,
           inferElapsedMs: number,
           delegate: string,
+          orientation: string,
           // Native-decoded polygons, parallel to the raw row iteration.
           // See iOS comment above; same contract.
           polygonsByRow: number[][] | null,
         ) => {
+          orientation = normalizeFrameOrientation(orientation);
           const source: InferenceSource = delegate === "gpu" ? "tflite-android-gpu" : "tflite-cpu";
           recordInference(source, inferElapsedMs);
           if (__DEV__ && lastLoggedDelegate !== delegate) {
@@ -725,6 +731,13 @@ function useLiveDetectionsAndroidNative(options: Options): State {
           const out = __tfliteValuesBuf;
           const outputKind: "raw" | "nms" | "segmentation" =
             shape2 === 6 ? "nms" : shape2 > 6 ? "segmentation" : "raw";
+          const rotates =
+            orientation === "left" ||
+            orientation === "right" ||
+            orientation === "left-mirrored" ||
+            orientation === "right-mirrored";
+          const postW = rotates ? frameHeight : frameWidth;
+          const postH = rotates ? frameWidth : frameHeight;
           const fpScale = YOLO_INPUT_SIZE / cropSize;
           const decodeOpts = {
             letterbox: {
@@ -750,9 +763,9 @@ function useLiveDetectionsAndroidNative(options: Options): State {
                 ? decodeYoloSegmentationNms(out, shape, decodeOpts)
                 : decodeYolo(out, shape, decodeOpts);
           // Attach native-decoded polygons; same index-alignment trick
-          // as the iOS branch. Android doesn't apply per-detection
-          // rotation, so polygons stay in the cropped-square source
-          // pixel space the bbox came from.
+          // as the iOS branch. Native Android now samples the frame in
+          // post-rotation space before inference, so polygons start in
+          // the same post-rotation source coords as the bbox.
           if (outputKind === "segmentation" && polygonsByRow && polygonsByRow.length === shape1) {
             const cf = decodeOpts.classFilter;
             let detIdx = 0;
@@ -779,7 +792,22 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             polygonsByRow !== null,
             raw.reduce((n, d) => n + (d.polygon ? 1 : 0), 0),
           );
-          const kept = outputKind === "raw" ? nonMaxSuppression(raw, iouThreshold) : raw;
+          const sensorDetections = rotates
+            ? raw.map((d) => {
+                const r = unrotateBbox(d, postW, postH, orientation);
+                if (d.polygon) {
+                  r.polygon = d.polygon.map((p) =>
+                    unrotatePoint(p.x, p.y, postW, postH, orientation),
+                  );
+                  r.maskPixelCount = d.maskPixelCount;
+                }
+                return r;
+              })
+            : raw;
+          const kept = nonMaxSuppression(sensorDetections, iouThreshold).slice(
+            0,
+            ANDROID_LIVE_MAX_DETECTIONS,
+          );
           const seeds = mapDetectionsToSeeds(kept, {
             frameWidth,
             frameHeight,
@@ -819,20 +847,31 @@ function useLiveDetectionsAndroidNative(options: Options): State {
                   }).join(",")
                 : "raw-head";
             console.info(
-              `[live-detections android-native] shape=${shape.join("x")} frame=${frameWidth}x${frameHeight} crop=${cropX},${cropY},${cropSize} delegate=${delegate} filter=${classFilter ? [...classFilter].join(",") : "any"} threshold=${liveScoreThreshold}/${scoreThreshold} all=${allRaw.length} raw=${raw.length} kept=${kept.length} seeds=${seeds.length} top=${top} tensor=${topTensor}`,
+              `[live-detections android-native] shape=${shape.join("x")} frame=${frameWidth}x${frameHeight} post=${postW}x${postH} orientation=${orientation} crop=${cropX},${cropY},${cropSize} delegate=${delegate} filter=${classFilter ? [...classFilter].join(",") : "any"} threshold=${liveScoreThreshold}/${scoreThreshold} all=${allRaw.length} raw=${raw.length} kept=${kept.length} seeds=${seeds.length} top=${top} tensor=${topTensor}`,
             );
           }
           if (!mountedRef.current) return;
           if (!enabledRef.current) return;
+          if (
+            frameTimestampMs > 0 &&
+            lastAcceptedFrameTimestampRef.current > 0 &&
+            frameTimestampMs <= lastAcceptedFrameTimestampRef.current
+          ) {
+            return;
+          }
           const now = Date.now();
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
           lastSetAtRef.current = now;
+          if (frameTimestampMs > 0) {
+            lastAcceptedFrameTimestampRef.current = frameTimestampMs;
+          }
           const nextResult: AnalysisFrameResult = {
             seeds,
             summary: summarizeSeeds(seeds),
             frameTimestampMs,
             frameWidth,
             frameHeight,
+            frameOrientation: orientation,
             analyzerId: "tflite-yolo-live-native",
           };
           setDetections(nextResult);
@@ -870,18 +909,28 @@ function useLiveDetectionsAndroidNative(options: Options): State {
         runAsync(frame, () => {
           "worklet";
           try {
+            const rawOrientation = String(frame.orientation ?? "up");
+            const rotates =
+              rawOrientation === "landscape-left" ||
+              rawOrientation === "landscape-right" ||
+              rawOrientation === "left" ||
+              rawOrientation === "right" ||
+              rawOrientation === "left-mirrored" ||
+              rawOrientation === "right-mirrored";
+            const cropFrameWidth = rotates ? frame.height : frame.width;
+            const cropFrameHeight = rotates ? frame.width : frame.height;
             let cropX = 0;
             let cropY = 0;
-            let cropSize = Math.min(frame.width, frame.height);
+            let cropSize = Math.min(cropFrameWidth, cropFrameHeight);
             if (roiCropNorm) {
-              cropSize = Math.round(roiCropNorm.size * Math.min(frame.width, frame.height));
-              cropX = Math.round(roiCropNorm.x * frame.width);
-              cropY = Math.round(roiCropNorm.y * frame.height);
-              if (cropX + cropSize > frame.width) cropX = frame.width - cropSize;
-              if (cropY + cropSize > frame.height) cropY = frame.height - cropSize;
+              cropSize = Math.round(roiCropNorm.size * Math.min(cropFrameWidth, cropFrameHeight));
+              cropX = Math.round(roiCropNorm.x * cropFrameWidth);
+              cropY = Math.round(roiCropNorm.y * cropFrameHeight);
+              if (cropX + cropSize > cropFrameWidth) cropX = cropFrameWidth - cropSize;
+              if (cropY + cropSize > cropFrameHeight) cropY = cropFrameHeight - cropSize;
             } else {
-              cropX = Math.round((frame.width - cropSize) / 2);
-              cropY = Math.round((frame.height - cropSize) / 2);
+              cropX = Math.round((cropFrameWidth - cropSize) / 2);
+              cropY = Math.round((cropFrameHeight - cropSize) / 2);
             }
             const counter = maskFrameCounter.value + 1;
             maskFrameCounter.value = counter;
@@ -896,10 +945,12 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               cropX,
               cropY,
               cropSize,
+              orientation: rawOrientation,
               preprocessProfile,
               wantMask,
               scoreThreshold: liveScoreThreshold,
               classFilter: mappedClassFilterForAndroid ?? [],
+              maxPolygons: ANDROID_LIVE_MAX_DETECTIONS,
             });
             const inferElapsedMs = Date.now() - startedAt;
             if (!result) return;
@@ -907,6 +958,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               shape: number[];
               values: number[];
               delegate?: string;
+              orientation?: string;
               polygons?: number[][];
             };
             const shape = r.shape;
@@ -923,6 +975,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               frame.timestamp,
               inferElapsedMs,
               r.delegate ?? "cpu",
+              r.orientation ?? rawOrientation,
               r.polygons ?? null,
             );
           } catch (err) {

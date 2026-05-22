@@ -1,5 +1,30 @@
 import type { AnalyzedSeed } from "@advance-seeds/types";
 
+function normalizeFrameOrientation(orientation: string | null | undefined): string {
+  const value = (orientation ?? "up").toLowerCase().replace(/_/g, "-");
+  const mirrored = value.endsWith("-mirrored") ? "-mirrored" : "";
+  const base = mirrored ? value.slice(0, -"-mirrored".length) : value;
+  switch (base) {
+    case "portrait":
+    case "portrait-up":
+    case "up":
+      return `up${mirrored}`;
+    case "portrait-down":
+    case "portrait-upside-down":
+    case "upside-down":
+    case "down":
+      return `down${mirrored}`;
+    case "landscape-left":
+    case "left":
+      return `left${mirrored}`;
+    case "landscape-right":
+    case "right":
+      return `right${mirrored}`;
+    default:
+      return value || "up";
+  }
+}
+
 export function orientLiveSeeds(
   seeds: readonly AnalyzedSeed[],
   dims: {
@@ -10,7 +35,8 @@ export function orientLiveSeeds(
     orientation: string;
   },
 ): AnalyzedSeed[] {
-  const { frameWidth, frameHeight, imageWidth, imageHeight, orientation } = dims;
+  const { frameWidth, frameHeight, imageWidth, imageHeight } = dims;
+  const orientation = normalizeFrameOrientation(dims.orientation);
   const rotates =
     orientation === "left" ||
     orientation === "right" ||
@@ -46,12 +72,42 @@ export function orientLiveSeeds(
   });
 }
 
+export function graftLiveMasksOntoAnalysisSeeds(
+  analysisSeeds: readonly AnalyzedSeed[],
+  liveSeeds: readonly AnalyzedSeed[] | null | undefined,
+): AnalyzedSeed[] | null {
+  if (!analysisSeeds.length || !liveSeeds?.length) return null;
+  const liveMasks = liveSeeds.filter((seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3);
+  if (!liveMasks.length) return null;
+  const used = new Set<number>();
+  let changed = false;
+  const seeds = analysisSeeds.map((seed) => {
+    if (seed.mask?.polygon && seed.mask.polygon.length >= 3) return seed;
+    const match = bestLiveMaskMatch(seed, liveMasks, used);
+    if (!match?.mask?.polygon || !isUsableBox(match.bbox) || !isUsableBox(seed.bbox)) return seed;
+    used.add(match.index);
+    changed = true;
+    return {
+      ...seed,
+      mask: {
+        ...match.mask,
+        polygon: match.mask.polygon.map((point) => ({
+          x: seed.bbox.x + ((point.x - match.bbox.x) / match.bbox.width) * seed.bbox.width,
+          y: seed.bbox.y + ((point.y - match.bbox.y) / match.bbox.height) * seed.bbox.height,
+        })),
+      },
+    };
+  });
+  return changed ? seeds : null;
+}
+
 export function rotateLiveBox(
   box: AnalyzedSeed["bbox"],
   frameWidth: number,
   frameHeight: number,
   orientation: string,
 ): AnalyzedSeed["bbox"] {
+  orientation = normalizeFrameOrientation(orientation);
   if (orientation === "right" || orientation === "right-mirrored") {
     return {
       x: frameHeight - box.y - box.height,
@@ -86,6 +142,7 @@ export function rotateLivePoint(
   frameHeight: number,
   orientation: string,
 ): { x: number; y: number } {
+  orientation = normalizeFrameOrientation(orientation);
   if (orientation === "right" || orientation === "right-mirrored") {
     return { x: frameHeight - y, y: x };
   }
@@ -96,4 +153,35 @@ export function rotateLivePoint(
     return { x: frameWidth - x, y: frameHeight - y };
   }
   return { x, y };
+}
+
+function bestLiveMaskMatch(
+  seed: AnalyzedSeed,
+  liveMasks: AnalyzedSeed[],
+  used: Set<number>,
+): AnalyzedSeed | null {
+  let best: AnalyzedSeed | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const live of liveMasks) {
+    if (used.has(live.index)) continue;
+    if (
+      typeof seed.class_id === "number" &&
+      typeof live.class_id === "number" &&
+      seed.class_id !== live.class_id
+    ) {
+      continue;
+    }
+    const score =
+      Math.abs((seed.length_mm || 0) - (live.length_mm || 0)) +
+      Math.abs((seed.width_mm || 0) - (live.width_mm || 0));
+    if (score < bestScore) {
+      best = live;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function isUsableBox(box: AnalyzedSeed["bbox"]): boolean {
+  return box.width > 1 && box.height > 1;
 }

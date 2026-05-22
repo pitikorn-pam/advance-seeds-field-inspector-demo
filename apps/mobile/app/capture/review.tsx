@@ -252,7 +252,7 @@ export default function CaptureReview() {
         // thumbnail JPG (last-resort: video upload failed). The JPG won't
         // play but at least mounts CaptureMediaPreview's image branch.
         (session.capturedVideoUri ?? session.uploadedVideoUrl ?? session.uploadedImageUrl)
-      : (session.capturedImageUri ?? session.uploadedImageUrl);
+      : (session.uploadedImageUrl ?? session.capturedImageUri);
   const previewRoi = session.mode === "live" ? session.roi : null;
   const note = displayInspectionNote(session.notes);
   const capturedAt = session.capturedAt ?? new Date().toISOString();
@@ -266,7 +266,7 @@ export default function CaptureReview() {
     const uri =
       mediaKind === "video"
         ? (session.uploadedVideoUrl ?? session.capturedVideoUri)
-        : (session.capturedImageUri ?? session.uploadedImageUrl);
+        : (session.uploadedImageUrl ?? session.capturedImageUri);
     if (!uri) return;
     try {
       if (mediaKind === "video") {

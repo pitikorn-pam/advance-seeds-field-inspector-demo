@@ -98,8 +98,10 @@ export function decodeMaskForDetection(args: DecodeMaskArgs): MaskRect | null {
   if (w === 0 || h === 0) return null;
 
   const { scale, padX, padY, target } = letterbox;
-  const sx = (protoW / target) * scale;
-  const sy = (protoH / target) * scale;
+  const scaleX = letterbox.scaleX ?? scale;
+  const scaleY = letterbox.scaleY ?? scale;
+  const sx = (protoW / target) * scaleX;
+  const sy = (protoH / target) * scaleY;
   const ox = (padX * protoW) / target;
   const oy = (padY * protoH) / target;
 

@@ -72,7 +72,12 @@ export function letterbox(pixels: PixelImage, target = YOLO_INPUT_SIZE): Letterb
 }
 
 /** Just the inverse-mapping params needed to project boxes back. */
-export type LetterboxInverse = Pick<LetterboxResult, "scale" | "padX" | "padY" | "target">;
+export type LetterboxInverse = Pick<LetterboxResult, "scale" | "padX" | "padY" | "target"> & {
+  /** Optional non-uniform X scale for CoreML image inputs that scale-fill 640x640. */
+  scaleX?: number;
+  /** Optional non-uniform Y scale for CoreML image inputs that scale-fill 640x640. */
+  scaleY?: number;
+};
 
 export interface DecodeOptions {
   letterbox: LetterboxInverse;
@@ -97,6 +102,8 @@ export function decodeYolo(
   const scoreThreshold = options.scoreThreshold ?? 0.25;
   const classFilter = options.classFilter ?? null;
   const { scale, padX, padY } = options.letterbox;
+  const scaleX = options.letterbox.scaleX ?? scale;
+  const scaleY = options.letterbox.scaleY ?? scale;
 
   const detections: RawDetection[] = [];
   for (let a = 0; a < anchors; a++) {
@@ -116,10 +123,10 @@ export function decodeYolo(
     const cy = output[1 * anchors + a];
     const w = output[2 * anchors + a];
     const h = output[3 * anchors + a];
-    const x = (cx - w / 2 - padX) / scale;
-    const y = (cy - h / 2 - padY) / scale;
-    const width = w / scale;
-    const height = h / scale;
+    const x = (cx - w / 2 - padX) / scaleX;
+    const y = (cy - h / 2 - padY) / scaleY;
+    const width = w / scaleX;
+    const height = h / scaleY;
     if (width <= 1 || height <= 1) continue;
     detections.push({ x, y, width, height, score: bestScore, classId: bestClass });
   }
@@ -138,6 +145,8 @@ export function decodeYoloNms(
   const scoreThreshold = options.scoreThreshold ?? 0.25;
   const classFilter = options.classFilter ?? null;
   const { scale, padX, padY, target } = options.letterbox;
+  const scaleX = options.letterbox.scaleX ?? scale;
+  const scaleY = options.letterbox.scaleY ?? scale;
 
   const detections: RawDetection[] = [];
   for (let i = 0; i < maxDet; i++) {
@@ -153,10 +162,10 @@ export function decodeYoloNms(
     const normalized =
       Math.max(Math.abs(rawX1), Math.abs(rawY1), Math.abs(rawX2), Math.abs(rawY2)) <= 1.5;
     const factor = normalized ? target : 1;
-    const x1 = (rawX1 * factor - padX) / scale;
-    const y1 = (rawY1 * factor - padY) / scale;
-    const x2 = (rawX2 * factor - padX) / scale;
-    const y2 = (rawY2 * factor - padY) / scale;
+    const x1 = (rawX1 * factor - padX) / scaleX;
+    const y1 = (rawY1 * factor - padY) / scaleY;
+    const x2 = (rawX2 * factor - padX) / scaleX;
+    const y2 = (rawY2 * factor - padY) / scaleY;
     const width = x2 - x1;
     const height = y2 - y1;
     if (width <= 1 || height <= 1) continue;
@@ -180,6 +189,8 @@ export function decodeYoloSegmentationNms(
   const scoreThreshold = options.scoreThreshold ?? 0.25;
   const classFilter = options.classFilter ?? null;
   const { scale, padX, padY, target } = options.letterbox;
+  const scaleX = options.letterbox.scaleX ?? scale;
+  const scaleY = options.letterbox.scaleY ?? scale;
 
   // Detect bbox format. Ultralytics' standard NMS-fused export emits
   // `[x1, y1, x2, y2, conf, cls, ...masks]`, but some training/export
@@ -203,8 +214,8 @@ export function decodeYoloSegmentationNms(
   // values and we should pass them through unchanged.
   // Source-image dims, derived from the letterbox params. Used by
   // per-row coord-space detection below.
-  const srcW = scale > 0 ? Math.max(1, Math.round((target - 2 * padX) / scale)) : target;
-  const srcH = scale > 0 ? Math.max(1, Math.round((target - 2 * padY) / scale)) : target;
+  const srcW = scaleX > 0 ? Math.max(1, Math.round((target - 2 * padX) / scaleX)) : target;
+  const srcH = scaleY > 0 ? Math.max(1, Math.round((target - 2 * padY) / scaleY)) : target;
   if (__DEV__) {
     if (lastLoggedFormat !== useXyxy) {
       lastLoggedFormat = useXyxy;
@@ -280,10 +291,10 @@ export function decodeYoloSegmentationNms(
     } else if (rowMaxAbs <= 1.5) {
       // Normalized [0,1]. Try canvas+letterbox first; if it lands the
       // bbox out of source bounds, retry as normalized-to-source.
-      const ax1 = (rawX1 * target - padX) / scale;
-      const ay1 = (rawY1 * target - padY) / scale;
-      const ax2 = (rawX2 * target - padX) / scale;
-      const ay2 = (rawY2 * target - padY) / scale;
+      const ax1 = (rawX1 * target - padX) / scaleX;
+      const ay1 = (rawY1 * target - padY) / scaleY;
+      const ax2 = (rawX2 * target - padX) / scaleX;
+      const ay2 = (rawY2 * target - padY) / scaleY;
       const aFits =
         ax1 >= -4 && ay1 >= -4 && ax2 <= srcW + 4 && ay2 <= srcH + 4 && ax2 > ax1 && ay2 > ay1;
       if (aFits) {
@@ -299,10 +310,10 @@ export function decodeYoloSegmentationNms(
       }
     } else {
       // Standard 640-canvas pixel space; apply letterbox-inverse.
-      x1 = (rawX1 - padX) / scale;
-      y1 = (rawY1 - padY) / scale;
-      x2 = (rawX2 - padX) / scale;
-      y2 = (rawY2 - padY) / scale;
+      x1 = (rawX1 - padX) / scaleX;
+      y1 = (rawY1 - padY) / scaleY;
+      x2 = (rawX2 - padX) / scaleX;
+      y2 = (rawY2 - padY) / scaleY;
     }
     const width = x2 - x1;
     const height = y2 - y1;

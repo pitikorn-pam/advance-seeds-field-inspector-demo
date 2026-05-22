@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FlatList, View, Text, Pressable, Alert, ScrollView } from "react-native";
+import { FlatList, View, Text, Pressable, Alert, ScrollView, Platform } from "react-native";
 import Svg, { Ellipse } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -168,6 +168,10 @@ export default function InspectionDetail() {
   const calibration = readCalibrationMetadata(metadata);
   const analyzerModel = readAnalyzerModelMetadata(metadata);
   const analysisDiagnostics = readAnalysisDiagnosticsMetadata(metadata);
+  const androidSeedFrameWidth =
+    Platform.OS === "android" ? (analysisDiagnostics?.analyzed_image_width ?? null) : null;
+  const androidSeedFrameHeight =
+    Platform.OS === "android" ? (analysisDiagnostics?.analyzed_image_height ?? null) : null;
   const seedAnnotations = readSeedAnnotationMetadata(metadata);
   const annotatedSeeds = seeds.map((seed) => {
     const annotation = seedAnnotations.get(seed.index);
@@ -186,7 +190,16 @@ export default function InspectionDetail() {
       if (captureMedia.kind === "video" && !captureMedia.videoDeleted) {
         await shareVideo(mediaUrl, title);
       } else {
-        await shareAnnotatedImage(mediaUrl, { roi, seeds: annotatedSeeds }, title);
+        await shareAnnotatedImage(
+          mediaUrl,
+          {
+            roi,
+            seeds: annotatedSeeds,
+            seedFrameWidth: androidSeedFrameWidth,
+            seedFrameHeight: androidSeedFrameHeight,
+          },
+          title,
+        );
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -254,6 +267,8 @@ export default function InspectionDetail() {
                   kind={previewKind}
                   roi={roi}
                   seeds={annotatedSeeds}
+                  seedFrameWidth={androidSeedFrameWidth}
+                  seedFrameHeight={androidSeedFrameHeight}
                 />
               ) : (
                 <View className="flex-1 items-center justify-center px-md">

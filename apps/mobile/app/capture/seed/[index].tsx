@@ -33,7 +33,7 @@ export default function CaptureSeedDetail() {
   if (!result || !seed) return <ErrorState />;
 
   const sourceUri =
-    session.capturedImageUri ?? session.uploadedImageUrl ?? session.capturedVideoUri ?? null;
+    session.uploadedImageUrl ?? session.capturedImageUri ?? session.capturedVideoUri ?? null;
 
   const onUpdateGrade = (grade: SeedGrade) => {
     if (!result) return;
