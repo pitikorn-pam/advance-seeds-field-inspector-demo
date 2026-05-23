@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Live Multi-Detect Fix — Team Brief</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --ink: #1f1d18;
+    --muted: #6b6660;
+    --accent: #d97706;
+    --good: #15803d;
+    --bad: #b91c1c;
+    --line: #e5e0d6;
+    --panel: #ffffff;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 32px;
+    line-height: 1.55;
+  }
+  h1 {
+    font-size: 32px;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 36px;
+    font-size: 15px;
+  }
+  h2 {
+    font-size: 20px;
+    margin: 40px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tldr {
+    background: var(--panel);
+    border-left: 4px solid var(--accent);
+    padding: 20px 24px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .tldr strong {
+    color: var(--accent);
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 16px 0;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px 20px;
+  }
+  .card.bad { border-top: 3px solid var(--bad); }
+  .card.good { border-top: 3px solid var(--good); }
+  .card-title {
+    font-weight: 600;
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .stat {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 4px 0 0;
+  }
+  .stat.bad { color: var(--bad); }
+  .stat.good { color: var(--good); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    background: #f5f2eb;
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  tr.bad td:nth-child(2) { color: var(--bad); }
+  tr.good td:nth-child(2) { color: var(--good); }
+  .timeline {
+    margin: 16px 0;
+    padding-left: 0;
+    list-style: none;
+  }
+  .timeline li {
+    position: relative;
+    padding: 6px 0 14px 28px;
+    border-left: 2px solid var(--line);
+    margin-left: 8px;
+  }
+  .timeline li::before {
+    content: "";
+    position: absolute;
+    left: -7px;
+    top: 12px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .timeline li.found::before { background: var(--accent); }
+  .timeline li.fixed::before { background: var(--good); }
+  .timeline strong {
+    display: block;
+    margin-bottom: 2px;
+  }
+  .timeline span {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .next-steps {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 20px;
+  }
+  .next-steps ol {
+    margin: 0;
+    padding-left: 18px;
+  }
+  .next-steps li {
+    margin: 8px 0;
+  }
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #ebe7df;
+    color: var(--muted);
+    margin-right: 6px;
+  }
+  .tag.done { background: #dcf2e2; color: var(--good); }
+  .tag.pending { background: #fde9d3; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Live Multi-Detect Fix</h1>
+<p class="subtitle">iOS Field Inspector App · ทีม Advance Seeds Field Inspector · 2026-05-23</p>
+
+<div class="tldr">
+<strong>สรุป:</strong> Live camera preview ตรวจกล้วยได้แค่ลูกเดียว แม้ในเฟรมจะมี 5 ลูก. ภาพถ่าย (snapshot) ของฉากเดียวกันตรวจได้ครบ.
+แก้แล้ว — บัคอยู่ใน native iOS code (Apple CoreML library อ่าน memory ผิดวิธี). ตอนนี้ live ตรวจได้ครบ 3-5 ลูกพร้อมกัน. รอ rebuild + ทดสอบบนเครื่องเดโม่ก่อน promote ขึ้น production.
+</div>
+
+<h2>ผลกระทบที่เกิดขึ้น</h2>
+<p>
+  Inspector ภาคสนามใช้ live preview ส่อง seed/fruit หลายชิ้นพร้อมกันเพื่อนับและวัดขนาด.
+  พฤติกรรมเดิมแสดง overlay แค่ลูกเดียวต่อเฟรม ทำให้ inspector ต้องเลื่อนกล้องส่องทีละลูก
+  หรือกดถ่ายภาพ snapshot ทุกครั้ง — ช้าและไม่สมจริงกับ workflow ที่นำเสนอลูกค้า.
+  ภาพ snapshot ใช้งานได้ปกติตลอด จึงไม่กระทบฟีเจอร์ measurement/grading.
+</p>
+
+<h2>ก่อน vs หลัง</h2>
+<div class="grid-2">
+  <div class="card bad">
+    <div class="card-title">ก่อนแก้</div>
+    <div class="stat bad">1 obj / frame</div>
+    <p style="margin:8px 0 0; font-size:14px;">
+      Live ตรวจได้ 1 obj ตลอด แม้กล้องชี้ที่ 5 ลูก
+    </p>
+  </div>
+  <div class="card good">
+    <div class="card-title">หลังแก้</div>
+    <div class="stat good">3–5 obj / frame</div>
+    <p style="margin:8px 0 0; font-size:14px;">
+      Live ตรวจครบทุกลูกในเฟรม overlay polygon แสดงทั้งหมด
+    </p>
+  </div>
+</div>
+
+<table>
+  <tr><th>เมตริก</th><th>ก่อน</th><th>หลัง</th></tr>
+  <tr class="bad"><td>Detections kept ต่อเฟรม</td><td>1</td><td>3–5 ✓</td></tr>
+  <tr><td>Garbage rows (score &gt; 1.0)</td><td>มี 1-4 ทุกเฟรม</td><td>ไม่มี ✓</td></tr>
+  <tr><td>Polygon overlay บนกล้วยจริง</td><td>เฉพาะลูกเดียว</td><td>ครบทุกลูก ✓</td></tr>
+  <tr><td>Snapshot path</td><td>ปกติ</td><td>ปกติ (ไม่กระทบ)</td></tr>
+</table>
+
+<h2>สาเหตุที่แท้จริง</h2>
+<p>
+  iOS โหลด neural-net model ผ่าน Apple CoreML framework. Model ส่ง output มาเป็น tensor 300 ช่อง
+  (3 × 300 = ที่ละ object). Library ที่เราเขียนเองอ่าน tensor นี้แบบ <em>บรรทัดต่อบรรทัด</em>
+  สมมติว่า memory เรียงแบบติดกัน — แต่จริงๆ CoreML จัด memory โดยใส่ padding ช่วงระหว่าง row
+  (เพื่อให้ GPU access เร็ว). ผลคืออ่าน memory ผิดที่ → ได้ค่าขยะที่ดู "เหมือน" detection
+  จริงๆ แต่ค่าผิดเพี้ยน (score มากกว่า 1, class เป็นค่าลบ, bbox อยู่นอกจอ).
+</p>
+<p>
+  ภาพ snapshot ไม่มีปัญหานี้เพราะใช้ Swift code คนละไฟล์ ที่บังเอิญใช้ API ที่ handle padding ถูกต้อง.
+  Live preview ใช้ ObjC++ ใน frame processor — ตัวนี้คือที่บัคซ่อนอยู่.
+</p>
+
+<h2>การไล่หาบัค</h2>
+<ul class="timeline">
+  <li><strong>ตั้งสมมติฐาน #1: Confidence threshold สูงเกิน</strong>
+  <span>ลดจาก 0.75 → 0.4 ไม่ช่วย. ทุก threshold มีบัค.</span></li>
+  <li><strong>ตั้งสมมติฐาน #2: Orientation handling ผิด</strong>
+  <span>ทดลองถือเครื่องแนวนอน + แนวตั้ง ผลเหมือนกัน. ลบทิ้ง.</span></li>
+  <li><strong>ตั้งสมมติฐาน #3: Model ออก output ผิดใน live mode</strong>
+  <span>เทรนโมเดลใหม่ + ลองสลับ — ผลเหมือนเดิม. โมเดลไม่ใช่ปัญหา.</span></li>
+  <li class="found"><strong>ตั้งสมมติฐาน #4: Letterbox padding hallucination</strong>
+  <span>ใส่ diagnostic probes log ค่าที่ model ส่งออกมาจริงๆ — เห็น garbage pattern ชัดเจน.</span></li>
+  <li class="fixed"><strong>Root cause พบโดย Codex AI review</strong>
+  <span>MLMultiArray strides bug. แก้ด้วย stride-aware memory access. Live multi-detect ใช้งานได้.</span></li>
+</ul>
+
+<h2>การเปลี่ยนแปลง</h2>
+<table>
+  <tr><th>ไฟล์</th><th>การแก้</th></tr>
+  <tr><td>AdvanceSeedsCoreMLFrameProcessorPlugin.mm (native iOS)</td><td>Stride-aware tensor flattening</td></tr>
+  <tr><td>AdvanceSeedsCoreMLRunnerModule.swift</td><td>Consistency กับ live path</td></tr>
+  <tr><td>yolo.ts</td><td>เพิ่ม sourceRow field, ป้องกัน polygon mis-pairing</td></tr>
+  <tr><td>useLiveDetections.ts</td><td>ลบ workarounds ที่ไม่ต้องการอีกแล้ว (–42 บรรทัด)</td></tr>
+  <tr><td>CHANGELOG.md</td><td>บันทึกการแก้</td></tr>
+</table>
+
+<h2>ขั้นถัดไป</h2>
+<div class="next-steps">
+<ol>
+  <li><span class="tag done">เสร็จ</span> แก้ native code + JS layer + rebuild + ติดตั้งบนเครื่องเดโม่</li>
+  <li><span class="tag done">เสร็จ</span> ทดสอบ live multi-detect ด้วยกล้วยจริง 2–5 ลูก — ผ่าน</li>
+  <li><span class="tag pending">ค้าง</span> ลบ debug probes ที่ใช้ระหว่างหาบัค</li>
+  <li><span class="tag pending">ค้าง</span> Commit ลง branch <code>dev</code></li>
+  <li><span class="tag pending">ค้าง</span> เปิด PR เข้า <code>main</code> ให้ทีม review</li>
+  <li><span class="tag pending">ค้าง</span> Merge + cut release build สำหรับ demo</li>
+</ol>
+</div>
+
+<h2>บทเรียน</h2>
+<p>
+  สมมติฐานแรกๆ ทั้งหมด (threshold, orientation, model) ดูสมเหตุสมผลแต่ผิด.
+  จุดเปลี่ยนคือใส่ diagnostic probes log ค่าจริงที่ model ส่งออกมา — ทำให้เห็นว่าค่าที่ได้ "ดูเหมือน" detection
+  แต่จริงๆ เป็นขยะ. หลังจากนั้น Codex AI review code อย่างละเอียดและพบบัคที่ stride access pattern.
+  Library code ที่ใช้กับ Apple CoreML ทุกที่ในแอพควรตรวจสอบว่าใช้ stride-aware access ทุกครั้ง
+  ไม่งั้นจะเจอบัคแบบนี้ซ่อนอยู่อีก.
+</p>
+
+<div class="footer">
+  <strong>Repository:</strong> advance-seeds-field-inspector-demo · branch <code>dev</code><br>
+  <strong>Related work:</strong> ML repo Phase 2 dashboard NMS controls (PR #1, merged)<br>
+  <strong>Owner:</strong> Pitikorn / Advance Seeds Field Inspector team
+</div>
+
+</body>
+</html>
