@@ -6,6 +6,11 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+### In-flight verification
+
+- Metro dev server idled locally on `localhost:8081` to verify that a new model artifact (re-trained on Colab from the ML repo's post-merge `main`) renders multi-detect correctly on the iOS dev client. The artifact lands in the registry's staging channel via `training-callback`; the app pulls it through the Models tab.
+- The dev client on the test iPhone may need a fresh rebuild — the team's `main` merge included native CoreML / fast-tflite changes (commits `d28f4c1` _native YOLO mask decode + polygon trace on iOS and Android_, `b77f2fb` _respect MLMultiArray strides in native polygon decode_). If the on-device live overlay misbehaves after the model swap, rebuild the dev client (`npx expo run:ios --device`) before drawing conclusions about the model.
+
 ## [2026-05-23]
 
 ### Changed
