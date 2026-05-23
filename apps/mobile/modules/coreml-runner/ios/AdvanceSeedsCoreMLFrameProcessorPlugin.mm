@@ -490,6 +490,24 @@ static NSArray<NSArray<NSNumber *> *> *decodeAllPolygons(
     classSet = [NSMutableSet setWithArray:classFilter];
   }
 
+  // [DBG-LETTERBOX] Diagnostic: raw det rows (top of 300-slot output array).
+  // Helps confirm/refute H4: does the model emit boxes whose xyxy lies inside
+  // the letterbox pad region? Rate-limited to every ~30 wantMask-frames.
+  {
+    static int __dbgLetterboxDetCounter = 0;
+    if ((__dbgLetterboxDetCounter++ % 30) == 0) {
+      NSLog(@"[DBG-LETTERBOX live] raw det rows (max 5 by index):");
+      for (NSInteger i = 0; i < MIN(maxDet, (NSInteger)5); i++) {
+        const NSInteger base = i * fields;
+        NSLog(@"  [%ld] x1=%.2f y1=%.2f x2=%.2f y2=%.2f score=%.4f class=%.1f",
+              (long)i,
+              (double)detPtr[base + 0], (double)detPtr[base + 1],
+              (double)detPtr[base + 2], (double)detPtr[base + 3],
+              (double)detPtr[base + 4], (double)detPtr[base + 5]);
+      }
+    }
+  }
+
   for (NSInteger i = 0; i < maxDet; i++) {
     const NSInteger base = i * fields;
     const float score = detPtr[base + 4];
@@ -671,32 +689,52 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
   if (outProto != nullptr) *outProto = protoArr;
 
   NSMutableArray<NSNumber *> *values = [NSMutableArray arrayWithCapacity:bestArr.count];
+  NSArray<NSNumber *> *shape = bestArr.shape;
+  NSArray<NSNumber *> *strides = bestArr.strides;
+  const NSInteger rank = shape.count;
+  std::vector<NSInteger> dims(rank);
+  std::vector<NSInteger> str(rank);
+  for (NSInteger i = 0; i < rank; i++) {
+    dims[i] = shape[i].integerValue;
+    str[i] = strides[i].integerValue;
+  }
+  auto storageOffsetForPackedIndex = [&](NSInteger packedIdx) -> NSInteger {
+    NSInteger remaining = packedIdx;
+    NSInteger offset = 0;
+    for (NSInteger dim = rank - 1; dim >= 0; dim--) {
+      const NSInteger size = std::max((NSInteger)1, dims[dim]);
+      const NSInteger idx = remaining % size;
+      remaining /= size;
+      offset += idx * str[dim];
+    }
+    return offset;
+  };
   switch (bestArr.dataType) {
     case MLMultiArrayDataTypeFloat32: {
       Float32 *p = (Float32 *)bestArr.dataPointer;
       for (NSInteger i = 0; i < (NSInteger)bestArr.count; i++) {
-        [values addObject:@((double)p[i])];
+        [values addObject:@((double)p[storageOffsetForPackedIndex(i)])];
       }
       break;
     }
     case MLMultiArrayDataTypeDouble: {
       double *p = (double *)bestArr.dataPointer;
       for (NSInteger i = 0; i < (NSInteger)bestArr.count; i++) {
-        [values addObject:@(p[i])];
+        [values addObject:@(p[storageOffsetForPackedIndex(i)])];
       }
       break;
     }
     case MLMultiArrayDataTypeInt32: {
       int32_t *p = (int32_t *)bestArr.dataPointer;
       for (NSInteger i = 0; i < (NSInteger)bestArr.count; i++) {
-        [values addObject:@((double)p[i])];
+        [values addObject:@((double)p[storageOffsetForPackedIndex(i)])];
       }
       break;
     }
     default: {
       // Fallback through the bridged subscript for less common dtypes.
       for (NSInteger i = 0; i < (NSInteger)bestArr.count; i++) {
-        [values addObject:@(bestArr[i].doubleValue)];
+        [values addObject:@(bestArr[storageOffsetForPackedIndex(i)].doubleValue)];
       }
       break;
     }
@@ -772,6 +810,19 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
   const int scaledH = (int)std::lround((float)maskSrcH * maskLetterboxScale);
   const float maskLetterboxPadX = std::floor((maskLetterboxTarget - (float)scaledW) / 2.0f);
   const float maskLetterboxPadY = std::floor((maskLetterboxTarget - (float)scaledH) / 2.0f);
+  // [DBG-LETTERBOX] Diagnostic: log derived letterbox params every ~30 frames.
+  // Confirms what source-space dims and pad we project the model output back
+  // through — drives hypothesis H4 (model hallucinates in letterbox padding).
+  {
+    static int __dbgLetterboxFrameCounter = 0;
+    if ((__dbgLetterboxFrameCounter++ % 30) == 0) {
+      NSLog(@"[DBG-LETTERBOX live] frame.w=%lld frame.h=%lld orientation=%d "
+            @"maskSrcW=%d maskSrcH=%d scale=%.4f padX=%.1f padY=%.1f wantMask=%d",
+            (long long)frame.width, (long long)frame.height, (int)frame.orientation,
+            maskSrcW, maskSrcH, (double)maskLetterboxScale,
+            (double)maskLetterboxPadX, (double)maskLetterboxPadY, (int)wantMask);
+    }
+  }
   NSString *modelKey = (modelPath != nil && modelPath.length > 0) ? modelPath : assetName;
   CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   if (imageBuffer == nil) {

@@ -21,6 +21,8 @@ export interface LetterboxResult {
 }
 
 export interface RawDetection {
+  /** Original row index in an NMS-fused `[1, maxDet, fields]` output. */
+  sourceRow?: number;
   x: number;
   y: number;
   width: number;
@@ -169,7 +171,7 @@ export function decodeYoloNms(
     const width = x2 - x1;
     const height = y2 - y1;
     if (width <= 1 || height <= 1) continue;
-    detections.push({ x: x1, y: y1, width, height, score, classId });
+    detections.push({ sourceRow: i, x: x1, y: y1, width, height, score, classId });
   }
   return detections;
 }
@@ -329,7 +331,7 @@ export function decodeYoloSegmentationNms(
       maskCoefs = new Float32Array(coefCount);
       for (let c = 0; c < coefCount; c++) maskCoefs[c] = output[base + 6 + c];
     }
-    detections.push({ x: x1, y: y1, width, height, score, classId, maskCoefs });
+    detections.push({ sourceRow: i, x: x1, y: y1, width, height, score, classId, maskCoefs });
   }
   return detections;
 }
@@ -543,6 +545,32 @@ export function mapDetectionsToSeeds(
   let droppedOutOfBounds = 0;
   let droppedOutOfRoi = 0;
   let droppedTooLarge = 0;
+  // [DBG-LB] Diagnostic: dump every incoming detection (bbox + score + class)
+  // so we can tell what the model + native decode is actually emitting before
+  // the visibility / ROI / size filters chop them down. Logs ALWAYS when
+  // count > 1 (the case we care about) and 1-in-30 when count==1 (so we
+  // still see the steady-state). Remove once multi-detect live is fixed.
+  if (__DEV__ && detections.length > 0) {
+    const g = globalThis as any;
+    g.__dbgLbCounter = (g.__dbgLbCounter ?? 0) + 1;
+    const shouldLog = detections.length > 1 || g.__dbgLbCounter % 30 === 0;
+    if (shouldLog) {
+      const summary = detections.map((d, i) => ({
+        i,
+        x: Math.round(d.x),
+        y: Math.round(d.y),
+        w: Math.round(d.width),
+        h: Math.round(d.height),
+        s: Number((d.score ?? 0).toFixed(3)),
+        c: d.classId,
+        poly: d.polygon?.length ?? 0,
+      }));
+      console.info(
+        `[DBG-LB] count=${detections.length} frame=${frameWidth}x${frameHeight}`,
+        summary,
+      );
+    }
+  }
   for (let raw of detections) {
     if (frameWidth > 0 && frameHeight > 0) {
       const originalArea = raw.width * raw.height;
