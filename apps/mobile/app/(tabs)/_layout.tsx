@@ -21,7 +21,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      initialRouteName="inspect"
+      initialRouteName="varieties"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: isDark ? "#8F75FF" : "#6E40E0",
@@ -39,12 +39,6 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 10, fontWeight: "500" },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          href: null,
-        }}
-      />
       <Tabs.Screen
         name="varieties"
         options={{

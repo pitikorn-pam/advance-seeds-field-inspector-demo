@@ -12,7 +12,8 @@ import { AnalyzerProvider } from "@/lib/analyzer/AnalyzerProvider";
 import { bootstrapI18n } from "@/lib/i18n";
 import { useOnboarded } from "@/lib/onboarding";
 import { SyncQueueWorker } from "@/lib/sync/SyncQueueWorker";
-import { ModelInstallNotifier } from "@/components/home/ModelInstallNotifier";
+import { ModelInstallNotifier } from "@/components/notifications/ModelInstallNotifier";
+import { ModelUpdateNotifier } from "@/components/notifications/ModelUpdateNotifier";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -50,6 +51,7 @@ function BackgroundWorkers() {
     <>
       <SyncQueueWorker />
       <ModelInstallNotifier />
+      <ModelUpdateNotifier />
     </>
   );
 }
@@ -79,7 +81,7 @@ function StartupGate() {
       return;
     }
     if (session && (inAuth || inOnboarding)) {
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/varieties");
     }
   }, [session, loading, onboarded, segments, router]);
 

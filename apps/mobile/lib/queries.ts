@@ -159,8 +159,8 @@ export type InspectionRow = Inspection & {
 };
 
 // Two projection strings:
-//   • inspectionListSelect — used by useInspections() for list views (Home,
-//     History). Excludes `metadata` so that list pages don't break on
+//   • inspectionListSelect — used by useInspections() for list views
+//     such as History. Excludes `metadata` so that list pages don't break on
 //     environments where the Phase 6b.8 migration hasn't been applied.
 //   • inspectionDetailSelect — used by useInspection() for the detail page
 //     where the ROI badge needs `metadata`.

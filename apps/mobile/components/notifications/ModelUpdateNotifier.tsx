@@ -12,8 +12,8 @@ const LAST_NOTIFIED_KEY = "as.mobile.models.lastNotifiedVersionId";
  * so the same `version_id` doesn't notify again across app launches —
  * only the *change* matters, not the presence.
  *
- * Mounted near the home banner so it lives inside the auth-guarded tree
- * (the notify hook needs the current user's profile).
+ * Mounted in the auth-guarded background worker tree because the notify
+ * hook needs the current user's profile.
  */
 export function ModelUpdateNotifier() {
   const update = useModelUpdate();

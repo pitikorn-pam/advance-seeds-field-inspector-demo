@@ -25,7 +25,6 @@ export const namespaces = [
   "onboarding",
   "profile",
   "more",
-  "home",
   "library",
   "history",
   "notifications",

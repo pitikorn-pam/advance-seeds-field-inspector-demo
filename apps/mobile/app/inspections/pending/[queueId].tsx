@@ -58,15 +58,18 @@ export default function PendingInspectionDetail() {
             onPress: () => router.back(),
           }}
         />
-        <ErrorState hint={t("inspections:pending.notFound")} onRetry={() => router.replace("/")} />
+        <ErrorState
+          hint={t("inspections:pending.notFound")}
+          onRetry={() => router.replace("/(tabs)/varieties")}
+        />
       </SafeAreaView>
     );
   }
 
   if (entry.payload.kind !== "inspection") {
-    // Recordings get their own future surface; route the user to the home
-    // screen if they somehow landed here for a non-inspection entry.
-    router.replace("/");
+    // Recordings get their own surface; route the user back to the main
+    // varieties tab if they somehow landed here for a non-inspection entry.
+    router.replace("/(tabs)/varieties");
     return null;
   }
   const data = entry.payload.data;
@@ -99,7 +102,7 @@ export default function PendingInspectionDetail() {
           await deleteLocalMediaForPayload(entry.payload);
           await removeQueueEntry(entry.id);
           if (router.canGoBack()) router.back();
-          else router.replace("/");
+          else router.replace("/(tabs)/varieties");
         },
       },
     ]);
@@ -114,7 +117,7 @@ export default function PendingInspectionDetail() {
           renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => {
             if (router.canGoBack()) router.back();
-            else router.replace("/");
+            else router.replace("/(tabs)/varieties");
           },
         }}
       />

@@ -264,7 +264,7 @@ export default function CaptureSetup() {
     router.push("/capture/scan" as never);
   };
 
-  const onBack = () => router.replace("/");
+  const onBack = () => router.replace("/(tabs)/varieties");
 
   const onReset = () => {
     session.reset();

@@ -510,7 +510,7 @@ export default function CaptureReview() {
           }
           session.reset();
           // Pop back to the camera so the inspector can re-shoot without
-          // bouncing to Home and re-entering setup.
+          // bouncing through the tab landing and re-entering setup.
           if (router.canGoBack()) router.back();
           else router.replace("/capture/setup");
         },

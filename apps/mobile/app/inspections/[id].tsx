@@ -113,7 +113,7 @@ export default function InspectionDetail() {
   // navigator". Guarding with canGoBack falls back to the tabs root.
   const handleBack = () => {
     if (router.canGoBack()) router.back();
-    else router.replace("/");
+    else router.replace("/(tabs)/varieties");
   };
   const { profile } = useAuth();
   const policy = policyFor(profile);

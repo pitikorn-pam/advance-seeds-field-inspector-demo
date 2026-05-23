@@ -10,11 +10,16 @@ const moreScreen = readFileSync(join(root, "(tabs)", "more.tsx"), "utf8");
 const rootLayout = readFileSync(join(root, "_layout.tsx"), "utf8");
 const notificationsList = readFileSync(join(root, "notifications", "index.tsx"), "utf8");
 
-test("bottom tabs hide Home and keep Inspect, Varieties, and More", () => {
-  assert.match(tabsLayout, /initialRouteName="inspect"/);
-  assert.match(tabsLayout, /name="index"[\s\S]*href: null/);
+test("bottom tabs default to Varieties and keep Varieties, Inspect, and More", () => {
+  assert.match(tabsLayout, /initialRouteName="varieties"/);
+  assert.doesNotMatch(tabsLayout, /name="index"/);
   assert.match(tabsLayout, /name="varieties"[\s\S]*name="inspect"[\s\S]*name="more"/);
   assert.doesNotMatch(tabsLayout, /title: "Home"/);
+});
+
+test("signed-in startup defaults to the Varieties tab", () => {
+  assert.match(rootLayout, /router\.replace\("\/\(tabs\)\/varieties"\)/);
+  assert.doesNotMatch(rootLayout, /router\.replace\("\/\(tabs\)"\)/);
 });
 
 test("More links to notifications as a stack page", () => {

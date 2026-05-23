@@ -45,7 +45,7 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // The registry probe runs only after sign-in. It publishes the resolve
-    // result so the Models screen and the Home update banner know whether
+    // result so the Models screen and model-update notifier know whether
     // an install or update is available — but it never DOWNLOADS a model
     // on its own. Both first-launch installs AND auto-updates were removed
     // because the ~60 MB background download made the post-login experience

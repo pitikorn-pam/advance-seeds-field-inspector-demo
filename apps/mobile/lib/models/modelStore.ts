@@ -173,7 +173,7 @@ export async function rollbackActiveModel(): Promise<InstalledModelRecord | null
  * Full SHA-256 verification — slow (2–8 s on a 6–25 MB model). Only
  * call from explicit user-triggered checks (install, activate, admin
  * "Verify integrity"). Do NOT use on every analyzer load — that
- * blocked Home's first paint in the field. Use `quickVerifyArtifact`
+ * blocked the app's first paint in the field. Use `quickVerifyArtifact`
  * for the load path.
  */
 export async function verifyInstalledArtifact(record: InstalledModelRecord): Promise<boolean> {

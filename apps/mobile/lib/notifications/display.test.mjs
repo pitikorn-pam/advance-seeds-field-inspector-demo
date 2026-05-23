@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 
 const displaySource = readFileSync(new URL("./display.ts", import.meta.url), "utf8");
 const notifierSource = readFileSync(
-  new URL("../../components/home/ModelUpdateNotifier.tsx", import.meta.url),
+  new URL("../../components/notifications/ModelUpdateNotifier.tsx", import.meta.url),
   "utf8",
 );
 

@@ -104,7 +104,7 @@ export default function ModelRegistryScreen() {
   }, []);
 
   // One refresh = list candidates AND probe resolve-channel in parallel.
-  // Publishing the resolve result keeps the Home banner in sync; listing
+  // Publishing the resolve result keeps the model-update notifier in sync; listing
   // candidates is what populates this screen. Same intent, one button.
   const refresh = useCallback(
     async (nextChannel: DeploymentChannel) => {
