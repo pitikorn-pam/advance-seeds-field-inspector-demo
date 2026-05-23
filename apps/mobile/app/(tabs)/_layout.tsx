@@ -46,6 +46,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="varieties"
+        options={{
+          title: "Varieties",
+          tabBarIcon: ({ color, size }) => <TabGlyph kind="varieties" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="inspect"
         listeners={{
           tabPress: (event) => {
@@ -84,13 +91,6 @@ export default function TabsLayout() {
               <Text className="text-[10.5px] font-semibold text-fg-primary">Inspect</Text>
             </Pressable>
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="varieties"
-        options={{
-          title: "Varieties",
-          tabBarIcon: ({ color, size }) => <TabGlyph kind="varieties" color={color} size={size} />,
         }}
       />
       <Tabs.Screen

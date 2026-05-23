@@ -13,9 +13,7 @@ const notificationsList = readFileSync(join(root, "notifications", "index.tsx"),
 test("bottom tabs hide Home and keep Inspect, Varieties, and More", () => {
   assert.match(tabsLayout, /initialRouteName="inspect"/);
   assert.match(tabsLayout, /name="index"[\s\S]*href: null/);
-  assert.match(tabsLayout, /name="inspect"/);
-  assert.match(tabsLayout, /name="varieties"/);
-  assert.match(tabsLayout, /name="more"/);
+  assert.match(tabsLayout, /name="varieties"[\s\S]*name="inspect"[\s\S]*name="more"/);
   assert.doesNotMatch(tabsLayout, /title: "Home"/);
 });
 
