@@ -45,9 +45,24 @@ for (const file of ["scan.tsx", "precise.tsx"]) {
       source,
       /const arucoFrameProcessor =\s+shouldScanAruco && !liveAruco\.locked \? liveAruco\.frameProcessor : undefined;/s,
     );
+    assert.match(source, /const frameProcessorKind =/);
     assert.match(
       source,
-      /:\s+\(arucoFrameProcessor \?\? liveDetections\.frameProcessor\);/s,
+      /frameProcessorKind === "aruco"\s+\?\s+arucoFrameProcessor\s+:\s+frameProcessorKind === "live"\s+\?\s+liveDetections\.frameProcessor/s,
     );
+  });
+
+  test(`${file} remounts iOS camera when switching native frame processor plugins`, () => {
+    const source = readFileSync(join(root, file), "utf8");
+
+    assert.match(source, /const IOS_ARUCO_TO_LIVE_DETECTION_START_DELAY_MS = 1200;/);
+    assert.match(
+      source,
+      /Platform\.OS === "ios" && liveAruco\.locked\s+\?\s+IOS_ARUCO_TO_LIVE_DETECTION_START_DELAY_MS/s,
+    );
+    assert.match(source, /const cameraRemountKey = Platform\.OS === "ios"/);
+    assert.match(source, /`fp:\$\{frameProcessorKind\}`/);
+    assert.match(source, /: "stable";/);
+    assert.match(source, /cameraKey=\{cameraRemountKey\}/);
   });
 }

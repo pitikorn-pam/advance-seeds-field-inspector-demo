@@ -36,6 +36,8 @@ interface Props {
   cameraProps?: Omit<Partial<CameraProps>, "ref" | "device" | "isActive">;
   /** Android live analysis can request a lower-pressure camera stream. */
   performanceProfile?: "quality" | "low";
+  /** Forces a native Camera remount when switching incompatible frame processors. */
+  cameraKey?: string;
   /** Wrapper-level className (NativeWind). Default: flex-1 black. */
   className?: string;
 }
@@ -53,6 +55,7 @@ export function Viewfinder({
   children,
   cameraProps,
   performanceProfile = "quality",
+  cameraKey = "default",
   className,
 }: Props) {
   const { t } = useTranslation();
@@ -151,6 +154,7 @@ export function Viewfinder({
   return (
     <View className={`flex-1 bg-black ${className ?? ""}`}>
       <Camera
+        key={`${position}:${cameraKey}`}
         ref={cameraRef}
         device={device}
         isActive={active}

@@ -22,6 +22,7 @@ import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 const LIDAR_ARUCO_FALLBACK_DELAY_MS = 1600;
 const LIVE_DETECTION_START_DELAY_MS = 450;
+const IOS_ARUCO_TO_LIVE_DETECTION_START_DELAY_MS = 1200;
 
 /**
  * Precise capture mode.
@@ -84,9 +85,13 @@ export default function CapturePrecise() {
       setLiveDetectionStartReady(false);
       return;
     }
-    const timer = setTimeout(() => setLiveDetectionStartReady(true), LIVE_DETECTION_START_DELAY_MS);
+    const delayMs =
+      Platform.OS === "ios" && liveAruco.locked
+        ? IOS_ARUCO_TO_LIVE_DETECTION_START_DELAY_MS
+        : LIVE_DETECTION_START_DELAY_MS;
+    const timer = setTimeout(() => setLiveDetectionStartReady(true), delayMs);
     return () => clearTimeout(timer);
-  }, [busy, calibrationLocked, cameraActive, modelInstallInProgress]);
+  }, [busy, calibrationLocked, cameraActive, liveAruco.locked, modelInstallInProgress]);
   const varieties = useVarieties();
   const activeVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId),
@@ -125,10 +130,21 @@ export default function CapturePrecise() {
   });
   const arucoFrameProcessor =
     shouldScanAruco && !liveAruco.locked ? liveAruco.frameProcessor : undefined;
-  const activeFrameProcessor =
+  const frameProcessorKind =
     busy || modelInstallInProgress
-      ? undefined
-      : (arucoFrameProcessor ?? liveDetections.frameProcessor);
+      ? "none"
+      : arucoFrameProcessor
+        ? "aruco"
+        : liveDetections.frameProcessor
+          ? "live"
+          : "none";
+  const activeFrameProcessor =
+    frameProcessorKind === "aruco"
+      ? arucoFrameProcessor
+      : frameProcessorKind === "live"
+        ? liveDetections.frameProcessor
+        : undefined;
+  const cameraRemountKey = Platform.OS === "ios" ? `fp:${frameProcessorKind}` : "stable";
   const androidFrameProcessorActive =
     Platform.OS === "android" &&
     !busy &&
@@ -329,6 +345,7 @@ export default function CapturePrecise() {
         position={position}
         showGrid={showGrid}
         performanceProfile={androidFrameProcessorActive ? "low" : "quality"}
+        cameraKey={cameraRemountKey}
         cameraProps={viewfinderCameraProps}
       >
         <View
