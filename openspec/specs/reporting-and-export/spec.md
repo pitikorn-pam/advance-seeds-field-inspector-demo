@@ -1,10 +1,10 @@
 # reporting-and-export Specification
 
 ## Purpose
-TBD - created by archiving change seed-inspector-demo-foundation. Update Purpose after archive.
+Define mobile reporting, filtering, and CSV sharing for inspection summaries.
 ## Requirements
 ### Requirement: Reports screen with filters
-Both apps SHALL provide a Reports screen showing aggregated statistics filtered by date range, variety, and (admin only) inspector.
+The mobile app SHALL provide a Reports screen showing aggregated statistics filtered by date range, variety, and (admin only) inspector.
 
 #### Scenario: Default report shows last 30 days
 - **GIVEN** the user opens Reports
@@ -16,11 +16,11 @@ Both apps SHALL provide a Reports screen showing aggregated statistics filtered 
 - **THEN** all displayed metrics recompute to that variety only
 
 ### Requirement: CSV export
-Both apps SHALL allow exporting the currently filtered inspections list as a CSV file.
+The mobile app SHALL allow exporting the currently filtered inspections list as a CSV file.
 
-#### Scenario: Dashboard CSV download
-- **WHEN** Alex clicks "Export CSV" on the Reports screen with current filters
-- **THEN** a `inspections-YYYYMMDD.csv` file downloads
+#### Scenario: Mobile CSV share
+- **WHEN** Alex taps "Export CSV" on the Reports screen with current filters
+- **THEN** the OS share sheet opens with an `inspections-YYYYMMDD.csv` attachment
 - **AND** the file's first row is a header in this exact column order:
   `id, captured_at, inspector_email, inspector_name, variety, calibration_source, calibration_px_per_mm, total_seeds, mean_length_mm, mean_width_mm, mean_area_mm2, notes, created_at`
 
@@ -28,10 +28,7 @@ Both apps SHALL allow exporting the currently filtered inspections list as a CSV
 - **GIVEN** the user has Thai selected as their locale
 - **WHEN** they export CSV
 - **THEN** the header row is rendered in Thai (column keys remain stable; only the human-readable header labels translate)
-
-#### Scenario: Mobile CSV share sheet
-- **WHEN** Jane taps "Export CSV" on mobile
-- **THEN** the OS share sheet opens with a `.csv` attachment containing only her filtered inspections
+- **AND** inspectors receive only their own filtered inspections while admins receive the admin-scoped filtered set
 
 ### Requirement: Inspector-scoped reports
 Reports for an inspector SHALL only aggregate the inspector's own inspections; admin reports SHALL aggregate across all users by default.

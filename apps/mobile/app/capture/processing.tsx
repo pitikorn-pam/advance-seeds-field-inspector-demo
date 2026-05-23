@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Image, View, Text } from "react-native";
+import { Image, Platform, View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -9,7 +9,7 @@ import Svg, { Circle, Text as SvgText } from "react-native-svg";
 import { AlertTriangle, Check, X } from "lucide-react-native";
 import { tokens } from "@advance-seeds/tokens";
 import { useTheme } from "@/lib/theme";
-import type { AnalysisResult } from "@advance-seeds/types";
+import type { AnalysisResult, AnalyzedSeed, Variety } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
@@ -24,6 +24,7 @@ import { addQueueEntry } from "@/lib/sync/store";
 import { replaySyncQueue } from "@/lib/sync/replay";
 import { isQueueableSyncError } from "@/lib/sync/errors";
 import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
+import { readActiveModel } from "@/lib/models/modelStore";
 import { useNotify } from "@/lib/notifications";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Button } from "@/components/ui/Button";
@@ -53,6 +54,42 @@ function getImageDimensions(uri: string): Promise<{ width: number | null; height
       (err) => reject(err),
     );
   });
+}
+
+function inferVarietyFromDetections(
+  seeds: readonly AnalyzedSeed[],
+  varieties: readonly Variety[] | null | undefined,
+  modelClassNames: readonly string[] | null | undefined,
+): Variety | null {
+  if (!seeds.length || !varieties?.length) return null;
+  const scores = new Map<string, number>();
+  const activeVarieties = varieties.filter((v) => v.is_active !== false);
+  for (const seed of seeds) {
+    const classId = seed.class_id;
+    const className =
+      typeof classId === "number" && modelClassNames ? modelClassNames[classId] : null;
+    for (const variety of activeVarieties) {
+      let score = 0;
+      if (typeof classId === "number" && variety.coco_class_id === classId) score += 1;
+      if (className) {
+        const normalizedClass = className.toLowerCase();
+        const aliases = variety.model_class_aliases ?? [];
+        if (aliases.some((alias) => alias.toLowerCase() === normalizedClass)) score += 4;
+        if (normalizedClass.includes(variety.name.toLowerCase())) score += 2;
+      }
+      if (score > 0) scores.set(variety.id, (scores.get(variety.id) ?? 0) + score);
+    }
+  }
+  let best: Variety | null = null;
+  let bestScore = 0;
+  for (const variety of activeVarieties) {
+    const score = scores.get(variety.id) ?? 0;
+    if (score > bestScore) {
+      best = variety;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 /**
@@ -402,7 +439,9 @@ export default function CaptureProcessing() {
         // Source the class filter from the inspected variety. Empty array
         // means "no filter" (analyzer keeps every class), so we fall back to
         // the demo default whenever a variety has no COCO mapping yet.
-        const activeVariety = varieties.data?.find((v) => v.id === session.varietyId);
+        const activeVariety = session.varietyId
+          ? varieties.data?.find((v) => v.id === session.varietyId)
+          : null;
         const classFilter =
           activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
             ? [activeVariety.coco_class_id]
@@ -491,7 +530,19 @@ export default function CaptureProcessing() {
                   },
                 ),
               );
-        if (result.seeds.length === 0 && result.analyzerId !== "skip-video") {
+        const analysisHasMasks = result.seeds.some(
+          (seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3,
+        );
+        const liveFrameHasMasks =
+          session.capturedLiveFrameResult?.seeds.some(
+            (seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3,
+          ) ?? false;
+        const shouldPromoteLiveMasks =
+          Platform.OS === "android" && !analysisHasMasks && liveFrameHasMasks;
+        const shouldUseLiveFrameFallback =
+          result.analyzerId !== "skip-video" &&
+          (result.seeds.length === 0 || shouldPromoteLiveMasks);
+        if (shouldUseLiveFrameFallback) {
           const fallback = await liveFrameFallbackResult(
             session.capturedLiveFrameResult,
             analyzerImageUri,
@@ -501,13 +552,33 @@ export default function CaptureProcessing() {
           });
           if (fallback) {
             console.warn(
-              "[processing] analyzer returned 0 seeds; using shutter live-frame fallback with %d seeds",
+              "[processing] using shutter live-frame fallback with %d seeds (analysis seeds=%d masks=%s liveMasks=%s)",
               fallback.seeds.length,
+              result.seeds.length,
+              analysisHasMasks ? "yes" : "no",
+              liveFrameHasMasks ? "yes" : "no",
             );
             result = fallback;
           }
         }
         const usedLiveFrameFallback = result.analyzerId.endsWith("+shutter-fallback");
+        if (!session.varietyId) {
+          const activeModel = await readActiveModel().catch(() => null);
+          const inferredVariety = inferVarietyFromDetections(
+            result.seeds,
+            varieties.data,
+            activeModel?.metadata.class_names ?? null,
+          );
+          if (inferredVariety) {
+            session.set({ varietyId: inferredVariety.id });
+            console.info(
+              "[processing] inferred variety=%s from detected classes",
+              inferredVariety.name,
+            );
+          } else if (result.seeds.length > 0) {
+            console.warn("[processing] could not infer variety from detected classes");
+          }
+        }
         if (cancelledRef.current) return;
 
         // No-detection inspections are saved with an empty seed list rather

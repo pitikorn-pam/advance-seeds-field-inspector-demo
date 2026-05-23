@@ -47,10 +47,7 @@ export function loadSharedCoreMLModel(): Promise<LoadedCoreMLModel> {
     modelPromiseKey = source.key;
     modelPromise = (async () => {
       const info = await CoreMLRunner.loadModelAtPath(source.modelPath);
-      const primary =
-        info.outputs
-          .filter((o) => o.shape && o.shape.length > 0)
-          .sort((a, b) => prod(b.shape!) - prod(a.shape!))[0] ?? info.outputs[0];
+      const primary = selectDetectionOutput(info.outputs);
       const lastDim = primary?.shape?.[primary.shape.length - 1] ?? 0;
       // Detect output format by trailing dim: 6 = NMS-fused detection only
       // (x1,y1,x2,y2,conf,cls); >6 = NMS-fused segmentation (adds mask
@@ -68,6 +65,23 @@ export function loadSharedCoreMLModel(): Promise<LoadedCoreMLModel> {
     });
     return modelPromise;
   });
+}
+
+function selectDetectionOutput(outputs: readonly { name: string; shape?: number[] }[]) {
+  return (
+    outputs.find((o) => {
+      const shape = o.shape ?? [];
+      return (
+        shape.length === 3 &&
+        shape[0] === 1 &&
+        shape[1] === 300 &&
+        (shape[2] === 6 || shape[2] >= 38)
+      );
+    }) ??
+    outputs.find((o) => (o.shape ?? []).length === 3) ??
+    outputs.find((o) => o.shape && o.shape.length > 0) ??
+    outputs[0]
+  );
 }
 
 export async function resolveCoreMLModelSource(): Promise<CoreMLModelSource> {
@@ -186,23 +200,14 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     });
     const srcW = dims.width;
     const srcH = dims.height;
-    // Aspect-fit-pad letterbox params, matching the standard YOLO CoreML
-    // export (and the Android TFLite path's `letterbox()` in yolo.ts).
-    // CoreML's `MLImageConstraint` with `aspectFit` scales the longer edge
-    // to 640 and pads the shorter edge to keep aspect ratio. The decoder
-    // at yolo.ts:87 inverts via `(cx - padX) / scale`, which exactly
-    // undoes this convention.
-    //
-    // Earlier this code used a center-crop convention (negative padX/padY,
-    // scale by the *shorter* edge). That assumption matched neither the
-    // standard CoreML export nor the Android path — bboxes landed in
-    // wrong/blank regions on iOS while Android stayed accurate. Switching
-    // to aspect-fit-pad aligns iOS with Android and the decoder math.
-    const fitScale = YOLO_INPUT_SIZE / Math.max(srcW, srcH);
-    const newW = Math.round(srcW * fitScale);
-    const newH = Math.round(srcH * fitScale);
-    const padX = Math.floor((YOLO_INPUT_SIZE - newW) / 2);
-    const padY = Math.floor((YOLO_INPUT_SIZE - newH) / 2);
+    // CoreML image inputs are scale-filled into the model's fixed
+    // 640x640 input by `MLFeatureValue(cgImage:constraint:)`. That is a
+    // non-uniform transform for portrait captures, unlike Android's
+    // explicit square letterbox path. Keep the shared decoder, but give
+    // it separate X/Y inverse scales so boxes and mask sampling project
+    // back to the captured photo without horizontally inflating the mask.
+    const scaleX = YOLO_INPUT_SIZE / srcW;
+    const scaleY = YOLO_INPUT_SIZE / srcH;
 
     const inferStartedAt = Date.now();
     const result = await CoreMLRunner.runOnImageURLAtPath(source.modelPath, image.uri);
@@ -211,7 +216,14 @@ export class CoreMLSeedAnalyzer implements SeedAnalyzer {
     const shape = result.shape as unknown as readonly [number, number, number];
 
     const decodeOpts = {
-      letterbox: { scale: fitScale, padX, padY, target: YOLO_INPUT_SIZE },
+      letterbox: {
+        scale: Math.min(scaleX, scaleY),
+        scaleX,
+        scaleY,
+        padX: 0,
+        padY: 0,
+        target: YOLO_INPUT_SIZE,
+      },
       scoreThreshold: hp.scoreThreshold,
       // Mirror the live path: aliases + variety names resolve to model
       // class indices through the same compatibility helper. Without this

@@ -1,18 +1,10 @@
 import { View, Text, Pressable } from "react-native";
-import Svg, { Ellipse } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 import { Link, useRouter } from "expo-router";
 import type { InspectionRow } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 import { GradeChip } from "@/components/ui/GradeChip";
 import type { SeedGrade } from "@advance-seeds/types";
-
-const TINT_CLASSES: Record<string, string> = {
-  corn: "bg-card-yellow",
-  rice: "bg-card-mint",
-  legume: "bg-card-lavender",
-  mungbean: "bg-card-peach",
-};
 
 interface Props {
   /** Up to 3 most recent inspections, descending by captured_at. */
@@ -22,11 +14,8 @@ interface Props {
 /**
  * Recent inspections section on Home. Prototype layout:
  *   - "Recent" h4 + "View all" link as a plain header ROW outside the card.
- *   - Card containing rows: 44x44 tinted seed-tray thumb (with subtle seed
- *     dots), name + meta subline, grade chip on the right.
- *
- * Variety tint comes from `color_key` (corn/rice/legume/mungbean), defaulting
- * to mint when missing so imported data still reads cleanly.
+ *   - Card containing rows: 44x44 neutral variety thumb, name + meta subline,
+ *     grade chip on the right.
  */
 export function RecentInspections({ rows }: Props) {
   const { t } = useTranslation(["home", "inspections"]);
@@ -43,8 +32,8 @@ export function RecentInspections({ rows }: Props) {
 
       <Card className="p-0" tone="base">
         {rows.map((row, idx) => {
-          const tintClass = TINT_CLASSES[row.variety?.color_key ?? ""] ?? "bg-card-mint";
           const grade = inferGrade(row.mean_length_mm);
+          const title = row.variety?.name ?? "—";
           return (
             <Link key={row.id} href={`/inspections/${row.id}`} asChild>
               <Pressable
@@ -53,14 +42,16 @@ export function RecentInspections({ rows }: Props) {
                 }`}
               >
                 <View
-                  className={`items-center justify-center overflow-hidden ${tintClass}`}
+                  className="items-center justify-center overflow-hidden bg-bg-tertiary border border-line-tertiary"
                   style={{ width: 44, height: 44, borderRadius: 8 }}
                 >
-                  <SeedDots />
+                  <Text className="text-title font-semibold text-fg-secondary">
+                    {title.trim().charAt(0).toUpperCase() || "?"}
+                  </Text>
                 </View>
                 <View className="flex-1">
                   <Text className="text-body text-fg-primary font-medium" numberOfLines={1}>
-                    {row.variety?.name ?? "—"}
+                    {title}
                   </Text>
                   <Text className="text-caption text-fg-secondary mt-[2px]" numberOfLines={1}>
                     {formatRelative(row.captured_at)}
@@ -79,36 +70,6 @@ export function RecentInspections({ rows }: Props) {
         })}
       </Card>
     </View>
-  );
-}
-
-/**
- * Subtle 5-seed pattern matching the prototype's `<svg viewBox="0 0 44 44">`
- * with 5 rotated ellipses at fixed coords. Pure decoration — communicates
- * "this row is a seed tray" without depending on real thumbnail capture.
- */
-function SeedDots() {
-  const dots: Array<[number, number]> = [
-    [10, 12],
-    [24, 16],
-    [18, 28],
-    [32, 30],
-    [14, 34],
-  ];
-  return (
-    <Svg viewBox="0 0 44 44" width={44} height={44}>
-      {dots.map(([x, y], i) => (
-        <Ellipse
-          key={i}
-          cx={x}
-          cy={y}
-          rx={3.2}
-          ry={2}
-          fill="rgba(55,53,47,0.35)"
-          transform={`rotate(${i * 22} ${x} ${y})`}
-        />
-      ))}
-    </Svg>
   );
 }
 

@@ -29,7 +29,6 @@ interface FormState {
   scientificName: string;
   description: string;
   imageUrl: string;
-  colorKey: string;
   modelClassAliases: string[];
   refLength: string;
   refWidth: string;
@@ -59,7 +58,6 @@ const EMPTY_FORM: FormState = {
   scientificName: "",
   description: "",
   imageUrl: "",
-  colorKey: "rice",
   modelClassAliases: [],
   refLength: "",
   refWidth: "",
@@ -67,30 +65,15 @@ const EMPTY_FORM: FormState = {
   isActive: true,
 };
 
-type FamilyKey = "rice" | "corn" | "legume" | "mungbean";
-
-const FAMILY_TINTS: Record<FamilyKey, { bg: string; text: string; seed: string }> = {
-  rice: { bg: "bg-rice-bg", text: "text-rice-text", seed: "#0F6E56" },
-  corn: { bg: "bg-corn-bg", text: "text-corn-text", seed: "#704B00" },
-  legume: { bg: "bg-legume-bg", text: "text-legume-text", seed: "#3F249B" },
-  mungbean: { bg: "bg-mungbean-bg", text: "text-mungbean-text", seed: "#8C3C12" },
-};
-
-const FAMILY_KEYS: FamilyKey[] = ["rice", "corn", "legume", "mungbean"];
-
-function resolveFamily(colorKey: string): FamilyKey {
-  return (FAMILY_KEYS as readonly string[]).includes(colorKey) ? (colorKey as FamilyKey) : "rice";
-}
-
 /**
  * Variety editor — single source of truth for create + edit on the
  * `varieties` table. Owns the public profile fields (name, scientific
- * name, description, image, family color) and the master-data fields
+ * name, description, image) and the master-data fields
  * (detector class, grading criteria). The Varieties tab now reads
  * from the same row but never edits.
  */
 export default function VarietyEditor() {
-  const { t } = useTranslation(["common", "varieties", "more", "library"]);
+  const { t } = useTranslation(["common", "varieties", "more"]);
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const isCreate = params.id === "new";
@@ -157,7 +140,7 @@ export default function VarietyEditor() {
         scientific_name: form.scientificName.trim() || null,
         description: form.description.trim() || null,
         image_url: form.imageUrl.trim() || null,
-        color_key: form.colorKey || "rice",
+        color_key: editing?.color_key ?? null,
         // Detector binding is now name-based via model_class_aliases. The
         // legacy COCO id column is preserved (for varieties created before
         // this change) but no longer written from the editor.
@@ -214,34 +197,23 @@ export default function VarietyEditor() {
   }
 
   const canDelete = !isCreate && policy.canDeleteVariety();
-  const familyKey = resolveFamily(form.colorKey);
-  const tint = FAMILY_TINTS[familyKey];
-  const familyLabel = t(`varieties:family.${familyKey}`);
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar title={title} left={closeAction(router, t)} />
       <ScrollView contentContainerClassName="pb-3xl" keyboardShouldPersistTaps="handled">
-        {/* Hero band — family-tinted, full-bleed */}
-        <View className={`px-xl pt-lg pb-xl ${tint.bg}`}>
+        {/* Hero band — neutral, full-bleed */}
+        <View className="px-xl pt-lg pb-xl bg-bg-secondary border-b border-line-tertiary">
           <View className="flex-row items-center gap-md">
             <View
-              className="items-center justify-center overflow-hidden rounded-lg"
-              style={{ height: 64, width: 64, backgroundColor: "rgba(255,255,255,0.55)" }}
+              className="items-center justify-center overflow-hidden rounded-lg bg-bg-primary border border-line-tertiary"
+              style={{ height: 64, width: 64 }}
             >
-              <View className="flex-row gap-[3px]">
-                <SeedShape color={tint.seed} rotate="-15deg" />
-                <SeedShape color={tint.seed} rotate="8deg" />
-                <SeedShape color={tint.seed} rotate="-22deg" />
-              </View>
+              <Text className="font-semibold text-fg-secondary" style={{ fontSize: 24 }}>
+                {form.name.trim().charAt(0).toUpperCase() || "?"}
+              </Text>
             </View>
             <View className="flex-1">
-              <Text
-                className={`text-label uppercase font-medium ${tint.text}`}
-                style={{ letterSpacing: 0.6 }}
-              >
-                {familyLabel}
-              </Text>
               <Text
                 className="text-fg-primary font-medium mt-[2px]"
                 style={{ fontSize: 22, letterSpacing: -0.4 }}
@@ -301,23 +273,14 @@ export default function VarietyEditor() {
                 keyboardType="url"
               />
             </LabeledField>
-            <View className="flex-row gap-sm">
-              <LabeledField label={t("more:masterData.colorKey").toUpperCase()} className="flex-1">
-                <FamilyPicker
-                  value={familyKey}
-                  onChange={(colorKey) => setForm((s) => ({ ...s, colorKey }))}
-                  t={t}
-                />
-              </LabeledField>
-              <LabeledField label={t("varieties:fields.status").toUpperCase()} className="flex-1">
-                <ActiveControl
-                  value={form.isActive}
-                  onChange={(isActive) => setForm((s) => ({ ...s, isActive }))}
-                  activeLabel={t("varieties:status.active")}
-                  inactiveLabel={t("varieties:status.inactive")}
-                />
-              </LabeledField>
-            </View>
+            <LabeledField label={t("varieties:fields.status").toUpperCase()}>
+              <ActiveControl
+                value={form.isActive}
+                onChange={(isActive) => setForm((s) => ({ ...s, isActive }))}
+                activeLabel={t("varieties:status.active")}
+                inactiveLabel={t("varieties:status.inactive")}
+              />
+            </LabeledField>
           </View>
         </View>
 
@@ -521,48 +484,6 @@ function LabeledField({
   );
 }
 
-function SeedShape({ color, rotate }: { color: string; rotate: string }) {
-  return (
-    <View
-      style={{
-        width: 12,
-        height: 20,
-        borderRadius: 999,
-        backgroundColor: color,
-        opacity: 0.55,
-        transform: [{ rotate }],
-      }}
-    />
-  );
-}
-
-function FamilyPicker({
-  value,
-  onChange,
-  t,
-}: {
-  value: FamilyKey;
-  onChange: (next: FamilyKey) => void;
-  t: TFunction;
-}) {
-  const next: Record<FamilyKey, FamilyKey> = {
-    rice: "corn",
-    corn: "legume",
-    legume: "mungbean",
-    mungbean: "rice",
-  };
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t("more:masterData.colorKey")}
-      onPress={() => onChange(next[value])}
-      className="h-11 w-full rounded-md border border-line-secondary bg-bg-primary px-lg justify-center active:bg-bg-secondary"
-    >
-      <Text className="text-title text-fg-primary">{t(`varieties:family.${value}`)}</Text>
-    </Pressable>
-  );
-}
-
 function ActiveControl({
   value,
   onChange,
@@ -719,7 +640,6 @@ function hydrateForm(v: Variety): FormState {
     scientificName: v.scientific_name ?? "",
     description: v.description ?? "",
     imageUrl: v.image_url ?? "",
-    colorKey: v.color_key ?? "rice",
     modelClassAliases: Array.isArray(v.model_class_aliases) ? [...v.model_class_aliases] : [],
     refLength:
       v.ref_length_mm !== null && v.ref_length_mm !== undefined ? String(v.ref_length_mm) : "",

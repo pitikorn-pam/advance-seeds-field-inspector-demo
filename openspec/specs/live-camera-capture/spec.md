@@ -24,8 +24,10 @@ The mobile app SHALL provide a unified capture screen that runs YOLO inference o
 #### Scenario: Live detections animate over the preview
 - **GIVEN** the user has selected a variety and is in capture
 - **WHEN** they hold the camera over a tray of seeds
-- **THEN** colored rings appear around each detected seed within 200 ms of the seed entering the frame
-- **AND** the KPI strip updates "Count / Avg mm / Grade A%" continuously
+- **THEN** colored segment polygons appear around each detected seed within 200 ms of the seed entering the frame when the model exposes masks
+- **AND** bbox rectangles are used only as a fallback when no polygon is available
+- **AND** labels prefer the detected model class name and include length, area, and volume when available
+- **AND** the KPI strip updates count, average length, average area/volume, and Grade A continuously
 - **AND** the overlay projection uses the actual native frame dimensions returned with the live detection result rather than a hard-coded camera size
 
 #### Scenario: Live shutter persists the latest frame
@@ -136,19 +138,19 @@ The mobile app SHALL crop camera frames to the active ROI's square-padded boundi
 - **THEN** the square is shifted inward to stay inside the frame rather than shrunk
 
 ### Requirement: Live detection overlay interpolates between inference frames
-The detection overlay SHALL animate bounding-box transitions between successive inference outputs so the overlay feels smooth at the device refresh rate even when inference itself runs at 15–30 Hz.
+The detection overlay SHALL animate detection transitions between successive inference outputs so the overlay feels smooth at the device refresh rate even when inference itself runs at 15–30 Hz.
 
 #### Scenario: Slow-moving object appears to track at 60 fps
 - **GIVEN** a banana sits in frame and is detected on every inference cycle
 - **WHEN** the camera is panned slowly so the banana moves a small amount per inference
-- **THEN** the bounding box visibly interpolates its position between detection frames using a layout transition
+- **THEN** the detection overlay visibly interpolates its position between detection frames using a layout transition
 - **AND** the user perceives smooth motion rather than 15 Hz snapping
 
 #### Scenario: Object entering / leaving frame fades
 - **WHEN** an object first becomes detected
-- **THEN** the corresponding bounding box fades in over ~120 ms
+- **THEN** the corresponding detection overlay fades in over ~120 ms
 - **WHEN** an object stops being detected
-- **THEN** the bounding box fades out over ~160 ms
+- **THEN** the detection overlay fades out over ~160 ms
 - **AND** the fades do not stall the JS thread or the camera preview
 
 ### Requirement: Live inference sampling is decoupled from preview FPS

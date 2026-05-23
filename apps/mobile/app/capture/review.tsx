@@ -69,6 +69,7 @@ function buildAnalyzerModelMetadata(
       score_threshold: hp.scoreThreshold,
       iou_threshold: hp.iouThreshold,
       preprocess_profile: resolvePreprocessProfile(hp.preprocessProfile, active.metadata),
+      class_names: active.metadata.class_names,
     };
   }
   // Fallback: classical / mock — no registry record. A TFLite/CoreML runtime
@@ -88,7 +89,18 @@ function buildAnalyzerModelMetadata(
     score_threshold: hp.scoreThreshold,
     iou_threshold: hp.iouThreshold,
     preprocess_profile: resolvePreprocessProfile(hp.preprocessProfile, null),
+    class_names: null,
   };
+}
+
+function seedLabel(
+  seed: AnalyzedSeed,
+  classNames: readonly string[] | null | undefined,
+  varietyName: string | null | undefined,
+) {
+  const className =
+    typeof seed.class_id === "number" && classNames ? (classNames[seed.class_id] ?? null) : null;
+  return className ?? varietyName ?? null;
 }
 
 function buildDeviceUsageMetadata() {
@@ -186,6 +198,14 @@ export default function CaptureReview() {
     () => (result ? buildAnalyzerModelMetadata(reviewActiveModel, result.analyzerId) : null),
     [reviewActiveModel, result],
   );
+  const annotatedResultSeeds = useMemo(
+    () =>
+      result?.seeds.map((seed) => ({
+        ...seed,
+        label: seedLabel(seed, reviewAnalyzerModel?.class_names, variety?.name),
+      })) ?? [],
+    [result, reviewAnalyzerModel?.class_names, variety?.name],
+  );
 
   // Fetch GPS once on mount when the user opted into auto-tag location.
   // Done here rather than at save time so the reading is captured close
@@ -232,7 +252,7 @@ export default function CaptureReview() {
         // thumbnail JPG (last-resort: video upload failed). The JPG won't
         // play but at least mounts CaptureMediaPreview's image branch.
         (session.capturedVideoUri ?? session.uploadedVideoUrl ?? session.uploadedImageUrl)
-      : (session.capturedImageUri ?? session.uploadedImageUrl);
+      : (session.uploadedImageUrl ?? session.capturedImageUri);
   const previewRoi = session.mode === "live" ? session.roi : null;
   const note = displayInspectionNote(session.notes);
   const capturedAt = session.capturedAt ?? new Date().toISOString();
@@ -246,7 +266,7 @@ export default function CaptureReview() {
     const uri =
       mediaKind === "video"
         ? (session.uploadedVideoUrl ?? session.capturedVideoUri)
-        : (session.capturedImageUri ?? session.uploadedImageUrl);
+        : (session.uploadedImageUrl ?? session.capturedImageUri);
     if (!uri) return;
     try {
       if (mediaKind === "video") {
@@ -264,7 +284,7 @@ export default function CaptureReview() {
       } else {
         await shareAnnotatedImage(
           uri,
-          { roi: previewRoi, seeds: result.seeds },
+          { roi: previewRoi, seeds: annotatedResultSeeds },
           t("inspections:capture.review.shareImage"),
         );
       }
@@ -275,7 +295,13 @@ export default function CaptureReview() {
   };
 
   const onSave = async () => {
-    if (!profile || !session.uploadedImageUrl || !session.varietyId) return;
+    if (!profile || !session.uploadedImageUrl || !session.varietyId) {
+      Alert.alert(
+        t("common:states.error"),
+        "The model could not map this capture to an active variety. Re-capture with the object clearly visible or check variety model aliases.",
+      );
+      return;
+    }
     setSaving(true);
     // Snapshot the analyzer + model once for both the optimistic save
     // path and the queue-fallback path. Hoisted out of the try so catch
@@ -327,6 +353,7 @@ export default function CaptureReview() {
         },
         analyzerModel,
         analysisDiagnostics: session.analysisDiagnostics,
+        seeds: result.seeds,
       });
       const payload = buildInspectionSavePayload({
         inspectorId: profile.id,
@@ -405,6 +432,7 @@ export default function CaptureReview() {
               captured_at: capturedAt,
             },
             analysisDiagnostics: session.analysisDiagnostics,
+            seeds: result.seeds,
           }),
           notes: session.notes,
         });
@@ -539,7 +567,12 @@ export default function CaptureReview() {
                   kind={mediaKind}
                   roi={previewRoi}
                   seeds={
-                    mediaKind === "video" ? session.capturedLiveFrameResult?.seeds : result.seeds
+                    mediaKind === "video"
+                      ? session.capturedLiveFrameResult?.seeds.map((seed) => ({
+                          ...seed,
+                          label: seedLabel(seed, reviewAnalyzerModel?.class_names, variety?.name),
+                        }))
+                      : annotatedResultSeeds
                   }
                   seedFrameWidth={
                     mediaKind === "video"

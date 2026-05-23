@@ -12,6 +12,9 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.concurrent.thread
+import kotlin.math.exp
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
@@ -39,25 +42,55 @@ private object AndroidTfliteRunner {
       val image = frame.imageProxy
       val modelPath = (params?.get("modelPath") as? String)?.takeIf { it.isNotBlank() }
         ?: return null
-      val cropSize = numberParam(params, "cropSize", min(image.width, image.height).toDouble())
+      val orientation = normalizeOrientation(params?.get("orientation") as? String)
+      val rotates = orientation == "left" || orientation == "right" ||
+          orientation == "left-mirrored" || orientation == "right-mirrored"
+      val postWidth = if (rotates) image.height else image.width
+      val postHeight = if (rotates) image.width else image.height
+      val cropSize = numberParam(params, "cropSize", min(postWidth, postHeight).toDouble())
         .toInt()
-        .coerceAtLeast(1)
-      val cropX = numberParam(params, "cropX", ((image.width - cropSize) / 2.0))
+        .coerceIn(1, max(1, min(postWidth, postHeight)))
+      val cropX = numberParam(params, "cropX", ((postWidth - cropSize) / 2.0))
         .toInt()
-        .coerceIn(0, max(0, image.width - cropSize))
-      val cropY = numberParam(params, "cropY", ((image.height - cropSize) / 2.0))
+        .coerceIn(0, max(0, postWidth - cropSize))
+      val cropY = numberParam(params, "cropY", ((postHeight - cropSize) / 2.0))
         .toInt()
-        .coerceIn(0, max(0, image.height - cropSize))
+        .coerceIn(0, max(0, postHeight - cropSize))
       val preprocessProfile = (params?.get("preprocessProfile") as? String)
         ?.takeIf { it == "morph_fused_v1" }
         ?: "raw_rgb"
-      // Caller throttles mask prototype extraction: ~820k floats per frame
-      // on top of the existing detection bridge cost is too much for every
-      // frame on most devices. When wantMask=false we keep the existing
-      // 6-field-truncated detection-only path; on wantMask=true we also
-      // surface the full segmentation row (mask coefs preserved) and the
-      // mask prototype tensor.
+      // Caller throttles mask polygon decode: even with the matmul + trace
+      // in native, sigmoid over ~820k float ops per wantMask frame stays
+      // expensive enough to keep gated. When wantMask=false we keep the
+      // existing 6-field-truncated detection-only path. On wantMask=true
+      // the plugin runs the YOLO segmentation post-process natively and
+      // returns `polygons` parallel to the JS row iteration — the
+      // ~820k-float prototype tensor never crosses the bridge.
       val wantMask = (params?.get("wantMask") as? Boolean) == true
+      // Mask-decode args; consulted only when wantMask=true and the model
+      // emits a rank-4 prototype tensor. Must match JS-side filtering for
+      // index alignment between the i-th JS detection and the i-th
+      // non-empty polygons[] entry.
+      val maskScoreThreshold = numberParam(params, "scoreThreshold", 0.25).toFloat()
+      @Suppress("UNCHECKED_CAST")
+      val maskClassFilterRaw = params?.get("classFilter") as? List<Any>
+      val maskClassFilter: IntArray? = maskClassFilterRaw?.mapNotNull {
+        (it as? Number)?.toInt()
+      }?.takeIf { it.isNotEmpty() }?.toIntArray()
+      val maskBinThreshold = numberParam(params, "maskThreshold", 0.5).toFloat()
+      val maskMaxPolygons = numberParam(params, "maxPolygons", Int.MAX_VALUE.toDouble())
+        .toInt()
+        .coerceAtLeast(0)
+      // Derive letterbox from the post-rotation crop. Android live
+      // samples YUV through the same orientation transform iOS Vision
+      // applies before inference, so boxes/polygons decode in upright
+      // source space first and JS maps them back to sensor space.
+      val maskLetterboxTarget = INPUT_SIZE.toFloat()
+      val maskLetterboxScale = if (cropSize > 0) maskLetterboxTarget / cropSize else 0f
+      val maskLetterboxPadX = -cropX * maskLetterboxScale
+      val maskLetterboxPadY = -cropY * maskLetterboxScale
+      val maskSrcW = postWidth
+      val maskSrcH = postHeight
 
       val activeRunner = getRunner(modelPath)
       val startedAtMs = System.currentTimeMillis()
@@ -69,6 +102,7 @@ private object AndroidTfliteRunner {
           cropX,
           cropY,
           cropSize,
+          orientation,
           preprocessProfile,
         )
         activeRunner.run()
@@ -79,7 +113,7 @@ private object AndroidTfliteRunner {
         lastTimingLogAtMs = now
         Log.d(
           TAG,
-          "native live inference ${image.width}x${image.height} crop=${cropX},${cropY},${cropSize} preprocess=$preprocessProfile elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")} bridgeOutput=${activeRunner.bridgeOutputShape.joinToString("x")}"
+          "native live inference ${image.width}x${image.height} post=${postWidth}x${postHeight} orientation=$orientation crop=${cropX},${cropY},${cropSize} preprocess=$preprocessProfile elapsed=${elapsedMs}ms delegate=${activeRunner.delegateName} outputIndex=${activeRunner.selectedOutputIndex} output=${activeRunner.outputShape.joinToString("x")} bridgeOutput=${activeRunner.bridgeOutputShape.joinToString("x")}"
         )
       }
       val detectionShape: List<Int>
@@ -95,13 +129,35 @@ private object AndroidTfliteRunner {
       result["shape"] = detectionShape
       result["values"] = detectionValues
       result["delegate"] = activeRunner.delegateName
+      result["orientation"] = orientation
       result["outputIndex"] = activeRunner.selectedOutputIndex
       if (wantMask) {
+        // Native polygon decode — runs on the worklet thread inside the
+        // plugin, after model inference, while the prototype tensor is
+        // still in-process. Emits `polygons` parallel to the JS row
+        // iteration; the ~820k-float prototype is never copied to JS.
         val protoShape = activeRunner.prototypeShape
-        val protoValues = activeRunner.prototypeValues()
-        if (protoShape != null && protoValues != null) {
+        val canDecode = protoShape != null && maskLetterboxScale > 0f &&
+            maskLetterboxTarget > 0f && maskSrcW > 0 && maskSrcH > 0
+        if (protoShape != null) {
           result["protoShape"] = protoShape.toList()
-          result["protoValues"] = protoValues
+        }
+        if (canDecode) {
+          val polygons = activeRunner.decodeAllPolygonsToBridge(
+            scoreThreshold = maskScoreThreshold,
+            classFilter = maskClassFilter,
+            scale = maskLetterboxScale,
+            padX = maskLetterboxPadX,
+            padY = maskLetterboxPadY,
+            target = maskLetterboxTarget,
+            srcW = maskSrcW,
+            srcH = maskSrcH,
+            maskThreshold = maskBinThreshold,
+            maxPolygons = maskMaxPolygons,
+          )
+          if (polygons != null) {
+            result["polygons"] = polygons
+          }
         }
       }
       return result
@@ -127,6 +183,19 @@ private object AndroidTfliteRunner {
 
   private fun numberParam(params: Map<String, Any>?, name: String, fallback: Double): Double {
     return (params?.get(name) as? Number)?.toDouble() ?: fallback
+  }
+
+  private fun normalizeOrientation(value: String?): String {
+    val normalized = (value ?: "up").lowercase().replace('_', '-')
+    val mirrored = if (normalized.endsWith("-mirrored")) "-mirrored" else ""
+    val base = if (mirrored.isNotEmpty()) normalized.removeSuffix("-mirrored") else normalized
+    return when (base) {
+      "portrait", "portrait-up", "up" -> "up$mirrored"
+      "portrait-down", "portrait-upside-down", "upside-down", "down" -> "down$mirrored"
+      "landscape-left", "left" -> "left$mirrored"
+      "landscape-right", "right" -> "right$mirrored"
+      else -> normalized.ifBlank { "up" }
+    }
   }
 
   private class Runner(modelBuffer: ByteBuffer, val sourceKey: String) {
@@ -195,12 +264,21 @@ private object AndroidTfliteRunner {
       cropX: Int,
       cropY: Int,
       cropSize: Int,
+      orientation: String,
       preprocessProfile: String,
     ) {
       if (preprocessProfile == "morph_fused_v1") {
-        fillInputMorphFusedFromYuv(planes, frameWidth, frameHeight, cropX, cropY, cropSize)
+        fillInputMorphFusedFromYuv(
+          planes,
+          frameWidth,
+          frameHeight,
+          cropX,
+          cropY,
+          cropSize,
+          orientation,
+        )
       } else {
-        fillInputRawFromYuv(planes, frameWidth, frameHeight, cropX, cropY, cropSize)
+        fillInputRawFromYuv(planes, frameWidth, frameHeight, cropX, cropY, cropSize, orientation)
       }
     }
 
@@ -211,6 +289,7 @@ private object AndroidTfliteRunner {
       cropX: Int,
       cropY: Int,
       cropSize: Int,
+      orientation: String,
     ) {
       inputBuffer.rewind()
       val yPlane = planes[0]
@@ -219,7 +298,7 @@ private object AndroidTfliteRunner {
       val yBuffer = yPlane.buffer.duplicate()
       val uBuffer = uPlane.buffer.duplicate()
       val vBuffer = vPlane.buffer.duplicate()
-      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize)
+      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize, orientation)
       val yRowStride = yPlane.rowStride
       val yPixelStride = yPlane.pixelStride
       val uRowStride = uPlane.rowStride
@@ -272,6 +351,7 @@ private object AndroidTfliteRunner {
       cropX: Int,
       cropY: Int,
       cropSize: Int,
+      orientation: String,
     ) {
       inputBuffer.rewind()
       val yPlane = planes[0]
@@ -280,7 +360,7 @@ private object AndroidTfliteRunner {
       val yBuffer = yPlane.buffer.duplicate()
       val uBuffer = uPlane.buffer.duplicate()
       val vBuffer = vPlane.buffer.duplicate()
-      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize)
+      updateCoordinateMaps(frameWidth, frameHeight, cropX, cropY, cropSize, orientation)
       val yRowStride = yPlane.rowStride
       val yPixelStride = yPlane.pixelStride
       val uRowStride = uPlane.rowStride
@@ -476,6 +556,10 @@ private object AndroidTfliteRunner {
      * Mask prototype tensor as a flat List<Double> (~820k entries for
      * `[1, 160, 160, 32]`). Returns null when the model has no
      * prototype output or the prototype buffer is unavailable.
+     *
+     * Retained as a fallback for diagnostic / non-standard model paths.
+     * The hot path uses [decodeAllPolygonsToBridge] which keeps these
+     * floats native and returns just polygons.
      */
     fun prototypeValues(): List<Double>? {
       val buf = prototypeBuffer ?: return null
@@ -488,20 +572,534 @@ private object AndroidTfliteRunner {
       return values
     }
 
+    /**
+     * Run the YOLO segmentation mask post-process natively. Iterates
+     * raw detection rows applying the same score + class filter as
+     * JS-side `decodeYoloSegmentationNms`, decodes each row's mask
+     * against the cached prototype tensor (sigmoid + threshold), traces
+     * the largest connected component's boundary, and returns flat
+     * `[x0, y0, x1, y1, ...]` arrays in source-image pixel space —
+     * parallel to the JS row iteration so JS attaches by index.
+     *
+     * Assumes the Ultralytics NMS-fused xyxy-in-canvas-pixel format.
+     * Non-standard exports return an empty list per row; the JS fallback
+     * path (proto serialization) is no longer triggered, so polygons
+     * simply won't appear for exotic models.
+     */
+    fun decodeAllPolygonsToBridge(
+      scoreThreshold: Float,
+      classFilter: IntArray?,
+      scale: Float,
+      padX: Float,
+      padY: Float,
+      target: Float,
+      srcW: Int,
+      srcH: Int,
+      maskThreshold: Float,
+      maxPolygons: Int,
+    ): List<List<Double>>? {
+      if (prototypeBuffer == null || prototypeShape == null) return null
+      if (outputShape.size != 3) return null
+      val maxDet = outputShape[1]
+      val fields = outputShape[2]
+      if (fields < 7) return null
+      val coefCount = fields - 6
+
+      // Channel-last/first detection. Mirrors yoloSegMask.ts.
+      val protoDims = if (prototypeShape.size == 4 && prototypeShape[0] == 1) {
+        intArrayOf(prototypeShape[1], prototypeShape[2], prototypeShape[3])
+      } else if (prototypeShape.size == 3) {
+        prototypeShape
+      } else {
+        return null
+      }
+      val channelLast: Boolean
+      val protoH: Int
+      val protoW: Int
+      val protoC: Int
+      if (protoDims[2] == coefCount) {
+        protoH = protoDims[0]; protoW = protoDims[1]; protoC = protoDims[2]; channelLast = true
+      } else if (protoDims[0] == coefCount) {
+        protoC = protoDims[0]; protoH = protoDims[1]; protoW = protoDims[2]; channelLast = false
+      } else {
+        return null
+      }
+
+      val det = FloatArray(outputFloatCount)
+      outputBuffer.rewind()
+      outputBuffer.asFloatBuffer().get(det)
+      outputBuffer.rewind()
+      val proto = FloatArray(prototypeFloatCount)
+      prototypeBuffer.rewind()
+      prototypeBuffer.asFloatBuffer().get(proto)
+      prototypeBuffer.rewind()
+
+      val out = ArrayList<List<Double>>(maxDet)
+      val sx = (protoW.toFloat() / target) * scale
+      val sy = (protoH.toFloat() / target) * scale
+      val ox = (padX * protoW) / target
+      val oy = (padY * protoH) / target
+      val useXyxy = pickBoxFormat(det, maxDet, fields, scoreThreshold)
+      val selectedRows = selectPolygonRows(det, maxDet, fields, scoreThreshold, classFilter, maxPolygons)
+
+      for (i in 0 until maxDet) {
+        if (!selectedRows[i]) { out.add(emptyList()); continue }
+        val base = i * fields
+        val score = det[base + 4]
+        if (score < scoreThreshold) { out.add(emptyList()); continue }
+        val classId = Math.round(det[base + 5])
+        if (classFilter != null && !classFilter.any { it == classId }) {
+          out.add(emptyList()); continue
+        }
+        val rawA = det[base + 0]
+        val rawB = det[base + 1]
+        val rawC = det[base + 2]
+        val rawD = det[base + 3]
+        val rowMaxAbs = max(max(kotlin.math.abs(rawA), kotlin.math.abs(rawB)), max(kotlin.math.abs(rawC), kotlin.math.abs(rawD)))
+        val rawX1: Float
+        val rawY1: Float
+        val rawX2: Float
+        val rawY2: Float
+        if (useXyxy) {
+          rawX1 = rawA
+          rawY1 = rawB
+          rawX2 = rawC
+          rawY2 = rawD
+        } else {
+          rawX1 = rawA - rawC / 2f
+          rawY1 = rawB - rawD / 2f
+          rawX2 = rawA + rawC / 2f
+          rawY2 = rawB + rawD / 2f
+        }
+        val fx1: Float
+        val fy1: Float
+        val fx2: Float
+        val fy2: Float
+        if (rowMaxAbs > target * 1.1f) {
+          fx1 = rawX1
+          fy1 = rawY1
+          fx2 = rawX2
+          fy2 = rawY2
+        } else if (rowMaxAbs <= 1.5f) {
+          val ax1 = (rawX1 * target - padX) / scale
+          val ay1 = (rawY1 * target - padY) / scale
+          val ax2 = (rawX2 * target - padX) / scale
+          val ay2 = (rawY2 * target - padY) / scale
+          val aFits = ax1 >= -4f && ay1 >= -4f && ax2 <= srcW + 4f &&
+              ay2 <= srcH + 4f && ax2 > ax1 && ay2 > ay1
+          if (aFits) {
+            fx1 = ax1
+            fy1 = ay1
+            fx2 = ax2
+            fy2 = ay2
+          } else {
+            fx1 = rawX1 * srcW
+            fy1 = rawY1 * srcH
+            fx2 = rawX2 * srcW
+            fy2 = rawY2 * srcH
+          }
+        } else {
+          fx1 = (rawX1 - padX) / scale
+          fy1 = (rawY1 - padY) / scale
+          fx2 = (rawX2 - padX) / scale
+          fy2 = (rawY2 - padY) / scale
+        }
+        if (fx2 - fx1 <= 1f || fy2 - fy1 <= 1f) { out.add(emptyList()); continue }
+        val x0 = max(0, floor(fx1).toInt())
+        val y0 = max(0, floor(fy1).toInt())
+        val x1 = min(srcW, ceil(fx2).toInt())
+        val y1 = min(srcH, ceil(fy2).toInt())
+        val w = max(0, x1 - x0)
+        val h = max(0, y1 - y0)
+        if (w <= 0 || h <= 0) { out.add(emptyList()); continue }
+
+        // Decode bbox-cropped mask in source pixel space.
+        val mask = ByteArray(w * h)
+        var pixelCount = 0
+        val coefBase = base + 6
+        // Bilinear sampling of the proto tensor — each source pixel reads
+        // 4 adjacent proto cells weighted by its fractional position
+        // instead of snapping to a single cell. Sub-cell accuracy at the
+        // mask boundary; otherwise the mask snaps to 12-source-pixel
+        // cell edges and the polygon trace walks a chunky staircase.
+        if (channelLast) {
+          val pwc = protoW * protoC
+          for (py in 0 until h) {
+            val sy0 = (y0 + py) * sy + oy
+            val sy0c = sy0.coerceIn(0f, (protoH - 1).toFloat())
+            val ry0 = sy0c.toInt().coerceIn(0, protoH - 1)
+            val ry1 = (ry0 + 1).coerceIn(0, protoH - 1)
+            val fy = sy0c - ry0
+            for (px in 0 until w) {
+              val sx0 = (x0 + px) * sx + ox
+              val sx0c = sx0.coerceIn(0f, (protoW - 1).toFloat())
+              val rx0 = sx0c.toInt().coerceIn(0, protoW - 1)
+              val rx1 = (rx0 + 1).coerceIn(0, protoW - 1)
+              val fx = sx0c - rx0
+              val base00 = (ry0 * protoW + rx0) * protoC
+              val base01 = (ry0 * protoW + rx1) * protoC
+              val base10 = (ry1 * protoW + rx0) * protoC
+              val base11 = (ry1 * protoW + rx1) * protoC
+              val w00 = (1f - fx) * (1f - fy)
+              val w01 = fx * (1f - fy)
+              val w10 = (1f - fx) * fy
+              val w11 = fx * fy
+              var acc = 0f
+              for (c in 0 until coefCount) {
+                val v = w00 * proto[base00 + c] + w01 * proto[base01 + c] +
+                        w10 * proto[base10 + c] + w11 * proto[base11 + c]
+                acc += det[coefBase + c] * v
+              }
+              if (sigmoidf(acc) > maskThreshold) {
+                mask[py * w + px] = 1
+                pixelCount++
+              }
+            }
+          }
+        } else {
+          val planeStride = protoH * protoW
+          for (py in 0 until h) {
+            val sy0 = (y0 + py) * sy + oy
+            val sy0c = sy0.coerceIn(0f, (protoH - 1).toFloat())
+            val ry0 = sy0c.toInt().coerceIn(0, protoH - 1)
+            val ry1 = (ry0 + 1).coerceIn(0, protoH - 1)
+            val fy = sy0c - ry0
+            for (px in 0 until w) {
+              val sx0 = (x0 + px) * sx + ox
+              val sx0c = sx0.coerceIn(0f, (protoW - 1).toFloat())
+              val rx0 = sx0c.toInt().coerceIn(0, protoW - 1)
+              val rx1 = (rx0 + 1).coerceIn(0, protoW - 1)
+              val fx = sx0c - rx0
+              val off00 = ry0 * protoW + rx0
+              val off01 = ry0 * protoW + rx1
+              val off10 = ry1 * protoW + rx0
+              val off11 = ry1 * protoW + rx1
+              val w00 = (1f - fx) * (1f - fy)
+              val w01 = fx * (1f - fy)
+              val w10 = (1f - fx) * fy
+              val w11 = fx * fy
+              var acc = 0f
+              for (c in 0 until coefCount) {
+                val channelBase = c * planeStride
+                val v = w00 * proto[channelBase + off00] +
+                        w01 * proto[channelBase + off01] +
+                        w10 * proto[channelBase + off10] +
+                        w11 * proto[channelBase + off11]
+                acc += det[coefBase + c] * v
+              }
+              if (sigmoidf(acc) > maskThreshold) {
+                mask[py * w + px] = 1
+                pixelCount++
+              }
+            }
+          }
+        }
+        if (pixelCount == 0) { out.add(emptyList()); continue }
+        val rawPoly = extractPolygonFromMask(mask, w, h, x0, y0)
+        if (rawPoly.size < 6) { out.add(emptyList()); continue }
+        // Douglas-Peucker simplification, epsilon = 1.5 source pixels.
+        // Collapses cell-resolution staircase artifacts into clean
+        // diagonals; preserves real corners.
+        val simplified = simplifyPolygonDP(rawPoly, 1.5f)
+        val finalPoly = if (simplified.size >= 6) simplified else rawPoly
+        val boxed = ArrayList<Double>(finalPoly.size)
+        for (v in finalPoly) boxed.add(v.toDouble())
+        out.add(boxed)
+      }
+      return out
+    }
+
+    private fun selectPolygonRows(
+      det: FloatArray,
+      maxDet: Int,
+      fields: Int,
+      scoreThreshold: Float,
+      classFilter: IntArray?,
+      maxPolygons: Int,
+    ): BooleanArray {
+      val selected = BooleanArray(maxDet)
+      if (maxPolygons <= 0) return selected
+      val candidates = ArrayList<Pair<Int, Float>>(maxDet)
+      for (i in 0 until maxDet) {
+        val base = i * fields
+        val score = det[base + 4]
+        if (score < scoreThreshold) continue
+        val classId = Math.round(det[base + 5])
+        if (classFilter != null && !classFilter.any { it == classId }) continue
+        candidates.add(Pair(i, score))
+      }
+      candidates.sortByDescending { it.second }
+      val limit = min(maxPolygons, candidates.size)
+      for (i in 0 until limit) selected[candidates[i].first] = true
+      return selected
+    }
+
+    private fun pickBoxFormat(
+      det: FloatArray,
+      maxDet: Int,
+      fields: Int,
+      scoreThreshold: Float,
+    ): Boolean {
+      var xyxyHits = 0
+      var cxywhHits = 0
+      var inspected = 0
+      val topK = 5
+      for (i in 0 until maxDet) {
+        if (inspected >= topK) break
+        val base = i * fields
+        val score = det[base + 4]
+        if (score < scoreThreshold) continue
+        inspected++
+        val a = det[base + 0]
+        val b = det[base + 1]
+        val c = det[base + 2]
+        val d = det[base + 3]
+        if (c > a + 1f && d > b + 1f) xyxyHits++
+        val cxywhPx = c > 5f && d > 5f
+        val cxywhNorm = c > 0.01f && c <= 1.5f && d > 0.01f && d <= 1.5f
+        if (cxywhPx || cxywhNorm) cxywhHits++
+      }
+      if (inspected == 0) return true
+      return !(xyxyHits == 0 && cxywhHits > 0)
+    }
+
+    /**
+     * Iterative Douglas-Peucker simplification on a flat polygon
+     * [x0, y0, x1, y1, ...]. Keeps only vertices whose perpendicular
+     * distance from the chord between two endpoints exceeds `epsilon`.
+     * Collapses cell-resolution staircase artifacts into clean
+     * diagonals while preserving real corners. See iOS plugin for
+     * the matching implementation rationale.
+     */
+    private fun simplifyPolygonDP(poly: FloatArray, epsilon: Float): FloatArray {
+      val n = poly.size / 2
+      if (n < 4) return poly
+      val keep = BooleanArray(n)
+      keep[0] = true
+      keep[n - 1] = true
+      val eps2 = epsilon * epsilon
+      // (lo, hi) pairs packed into two IntArrays as a stack.
+      val stackLo = IntArray(n * 2)
+      val stackHi = IntArray(n * 2)
+      var sp = 0
+      stackLo[sp] = 0
+      stackHi[sp] = n - 1
+      sp++
+      while (sp > 0) {
+        sp--
+        val lo = stackLo[sp]
+        val hi = stackHi[sp]
+        if (hi <= lo + 1) continue
+        val ax = poly[lo * 2]
+        val ay = poly[lo * 2 + 1]
+        val bx = poly[hi * 2]
+        val by = poly[hi * 2 + 1]
+        val dx = bx - ax
+        val dy = by - ay
+        val len2 = dx * dx + dy * dy
+        var bestDist2 = -1f
+        var bestIdx = lo
+        for (i in (lo + 1) until hi) {
+          val px = poly[i * 2]
+          val py = poly[i * 2 + 1]
+          val dist2: Float = if (len2 <= 1e-9f) {
+            val ex = px - ax
+            val ey = py - ay
+            ex * ex + ey * ey
+          } else {
+            val cross = (px - ax) * dy - (py - ay) * dx
+            (cross * cross) / len2
+          }
+          if (dist2 > bestDist2) {
+            bestDist2 = dist2
+            bestIdx = i
+          }
+        }
+        if (bestDist2 > eps2) {
+          keep[bestIdx] = true
+          stackLo[sp] = lo; stackHi[sp] = bestIdx; sp++
+          stackLo[sp] = bestIdx; stackHi[sp] = hi; sp++
+        }
+      }
+      var kept = 0
+      for (k in keep) if (k) kept++
+      val out = FloatArray(kept * 2)
+      var w = 0
+      for (i in 0 until n) {
+        if (keep[i]) {
+          out[w * 2] = poly[i * 2]
+          out[w * 2 + 1] = poly[i * 2 + 1]
+          w++
+        }
+      }
+      return out
+    }
+
+    private fun extractPolygonFromMask(
+      mask: ByteArray,
+      w: Int,
+      h: Int,
+      x0: Int,
+      y0: Int,
+    ): FloatArray {
+      val labels = IntArray(w * h)
+      val sizes = ArrayList<Int>()
+      sizes.add(0)
+      var nextLabel = 1
+      val stack = IntArray(w * h)
+      var sp: Int
+      for (y in 0 until h) {
+        for (x in 0 until w) {
+          val idx = y * w + x
+          if (mask[idx].toInt() == 0 || labels[idx] != 0) continue
+          val label = nextLabel++
+          var size = 0
+          sp = 0
+          stack[sp++] = idx
+          labels[idx] = label
+          while (sp > 0) {
+            val cur = stack[--sp]
+            size++
+            val cy = cur / w
+            val cx = cur - cy * w
+            if (cx > 0) {
+              val n = cur - 1
+              if (mask[n].toInt() != 0 && labels[n] == 0) {
+                labels[n] = label; stack[sp++] = n
+              }
+            }
+            if (cx + 1 < w) {
+              val n = cur + 1
+              if (mask[n].toInt() != 0 && labels[n] == 0) {
+                labels[n] = label; stack[sp++] = n
+              }
+            }
+            if (cy > 0) {
+              val n = cur - w
+              if (mask[n].toInt() != 0 && labels[n] == 0) {
+                labels[n] = label; stack[sp++] = n
+              }
+            }
+            if (cy + 1 < h) {
+              val n = cur + w
+              if (mask[n].toInt() != 0 && labels[n] == 0) {
+                labels[n] = label; stack[sp++] = n
+              }
+            }
+          }
+          sizes.add(size)
+        }
+      }
+      if (nextLabel == 1) return FloatArray(0)
+      var bestLabel = 1
+      for (l in 2 until sizes.size) {
+        if (sizes[l] > sizes[bestLabel]) bestLabel = l
+      }
+      var start = -1
+      for (i in labels.indices) {
+        if (labels[i] == bestLabel) { start = i; break }
+      }
+      if (start < 0) return FloatArray(0)
+      val dx = intArrayOf(-1, -1, 0, 1, 1, 1, 0, -1)
+      val dy = intArrayOf(0, -1, -1, -1, 0, 1, 1, 1)
+      val startX = start % w
+      val startY = start / w
+      val poly = ArrayList<Float>(64)
+      poly.add(x0 + startX + 0.5f)
+      poly.add(y0 + startY + 0.5f)
+      var cx = startX
+      var cy = startY
+      // Initial scan direction = SE (5). South (6) is pathological for
+      // the common case where the topmost-leftmost FG pixel sits at the
+      // corner of a larger blob — the scan loops back to start after 4
+      // pixels without ever walking the actual boundary. See iOS plugin
+      // for the longer rationale.
+      var dir = 5
+      var advanced = false
+      val safetyLimit = 4L * (w.toLong() * h.toLong() + 1L)
+      var safety = 0L
+      while (safety < safetyLimit) {
+        safety++
+        var found = false
+        for (step in 0 until 8) {
+          val d = (dir + step) % 8
+          val nx = cx + dx[d]
+          val ny = cy + dy[d]
+          if (nx in 0 until w && ny in 0 until h && labels[ny * w + nx] == bestLabel) {
+            cx = nx
+            cy = ny
+            dir = (d + 6) % 8
+            val vx = x0 + cx + 0.5f
+            val vy = y0 + cy + 0.5f
+            val n = poly.size
+            if (n < 2 || poly[n - 2] != vx || poly[n - 1] != vy) {
+              poly.add(vx); poly.add(vy)
+            }
+            found = true
+            advanced = true
+            break
+          }
+        }
+        if (!found) break
+        if (advanced && cx == startX && cy == startY) break
+      }
+      if (poly.size >= 4) {
+        val n = poly.size
+        if (poly[n - 2] == poly[0] && poly[n - 1] == poly[1]) {
+          poly.removeAt(n - 1); poly.removeAt(n - 2)
+        }
+      }
+      val arr = FloatArray(poly.size)
+      for (i in poly.indices) arr[i] = poly[i]
+      return arr
+    }
+
+    private fun sigmoidf(z: Float): Float {
+      return if (z >= 0f) 1f / (1f + exp(-z))
+      else { val e = exp(z); e / (1f + e) }
+    }
+
     private fun updateCoordinateMaps(
       frameWidth: Int,
       frameHeight: Int,
       cropX: Int,
       cropY: Int,
       cropSize: Int,
+      orientation: String,
     ) {
-      val key = "$frameWidth:$frameHeight:$cropX:$cropY:$cropSize"
+      val key = "$frameWidth:$frameHeight:$cropX:$cropY:$cropSize:$orientation"
       if (key == mapKey) return
       mapKey = key
       val scale = cropSize.toDouble() / INPUT_SIZE
+      val rotates = orientation == "left" || orientation == "right" ||
+          orientation == "left-mirrored" || orientation == "right-mirrored"
+      val postWidth = if (rotates) frameHeight else frameWidth
+      val postHeight = if (rotates) frameWidth else frameHeight
       for (i in 0 until INPUT_SIZE) {
-        srcXMap[i] = (cropX + ((i + 0.5) * scale).toInt()).coerceIn(0, frameWidth - 1)
-        srcYMap[i] = (cropY + ((i + 0.5) * scale).toInt()).coerceIn(0, frameHeight - 1)
+        val postX = (cropX + ((i + 0.5) * scale).toInt()).coerceIn(0, postWidth - 1)
+        val postY = (cropY + ((i + 0.5) * scale).toInt()).coerceIn(0, postHeight - 1)
+        val sensor = postToSensor(postX, postY, postWidth, postHeight, frameWidth, frameHeight, orientation)
+        srcXMap[i] = sensor.first
+        srcYMap[i] = sensor.second
+      }
+    }
+
+    private fun postToSensor(
+      x: Int,
+      y: Int,
+      postW: Int,
+      postH: Int,
+      frameW: Int,
+      frameH: Int,
+      orientation: String,
+    ): Pair<Int, Int> {
+      return when (orientation) {
+        "right", "right-mirrored" -> Pair(y, postW - x)
+        "left", "left-mirrored" -> Pair(postH - y, x)
+        "down", "down-mirrored" -> Pair(postW - x, postH - y)
+        else -> Pair(x, y)
+      }.let { (sx, sy) ->
+        Pair(sx.coerceIn(0, frameW - 1), sy.coerceIn(0, frameH - 1))
       }
     }
 

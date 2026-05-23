@@ -47,6 +47,41 @@ test("Android TFLite frame processor surfaces mask prototype tensor when wantMas
   assert.match(source, /fun prototypeValues\(\): List<Double>\?/);
 });
 
+test("Android native mask decoder mirrors JS bbox format heuristics", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.match(source, /private fun pickBoxFormat/);
+  assert.match(source, /val useXyxy = pickBoxFormat\(det, maxDet, fields, scoreThreshold\)/);
+  assert.match(source, /rawX1 = rawA - rawC \/ 2f/);
+  assert.match(source, /rowMaxAbs <= 1\.5f/);
+  assert.match(source, /rawX1 \* srcW/);
+});
+
+test("Android native mask decoder limits polygon tracing to top live rows", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.match(
+    source,
+    /val maskMaxPolygons = numberParam\(params, "maxPolygons", Int\.MAX_VALUE\.toDouble\(\)\)/,
+  );
+  assert.match(source, /maxPolygons = maskMaxPolygons/);
+  assert.match(source, /private fun selectPolygonRows/);
+  assert.match(source, /candidates\.sortByDescending/);
+  assert.match(source, /if \(!selectedRows\[i\]\) \{ out\.add\(emptyList\(\)\); continue \}/);
+});
+
+test("Android live TFLite samples rotated frames before inference", () => {
+  const source = readFileSync(androidPlugin, "utf8");
+
+  assert.match(source, /val orientation = normalizeOrientation/);
+  assert.match(source, /val postWidth = if \(rotates\) image\.height else image\.width/);
+  assert.match(source, /activeRunner\.fillInputFromYuv\([\s\S]*orientation,[\s\S]*preprocessProfile/);
+  assert.match(source, /updateCoordinateMaps\(frameWidth, frameHeight, cropX, cropY, cropSize, orientation\)/);
+  assert.match(source, /private fun postToSensor/);
+  assert.match(source, /"right", "right-mirrored" -> Pair\(y, postW - x\)/);
+  assert.match(source, /result\["orientation"\] = orientation/);
+});
+
 test("Android TFLite CPU runner uses four XNNPACK threads for live inference", () => {
   const source = readFileSync(androidPlugin, "utf8");
 

@@ -9,14 +9,12 @@ import {
   setHyperParams,
   useHyperParams,
 } from "@/lib/analyzer/hyperparams";
-import { type InferenceStat, useInferenceStats } from "@/lib/analyzer/inferenceStats";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Toggle } from "@/components/ui/Toggle";
 
 const SCORE_PRESETS = [0.25, 0.4, 0.5, 0.6, 0.75];
-const IOU_PRESETS = [0.45, 0.55, 0.65, 0.75, 0.85];
 const FPS_PRESETS = [5, 10, 15, 30, 60];
 
 /**
@@ -31,7 +29,6 @@ export default function HyperParamsScreen() {
   const { t } = useTranslation(["common", "more"]);
   const router = useRouter();
   const hp = useHyperParams();
-  const stats = useInferenceStats();
 
   const onReset = () => {
     Alert.alert(t("more:hyperparams.resetTitle"), t("more:hyperparams.resetBody"), [
@@ -45,7 +42,6 @@ export default function HyperParamsScreen() {
   };
 
   const scoreDirty = Math.abs(hp.scoreThreshold - DEFAULT_HYPERPARAMS.scoreThreshold) > 1e-6;
-  const iouDirty = Math.abs(hp.iouThreshold - DEFAULT_HYPERPARAMS.iouThreshold) > 1e-6;
   const fpsDirty = hp.targetFps !== DEFAULT_HYPERPARAMS.targetFps;
 
   return (
@@ -67,16 +63,6 @@ export default function HyperParamsScreen() {
           format={(v) => v.toFixed(2)}
           dirty={scoreDirty}
           onPick={(v) => void setHyperParams({ scoreThreshold: v })}
-        />
-
-        <PresetGroup
-          label={t("more:hyperparams.iouThreshold")}
-          hint={t("more:hyperparams.iouThresholdHint")}
-          value={hp.iouThreshold}
-          presets={IOU_PRESETS}
-          format={(v) => v.toFixed(2)}
-          dirty={iouDirty}
-          onPick={(v) => void setHyperParams({ iouThreshold: v })}
         />
 
         <PresetGroup
@@ -102,32 +88,13 @@ export default function HyperParamsScreen() {
           accessibilityLabel={t("more:hyperparams.morphFeature")}
         />
 
-        {stats.length > 0 ? (
-          <View>
-            <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-sm px-xs">
-              {t("more:hyperparams.inferenceStats")}
-            </Text>
-            <Card>
-              <Text className="text-caption text-fg-tertiary mb-md">
-                {t("more:hyperparams.inferenceStatsHint")}
-              </Text>
-              <View className="gap-lg">
-                {stats.map((s) => (
-                  <InferenceStatRow key={s.source} stat={s} />
-                ))}
-              </View>
-            </Card>
-          </View>
-        ) : null}
-
         <View>
           <Text className="text-caption uppercase tracking-wide text-fg-secondary mb-sm px-xs">
             {t("more:hyperparams.defaults")}
           </Text>
           <Card>
             <Text className="text-caption text-fg-tertiary">
-              score {DEFAULT_HYPERPARAMS.scoreThreshold} · iou {DEFAULT_HYPERPARAMS.iouThreshold} ·{" "}
-              {DEFAULT_HYPERPARAMS.targetFps} fps ·{" "}
+              score {DEFAULT_HYPERPARAMS.scoreThreshold} · {DEFAULT_HYPERPARAMS.targetFps} fps ·{" "}
               {t(
                 `more:hyperparams.preprocessProfileValue.${DEFAULT_HYPERPARAMS.preprocessProfile}`,
               )}
@@ -243,60 +210,5 @@ function PresetButton({
         {label}
       </Text>
     </Pressable>
-  );
-}
-
-function InferenceStatRow({ stat }: { stat: InferenceStat }) {
-  const maxBucket = Math.max(1, ...stat.buckets);
-  return (
-    <View>
-      <View className="flex-row items-baseline justify-between">
-        <Text className="text-body font-medium text-fg-primary">{stat.source}</Text>
-        <Text className="text-caption text-fg-tertiary">
-          n={stat.count} (total {stat.total})
-        </Text>
-      </View>
-      <View className="flex-row gap-xl mt-sm">
-        <TimingStat label="p50" value={stat.p50} />
-        <TimingStat label="p95" value={stat.p95} />
-        <TimingStat label="p99" value={stat.p99} />
-      </View>
-      <View className="mt-md flex-row items-end gap-[2px] h-[64px]">
-        {stat.buckets.map((count, i) => {
-          const heightPct = count === 0 ? 4 : 4 + (count / maxBucket) * 96;
-          const hot = i >= stat.buckets.length - 4 && count > 0;
-          return (
-            <View
-              key={i}
-              className={`flex-1 rounded-sm ${
-                count === 0 ? "bg-line-tertiary" : hot ? "bg-warning" : "bg-brand opacity-60"
-              }`}
-              style={{ height: `${heightPct}%` }}
-            />
-          );
-        })}
-      </View>
-      <View className="flex-row justify-between mt-xs">
-        <Text className="text-caption text-fg-tertiary">{`<${stat.bucketEdgesMs[0]}ms`}</Text>
-        <Text className="text-caption text-fg-tertiary">
-          {`<${stat.bucketEdgesMs[Math.floor(stat.bucketEdgesMs.length / 2)]}`}
-        </Text>
-        <Text className="text-caption text-fg-tertiary">
-          {`≥${stat.bucketEdgesMs[stat.bucketEdgesMs.length - 1]}`}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function TimingStat({ label, value }: { label: string; value: number }) {
-  return (
-    <View>
-      <Text className="text-caption uppercase tracking-wide text-fg-tertiary">{label}</Text>
-      <View className="flex-row items-baseline gap-[3px] mt-[2px]">
-        <Text className="text-xl font-medium text-fg-primary">{value}</Text>
-        <Text className="text-caption text-fg-tertiary">ms</Text>
-      </View>
-    </View>
   );
 }

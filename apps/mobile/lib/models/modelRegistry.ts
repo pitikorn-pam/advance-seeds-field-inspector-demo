@@ -81,7 +81,7 @@ export async function loadCandidatesFromIndex(indexUrl: string): Promise<ModelCa
   if (!cleanUrl) throw new Error("Model index URL is required.");
   const index = await readJsonUrl<ModelCandidatesIndex | DeployedModelsResponse>(cleanUrl, "Index");
   if (isDeployedModelsResponse(index)) {
-    return index.models.map((model) => candidateFromDeployment(cleanUrl, index.channel, model));
+    return index.models.map((model) => candidateFromDeployment(index.channel, model));
   }
   if (!Array.isArray(index.models)) throw new Error("Index is missing models[]");
   const platform = currentModelPlatform();
@@ -98,11 +98,7 @@ function isDeployedModelsResponse(value: unknown): value is DeployedModelsRespon
   );
 }
 
-function candidateFromDeployment(
-  responseUrl: string,
-  channel: DeploymentChannel,
-  model: DeployedModel,
-): ModelCandidate {
+function candidateFromDeployment(channel: DeploymentChannel, model: DeployedModel): ModelCandidate {
   const platform = currentModelPlatform();
   const artifactKind = platform === "ios" ? "coreml" : "tflite";
   const hash = stripShaPrefix(model.content_hash);

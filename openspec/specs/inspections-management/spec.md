@@ -1,7 +1,7 @@
 # inspections-management Specification
 
 ## Purpose
-Manage the lifecycle of seed inspections — creation via mobile capture, real ML analysis, detail views, per-seed drill-down, notes, metadata, and deletion.
+Manage the lifecycle of seed inspections — creation via mobile capture, real ML analysis, detail views, per-seed drill-down, metadata, overlays, and deletion.
 
 ## Requirements
 ### Requirement: Create inspection (mobile capture flow)
@@ -13,7 +13,7 @@ The mobile app SHALL allow an inspector to create a new inspection by selecting 
 - **THEN** the latest frame's YOLO26 detections are frozen
 - **AND** the captured frame is uploaded to Supabase Storage
 - **AND** an inspection row is created with `inspector_id`, image URL, calibration source "aruco", and seeds rows whose measurements were derived from the locked `pxPerMm`
-- **AND** she lands on the Review screen showing the captured frame with bounding-box overlays
+- **AND** she lands on the Review screen showing the captured frame with segmentation polygon overlays when mask metadata exists, falling back to bbox only when no polygon is available
 
 #### Scenario: Happy-path capture with LiDAR
 - **GIVEN** Jane is on iPhone 12 Pro+ and holds the device 28 cm above the tray
@@ -126,7 +126,7 @@ The mobile app SHALL produce inspection results through a `SeedAnalyzer` interfa
 - **AND** the result `analyzerId` includes the fallback analyzer ID for traceability
 
 ### Requirement: List inspections with filters
-Both apps SHALL provide an inspections list with filters by variety, date range, and (admin only) inspector, plus a search field.
+The mobile app SHALL provide an inspections list with filters by variety, date range, and (admin only) inspector, plus a search field.
 
 #### Scenario: Inspector sees only own inspections
 - **GIVEN** Jane is signed in
@@ -139,7 +139,7 @@ Both apps SHALL provide an inspections list with filters by variety, date range,
 - **THEN** only Jane's inspections are listed
 
 ### Requirement: Inspection detail and per-seed view
-The mobile app SHALL show an inspection detail screen with the captured frame, summary measurements, a per-seed grid with bounding-box thumbnails cropped from the source image, and a tap-through to a full-screen per-seed detail view.
+The mobile app SHALL show an inspection detail screen with the captured frame, summary measurements, segmentation-aware overlays, a per-seed grid with thumbnails cropped from the source image, and a tap-through to a full-screen per-seed detail view.
 
 #### Scenario: Per-seed thumbnail is a real crop from the source image
 - **GIVEN** an inspection has 18 seeds with bounding boxes
@@ -149,14 +149,18 @@ The mobile app SHALL show an inspection detail screen with the captured frame, s
 #### Scenario: Tapping a seed thumbnail opens its full-screen detail
 - **WHEN** the user taps any seed thumbnail
 - **THEN** a full-screen route `/inspections/seed/[index]` opens
-- **AND** the screen shows a larger crop, length / width / area / grade, defects, and prev/next navigation between seeds in the same inspection
+- **AND** the screen shows the source image with the saved segment polygon when available, otherwise bbox fallback
+- **AND** the hero annotation shows detected class label, length, area, and volume
+- **AND** the measurement section shows length / width / area / volume / grade
 
-### Requirement: Review screen with bounding-box overlay
-After capture, the mobile app SHALL show a Review screen with the captured frame overlaid by colored bounding boxes (Grade A green, B blue, C amber, reject red), summary stat tiles, and Save / Discard actions before the inspection is committed.
+### Requirement: Review screen with segmentation overlay
+After capture, the mobile app SHALL show a Review screen with the captured frame overlaid by segmentation polygons when mask metadata exists, a bbox fallback when not, summary stat tiles, and Save / Discard actions before the inspection is committed.
 
-#### Scenario: Review renders boxes over image
+#### Scenario: Review renders detected shapes over image
 - **WHEN** capture completes and the app routes to Review
-- **THEN** the captured image is rendered with SVG bounding boxes for each detected seed
+- **THEN** the captured image is rendered with SVG polygons for each detected seed that has a saved mask
+- **AND** bbox rectangles render only for seeds without a mask polygon
+- **AND** each annotation prefers the detected class label and includes length, area, and volume when available
 - **AND** the summary shows total seeds + mean length/width/area
 - **AND** "Save" persists the inspection; "Discard" deletes the upload and returns to Setup
 
@@ -179,14 +183,8 @@ After capture, the mobile app SHALL show a Review screen with the captured frame
 - **THEN** the Android ROI video exporter creates an MP4 with the ROI drawn into the video frames before upload
 - **AND** the resulting Inspection Result, Inspection Detail, share, and Recordings playback use the annotated video
 
-### Requirement: Inspection note and capture metadata
-The mobile app SHALL carry setup notes and capture metadata from Inspection Result into Inspection Detail for both photo and video captures.
-
-#### Scenario: Result and detail show setup note
-- **GIVEN** the inspector enters a note during setup
-- **WHEN** capture completes and the Result page opens
-- **THEN** the Result page shows the note in a dedicated Note section
-- **AND** after save, the Inspection Detail page shows the same note from `inspections.notes`
+### Requirement: Capture metadata
+The mobile app SHALL carry capture metadata from Inspection Result into Inspection Detail for both photo and video captures.
 
 #### Scenario: Capture metadata is compact by default
 - **WHEN** the Result or Detail page renders capture metadata
@@ -203,6 +201,13 @@ The mobile app SHALL carry setup notes and capture metadata from Inspection Resu
 - **WHEN** an inspection is saved
 - **THEN** `inspections.metadata` records device name, platform/OS, app version/build, runtime version, capture mode, media type, camera position, flash mode, ROI type, and capture timestamp
 - **AND** photo and video captures preserve the correct media type through result, detail, and share flows
+
+#### Scenario: Deleted linked video falls back to captured thumbnail
+- **GIVEN** a video inspection references a recording that was deleted later
+- **WHEN** the operator opens the inspection detail
+- **THEN** the media preview renders `inspections.image_url` as a still thumbnail
+- **AND** it does not attempt to play the deleted `recordings` video URL
+- **AND** share uses annotated image export instead of video sharing
 
 ### Requirement: Update inspection notes
 The owner of an inspection (inspector or admin) SHALL be able to edit the inspection's notes field.
@@ -226,12 +231,19 @@ An inspector SHALL be able to delete their own inspection. An admin SHALL NOT be
 - **THEN** the action is unavailable in UI and would be denied by RLS if attempted directly
 
 ### Requirement: Analyzer model snapshot on every inspection
-Each inspection's `metadata.analyzer_model` SHALL capture which detector + threshold tuning produced its results, frozen at capture time.
+Each inspection's `metadata.analyzer_model` SHALL capture which detector, class labels, and threshold tuning produced its results, frozen at capture time.
 
 #### Scenario: Inspection records the active model
 - **GIVEN** the operator captures with the registry model `0.3.2` from the production channel
 - **WHEN** the inspection is saved
-- **THEN** `metadata.analyzer_model` contains `id` (`production-{version_id}-{platform}`), `display_name` (`0.3.2`), `source` (`production`), `model_name` (`yolo26n-seg`), `version` (`0.3.2`), `analyzer_runtime` (`coreml-yolo`), and the active `score_threshold` + `iou_threshold`
+- **THEN** `metadata.analyzer_model` contains `id` (`production-{version_id}-{platform}`), `display_name` (`0.3.2`), `source` (`production`), `model_name` (`yolo26n-seg`), `version` (`0.3.2`), `analyzer_runtime` (`coreml-yolo`), `class_names`, and the active `score_threshold` + `iou_threshold`
+
+#### Scenario: Inspection persists segment annotation metadata
+- **GIVEN** the analyzer returns seeds with mask polygons, class ids, and volume estimates
+- **WHEN** the inspection is saved
+- **THEN** `inspections.metadata.seed_masks` stores each seed index with its mask polygon
+- **AND** it stores the detected `class_id`, resolved class label, and `volume_ml` when available
+- **AND** saved inspection and seed detail pages can render class-aware polygon annotations without re-running analysis
 
 #### Scenario: Inspection cannot be saved from model-backed analysis without active model metadata
 - **GIVEN** no registry model is active

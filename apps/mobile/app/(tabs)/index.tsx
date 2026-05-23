@@ -76,19 +76,6 @@ export default function HomeScreen() {
 
   const firstName = (profile?.full_name ?? profile?.email ?? "").split(/\s+|@/)[0];
 
-  // Kept underscored — current Home layout shows greeting via the segmented
-  // chip row's "Today" instead of a date salutation, but the formatter is
-  // useful for the custom-range button label and any future re-use.
-  const _dateLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      }).format(new Date()),
-    [i18n.language],
-  );
-
   // Recent = top-3 overall (most recent), so the list still renders something
   // sensible even when today's dashboard is empty.
   const recent = useMemo(() => {

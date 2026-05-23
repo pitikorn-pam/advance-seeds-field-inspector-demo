@@ -158,6 +158,7 @@ test("measureInstance adds mm fields scaled by 1/pxPerMm when pxPerMm > 0", () =
   assert.equal(m.length_mm, 4);
   assert.equal(m.width_mm, 2);
   assert.equal(m.area_mm2, 8);
+  assert.ok(Math.abs(m.volume_ml - 0.0125663706) < 1e-9);
   assert.equal(m.perimeter_mm, 12);
 });
 

@@ -20,6 +20,10 @@ build/
 .env.*.local
 
 # Expo / React Native
+/android/
+/ios/
+/app.json
+/tsconfig.json
 ios/Pods/
 android/.gradle/
 android/build/

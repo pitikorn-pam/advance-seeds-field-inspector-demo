@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, View, Text, Image as RNImage } from "reac
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Share2 } from "lucide-react-native";
 import Svg, { Polygon as SvgPolygon } from "react-native-svg";
 import type { BoundingBox, SeedGrade, SeedMaskMeasurement } from "@advance-seeds/types";
 import { Card } from "@/components/ui/Card";
@@ -11,9 +11,9 @@ import { GradeChip } from "@/components/ui/GradeChip";
 import { gradePalette } from "@/lib/grading/palette";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Toast } from "@/components/ui/Toast";
+import { shareAnnotatedImage } from "@/lib/capture/imageActions";
 
-const HERO_SIZE = 200;
-const HERO_PADDING = 16;
+const HERO_HEIGHT = 280;
 
 // Bbox ring colours map to the grade-* ink tokens via the shared
 // runtime palette. Kept as raw hex because the projection ring is a
@@ -21,9 +21,11 @@ const HERO_PADDING = 16;
 
 export interface SeedDetailSeed {
   index: number;
+  label?: string | null;
   length_mm: number;
   width_mm: number;
   area_mm2: number;
+  volume_ml?: number;
   grade: SeedGrade;
   bbox: BoundingBox;
   /**
@@ -39,6 +41,9 @@ interface Props {
   seed: SeedDetailSeed;
   /** Source image URI (https or file://). Null falls back to a placeholder. */
   sourceUri: string | null;
+  /** Source pixel dimensions used when the analyzer produced bbox/mask coordinates. */
+  sourceFrameWidth?: number | null;
+  sourceFrameHeight?: number | null;
   /** Optional override for the AppTopBar title. Defaults to `Seed #N`. */
   title?: string;
   /**
@@ -73,6 +78,8 @@ const DEFAULT_GRADE_OPTIONS: SeedGrade[] = ["A", "B", "C", "reject"];
 export function SeedDetailView({
   seed,
   sourceUri,
+  sourceFrameWidth = null,
+  sourceFrameHeight = null,
   title,
   onUpdateGrade,
   busy,
@@ -83,6 +90,7 @@ export function SeedDetailView({
   const router = useRouter();
   const grade = seed.grade;
   const confidence = grade === "A" ? "98.4" : grade === "B" ? "92.1" : "78.0";
+  const volumeMl = seed.volume_ml ?? estimateOblongVolumeMl(seed.length_mm, seed.area_mm2);
 
   // Toast lifecycle — show "Grade changed to X · Undo" for 3 s when the
   // operator picks a new grade. `prevGrade` is captured the moment the
@@ -129,6 +137,24 @@ export function SeedDetailView({
     setToast(null);
     void onUpdateGrade(prev);
   };
+  const onShare = async () => {
+    if (!sourceUri) return;
+    try {
+      await shareAnnotatedImage(
+        sourceUri,
+        {
+          roi: null,
+          seeds: [seed],
+          seedFrameWidth: sourceFrameWidth,
+          seedFrameHeight: sourceFrameHeight,
+        },
+        title ?? `Seed #${seed.index}`,
+      );
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      Alert.alert(t("common:states.error"), reason);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -139,9 +165,23 @@ export function SeedDetailView({
           renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
+        right={
+          sourceUri
+            ? {
+                accessibilityLabel: t("common:actions.share"),
+                renderIcon: () => <Share2 color="#171717" size={18} />,
+                onPress: onShare,
+              }
+            : undefined
+        }
       />
       <ScrollView contentContainerClassName="px-xl py-md gap-lg pb-2xl">
-        <SeedHero seed={seed} sourceUri={sourceUri} />
+        <SeedHero
+          seed={seed}
+          sourceUri={sourceUri}
+          sourceFrameWidth={sourceFrameWidth}
+          sourceFrameHeight={sourceFrameHeight}
+        />
 
         <Card className="flex-row items-center gap-md p-lg">
           <View className="flex-1 flex-row items-center gap-md">
@@ -183,6 +223,7 @@ export function SeedDetailView({
               value={Number(seed.area_mm2).toFixed(1)}
               unit="mm²"
             />
+            <MeasurementTile label="Volume" value={volumeMl.toFixed(1)} unit="ml" />
           </View>
         </View>
 
@@ -218,6 +259,13 @@ export function SeedDetailView({
       />
     </SafeAreaView>
   );
+}
+
+function estimateOblongVolumeMl(lengthMm: number, areaMm2: number): number {
+  if (!(lengthMm > 0) || !(areaMm2 > 0)) return 0;
+  const equivalentWidthMm = areaMm2 / lengthMm;
+  const radiusMm = equivalentWidthMm / 2;
+  return (Math.PI * radiusMm * radiusMm * lengthMm) / 1000;
 }
 
 function MeasurementTile({ label, value, unit }: { label: string; value: string; unit: string }) {
@@ -287,13 +335,29 @@ function GradeOverrideButton({
   );
 }
 
-function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string | null }) {
+function SeedHero({
+  seed,
+  sourceUri,
+  sourceFrameWidth,
+  sourceFrameHeight,
+}: {
+  seed: SeedDetailSeed;
+  sourceUri: string | null;
+  sourceFrameWidth: number | null;
+  sourceFrameHeight: number | null;
+}) {
   const ringColor = gradePalette(seed.grade).ink;
+  const label = annotationLabel(seed);
 
   const [dims, setDims] = useState<{ width: number; height: number } | null>(null);
+  const [stage, setStage] = useState<{ width: number; height: number } | null>(null);
   const [getSizeError, setGetSizeError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   useEffect(() => {
+    if (sourceFrameWidth && sourceFrameHeight) {
+      setDims({ width: sourceFrameWidth, height: sourceFrameHeight });
+      return;
+    }
     if (!sourceUri) return;
     let cancelled = false;
     RNImage.getSize(
@@ -310,15 +374,18 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
     return () => {
       cancelled = true;
     };
-  }, [sourceUri]);
+  }, [sourceFrameHeight, sourceFrameWidth, sourceUri]);
 
-  const projection = projectBboxToHero(seed.bbox, dims);
+  const projection = projectBboxToHero(seed.bbox, dims, stage);
   const bboxInvalid = seed.bbox.width <= 0 || seed.bbox.height <= 0;
 
   return (
     <View
       className="items-center justify-center overflow-hidden"
-      style={{ height: HERO_SIZE, borderRadius: 18, backgroundColor: "#1a1816" }}
+      style={{ height: HERO_HEIGHT, borderRadius: 18, backgroundColor: "#1a1816" }}
+      onLayout={(e) =>
+        setStage({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })
+      }
     >
       {sourceUri && projection ? (
         <View
@@ -378,6 +445,29 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
               color={ringColor}
             />
           ) : null}
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: Math.max(8, Math.min(projection.bboxLeft, (stage?.width ?? 0) - 228)),
+              top:
+                projection.bboxTop >= 34
+                  ? projection.bboxTop - 30
+                  : Math.min(
+                      (stage?.height ?? HERO_HEIGHT) - 32,
+                      projection.bboxTop + projection.bboxHeight + 8,
+                    ),
+              maxWidth: 220,
+              borderRadius: 6,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              backgroundColor: "rgba(12, 18, 14, 0.82)",
+            }}
+          >
+            <Text style={{ color: "#F8FAFC", fontSize: 11, fontWeight: "700" }} numberOfLines={2}>
+              {label}
+            </Text>
+          </View>
         </View>
       ) : (
         <SeedShape ringColor={ringColor} />
@@ -431,6 +521,19 @@ function SeedHero({ seed, sourceUri }: { seed: SeedDetailSeed; sourceUri: string
   );
 }
 
+function annotationLabel(seed: SeedDetailSeed): string {
+  const name = seed.label?.trim() || "Seed";
+  const volumeMl = seed.volume_ml ?? estimateOblongVolumeMl(seed.length_mm, seed.area_mm2);
+  return [
+    name,
+    `${Math.round(seed.length_mm)} mm`,
+    `${Math.round(seed.area_mm2)} mm²`,
+    volumeMl > 0 ? `${volumeMl.toFixed(1)} ml` : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
+}
+
 /**
  * Render the segmentation mask polygon as an SVG overlay aligned with the
  * hero crop's scaled image. The polygon points are in source-image pixel
@@ -459,37 +562,34 @@ function MaskPolygonOverlay({
   if (sourceWidth <= 0 || sourceHeight <= 0) return null;
   const sx = imageWidth / sourceWidth;
   const sy = imageHeight / sourceHeight;
-  const pointStr = polygon.map((p) => `${imageLeft + p.x * sx},${imageTop + p.y * sy}`).join(" ");
+  const pointStr = polygon
+    .map((p) => {
+      const x = Math.min(sourceWidth, Math.max(0, p.x));
+      const y = Math.min(sourceHeight, Math.max(0, p.y));
+      return `${imageLeft + x * sx},${imageTop + y * sy}`;
+    })
+    .join(" ");
   return (
     <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
       <Svg width="100%" height="100%">
-        <SvgPolygon points={pointStr} fill={`${color}33`} stroke={color} strokeWidth={1.5} />
+        <SvgPolygon points={pointStr} fill={`${color}14`} stroke={color} strokeWidth={1.5} />
       </Svg>
     </View>
   );
 }
 
-function projectBboxToHero(bbox: BoundingBox, dims: { width: number; height: number } | null) {
-  if (!dims || dims.width <= 0 || dims.height <= 0) return null;
+function projectBboxToHero(
+  bbox: BoundingBox,
+  dims: { width: number; height: number } | null,
+  stage: { width: number; height: number } | null,
+) {
+  if (!dims || dims.width <= 0 || dims.height <= 0 || !stage || stage.width <= 0) return null;
   if (bbox.width <= 0 || bbox.height <= 0) return null;
-  // Project a fixed crop region (bbox + 15% margin) into the hero
-  // container. Same visual framing on iOS and Android regardless of how
-  // big the stored image is in inspection.image_url. Without this the
-  // operator sees inconsistent margins between the two platforms — iOS
-  // tends to show a tight bbox view because its `image_url` is stored
-  // at full sensor resolution, while Android shows more context around
-  // the bbox because it stores a downsized JPEG.
-  const inner = HERO_SIZE - HERO_PADDING * 2;
-  const margin = 0.15;
-  const cropW = bbox.width * (1 + 2 * margin);
-  const cropH = bbox.height * (1 + 2 * margin);
-  const scale = Math.min(inner / cropW, inner / cropH);
+  const scale = Math.max(stage.width / dims.width, stage.height / dims.height);
   const imageWidth = dims.width * scale;
   const imageHeight = dims.height * scale;
-  const bboxCenterDX = (bbox.x + bbox.width / 2) * scale;
-  const bboxCenterDY = (bbox.y + bbox.height / 2) * scale;
-  const left = HERO_SIZE / 2 - bboxCenterDX;
-  const top = HERO_SIZE / 2 - bboxCenterDY;
+  const left = (stage.width - imageWidth) / 2;
+  const top = (stage.height - imageHeight) / 2;
   return {
     left,
     top,

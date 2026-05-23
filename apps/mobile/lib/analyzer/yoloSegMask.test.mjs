@@ -55,9 +55,15 @@ test("decodeMaskForDetection returns a binary mask aligned with the active regio
   // Confirm a center pixel is inside, a corner is outside.
   assert.equal(decoded.mask[64 * 128 + 64], 1, "center of active region must be foreground");
   assert.equal(decoded.mask[0], 0, "top-left corner must be background");
-  // Pixel count should roughly equal (64 × 64) = 4096, within rounding.
+  // Active proto region (8..24) covers half of a 32-cell proto, which
+  // maps to source pixels (32..96) = 64×64 = 4096 with floor-based
+  // sampling. Bilinear sampling slightly extends the boundary because
+  // cells at the edge get non-zero interpolated values from their hot
+  // neighbors — pixelCount grows ~10–15% over the floor baseline. The
+  // bilinear behavior is the desired one (smoother mask boundaries);
+  // bounds are widened accordingly.
   assert.ok(
-    decoded.pixelCount >= 60 * 60 && decoded.pixelCount <= 64 * 64,
+    decoded.pixelCount >= 60 * 60 && decoded.pixelCount <= 70 * 70,
     `unexpected pixelCount ${decoded.pixelCount}`,
   );
   assert.equal(maskPixelCount(decoded), decoded.pixelCount);
@@ -96,6 +102,39 @@ test("decodeMaskForDetection supports NCHW prototype layout", () => {
   // (x,y in 8..15, 8×8). Center pixel (12,12) sits inside; (0,0) outside.
   assert.equal(decoded.mask[12 * 32 + 12], 1);
   assert.equal(decoded.mask[0], 0);
+});
+
+test("decodeMaskForDetection supports non-uniform CoreML image scaling", () => {
+  const protoH = 64;
+  const protoW = 64;
+  const protoC = 1;
+  const protos = buildSyntheticPrototypes({
+    protoH,
+    protoW,
+    protoC,
+    region: { x: 24, y: 16, w: 16, h: 16 },
+  });
+
+  const decoded = decodeMaskForDetection({
+    coefs: new Float32Array([10]),
+    prototypes: protos.data,
+    protoShape: protos.shape,
+    bbox: { x: 0, y: 0, width: 1080, height: 1920 },
+    srcW: 1080,
+    srcH: 1920,
+    letterbox: {
+      scale: 640 / 1920,
+      scaleX: 640 / 1080,
+      scaleY: 640 / 1920,
+      padX: 0,
+      padY: 0,
+      target: 640,
+    },
+  });
+
+  assert.ok(decoded);
+  assert.equal(decoded.mask[720 * decoded.w + 540], 1, "center should be foreground");
+  assert.equal(decoded.mask[0], 0, "source top-left should be background");
 });
 
 test("decodeMaskForDetection returns null when proto layout doesn't match coef count", () => {

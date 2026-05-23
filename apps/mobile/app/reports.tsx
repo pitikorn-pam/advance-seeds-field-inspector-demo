@@ -26,16 +26,6 @@ import { LoadingState, StateCard, ErrorState } from "@/components/ui/States";
 const ALL = "__all";
 type Preset = "last7" | "last30" | "last90" | "custom";
 
-// Variety swatch tints — keyed off `variety.color_key` and mapped to the
-// tokenized card-* backgrounds. Mirrors Home's RecentInspections tinting
-// and keeps every fill via a token class (no raw hex literals).
-const VARIETY_TINT_CLASSES: Record<string, string> = {
-  corn: "bg-card-yellow",
-  rice: "bg-card-mint",
-  legume: "bg-card-lavender",
-  mungbean: "bg-card-peach",
-};
-
 function withinRange(date: Date, preset: Preset, range: DateRange): boolean {
   if (preset === "custom") {
     if (!range.start) return true;
@@ -85,15 +75,11 @@ export default function ReportsRoute() {
   // bar chart in the prototype. Bars are normalized against the top
   // variety in-range so the leader fills 100%.
   const byVariety = useMemo(() => {
-    const map = new Map<
-      string,
-      { id: string; name: string; colorKey: string | null; runs: number }
-    >();
+    const map = new Map<string, { id: string; name: string; runs: number }>();
     for (const row of filtered) {
       const id = row.variety?.id ?? row.variety_id ?? "—";
       const name = row.variety?.name ?? "—";
-      const colorKey = row.variety?.color_key ?? null;
-      const entry = map.get(id) ?? { id, name, colorKey, runs: 0 };
+      const entry = map.get(id) ?? { id, name, runs: 0 };
       entry.runs += 1;
       map.set(id, entry);
     }
@@ -172,11 +158,7 @@ export default function ReportsRoute() {
         id: v.id,
         label: v.name,
         leading: (
-          <View
-            className={`h-7 w-7 rounded-md items-center justify-center ${
-              VARIETY_TINT_CLASSES[v.color_key ?? ""] ?? "bg-card-gray"
-            }`}
-          >
+          <View className="h-7 w-7 rounded-md items-center justify-center bg-bg-tertiary">
             <Layers color="#5F5F5B" size={14} />
           </View>
         ),
@@ -283,7 +265,6 @@ export default function ReportsRoute() {
                 </Text>
                 <Card className="p-0">
                   {byVariety.map((v, i) => {
-                    const tintClass = VARIETY_TINT_CLASSES[v.colorKey ?? ""] ?? "bg-card-mint";
                     // Illustrative grade-A percentage — the underlying
                     // inspection rows don't yet expose grade aggregates,
                     // so we derive a descending sample for visual parity
@@ -297,7 +278,7 @@ export default function ReportsRoute() {
                         }`}
                       >
                         <View
-                          className={tintClass}
+                          className="bg-bg-tertiary"
                           style={{ width: 40, height: 40, borderRadius: 8 }}
                         />
                         <View className="flex-1">

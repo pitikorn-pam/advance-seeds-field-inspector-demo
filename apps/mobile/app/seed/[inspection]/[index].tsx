@@ -1,7 +1,12 @@
 import { useMemo } from "react";
+import { Platform } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useInspection, useUpdateSeedGrade, useVarieties } from "@/lib/queries";
 import { availableGradesForVariety } from "@/lib/grading/palette";
+import {
+  readAnalysisDiagnosticsMetadata,
+  readSeedAnnotationMetadata,
+} from "@/lib/inspections/metadata";
 import { LoadingState, ErrorState } from "@/components/ui/States";
 import { SeedDetailView } from "@/components/inspections/SeedDetailView";
 
@@ -29,13 +34,35 @@ export default function SavedSeedDetail() {
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => void refetch()} />;
 
-  const seed = data.seeds.find((s) => s.index === seedIndex) ?? null;
+  const seedAnnotation = readSeedAnnotationMetadata(
+    (data.inspection as { metadata?: unknown }).metadata,
+  ).get(seedIndex);
+  const analysisDiagnostics = readAnalysisDiagnosticsMetadata(
+    (data.inspection as { metadata?: unknown }).metadata,
+  );
+  const androidSeedFrameWidth =
+    Platform.OS === "android" ? (analysisDiagnostics?.analyzed_image_width ?? null) : null;
+  const androidSeedFrameHeight =
+    Platform.OS === "android" ? (analysisDiagnostics?.analyzed_image_height ?? null) : null;
+  const seedRow = data.seeds.find((s) => s.index === seedIndex) ?? null;
+  const seed = seedRow
+    ? {
+        ...seedRow,
+        label: seedAnnotation?.label ?? variety?.name ?? null,
+        ...(typeof seedAnnotation?.volume_ml === "number"
+          ? { volume_ml: seedAnnotation.volume_ml }
+          : {}),
+        ...(seedAnnotation?.mask ? { mask: seedAnnotation.mask } : {}),
+      }
+    : null;
   if (!seed) return <ErrorState />;
 
   return (
     <SeedDetailView
       seed={seed}
       sourceUri={data.inspection.image_url ?? null}
+      sourceFrameWidth={androidSeedFrameWidth}
+      sourceFrameHeight={androidSeedFrameHeight}
       busy={updateGrade.isPending}
       availableGrades={availableGrades}
       onUpdateGrade={(grade) =>

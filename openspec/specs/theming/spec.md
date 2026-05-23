@@ -5,7 +5,7 @@ Ensure consistent light/dark mode theming via design tokens, with glass-on-camer
 
 ## Requirements
 ### Requirement: Light and dark mode wired to tokens
-Both apps SHALL render in light or dark mode using the colors defined in `docs/handoff/design-tokens.json` for each scheme. No additional palette shall be introduced.
+The mobile app SHALL render in light or dark mode using the colors defined in `docs/handoff/design-tokens.json` for each scheme. No additional palette shall be introduced.
 
 #### Scenario: Dark mode swaps brand to light teal
 - **GIVEN** the app is in dark mode
@@ -18,7 +18,7 @@ Both apps SHALL render in light or dark mode using the colors defined in `docs/h
 - **THEN** its computed color is `#0F6E56`
 
 ### Requirement: User toggle in Settings
-Both apps SHALL provide a theme toggle (Light / Dark / System) in Settings. The chosen value SHALL persist.
+The mobile app SHALL provide a theme toggle (Light / Dark / System) in Settings. The chosen value SHALL persist.
 
 #### Scenario: Toggle persists across reload
 - **WHEN** the user picks "Dark" and reloads the app
@@ -30,7 +30,7 @@ Both apps SHALL provide a theme toggle (Light / Dark / System) in Settings. The 
 - **THEN** the app updates without a reload
 
 ### Requirement: Status colors not repurposed
-The applications SHALL only use the success / warning / danger / info status colors for status meaning, never for decoration.
+The mobile app SHALL only use the success / warning / danger / info status colors for status meaning, never for decoration.
 
 #### Scenario: Code review check
 - **WHEN** a reviewer scans for `text-success` / `bg-danger` usage outside status pills, badges, or alerts

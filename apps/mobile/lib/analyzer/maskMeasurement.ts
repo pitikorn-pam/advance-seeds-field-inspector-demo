@@ -51,6 +51,7 @@ export interface MeasureResult {
   length_mm?: number;
   width_mm?: number;
   area_mm2?: number;
+  volume_ml?: number;
   perimeter_mm?: number;
 }
 
@@ -254,8 +255,16 @@ export function measureInstance(
     out.length_mm = lengthPx * mpp;
     out.width_mm = widthPx * mpp;
     out.area_mm2 = areaPx * mpp * mpp;
+    out.volume_ml = estimateOblongVolumeMl(out.length_mm, out.area_mm2);
     out.perimeter_mm = perimeterPx * mpp;
   }
 
   return out;
+}
+
+export function estimateOblongVolumeMl(lengthMm: number, areaMm2: number): number {
+  if (!(lengthMm > 0) || !(areaMm2 > 0)) return 0;
+  const equivalentWidthMm = areaMm2 / lengthMm;
+  const radiusMm = equivalentWidthMm / 2;
+  return (Math.PI * radiusMm * radiusMm * lengthMm) / 1000;
 }

@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { View, Text, Alert, Linking, ActivityIndicator, Platform, Pressable } from "react-native";
+import { View, Text, Alert, ActivityIndicator, Platform, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
 import {
   ChevronLeft,
@@ -36,6 +35,9 @@ import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibrati
 import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useNotify } from "@/lib/notifications";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
+import { readActiveModel } from "@/lib/models/modelStore";
+import type { InstalledModelRecord } from "@/lib/models/types";
+import { saveAnnotatedImageToLibrary } from "@/lib/capture/imageActions";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
 import type { CalibrationReading } from "@advance-seeds/types";
 
@@ -72,6 +74,7 @@ export default function CaptureScan() {
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
+  const [activeModelRecord, setActiveModelRecord] = useState<InstalledModelRecord | null>(null);
   // Continuous LiDAR — keeps streaming pxPerMm as the operator moves;
   // no one-shot lock, no freeze. The "first reading seen" flag lets us
   // dismiss the initial calibration overlay once we have any signal,
@@ -152,6 +155,19 @@ export default function CaptureScan() {
     roi: session.mode === "live" ? session.roi : null,
     gradingConfig,
   });
+  useEffect(() => {
+    let cancelled = false;
+    void readActiveModel()
+      .then((record) => {
+        if (!cancelled) setActiveModelRecord(record);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveModelRecord(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const activeFrameProcessor =
     busy || modelInstallInProgress
       ? undefined
@@ -400,31 +416,38 @@ export default function CaptureScan() {
    * Save the current frame to the device Photos library. Distinct from the
    * shutter — no inspection row is created and no upload happens.
    *
-   * Permission flow:
-   *   • If undetermined, requestPermissionsAsync() shows the system prompt.
-   *   • If denied, alert with a deep link to Settings (the system won't
-   *     re-prompt after a previous deny — only the user can flip it).
-   *   • If granted, takePhoto + saveToLibraryAsync + toast.
+   * The saved artifact uses the same ROI + seed overlay currently shown
+   * on live capture, so operators keep the annotated evidence frame.
    */
   const onSnapshot = async () => {
     if (!cameraRef.current || busy || recording.isRecording) return;
-    const perm = await MediaLibrary.requestPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert(
-        t("inspections:capture.snapshot.permissionDeniedTitle"),
-        t("inspections:capture.snapshot.permissionDeniedBody"),
-        [
-          { text: t("common:actions.cancel"), style: "cancel" },
-          { text: t("common:actions.openSettings"), onPress: () => void Linking.openSettings() },
-        ],
-      );
-      return;
-    }
     try {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const photo = await cameraRef.current.takePhoto({ flash: "off" });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
-      await MediaLibrary.saveToLibraryAsync(uri);
+      const snapshotFrame = liveDetections.detections ?? frameResult;
+      const snapshotSeeds =
+        snapshotFrame?.seeds.map((seed) => {
+          const className =
+            typeof seed.class_id === "number"
+              ? (activeModelRecord?.metadata.class_names[seed.class_id] ?? null)
+              : null;
+          return { ...seed, label: className ?? activeVariety?.name ?? null };
+        }) ?? null;
+      await saveAnnotatedImageToLibrary(
+        uri,
+        {
+          roi: session.roi,
+          seeds: snapshotSeeds,
+          seedFrameWidth: snapshotFrame?.frameWidth ?? null,
+          seedFrameHeight: snapshotFrame?.frameHeight ?? null,
+        },
+        {
+          title: t("inspections:capture.snapshot.savedToast"),
+          permissionDeniedTitle: t("inspections:capture.snapshot.permissionDeniedTitle"),
+          permissionDeniedBody: t("inspections:capture.snapshot.permissionDeniedBody"),
+        },
+      );
       setToast(t("inspections:capture.snapshot.savedToast"));
       notify({
         kind: "success",
@@ -526,6 +549,14 @@ export default function CaptureScan() {
     seeds.length > 0
       ? `${(seeds.reduce((s, d) => s + d.length_mm, 0) / seeds.length).toFixed(1)} mm`
       : "—";
+  const kpiArea =
+    seeds.length > 0
+      ? `${(seeds.reduce((s, d) => s + d.area_mm2, 0) / seeds.length).toFixed(0)} mm²`
+      : "—";
+  const kpiVolume =
+    seeds.length > 0
+      ? `${(seeds.reduce((s, d) => s + (d.volume_ml ?? 0), 0) / seeds.length).toFixed(1)} ml`
+      : null;
   const kpiGrade = seeds.length > 0 ? String(seeds.filter((d) => d.grade === "A").length) : "—";
 
   const calibrationOk = liveLidar.result || liveAruco.locked || manualCalibration.reading !== null;
@@ -569,6 +600,7 @@ export default function CaptureScan() {
               stageWidth={stageSize.width}
               stageHeight={stageSize.height}
               varietyName={activeVariety?.name ?? null}
+              modelClassNames={activeModelRecord?.metadata.class_names ?? null}
             />
           ) : null}
         </View>
@@ -701,7 +733,7 @@ export default function CaptureScan() {
               />
             </View>
 
-            {/* 3-up stat strip */}
+            {/* Stat strip */}
             <View
               style={{
                 flexDirection: "row",
@@ -712,6 +744,7 @@ export default function CaptureScan() {
             >
               <StatCol label="COUNT" value={kpiCount} />
               <StatCol label="AVG MM" value={kpiAvg} mono />
+              <StatCol label="AREA / VOL" value={kpiArea} subValue={kpiVolume} mono />
               <StatCol label="GRADE A" value={kpiGrade} accent="#4DAB6D" />
             </View>
 
@@ -876,11 +909,13 @@ function DarkChip({
 function StatCol({
   label,
   value,
+  subValue,
   mono = false,
   accent,
 }: {
   label: string;
   value: string;
+  subValue?: string | null;
   mono?: boolean;
   accent?: string;
 }) {
@@ -888,16 +923,30 @@ function StatCol({
     <View style={{ flex: 1, alignItems: "center" }}>
       <Text
         style={{
-          fontSize: 22,
+          fontSize: subValue ? 17 : 22,
           fontWeight: "600",
           color: accent ?? "#fff",
-          lineHeight: 24,
-          letterSpacing: mono ? 0 : -0.3,
+          lineHeight: subValue ? 19 : 24,
+          letterSpacing: 0,
           fontVariant: mono ? ["tabular-nums"] : undefined,
         }}
       >
         {value}
       </Text>
+      {subValue ? (
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: "600",
+            color: "rgba(255,255,255,0.72)",
+            lineHeight: 14,
+            letterSpacing: 0,
+            fontVariant: mono ? ["tabular-nums"] : undefined,
+          }}
+        >
+          {subValue}
+        </Text>
+      ) : null}
       <View
         style={{
           width: 28,

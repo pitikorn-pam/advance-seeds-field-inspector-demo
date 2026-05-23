@@ -232,42 +232,58 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
         userInfo: [NSLocalizedDescriptionKey: "Model produced no MLMultiArray outputs"]
       )
     }
-    var values = [Double](repeating: 0, count: array.count)
-    switch array.dataType {
-    case .float32:
-      let p = array.dataPointer.bindMemory(to: Float32.self, capacity: array.count)
-      for i in 0..<array.count { values[i] = Double(p[i]) }
-    case .float64:
-      let p = array.dataPointer.bindMemory(to: Float64.self, capacity: array.count)
-      for i in 0..<array.count { values[i] = p[i] }
-    case .int32:
-      let p = array.dataPointer.bindMemory(to: Int32.self, capacity: array.count)
-      for i in 0..<array.count { values[i] = Double(p[i]) }
-    case .float16:
-      // MLMultiArray exposes float16 only on iOS 16+ via a specialized API.
-      // For our YOLO export the storage precision is float16 internally but
-      // outputs project to float32, so this branch is rarely hit. Cast via
-      // double-bridged multiArray as a safe fallback.
-      for i in 0..<array.count {
-        values[i] = Double(truncating: array[i])
-      }
-    @unknown default:
-      for i in 0..<array.count {
-        values[i] = Double(truncating: array[i])
+    var extraOutputs: [String: Any] = [:]
+    for name in result.featureNames {
+      if name == bestName { continue }
+      guard let f = result.featureValue(for: name), f.type == .multiArray, let extra = f.multiArrayValue
+      else { continue }
+      let shape = extra.shape.map { $0.intValue }
+      if shape.count == 4 {
+        extraOutputs[name] = [
+          "shape": shape,
+          "values": Self.flatten(array: extra),
+        ]
       }
     }
-    // Path B Phase 1 — returning all output tensors via `extraOutputs`
-    // — was attempted but reverted: marshaling a ~820k-float mask
-    // prototype tensor through the Swift→JS bridge as NSArray<NSNumber>
-    // is prohibitively expensive AND on iPhone Air the side effects on
-    // the request/response lifecycle correlated with post-capture
-    // returning zero detections. Phase 2 (mask rendering) will need a
-    // binary-blob bridge or selective-by-name marshaling before it can
-    // ship; until then we return only the chosen detection tensor.
     return [
       "outputName": bestName,
       "shape": array.shape.map { $0.intValue },
-      "values": values,
+      "values": Self.flatten(array: array),
+      "extraOutputs": extraOutputs,
     ]
+  }
+
+  private static func flatten(array: MLMultiArray) -> [Double] {
+    var values = [Double](repeating: 0, count: array.count)
+    let shape = array.shape.map { $0.intValue }
+    let strides = array.strides.map { $0.intValue }
+    func offset(for linearIndex: Int) -> Int {
+      var remaining = linearIndex
+      var offset = 0
+      for dim in stride(from: shape.count - 1, through: 0, by: -1) {
+        let size = max(shape[dim], 1)
+        let index = remaining % size
+        remaining /= size
+        offset += index * strides[dim]
+      }
+      return offset
+    }
+
+    switch array.dataType {
+    case .float32:
+      let p = array.dataPointer.bindMemory(to: Float32.self, capacity: array.count)
+      for i in 0..<array.count { values[i] = Double(p[offset(for: i)]) }
+    case .float64:
+      let p = array.dataPointer.bindMemory(to: Float64.self, capacity: array.count)
+      for i in 0..<array.count { values[i] = p[offset(for: i)] }
+    case .int32:
+      let p = array.dataPointer.bindMemory(to: Int32.self, capacity: array.count)
+      for i in 0..<array.count { values[i] = Double(p[offset(for: i)]) }
+    case .float16:
+      for i in 0..<array.count { values[i] = Double(truncating: array[i]) }
+    @unknown default:
+      for i in 0..<array.count { values[i] = Double(truncating: array[i]) }
+    }
+    return values
   }
 }

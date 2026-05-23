@@ -82,6 +82,7 @@ export interface AnalyzedSeed {
   length_mm: number;
   width_mm: number;
   area_mm2: number;
+  volume_ml?: number;
   grade: SeedGrade;
   defects: SeedDefects;
   bbox: BoundingBox;
@@ -133,6 +134,7 @@ export interface AnalysisSummary {
   mean_length_mm: number;
   mean_width_mm: number;
   mean_area_mm2: number;
+  mean_volume_ml?: number;
 }
 
 export interface AnalysisResult {

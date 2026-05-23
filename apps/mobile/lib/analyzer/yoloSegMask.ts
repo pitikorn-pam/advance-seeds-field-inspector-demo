@@ -98,25 +98,50 @@ export function decodeMaskForDetection(args: DecodeMaskArgs): MaskRect | null {
   if (w === 0 || h === 0) return null;
 
   const { scale, padX, padY, target } = letterbox;
-  const sx = (protoW / target) * scale;
-  const sy = (protoH / target) * scale;
+  const scaleX = letterbox.scaleX ?? scale;
+  const scaleY = letterbox.scaleY ?? scale;
+  const sx = (protoW / target) * scaleX;
+  const sy = (protoH / target) * scaleY;
   const ox = (padX * protoW) / target;
   const oy = (padY * protoH) / target;
 
   const mask = new Uint8Array(w * h);
   let pixelCount = 0;
 
+  // Bilinear sampling — read 4 adjacent proto cells weighted by the
+  // pixel's fractional position instead of snapping to a single cell.
+  // Sub-cell accuracy at the mask boundary; otherwise the mask snaps
+  // to cell edges and the boundary trace walks a chunky staircase.
   if (channelLast) {
     for (let py = 0; py < h; py++) {
       const sy0 = (y0 + py) * sy + oy;
-      const ry = clamp(Math.floor(sy0), 0, protoH - 1);
-      const protoRow = ry * protoW * protoC;
+      const sy0c = clamp(sy0, 0, protoH - 1);
+      const ry0 = clamp(Math.floor(sy0c), 0, protoH - 1);
+      const ry1 = clamp(ry0 + 1, 0, protoH - 1);
+      const fy = sy0c - ry0;
       for (let px = 0; px < w; px++) {
         const sx0 = (x0 + px) * sx + ox;
-        const rx = clamp(Math.floor(sx0), 0, protoW - 1);
-        const base = protoRow + rx * protoC;
+        const sx0c = clamp(sx0, 0, protoW - 1);
+        const rx0 = clamp(Math.floor(sx0c), 0, protoW - 1);
+        const rx1 = clamp(rx0 + 1, 0, protoW - 1);
+        const fx = sx0c - rx0;
+        const base00 = (ry0 * protoW + rx0) * protoC;
+        const base01 = (ry0 * protoW + rx1) * protoC;
+        const base10 = (ry1 * protoW + rx0) * protoC;
+        const base11 = (ry1 * protoW + rx1) * protoC;
+        const w00 = (1 - fx) * (1 - fy);
+        const w01 = fx * (1 - fy);
+        const w10 = (1 - fx) * fy;
+        const w11 = fx * fy;
         let acc = 0;
-        for (let c = 0; c < protoC; c++) acc += coefs[c] * prototypes[base + c];
+        for (let c = 0; c < protoC; c++) {
+          const v =
+            w00 * prototypes[base00 + c] +
+            w01 * prototypes[base01 + c] +
+            w10 * prototypes[base10 + c] +
+            w11 * prototypes[base11 + c];
+          acc += coefs[c] * v;
+        }
         if (sigmoid(acc) > threshold) {
           mask[py * w + px] = 1;
           pixelCount++;
@@ -127,14 +152,34 @@ export function decodeMaskForDetection(args: DecodeMaskArgs): MaskRect | null {
     const planeStride = protoH * protoW;
     for (let py = 0; py < h; py++) {
       const sy0 = (y0 + py) * sy + oy;
-      const ry = clamp(Math.floor(sy0), 0, protoH - 1);
-      const rowOff = ry * protoW;
+      const sy0c = clamp(sy0, 0, protoH - 1);
+      const ry0 = clamp(Math.floor(sy0c), 0, protoH - 1);
+      const ry1 = clamp(ry0 + 1, 0, protoH - 1);
+      const fy = sy0c - ry0;
       for (let px = 0; px < w; px++) {
         const sx0 = (x0 + px) * sx + ox;
-        const rx = clamp(Math.floor(sx0), 0, protoW - 1);
-        const off = rowOff + rx;
+        const sx0c = clamp(sx0, 0, protoW - 1);
+        const rx0 = clamp(Math.floor(sx0c), 0, protoW - 1);
+        const rx1 = clamp(rx0 + 1, 0, protoW - 1);
+        const fx = sx0c - rx0;
+        const off00 = ry0 * protoW + rx0;
+        const off01 = ry0 * protoW + rx1;
+        const off10 = ry1 * protoW + rx0;
+        const off11 = ry1 * protoW + rx1;
+        const w00 = (1 - fx) * (1 - fy);
+        const w01 = fx * (1 - fy);
+        const w10 = (1 - fx) * fy;
+        const w11 = fx * fy;
         let acc = 0;
-        for (let c = 0; c < protoC; c++) acc += coefs[c] * prototypes[c * planeStride + off];
+        for (let c = 0; c < protoC; c++) {
+          const channelBase = c * planeStride;
+          const v =
+            w00 * prototypes[channelBase + off00] +
+            w01 * prototypes[channelBase + off01] +
+            w10 * prototypes[channelBase + off10] +
+            w11 * prototypes[channelBase + off11];
+          acc += coefs[c] * v;
+        }
         if (sigmoid(acc) > threshold) {
           mask[py * w + px] = 1;
           pixelCount++;
@@ -231,7 +276,13 @@ export function extractPolygonFromMask(maskRect: MaskRect | null): Point[] {
   const polygon: Point[] = [{ x: x0 + startX + 0.5, y: y0 + startY + 0.5 }];
   let cx = startX;
   let cy = startY;
-  let dir = 6;
+  // Initial scan direction = SE (5). South (6) is pathological for the
+  // common case where the topmost-leftmost FG pixel sits at the corner
+  // of a larger blob — the trace goes S → E → N → W and closes a
+  // 4-pixel loop back to start without ever turning right onto the
+  // actual boundary. SE represents "we entered from BG to the west;
+  // scan clockwise starting at the diagonal".
+  let dir = 5;
   let advanced = false;
   const safetyLimit = 4 * (w * h + 1);
   for (let safety = 0; safety < safetyLimit; safety++) {
@@ -261,7 +312,67 @@ export function extractPolygonFromMask(maskRect: MaskRect | null): Point[] {
     const first = polygon[0];
     if (last.x === first.x && last.y === first.y) polygon.pop();
   }
+  // Douglas-Peucker simplification — collapses cell-resolution
+  // staircase artifacts into clean diagonals while keeping real
+  // corners. epsilon = 1.5 source pixels.
+  if (polygon.length >= 4) {
+    const simplified = simplifyPolygonDP(polygon, 1.5);
+    if (simplified.length >= 3) return simplified;
+  }
   return polygon;
+}
+
+/**
+ * Iterative Douglas-Peucker simplification. Keeps only vertices whose
+ * perpendicular distance from the chord between two endpoints exceeds
+ * `epsilon`. Translated from the iOS/Android native implementations
+ * for parity.
+ */
+function simplifyPolygonDP(poly: Point[], epsilon: number): Point[] {
+  const n = poly.length;
+  if (n < 4) return poly;
+  const keep = new Uint8Array(n);
+  keep[0] = 1;
+  keep[n - 1] = 1;
+  const eps2 = epsilon * epsilon;
+  const stack: Array<[number, number]> = [[0, n - 1]];
+  while (stack.length > 0) {
+    const [lo, hi] = stack.pop()!;
+    if (hi <= lo + 1) continue;
+    const a = poly[lo];
+    const b = poly[hi];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    let bestDist2 = -1;
+    let bestIdx = lo;
+    for (let i = lo + 1; i < hi; i++) {
+      const p = poly[i];
+      let dist2: number;
+      if (len2 <= 1e-9) {
+        const ex = p.x - a.x;
+        const ey = p.y - a.y;
+        dist2 = ex * ex + ey * ey;
+      } else {
+        const cross = (p.x - a.x) * dy - (p.y - a.y) * dx;
+        dist2 = (cross * cross) / len2;
+      }
+      if (dist2 > bestDist2) {
+        bestDist2 = dist2;
+        bestIdx = i;
+      }
+    }
+    if (bestDist2 > eps2) {
+      keep[bestIdx] = 1;
+      stack.push([lo, bestIdx]);
+      stack.push([bestIdx, hi]);
+    }
+  }
+  const out: Point[] = [];
+  for (let i = 0; i < n; i++) {
+    if (keep[i]) out.push(poly[i]);
+  }
+  return out;
 }
 
 export function maskPixelCount(maskRect: MaskRect | null): number {

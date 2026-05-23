@@ -131,6 +131,32 @@ test("decodeYoloNms supports normalized post-NMS boxes", () => {
   assert.equal(Math.round(det[0].width), 160);
 });
 
+test("decodeYoloSegmentationNms supports non-uniform CoreML image scaling", () => {
+  const shape = [1, 1, 38];
+  const out = new Float32Array(38);
+  out.set([320, 160, 480, 320, 0.9, 2], 0);
+  out.fill(0.25, 6);
+
+  const det = decodeYoloSegmentationNms(out, shape, {
+    letterbox: {
+      scale: 640 / 1920,
+      scaleX: 640 / 1080,
+      scaleY: 640 / 1920,
+      padX: 0,
+      padY: 0,
+      target: 640,
+    },
+    scoreThreshold: 0.5,
+    classFilter: [2],
+  });
+
+  assert.equal(det.length, 1);
+  assert.equal(Math.round(det[0].x), 540);
+  assert.equal(Math.round(det[0].y), 480);
+  assert.equal(Math.round(det[0].width), 270);
+  assert.equal(Math.round(det[0].height), 480);
+});
+
 test("decodeYoloSegmentationNms decodes first six fields and ignores mask coefficients", () => {
   const shape = [1, 1, 38];
   const out = new Float32Array(38);

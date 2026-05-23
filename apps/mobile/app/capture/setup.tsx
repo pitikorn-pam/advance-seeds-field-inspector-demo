@@ -19,12 +19,7 @@ import type { InstalledModelRecord } from "@/lib/models/types";
 import { effectiveModelAliases } from "@/lib/analyzer/captureClasses";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
-const VARIETY_TINTS: Record<string, { bg: string; fg: string }> = {
-  corn: { bg: "#FAEFC8", fg: "#704B00" },
-  rice: { bg: "#DEEDD7", fg: "#0F6E56" },
-  legume: { bg: "#E8E0F4", fg: "#4B22A8" },
-  mungbean: { bg: "#FBEBD9", fg: "#8C3C12" },
-};
+const NEUTRAL_VARIETY_THUMB = { bg: "#EFEEEA", fg: "#5F5F5B" };
 
 type CameraPermissionState = "unknown" | "granted" | "blocked";
 
@@ -81,19 +76,12 @@ export default function CaptureSetup() {
     if (!varieties.data) return [];
     return varieties.data
       .filter((v) => v.is_active !== false)
-      .map((v) => {
-        const tint = VARIETY_TINTS[v.color_key ?? ""] ?? null;
-        return {
-          id: v.id,
-          label: v.name,
-          meta: v.scientific_name ?? null,
-          leading: tint ? (
-            <VarietyThumb letter={v.name.charAt(0)} tint={tint} />
-          ) : (
-            <VarietyThumb letter={v.name.charAt(0)} tint={{ bg: "#EFEEEA", fg: "#5F5F5B" }} />
-          ),
-        };
-      });
+      .map((v) => ({
+        id: v.id,
+        label: v.name,
+        meta: v.scientific_name ?? null,
+        leading: <VarietyThumb letter={v.name.charAt(0)} tint={NEUTRAL_VARIETY_THUMB} />,
+      }));
   }, [varieties.data]);
 
   const selectedVariety = useMemo(

@@ -30,14 +30,23 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
     // The registry probe runs only after sign-in. It publishes the resolve
     // result so the Models screen and the Home update banner know whether
     // an install or update is available — but it never DOWNLOADS a model
-    // on its own. First-launch auto-install was removed because the
-    // ~60 MB download made the post-login experience feel stuck; the
-    // user installs manually from /more/models or via the Inspect-tab
-    // gate, both of which surface the missing-model message clearly.
+    // on its own. Both first-launch installs AND auto-updates were removed
+    // because the ~60 MB background download made the post-login experience
+    // feel stuck — the user would tap a screen mid-install and the
+    // navigator would race against half-mounted screens, throwing
+    // "GO_BACK / PUSH was not handled" errors.
     //
-    // `runAutoInstallIfEligible` is still wired for the user-opt-in
-    // "auto-install updates on Wi-Fi" pref (default off) — it never
-    // triggers a first-launch download because that path is gone.
+    // The two supported install entry points are now:
+    //   1. The Inspect-tab gate (`useModelInstallInspectionGate`) — when
+    //      the user enters capture, the gate detects missing/inactive
+    //      models and surfaces a prereq prompt with an explicit Install
+    //      button.
+    //   2. The Models screen (`/more/models`) — every install/update is
+    //      an explicit button tap.
+    //
+    // The `runAutoInstallIfEligible` helper and the auto-install pref
+    // remain in the codebase for future opt-in scenarios but are no
+    // longer wired to startup. Re-enabling means re-adding the call here.
     if (!session) return;
 
     let cancelled = false;
@@ -58,10 +67,9 @@ export function AnalyzerProvider({ children }: { children: ReactNode }) {
           });
           if (cancelled) return;
           publishResolveResult(res);
-          if (res.action === "update") {
-            const { runAutoInstallIfEligible } = await import("@/lib/models/autoInstall");
-            void runAutoInstallIfEligible(res);
-          }
+          // Note: `runAutoInstallIfEligible(res)` was previously invoked
+          // here when `res.action === "update"` but has been removed —
+          // see the comment above for the rationale.
         } catch (e) {
           console.warn("[registry] resolveDefaultModel failed", e);
         }
