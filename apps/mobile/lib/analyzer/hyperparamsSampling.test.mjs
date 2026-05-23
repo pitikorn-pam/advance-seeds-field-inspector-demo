@@ -53,3 +53,10 @@ test("iOS live detector keeps the worklet enabled ref synchronized", () => {
     /function useLiveDetectionsCoreML[\s\S]*enabledRef\.current = enabled;[\s\S]*if \(!enabled\) \{[\s\S]*setDetections\(null\);[\s\S]*detectionsShared\.value = null;[\s\S]*\}, \[enabled, detectionsShared\]\);/,
   );
 });
+
+test("iOS live detector warms up CoreML before native mask polygon decode", () => {
+  const iosSource = liveSource.split("function useLiveDetectionsCoreML")[1].split("// ---------------------------------------------------------------------\n// Android")[0];
+  assert.match(iosSource, /const warmupFrameCounter = useSharedValue\(0\);/);
+  assert.match(iosSource, /const MASK_WARMUP_FRAMES = 3;/);
+  assert.match(iosSource, /warmupCounter > MASK_WARMUP_FRAMES && counter % MASK_THROTTLE === 0/s);
+});

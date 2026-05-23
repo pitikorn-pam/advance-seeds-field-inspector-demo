@@ -481,7 +481,12 @@ function useLiveDetectionsCoreML(options: Options): State {
   // three frames produced no polygon and the overlay fell back to the
   // raw bbox, which read as a flickering bbox in live preview.
   const maskFrameCounter = useSharedValue(0);
+  const warmupFrameCounter = useSharedValue(0);
   const MASK_THROTTLE = 1;
+  const MASK_WARMUP_FRAMES = 3;
+  useEffect(() => {
+    warmupFrameCounter.value = 0;
+  }, [enabled, modelPath, warmupFrameCounter]);
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
@@ -492,7 +497,9 @@ function useLiveDetectionsCoreML(options: Options): State {
         try {
           const counter = maskFrameCounter.value + 1;
           maskFrameCounter.value = counter;
-          const wantMask = counter % MASK_THROTTLE === 0;
+          const warmupCounter = warmupFrameCounter.value + 1;
+          warmupFrameCounter.value = warmupCounter;
+          const wantMask = warmupCounter > MASK_WARMUP_FRAMES && counter % MASK_THROTTLE === 0;
           // Time only the native plugin call, which is where the Core ML
           // VNCoreMLRequest runs synchronously on the worklet thread; that
           // dominates everything else this worklet does.
@@ -545,6 +552,7 @@ function useLiveDetectionsCoreML(options: Options): State {
       modelPath,
       preprocessProfile,
       maskFrameCounter,
+      warmupFrameCounter,
       scoreThreshold,
       mappedClassFilter,
     ],
