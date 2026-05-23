@@ -591,7 +591,11 @@ static MLModel *loadModel(NSString *assetName, NSString *modelPath) {
     return nil;
   }
   MLModelConfiguration *config = [[MLModelConfiguration alloc] init];
-  config.computeUnits = MLComputeUnitsAll;
+  // TestFlight builds have been observed terminating during ANE compilation
+  // as soon as live capture starts. Keep the live frame-processor path off
+  // ANE; post-capture single-shot analysis still uses the regular CoreML
+  // runner and can use the system default compute units.
+  config.computeUnits = MLComputeUnitsCPUAndGPU;
   NSError *err = nil;
   MLModel *model = [MLModel modelWithContentsOfURL:url configuration:config error:&err];
   if (model == nil) {
