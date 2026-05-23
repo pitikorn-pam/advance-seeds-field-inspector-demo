@@ -27,7 +27,7 @@ import {
   useBackgroundModelInstall,
 } from "@/lib/models/installProgressStore";
 import type { InstalledModelRecord, ModelCandidate } from "@/lib/models/types";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -122,6 +122,7 @@ export default function ModelRegistryScreen() {
           }).catch(() => null),
         ]);
         setCandidates(list);
+        await reloadInstalled();
         if (resolveRes) publishResolveResult(resolveRes);
         return list;
       } catch (err) {
@@ -131,7 +132,7 @@ export default function ModelRegistryScreen() {
         setBusy(null);
       }
     },
-    [t],
+    [reloadInstalled],
   );
 
   const install = useCallback(
@@ -188,9 +189,11 @@ export default function ModelRegistryScreen() {
     });
   };
 
-  useEffect(() => {
-    void reloadInstalled();
-  }, [reloadInstalled]);
+  useFocusEffect(
+    useCallback(() => {
+      void reloadInstalled();
+    }, [reloadInstalled]),
+  );
 
   useEffect(() => {
     if (backgroundInstall.status === "completed") {
