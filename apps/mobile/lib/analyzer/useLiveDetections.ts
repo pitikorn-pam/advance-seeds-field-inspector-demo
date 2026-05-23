@@ -33,7 +33,11 @@ import { resolvePreprocessProfile } from "./preprocess";
 import { recordInference, type InferenceSource } from "./inferenceStats";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { mapClassFilterForModel } from "@/lib/models/compatibility";
-import { quickVerifyArtifact, readActiveModel } from "@/lib/models/modelStore";
+import {
+  quickVerifyArtifact,
+  readActiveModel,
+  useModelStoreVersion,
+} from "@/lib/models/modelStore";
 import { normalizeFrameOrientation } from "@/lib/capture/frameOrientation";
 
 const COREML_ASSET = "yolo26n";
@@ -206,6 +210,7 @@ function useLiveDetectionsCoreML(options: Options): State {
   const detectionsShared = useReanimatedSharedValue<AnalysisFrameResult | null>(null);
   const [modelPath, setModelPath] = useState<string | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
+  const modelStoreVersion = useModelStoreVersion();
   const modelReady = Boolean(modelPath && activeModel);
   const lastSetAtRef = useRef(0);
   // Cap detection→React re-renders to ~30 fps. The camera preview stays at
@@ -280,7 +285,7 @@ function useLiveDetectionsCoreML(options: Options): State {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, modelStoreVersion]);
 
   // Translate COCO/variety class filter into the active model's class
   // index space *before* the worklet runs — worklets can't read JS

@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
+import { useSyncExternalStore } from "react";
 import type { InstalledModelRecord, ModelPlatform } from "./types";
 import { sha256Base64 } from "./sha256";
 
@@ -7,8 +8,30 @@ const root = `${FileSystem.documentDirectory ?? ""}models/`;
 const registryUri = `${root}registry.json`;
 const activeUri = `${root}active-model.json`;
 const previousUri = `${root}previous-active-model.json`;
+let storeVersion = 0;
+const subscribers = new Set<() => void>();
 
 export const MODELS_DIR = root;
+
+function emitModelStoreChanged(): void {
+  storeVersion += 1;
+  for (const subscriber of subscribers) subscriber();
+}
+
+function subscribeModelStore(fn: () => void): () => void {
+  subscribers.add(fn);
+  return () => {
+    subscribers.delete(fn);
+  };
+}
+
+function getModelStoreVersion(): number {
+  return storeVersion;
+}
+
+export function useModelStoreVersion(): number {
+  return useSyncExternalStore(subscribeModelStore, getModelStoreVersion, getModelStoreVersion);
+}
 
 export function currentModelPlatform(): ModelPlatform {
   return Platform.OS === "ios" ? "ios" : "android";
@@ -76,6 +99,7 @@ export async function readInstalledModels(): Promise<InstalledModelRecord[]> {
 export async function writeInstalledModels(models: InstalledModelRecord[]): Promise<void> {
   await ensureModelStore();
   await FileSystem.writeAsStringAsync(registryUri, JSON.stringify(models, null, 2));
+  emitModelStoreChanged();
 }
 
 export async function upsertInstalledModel(record: InstalledModelRecord): Promise<void> {
