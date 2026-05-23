@@ -47,6 +47,7 @@
       "expo-router",
       "expo-localization",
       "./plugins/with-ios-xcode26-rn-source-fix",
+      "./plugins/with-size-optimizations",
       [
         "react-native-vision-camera",
         {
@@ -73,8 +74,8 @@
       [
         "react-native-fast-tflite",
         {
-          "enableCoreMLDelegate": true,
-          "enableAndroidGpuLibraries": true
+          "enableCoreMLDelegate": false,
+          "enableAndroidGpuLibraries": false
         }
       ]
     ],
