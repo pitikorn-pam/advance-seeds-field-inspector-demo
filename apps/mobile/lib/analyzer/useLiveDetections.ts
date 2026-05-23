@@ -390,44 +390,18 @@ function useLiveDetectionsCoreML(options: Options): State {
               : outputKind === "segmentation"
                 ? decodeYoloSegmentationNms(out, shape, decodeOpts)
                 : decodeYolo(out, shape, decodeOpts);
-          // Attach native-decoded polygons. The plugin iterated the raw
-          // detection rows in the same order with the same score+class
-          // filter, so the i-th surviving JS detection lines up with
-          // the i-th non-empty entry in polygonsByRow — once we walk
-          // both in raw order. `decodeYoloSegmentationNms` collapses the
-          // 300-row tensor to detections in source-row order; we mirror
-          // that here by maintaining a parallel "kept count" cursor.
           if (outputKind === "segmentation" && polygonsByRow && polygonsByRow.length === shape1) {
-            // Walk the same row range used by decodeYoloSegmentationNms.
-            // Apply identical filtering predicates so cursor advancement
-            // stays in lockstep with the JS-side detection array.
-            let detIdx = 0;
-            const cf = mappedClassFilter;
-            for (let row = 0; row < shape1 && detIdx < rawDetections.length; row++) {
-              const base = row * shape2;
-              const score = out[base + 4];
-              if (score < scoreThreshold) continue;
-              const classId = Math.round(out[base + 5]);
-              if (cf && !cf.includes(classId)) continue;
-              // JS also drops degenerate-bbox rows after format-decode;
-              // those rows produce an empty polygon entry here too, and
-              // they likewise never make it into rawDetections. So if a
-              // row passes the score+class check but JS dropped it, we
-              // simply move past its (empty) polygon entry on the
-              // *polygons* side without advancing detIdx — but only when
-              // its polygon is empty. The detection-row index in JS isn't
-              // exposed, so we rely on this invariant: any row that JS
-              // keeps has a non-degenerate bbox and (if seg) a polygon
-              // candidate; rows JS drops have an empty polygon entry.
+            for (const detection of rawDetections) {
+              const row = detection.sourceRow;
+              if (row === undefined) continue;
               const poly = polygonsByRow[row];
               if (poly && poly.length >= 6) {
                 const pts: Point[] = [];
                 for (let i = 0; i + 1 < poly.length; i += 2) {
                   pts.push({ x: poly[i], y: poly[i + 1] });
                 }
-                rawDetections[detIdx].polygon = pts;
+                detection.polygon = pts;
               }
-              detIdx++;
             }
           }
           const nativePolygonCount = rawDetections.reduce((n, d) => n + (d.polygon ? 1 : 0), 0);
@@ -762,28 +736,22 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               : outputKind === "segmentation"
                 ? decodeYoloSegmentationNms(out, shape, decodeOpts)
                 : decodeYolo(out, shape, decodeOpts);
-          // Attach native-decoded polygons; same index-alignment trick
-          // as the iOS branch. Native Android now samples the frame in
-          // post-rotation space before inference, so polygons start in
-          // the same post-rotation source coords as the bbox.
+          // Attach native-decoded polygons by their source tensor row.
+          // Native Android samples the frame in post-rotation space before
+          // inference, so polygons start in the same post-rotation source
+          // coords as the bbox.
           if (outputKind === "segmentation" && polygonsByRow && polygonsByRow.length === shape1) {
-            const cf = decodeOpts.classFilter;
-            let detIdx = 0;
-            for (let row = 0; row < shape1 && detIdx < raw.length; row++) {
-              const base = row * shape2;
-              const score = out[base + 4];
-              if (score < liveScoreThreshold) continue;
-              const classId = Math.round(out[base + 5]);
-              if (cf && !cf.includes(classId)) continue;
+            for (const detection of raw) {
+              const row = detection.sourceRow;
+              if (row === undefined) continue;
               const poly = polygonsByRow[row];
               if (poly && poly.length >= 6) {
                 const pts: Point[] = [];
                 for (let i = 0; i + 1 < poly.length; i += 2) {
                   pts.push({ x: poly[i], y: poly[i + 1] });
                 }
-                raw[detIdx].polygon = pts;
+                detection.polygon = pts;
               }
-              detIdx++;
             }
           }
           logMaskDiagnostic(

@@ -6,10 +6,16 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+### Fixed
+
+- Investigated the live-camera vs post-shutter mismatch where iOS live segmentation overlaid only one object while post-shutter analysis found multiple objects. The live CoreML frame-processor path now flattens the detection `MLMultiArray` using `strides`, matching the post-shutter Swift runner; reading `dataPointer` as packed memory could corrupt/skew detection rows returned from Vision/CoreML and leave JS with only a partial set of usable detections.
+- Added `sourceRow` to decoded NMS/segmentation detections and attached native-decoded polygons back by their original tensor row instead of by a guessed kept-detection cursor. This prevents polygon/detection misalignment when some rows pass score/class checks but are later dropped as degenerate or mask-empty.
+
 ### In-flight verification
 
 - Metro dev server idled locally on `localhost:8081` to verify that a new model artifact (re-trained on Colab from the ML repo's post-merge `main`) renders multi-detect correctly on the iOS dev client. The artifact lands in the registry's staging channel via `training-callback`; the app pulls it through the Models tab.
 - The dev client on the test iPhone may need a fresh rebuild — the team's `main` merge included native CoreML / fast-tflite changes (commits `d28f4c1` _native YOLO mask decode + polygon trace on iOS and Android_, `b77f2fb` _respect MLMultiArray strides in native polygon decode_). If the on-device live overlay misbehaves after the model swap, rebuild the dev client (`npx expo run:ios --device`) before drawing conclusions about the model.
+- Latest local patch also touches the native iOS frame processor (`AdvanceSeedsCoreMLFrameProcessorPlugin.mm`), so Metro reload is not enough; rebuild the iOS dev client before Claude/device QA re-tests live multi-object overlay. Verification run so far: `pnpm -F @advance-seeds/mobile typecheck`.
 
 ## [2026-05-23]
 
