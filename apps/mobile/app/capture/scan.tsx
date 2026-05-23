@@ -88,12 +88,15 @@ export default function CaptureScan() {
   // Snapshot toast — surfaces "Snapshot saved" for ~2 s without an Alert.
   const [toast, setToast] = useState<string | null>(null);
   const liveLidar = useLiveLidarCalibration(cameraActive && position === "back");
-  const liveAruco = useLiveArucoCalibration(
-    cameraActive &&
-      position === "back" &&
-      (liveLidar.supported === false || lidarArucoFallbackReady),
-  );
   const manualCalibration = useCalibrator();
+  const shouldScanAruco =
+    cameraActive &&
+    position === "back" &&
+    !liveLidar.locked &&
+    (liveLidar.supported === false ||
+      lidarArucoFallbackReady ||
+      manualCalibration.reading !== null);
+  const liveAruco = useLiveArucoCalibration(shouldScanAruco);
   const modelInstallGate = useModelInstallInspectionGate();
   const modelInstallInProgress = modelInstallGate.blocked;
   const automaticCalibration =
@@ -168,10 +171,12 @@ export default function CaptureScan() {
       cancelled = true;
     };
   }, []);
+  const arucoFrameProcessor =
+    shouldScanAruco && !liveAruco.locked ? liveAruco.frameProcessor : undefined;
   const activeFrameProcessor =
     busy || modelInstallInProgress
       ? undefined
-      : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
+      : (arucoFrameProcessor ?? liveDetections.frameProcessor);
   const androidFrameProcessorActive =
     Platform.OS === "android" &&
     !busy &&

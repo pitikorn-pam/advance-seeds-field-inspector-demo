@@ -50,12 +50,15 @@ export default function CapturePrecise() {
   const [firstLidarReadingSeen, setFirstLidarReadingSeen] = useState(false);
   const [lidarArucoFallbackReady, setLidarArucoFallbackReady] = useState(false);
   const liveLidar = useLiveLidarCalibration(cameraActive && position === "back");
-  const liveAruco = useLiveArucoCalibration(
-    cameraActive &&
-      position === "back" &&
-      (liveLidar.supported === false || lidarArucoFallbackReady),
-  );
   const manualCalibration = useCalibrator();
+  const shouldScanAruco =
+    cameraActive &&
+    position === "back" &&
+    !liveLidar.locked &&
+    (liveLidar.supported === false ||
+      lidarArucoFallbackReady ||
+      manualCalibration.reading !== null);
+  const liveAruco = useLiveArucoCalibration(shouldScanAruco);
   const modelInstallGate = useModelInstallInspectionGate();
   const modelInstallInProgress = modelInstallGate.blocked;
   const automaticCalibration =
@@ -110,10 +113,12 @@ export default function CapturePrecise() {
     roi: null,
     gradingConfig,
   });
+  const arucoFrameProcessor =
+    shouldScanAruco && !liveAruco.locked ? liveAruco.frameProcessor : undefined;
   const activeFrameProcessor =
     busy || modelInstallInProgress
       ? undefined
-      : (liveDetections.frameProcessor ?? liveAruco.frameProcessor);
+      : (arucoFrameProcessor ?? liveDetections.frameProcessor);
   const androidFrameProcessorActive =
     Platform.OS === "android" &&
     !busy &&

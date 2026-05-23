@@ -26,11 +26,28 @@ for (const file of ["scan.tsx", "precise.tsx"]) {
       source,
       /const \[lidarArucoFallbackReady, setLidarArucoFallbackReady\] = useState\(false\);/,
     );
-    assert.match(source, /liveLidar\.supported === false \|\| lidarArucoFallbackReady/);
+    assert.match(source, /const shouldScanAruco =/);
+    assert.match(
+      source,
+      /liveLidar\.supported === false \|\|\s+lidarArucoFallbackReady \|\|\s+manualCalibration\.reading !== null/s,
+    );
     assert.match(source, /!lidarArucoFallbackReady/);
     assert.match(
       source,
-      /setTimeout\(\s*\(\) => setLidarArucoFallbackReady\(true\),\s*LIDAR_ARUCO_FALLBACK_DELAY_MS,\s*\)/s,
+      /setTimeout\(\s*\(\) => setLidarArucoFallbackReady\(true\),\s*LIDAR_ARUCO_FALLBACK_DELAY_MS\s*\)/s,
+    );
+  });
+
+  test(`${file} gives live ArUco the frame processor until calibration locks`, () => {
+    const source = readFileSync(join(root, file), "utf8");
+
+    assert.match(
+      source,
+      /const arucoFrameProcessor =\s+shouldScanAruco && !liveAruco\.locked \? liveAruco\.frameProcessor : undefined;/s,
+    );
+    assert.match(
+      source,
+      /:\s+\(arucoFrameProcessor \?\? liveDetections\.frameProcessor\);/s,
     );
   });
 }
