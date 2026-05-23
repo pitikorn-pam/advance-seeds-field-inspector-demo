@@ -101,6 +101,9 @@ export function useLiveArucoCalibration(enabled: boolean): LiveArucoState {
     },
     [],
   );
+  const onFrameProcessorError = useRunOnJS((message: string) => {
+    console.warn("[live-aruco] frame processing failed", message);
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -119,7 +122,14 @@ export function useLiveArucoCalibration(enabled: boolean): LiveArucoState {
         "worklet";
         runAsync(frame, () => {
           "worklet";
-          const next = detectNativeArucoCalibrationInFrame(frame);
+          let next;
+          try {
+            next = detectNativeArucoCalibrationInFrame(frame);
+          } catch (err) {
+            onFrameProcessorError(String(err));
+            onDetection(null, 0, 0, 0, 0, 0, 0, 0);
+            return;
+          }
           if (!next) {
             onDetection(null, 0, 0, 0, 0, 0, 0, 0);
             return;
@@ -137,7 +147,7 @@ export function useLiveArucoCalibration(enabled: boolean): LiveArucoState {
         });
       });
     },
-    [enabled, onDetection],
+    [enabled, onDetection, onFrameProcessorError],
   );
 
   return useMemo(

@@ -104,7 +104,11 @@ NSDictionary<NSString *, id> *detectInGrayMat(const cv::Mat &gray, double marker
 
 NSDictionary<NSString *, id> *detectInPixelBuffer(CVPixelBufferRef pixelBuffer, double markerSizeMm) {
   OSType format = CVPixelBufferGetPixelFormatType(pixelBuffer);
-  CVPixelBufferLockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
+  CVReturn lockResult = CVPixelBufferLockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
+  if (lockResult != kCVReturnSuccess) {
+    NSLog(@"[aruco] unable to lock frame pixel buffer: %d", lockResult);
+    return nil;
+  }
 
   NSDictionary<NSString *, id> *result = nil;
 
@@ -113,6 +117,10 @@ NSDictionary<NSString *, id> *detectInPixelBuffer(CVPixelBufferRef pixelBuffer, 
     const size_t height = CVPixelBufferGetHeight(pixelBuffer);
     const size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
     void *baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer);
+    if (baseAddress == nullptr) {
+      CVPixelBufferUnlockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
+      return nil;
+    }
     cv::Mat bgra((int)height, (int)width, CV_8UC4, baseAddress, bytesPerRow);
     cv::Mat gray;
     cv::cvtColor(bgra, gray, cv::COLOR_BGRA2GRAY);
@@ -122,8 +130,14 @@ NSDictionary<NSString *, id> *detectInPixelBuffer(CVPixelBufferRef pixelBuffer, 
     const size_t height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0);
     const size_t bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0);
     void *baseAddress = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0);
+    if (baseAddress == nullptr) {
+      CVPixelBufferUnlockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
+      return nil;
+    }
     cv::Mat gray((int)height, (int)width, CV_8UC1, baseAddress, bytesPerRow);
     result = detectInGrayMat(gray, markerSizeMm);
+  } else {
+    NSLog(@"[aruco] unsupported frame pixel format: %u", format);
   }
 
   CVPixelBufferUnlockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
@@ -144,7 +158,18 @@ NSDictionary<NSString *, id> *detectInPixelBuffer(CVPixelBufferRef pixelBuffer, 
   if (imageBuffer == nil) {
     return nil;
   }
-  return detectInPixelBuffer((CVPixelBufferRef)imageBuffer, markerSizeMm);
+  try {
+    return detectInPixelBuffer((CVPixelBufferRef)imageBuffer, markerSizeMm);
+  } catch (const cv::Exception &e) {
+    NSLog(@"[aruco] OpenCV frame processor error: %s", e.what());
+    return nil;
+  } catch (const std::exception &e) {
+    NSLog(@"[aruco] frame processor error: %s", e.what());
+    return nil;
+  } catch (...) {
+    NSLog(@"[aruco] unknown frame processor error");
+    return nil;
+  }
 }
 
 VISION_EXPORT_FRAME_PROCESSOR(AdvanceSeedsArucoFrameProcessorPlugin, detectArucoCalibration)
