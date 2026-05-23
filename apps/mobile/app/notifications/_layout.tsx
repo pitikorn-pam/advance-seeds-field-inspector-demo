@@ -1,11 +1,8 @@
 import { Stack } from "expo-router";
 
 /**
- * Nested stack for the notifications modal. The root `/notifications`
- * screen presents this whole stack as a modal (configured in
- * `app/_layout.tsx`); list → detail navigation happens *inside* that
- * modal, so the detail slides in from the right rather than stacking a
- * second modal on top.
+ * Nested stack for notifications. The list is opened from More as a
+ * normal stack page; list → detail navigation stays inside this group.
  */
 export default function NotificationsLayout() {
   return (

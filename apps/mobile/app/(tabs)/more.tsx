@@ -15,6 +15,7 @@ import {
   Sprout,
   ChevronRight,
   LogOut,
+  Bell,
 } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/Card";
@@ -105,6 +106,13 @@ export default function MoreScreen() {
         </Section>
 
         <Section title={t("more:sections.insights")}>
+          <MenuRow
+            renderIcon={() => <Bell color={ROW_INK.sky} size={16} />}
+            tint="bg-card-sky"
+            label={t("more:menu.notifications")}
+            onPress={() => router.push("/notifications" as never)}
+          />
+          <Divider />
           <MenuRow
             renderIcon={() => <BarChart3 color={ROW_INK.yellow} size={16} />}
             tint="bg-card-yellow"

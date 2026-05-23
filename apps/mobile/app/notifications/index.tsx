@@ -3,7 +3,7 @@ import { View, Text, Pressable, FlatList, ActivityIndicator } from "react-native
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { CheckCheck, X, AlertTriangle, Check, Info } from "lucide-react-native";
+import { CheckCheck, X, AlertTriangle, Check, Info, ChevronLeft } from "lucide-react-native";
 import type { Notification, NotificationKind } from "@advance-seeds/types";
 import { useAuth } from "@/lib/auth";
 import {
@@ -54,8 +54,7 @@ const KIND_VISUAL: Record<NotificationKind, KindVisual> = {
 };
 
 /**
- * Notifications list. Modal-presented from the bell, so the top-bar X
- * dismisses the whole panel. Row tap stack-pushes
+ * Notifications list. Opened from More as a normal stack page. Row tap stack-pushes
  * `/notifications/<id>` for the detail view (back chevron + native iOS
  * push animation), replacing the previous in-page Animated slide.
  *
@@ -131,8 +130,8 @@ export default function NotificationsModal() {
       <AppTopBar
         title={t("notifications:title")}
         left={{
-          accessibilityLabel: t("common:actions.close"),
-          renderIcon: () => <X color="#171717" size={18} />,
+          accessibilityLabel: t("common:actions.back"),
+          renderIcon: () => <ChevronLeft color="#171717" size={20} />,
           onPress: () => router.back(),
         }}
         right={

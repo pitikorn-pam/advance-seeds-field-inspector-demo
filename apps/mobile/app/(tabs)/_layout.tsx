@@ -1,11 +1,11 @@
 import { Tabs, useRouter } from "expo-router";
-import { Camera, Home, MoreHorizontal, Sprout } from "lucide-react-native";
+import { Camera, MoreHorizontal, Sprout } from "lucide-react-native";
 import { Pressable, View, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
-type TabGlyphKind = "home" | "inspect" | "varieties" | "more";
+type TabGlyphKind = "inspect" | "varieties" | "more";
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
@@ -21,6 +21,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      initialRouteName="inspect"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: isDark ? "#8F75FF" : "#6E40E0",
@@ -41,8 +42,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => <TabGlyph kind="home" color={color} size={size} />,
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -113,5 +113,5 @@ function TabGlyph({ kind, color, size }: { kind: TabGlyphKind; color: string; si
     return <Sprout color={color} size={iconSize} strokeWidth={strokeWidth} />;
   if (kind === "more")
     return <MoreHorizontal color={color} size={iconSize} strokeWidth={strokeWidth} />;
-  return <Home color={color} size={iconSize} strokeWidth={strokeWidth} />;
+  return <Camera color={color} size={iconSize} strokeWidth={strokeWidth} />;
 }

@@ -141,16 +141,7 @@ export default function RootLayout() {
                   />
                   <Stack.Screen name="profile" options={{ headerShown: false }} />
                   <Stack.Screen name="settings" options={{ headerShown: false }} />
-                  {/* `notifications` is a route group with its own
-                      _layout.tsx that nests list + [id] in a child Stack.
-                      Presenting the whole group as a modal keeps the
-                      slide animation contained — list → detail pushes
-                      INSIDE the modal instead of stacking a second
-                      modal on top. */}
-                  <Stack.Screen
-                    name="notifications"
-                    options={{ presentation: "modal", headerShown: false }}
-                  />
+                  <Stack.Screen name="notifications" options={{ headerShown: false }} />
                   <Stack.Screen name="inspections/[id]" options={{ headerShown: false }} />
                   <Stack.Screen name="seed/[inspection]/[index]" options={{ headerShown: false }} />
                   {/* `(tabs)/inspect` is the tab landing that redirects into
