@@ -244,7 +244,10 @@ function MenuRow({
         ) : null}
       </View>
       {badge ? (
-        <View className="min-w-[22px] items-center justify-center rounded-full bg-danger px-[6px] py-[2px]">
+        <View
+          className="min-w-[22px] items-center justify-center rounded-full px-[6px] py-[2px]"
+          style={{ backgroundColor: ROW_INK.danger }}
+        >
           <Text className="text-[11px] font-semibold text-white" numberOfLines={1}>
             {badge}
           </Text>

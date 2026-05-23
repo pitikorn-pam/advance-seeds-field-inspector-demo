@@ -31,7 +31,7 @@ type Prefs = { autoInstallOnWifi: boolean };
  * - User must have the pref on (`autoInstallOnWifi`); default is ON
  *   because field-inspector deployments are typically Wi-Fi only when
  *   docked and benefit from staying current without a manual install
- *   step. Users can opt out from the Models screen.
+ *   step. Users can opt out from Settings.
  * - We must know the size up-front and it must be under the cap, so we
  *   can't accidentally pull a multi-hundred-MB file in the background.
  */
@@ -99,7 +99,7 @@ let inflightVersionId: string | null = null;
 // `runAutoInstallIfEligible` and the `autoInstallOnWifi` pref are kept
 // for a possible future re-enable behind a clearer UX (e.g., an
 // explicit "Auto-update on Wi-Fi" toggle with progress visible on the
-// Models screen), but nothing in the codebase currently calls this
+// Settings screen), but nothing in the codebase currently calls this
 // function from the startup path.
 
 export async function runAutoInstallIfEligible(update: ModelUpdateAvailable): Promise<void> {

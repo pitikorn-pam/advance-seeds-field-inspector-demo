@@ -15,12 +15,18 @@ import {
   useSharedValue as useReanimatedSharedValue,
 } from "react-native-reanimated";
 import type { SharedValue } from "react-native-reanimated";
-import type { AnalysisFrameResult, AnalysisRoi, SeedGradingConfig } from "@advance-seeds/types";
+import type {
+  AnalysisFrameResult,
+  AnalysisRoi,
+  AnalyzedSeed,
+  SeedGradingConfig,
+} from "@advance-seeds/types";
 import {
   YOLO_INPUT_SIZE,
   decodeYolo,
   decodeYoloNms,
   decodeYoloSegmentationNms,
+  detectionWithinRoi,
   unrotateBbox,
   unrotatePoint,
   mapDetectionsToSeeds,
@@ -49,7 +55,9 @@ const COREML_ASSET = "yolo26n";
 // stepping on each other's slot.
 let __coremlValuesBuf: Float32Array | null = null;
 let __tfliteValuesBuf: Float32Array | null = null;
-const ANDROID_LIVE_MAX_DETECTIONS = 2;
+const LIVE_MASK_HOLD_FRAMES = 8;
+const LIVE_MASK_MISSING_HOLD_FRAMES = 4;
+const LIVE_MASK_SMOOTH_ALPHA = 0.32;
 function reuseFloat32Array(slot: Float32Array | null, src: number[]): Float32Array {
   let buf = slot;
   if (buf === null || buf.length < src.length) {
@@ -151,6 +159,7 @@ interface Options {
    */
   modelClassAliases?: readonly string[] | null;
   roi?: AnalysisRoi | null;
+  roiStage?: { width: number; height: number } | null;
   gradingConfig?: SeedGradingConfig | null;
 }
 
@@ -199,8 +208,16 @@ export function useLiveDetections(options: Options): State {
 // ---------------------------------------------------------------------
 
 function useLiveDetectionsCoreML(options: Options): State {
-  const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases, gradingConfig } =
-    options;
+  const {
+    enabled,
+    pxPerMm,
+    classFilter,
+    roi,
+    roiStage,
+    varietyNames,
+    modelClassAliases,
+    gradingConfig,
+  } = options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   // Phase 3 groundwork: Reanimated shared value mirroring the React
@@ -335,6 +352,8 @@ function useLiveDetectionsCoreML(options: Options): State {
     }
   }, [preprocessProfile]);
 
+  const lastCoreMLMaskSeedsRef = useRef<AnalysisFrameResult["seeds"] | null>(null);
+  const lastCoreMLMaskHoldFramesRef = useRef(0);
   const decodeOnJS = useMemo(
     () =>
       Worklets.createRunOnJS(
@@ -352,8 +371,10 @@ function useLiveDetectionsCoreML(options: Options): State {
           // `decodeYoloSegmentationNms`. Each entry is a flat
           // [x0, y0, x1, y1, ...] in post-rotation source-image pixel
           // space (same as bbox before unrotateBbox). Empty entry =
-          // filtered out / failed; absent = wantMask was NO for this
-          // frame and the overlay falls back to bbox-only.
+          // filtered out / failed; absent = wantMask was NO for this frame.
+          // Do not reuse these by row across frames: YOLO row index is not a
+          // stable object identity, and reattaching stale row polygons causes
+          // visible mask jumps when the output order changes.
           polygonsByRow: number[][] | null,
         ) => {
           recordInference("coreml", inferElapsedMs);
@@ -396,11 +417,21 @@ function useLiveDetectionsCoreML(options: Options): State {
               : outputKind === "segmentation"
                 ? decodeYoloSegmentationNms(out, shape, decodeOpts)
                 : decodeYolo(out, shape, decodeOpts);
-          if (outputKind === "segmentation" && polygonsByRow && polygonsByRow.length === shape1) {
+          const incomingPolygonCount =
+            polygonsByRow?.reduce((count, row) => count + (row.length >= 6 ? 1 : 0), 0) ?? 0;
+          const currentPolygonsByRow =
+            polygonsByRow && polygonsByRow.length === shape1 && incomingPolygonCount > 0
+              ? polygonsByRow
+              : null;
+          if (
+            outputKind === "segmentation" &&
+            currentPolygonsByRow &&
+            currentPolygonsByRow.length === shape1
+          ) {
             for (const detection of rawDetections) {
               const row = detection.sourceRow;
               if (row === undefined) continue;
-              const poly = polygonsByRow[row];
+              const poly = currentPolygonsByRow[row];
               if (poly && poly.length >= 6) {
                 const pts: Point[] = [];
                 for (let i = 0; i + 1 < poly.length; i += 2) {
@@ -411,13 +442,32 @@ function useLiveDetectionsCoreML(options: Options): State {
             }
           }
           const nativePolygonCount = rawDetections.reduce((n, d) => n + (d.polygon ? 1 : 0), 0);
-          logMaskDiagnostic("coreml", outputKind, polygonsByRow !== null, nativePolygonCount);
+          logMaskDiagnostic(
+            "coreml",
+            outputKind,
+            currentPolygonsByRow !== null,
+            nativePolygonCount,
+          );
+          if (
+            outputKind === "segmentation" &&
+            nativePolygonCount === 0 &&
+            !lastCoreMLMaskSeedsRef.current?.length
+          ) {
+            return;
+          }
           // Bboxes are now in post-rotation pixel space. Inverse-rotate
           // each one back to sensor (frame.width × frame.height) coords
           // so DetectionOverlay can project them onto the camera preview.
           // Same rotation applies to polygon vertices when present.
+          const keptInDisplaySpace =
+            outputKind === "raw" ? nonMaxSuppression(rawDetections, iouThreshold) : rawDetections;
+          const roiFilteredDisplayDetections = roi
+            ? keptInDisplaySpace.filter((detection) =>
+                detectionWithinRoi(detection, postW, postH, roi, roiStage),
+              )
+            : keptInDisplaySpace;
           const sensorDetections = rotates
-            ? rawDetections.map((d) => {
+            ? roiFilteredDisplayDetections.map((d) => {
                 const r = unrotateBbox(d, postW, postH, orientation);
                 if (d.polygon) {
                   r.polygon = d.polygon.map((p) =>
@@ -427,18 +477,28 @@ function useLiveDetectionsCoreML(options: Options): State {
                 }
                 return r;
               })
-            : rawDetections;
-          const kept =
-            outputKind === "raw"
-              ? nonMaxSuppression(sensorDetections, iouThreshold)
-              : sensorDetections;
-          const seeds = mapDetectionsToSeeds(kept, {
+            : roiFilteredDisplayDetections;
+          const seeds = mapDetectionsToSeeds(sensorDetections, {
             frameWidth,
             frameHeight,
             pxPerMm,
-            roi: roi ?? null,
+            roi: null,
             gradingConfig: gradingConfig ?? null,
           });
+          const displaySeeds = stabilizeMaskedLiveSeeds(
+            seeds,
+            lastCoreMLMaskSeedsRef.current,
+            lastCoreMLMaskHoldFramesRef,
+          );
+          const maskedDisplaySeeds = displaySeeds.filter(
+            (seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3,
+          );
+          if (maskedDisplaySeeds.length > 0) {
+            lastCoreMLMaskSeedsRef.current = maskedDisplaySeeds;
+          } else if (displaySeeds.length === 0) {
+            lastCoreMLMaskSeedsRef.current = null;
+            lastCoreMLMaskHoldFramesRef.current = 0;
+          }
           if (!mountedRef.current) return;
           // Discard inflight results that landed *after* the consumer
           // disabled the hook (e.g., user navigated away from the scan
@@ -450,8 +510,8 @@ function useLiveDetectionsCoreML(options: Options): State {
           if (now - lastSetAtRef.current < RENDER_THROTTLE_MS) return;
           lastSetAtRef.current = now;
           const nextResult: AnalysisFrameResult = {
-            seeds,
-            summary: summarizeSeeds(seeds),
+            seeds: displaySeeds,
+            summary: summarizeSeeds(displaySeeds),
             frameTimestampMs,
             frameWidth,
             frameHeight,
@@ -466,6 +526,7 @@ function useLiveDetectionsCoreML(options: Options): State {
       mappedClassFilter,
       pxPerMm,
       roi,
+      roiStage,
       gradingConfig,
       scoreThreshold,
       iouThreshold,
@@ -473,20 +534,21 @@ function useLiveDetectionsCoreML(options: Options): State {
     ],
   );
 
-  // Polygon decode runs every frame now that the mask matmul + trace
-  // happen natively in the plugin: only a small per-detection polygon
-  // array crosses the bridge, not the ~820k-float prototype tensor that
-  // forced the previous 1-in-3 throttle. Decoding every frame keeps the
-  // polygon continuously on screen — without this gate, two of every
-  // three frames produced no polygon and the overlay fell back to the
-  // raw bbox, which read as a flickering bbox in live preview.
+  // Polygon decode runs natively so live can show every kept detection.
+  // Do not cap this path: seed-lot tests may need many objects in one scene.
   const maskFrameCounter = useSharedValue(0);
   const warmupFrameCounter = useSharedValue(0);
   const MASK_THROTTLE = 1;
-  const MASK_WARMUP_FRAMES = 3;
+  const MASK_WARMUP_FRAMES = 0;
   useEffect(() => {
     warmupFrameCounter.value = 0;
-  }, [enabled, modelPath, warmupFrameCounter]);
+    lastCoreMLMaskSeedsRef.current = null;
+    lastCoreMLMaskHoldFramesRef.current = 0;
+    if (enabled) {
+      setDetections(null);
+      detectionsShared.value = null;
+    }
+  }, [enabled, modelPath, roi, warmupFrameCounter, detectionsShared]);
   const frameProcessor = useFrameProcessor(
     (frame) => {
       "worklet";
@@ -577,8 +639,16 @@ function useLiveDetectionsCoreML(options: Options): State {
 let lastLoggedDelegate: string | null = null;
 
 function useLiveDetectionsAndroidNative(options: Options): State {
-  const { enabled, pxPerMm, classFilter, roi, varietyNames, modelClassAliases, gradingConfig } =
-    options;
+  const {
+    enabled,
+    pxPerMm,
+    classFilter,
+    roi,
+    roiStage,
+    varietyNames,
+    modelClassAliases,
+    gradingConfig,
+  } = options;
   const hp = useHyperParams();
   const [detections, setDetections] = useState<AnalysisFrameResult | null>(null);
   // Phase 3 groundwork: Reanimated shared value mirroring the React
@@ -591,6 +661,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const lastSetAtRef = useRef(0);
   const lastAcceptedFrameTimestampRef = useRef(0);
   const lastDecodeLogAtRef = useRef(0);
+  const lastTfliteMaskSeedsRef = useRef<AnalysisFrameResult["seeds"] | null>(null);
+  const lastTfliteMaskHoldFramesRef = useRef(0);
   // Android native inference is still capped below the shared hyperparameter
   // default, so a 66 ms render gate remains enough to prevent accidental
   // back-to-back setState() bursts when frame timings cluster.
@@ -610,12 +682,17 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   const enabledRef = useRef(enabled);
   useEffect(() => {
     enabledRef.current = enabled;
+    lastTfliteMaskSeedsRef.current = null;
+    lastTfliteMaskHoldFramesRef.current = 0;
     if (!enabled) {
       setDetections(null);
       detectionsShared.value = null;
       lastAcceptedFrameTimestampRef.current = 0;
+    } else {
+      setDetections(null);
+      detectionsShared.value = null;
     }
-  }, [enabled, detectionsShared]);
+  }, [enabled, roi, detectionsShared]);
 
   const plugin = useMemo(
     () => VisionCameraProxy.initFrameProcessorPlugin("advanceSeedsRunTFLite", {}),
@@ -775,8 +852,14 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             polygonsByRow !== null,
             raw.reduce((n, d) => n + (d.polygon ? 1 : 0), 0),
           );
+          const keptInDisplaySpace = nonMaxSuppression(raw, iouThreshold);
+          const roiFilteredDisplayDetections = roi
+            ? keptInDisplaySpace.filter((detection) =>
+                detectionWithinRoi(detection, postW, postH, roi, roiStage),
+              )
+            : keptInDisplaySpace;
           const sensorDetections = rotates
-            ? raw.map((d) => {
+            ? roiFilteredDisplayDetections.map((d) => {
                 const r = unrotateBbox(d, postW, postH, orientation);
                 if (d.polygon) {
                   r.polygon = d.polygon.map((p) =>
@@ -786,18 +869,28 @@ function useLiveDetectionsAndroidNative(options: Options): State {
                 }
                 return r;
               })
-            : raw;
-          const kept = nonMaxSuppression(sensorDetections, iouThreshold).slice(
-            0,
-            ANDROID_LIVE_MAX_DETECTIONS,
-          );
-          const seeds = mapDetectionsToSeeds(kept, {
+            : roiFilteredDisplayDetections;
+          const seeds = mapDetectionsToSeeds(sensorDetections, {
             frameWidth,
             frameHeight,
             pxPerMm,
-            roi: roi ?? null,
+            roi: null,
             gradingConfig: gradingConfig ?? null,
           });
+          const displaySeeds = stabilizeMaskedLiveSeeds(
+            seeds,
+            lastTfliteMaskSeedsRef.current,
+            lastTfliteMaskHoldFramesRef,
+          );
+          const maskedDisplaySeeds = displaySeeds.filter(
+            (seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3,
+          );
+          if (maskedDisplaySeeds.length > 0) {
+            lastTfliteMaskSeedsRef.current = maskedDisplaySeeds;
+          } else if (displaySeeds.length === 0) {
+            lastTfliteMaskSeedsRef.current = null;
+            lastTfliteMaskHoldFramesRef.current = 0;
+          }
           const logNow = Date.now();
           if (__DEV__ && logNow - lastDecodeLogAtRef.current > 2000) {
             lastDecodeLogAtRef.current = logNow;
@@ -830,7 +923,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
                   }).join(",")
                 : "raw-head";
             console.info(
-              `[live-detections android-native] shape=${shape.join("x")} frame=${frameWidth}x${frameHeight} post=${postW}x${postH} orientation=${orientation} crop=${cropX},${cropY},${cropSize} delegate=${delegate} filter=${classFilter ? [...classFilter].join(",") : "any"} threshold=${liveScoreThreshold}/${scoreThreshold} all=${allRaw.length} raw=${raw.length} kept=${kept.length} seeds=${seeds.length} top=${top} tensor=${topTensor}`,
+              `[live-detections android-native] shape=${shape.join("x")} frame=${frameWidth}x${frameHeight} post=${postW}x${postH} orientation=${orientation} crop=${cropX},${cropY},${cropSize} delegate=${delegate} filter=${classFilter ? [...classFilter].join(",") : "any"} threshold=${liveScoreThreshold}/${scoreThreshold} all=${allRaw.length} raw=${raw.length} kept=${roiFilteredDisplayDetections.length} seeds=${displaySeeds.length} top=${top} tensor=${topTensor}`,
             );
           }
           if (!mountedRef.current) return;
@@ -849,8 +942,8 @@ function useLiveDetectionsAndroidNative(options: Options): State {
             lastAcceptedFrameTimestampRef.current = frameTimestampMs;
           }
           const nextResult: AnalysisFrameResult = {
-            seeds,
-            summary: summarizeSeeds(seeds),
+            seeds: displaySeeds,
+            summary: summarizeSeeds(displaySeeds),
             frameTimestampMs,
             frameWidth,
             frameHeight,
@@ -868,6 +961,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
       modelClassAliases,
       pxPerMm,
       roi,
+      roiStage,
       gradingConfig,
       liveScoreThreshold,
       scoreThreshold,
@@ -933,7 +1027,6 @@ function useLiveDetectionsAndroidNative(options: Options): State {
               wantMask,
               scoreThreshold: liveScoreThreshold,
               classFilter: mappedClassFilterForAndroid ?? [],
-              maxPolygons: ANDROID_LIVE_MAX_DETECTIONS,
             });
             const inferElapsedMs = Date.now() - startedAt;
             if (!result) return;
@@ -990,6 +1083,183 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     }),
     [activeModel, detections, detectionsShared, enabled, frameProcessor, plugin],
   );
+}
+
+function stabilizeMaskedLiveSeeds(
+  seeds: AnalysisFrameResult["seeds"],
+  fallback: AnalysisFrameResult["seeds"] | null,
+  holdFramesRef: { current: number },
+): AnalysisFrameResult["seeds"] {
+  const masked = seeds.filter((seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3);
+  const fallbackMasked =
+    fallback?.filter((seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3) ?? [];
+  if (masked.length === 0) {
+    if (fallbackMasked.length > 0 && holdFramesRef.current < LIVE_MASK_HOLD_FRAMES) {
+      holdFramesRef.current += 1;
+      return reindexLiveSeeds(fallbackMasked);
+    }
+    holdFramesRef.current = 0;
+    return seeds;
+  }
+  if (fallbackMasked.length === 0) {
+    holdFramesRef.current = 0;
+    return reindexLiveSeeds(masked);
+  }
+
+  const usedFallback = new Set<number>();
+  const stabilized: Array<{ seed: AnalyzedSeed; previousIndex: number | null }> = [];
+  for (const current of masked) {
+    const match = bestLiveSeedMatch(current, fallbackMasked, usedFallback);
+    if (match && isLikelySameLiveSeed(match.seed, current)) {
+      usedFallback.add(match.index);
+      stabilized.push({
+        seed: smoothSeed(match.seed, current, LIVE_MASK_SMOOTH_ALPHA),
+        previousIndex: match.index,
+      });
+    } else {
+      stabilized.push({ seed: current, previousIndex: null });
+    }
+  }
+
+  const canHoldMissing =
+    stabilized.length < fallbackMasked.length &&
+    holdFramesRef.current < LIVE_MASK_MISSING_HOLD_FRAMES;
+  if (canHoldMissing) {
+    for (let index = 0; index < fallbackMasked.length; index += 1) {
+      if (usedFallback.has(index)) continue;
+      const previous = fallbackMasked[index];
+      const alreadyRepresented = stabilized.some(({ seed }) =>
+        isLikelySameLiveSeed(seed, previous),
+      );
+      if (alreadyRepresented) continue;
+      stabilized.push({ seed: previous, previousIndex: index });
+    }
+    holdFramesRef.current += 1;
+  } else {
+    holdFramesRef.current = 0;
+  }
+
+  stabilized.sort((a, b) => {
+    if (a.previousIndex !== null && b.previousIndex !== null) {
+      return a.previousIndex - b.previousIndex;
+    }
+    if (a.previousIndex !== null) return -1;
+    if (b.previousIndex !== null) return 1;
+    return spatialSeedOrder(a.seed, b.seed);
+  });
+  return reindexLiveSeeds(stabilized.map(({ seed }) => seed));
+}
+
+function bestLiveSeedMatch(
+  current: AnalyzedSeed,
+  candidates: AnalyzedSeed[],
+  usedIndexes: Set<number>,
+): { index: number; seed: AnalyzedSeed } | null {
+  let bestIndex = -1;
+  let best: AnalyzedSeed | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (let index = 0; index < candidates.length; index += 1) {
+    if (usedIndexes.has(index)) continue;
+    const candidate = candidates[index];
+    if (
+      typeof current.class_id === "number" &&
+      typeof candidate.class_id === "number" &&
+      current.class_id !== candidate.class_id
+    ) {
+      continue;
+    }
+    const overlap = bboxIou(current.bbox, candidate.bbox);
+    const distance = centerDistance(current.bbox, candidate.bbox);
+    const sizeDelta =
+      Math.abs(current.bbox.width - candidate.bbox.width) / Math.max(1, current.bbox.width) +
+      Math.abs(current.bbox.height - candidate.bbox.height) / Math.max(1, current.bbox.height);
+    const score = distance * 3 + sizeDelta - overlap * 2;
+    if (score < bestScore) {
+      best = candidate;
+      bestIndex = index;
+      bestScore = score;
+    }
+  }
+  return best && bestIndex >= 0 ? { index: bestIndex, seed: best } : null;
+}
+
+function isLikelySameLiveSeed(a: AnalyzedSeed, b: AnalyzedSeed): boolean {
+  return bboxIou(a.bbox, b.bbox) >= 0.12 || centerDistance(a.bbox, b.bbox) <= 0.28;
+}
+
+function spatialSeedOrder(a: AnalyzedSeed, b: AnalyzedSeed): number {
+  const ay = a.bbox.y + a.bbox.height / 2;
+  const by = b.bbox.y + b.bbox.height / 2;
+  if (Math.abs(ay - by) > 24) return ay - by;
+  const ax = a.bbox.x + a.bbox.width / 2;
+  const bx = b.bbox.x + b.bbox.width / 2;
+  return ax - bx;
+}
+
+function reindexLiveSeeds(seeds: AnalysisFrameResult["seeds"]): AnalysisFrameResult["seeds"] {
+  return seeds.map((seed, index) => ({ ...seed, id: index + 1 }));
+}
+
+function smoothSeed(previous: AnalyzedSeed, current: AnalyzedSeed, alpha: number): AnalyzedSeed {
+  const bbox = {
+    x: Math.round(lerp(previous.bbox.x, current.bbox.x, alpha)),
+    y: Math.round(lerp(previous.bbox.y, current.bbox.y, alpha)),
+    width: Math.round(lerp(previous.bbox.width, current.bbox.width, alpha)),
+    height: Math.round(lerp(previous.bbox.height, current.bbox.height, alpha)),
+  };
+  const previousPolygon = previous.mask?.polygon ?? [];
+  const currentPolygon = current.mask?.polygon ?? [];
+  const canSmoothPolygon =
+    previousPolygon.length >= 3 && previousPolygon.length === currentPolygon.length;
+  return {
+    ...current,
+    bbox,
+    length_mm: lerp(previous.length_mm, current.length_mm, alpha),
+    width_mm: lerp(previous.width_mm, current.width_mm, alpha),
+    area_mm2: lerp(previous.area_mm2, current.area_mm2, alpha),
+    ...(typeof previous.volume_ml === "number" && typeof current.volume_ml === "number"
+      ? { volume_ml: lerp(previous.volume_ml, current.volume_ml, alpha) }
+      : null),
+    ...(current.mask
+      ? {
+          mask: {
+            ...current.mask,
+            polygon: canSmoothPolygon
+              ? currentPolygon.map((point, index) => ({
+                  x: lerp(previousPolygon[index].x, point.x, alpha),
+                  y: lerp(previousPolygon[index].y, point.y, alpha),
+                }))
+              : currentPolygon,
+          },
+        }
+      : null),
+  };
+}
+
+function lerp(a: number, b: number, alpha: number): number {
+  return a + (b - a) * alpha;
+}
+
+function bboxIou(a: AnalyzedSeed["bbox"], b: AnalyzedSeed["bbox"]): number {
+  const x1 = Math.max(a.x, b.x);
+  const y1 = Math.max(a.y, b.y);
+  const x2 = Math.min(a.x + a.width, b.x + b.width);
+  const y2 = Math.min(a.y + a.height, b.y + b.height);
+  const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  const union = a.width * a.height + b.width * b.height - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+function centerDistance(a: AnalyzedSeed["bbox"], b: AnalyzedSeed["bbox"]): number {
+  const ax = a.x + a.width / 2;
+  const ay = a.y + a.height / 2;
+  const bx = b.x + b.width / 2;
+  const by = b.y + b.height / 2;
+  const normalizer = Math.max(
+    1,
+    Math.hypot(Math.max(a.width, b.width), Math.max(a.height, b.height)),
+  );
+  return Math.hypot(ax - bx, ay - by) / normalizer;
 }
 
 /**

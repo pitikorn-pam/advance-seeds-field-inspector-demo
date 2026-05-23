@@ -425,7 +425,7 @@ export default function VarietyEditor() {
       </ScrollView>
 
       {/* Sticky Save CTA */}
-      <View className="px-xl pt-md pb-md border-t border-line-tertiary bg-bg-primary">
+      <View className="px-xl pt-md pb-md border-t border-line-tertiary bg-bg-secondary">
         <Button
           variant="primary"
           label={t("common:actions.save")}

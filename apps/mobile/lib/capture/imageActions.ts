@@ -4,6 +4,29 @@ import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 import type { SeedGrade } from "@advance-seeds/types";
 import type { Roi } from "@/lib/capture/roi";
+import { normalizeFrameOrientation } from "@/lib/capture/frameOrientation";
+
+interface RoiVideoExporterModule {
+  exportImageWithOverlayAsync?: (
+    inputUri: string,
+    overlay: Record<string, unknown>,
+  ) => Promise<string>;
+}
+
+let nativeOverlayModule: RoiVideoExporterModule | null | undefined;
+
+function getNativeOverlayModule() {
+  if (nativeOverlayModule !== undefined) return nativeOverlayModule;
+  try {
+    // Loaded lazily so existing dev clients do not crash before native rebuild.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    nativeOverlayModule = require("@advance-seeds/roi-video-exporter") as RoiVideoExporterModule;
+  } catch (err) {
+    console.warn("[imageActions] native overlay exporter unavailable", err);
+    nativeOverlayModule = null;
+  }
+  return nativeOverlayModule;
+}
 
 export interface SeedAnnotationItem {
   index: number;
@@ -23,6 +46,7 @@ export interface ImageAnnotationOverlay {
   seeds?: readonly SeedAnnotationItem[] | null;
   seedFrameWidth?: number | null;
   seedFrameHeight?: number | null;
+  seedFrameOrientation?: string | null;
 }
 
 function cachePath(name: string) {
@@ -210,9 +234,17 @@ export async function shareAnnotatedImage(
     await shareImage(uri, title);
     return;
   }
-  const path = await writeAnnotatedSvg(uri, overlay);
+  const nativePath = await exportNativeAnnotatedImage(uri, overlay);
   if (await Sharing.isAvailableAsync()) {
+    if (nativePath) {
+      await Sharing.shareAsync(nativePath, {
+        mimeType: "image/jpeg",
+        dialogTitle: title,
+      });
+      return;
+    }
     try {
+      const path = await writeAnnotatedSvg(uri, overlay);
       await Sharing.shareAsync(path, {
         mimeType: "image/svg+xml",
         dialogTitle: title,
@@ -222,7 +254,7 @@ export async function shareAnnotatedImage(
       await shareImage(uri, title);
     }
   } else {
-    Alert.alert(title, path);
+    Alert.alert(title, nativePath ?? uri);
   }
 }
 
@@ -245,15 +277,17 @@ export async function saveAnnotatedImageToLibrary(
     Alert.alert(labels.permissionDeniedTitle, labels.permissionDeniedBody);
     return;
   }
-  const annotated = await writeAnnotatedSvg(uri, overlay);
+  const annotated = await exportNativeAnnotatedImage(uri, overlay);
+  if (!annotated) {
+    console.warn("[imageActions] native annotated image export unavailable; saving source image");
+    await saveLocalImageUriToLibrary(uri);
+    Alert.alert(labels.title);
+    return;
+  }
   try {
     await MediaLibrary.saveToLibraryAsync(annotated);
   } catch (err) {
-    // iOS Photos cannot import SVG files as image assets. Until the app ships
-    // a native rasterizer/view-capture dependency, keep Snapshot reliable by
-    // saving the original JPEG instead of surfacing a native "Couldn't open
-    // file" error to the capture screen.
-    console.warn("[imageActions] annotated SVG save failed; saving source image", err);
+    console.warn("[imageActions] annotated JPEG save failed; saving source image", err);
     await saveLocalImageUriToLibrary(uri);
   }
   Alert.alert(labels.title);
@@ -280,4 +314,30 @@ export async function saveImageToLibrary(
 async function saveLocalImageUriToLibrary(uri: string) {
   const localUri = await localMediaUri(uri, uri.includes(".mp4") ? "mp4" : "jpg");
   await MediaLibrary.saveToLibraryAsync(localUri);
+}
+
+async function exportNativeAnnotatedImage(uri: string, overlay: ImageAnnotationOverlay) {
+  const exporter = getNativeOverlayModule();
+  if (!exporter?.exportImageWithOverlayAsync) return null;
+  return exporter.exportImageWithOverlayAsync(uri, buildNativeImageOverlay(overlay));
+}
+
+function buildNativeImageOverlay(overlay: ImageAnnotationOverlay): Record<string, unknown> {
+  const seeds = overlay.seeds?.map((seed) => ({
+    index: seed.index,
+    grade: seed.grade ?? null,
+    label: seed.label ?? null,
+    length_mm: seed.length_mm ?? null,
+    area_mm2: seed.area_mm2 ?? null,
+    volume_ml: seed.volume_ml ?? null,
+    bbox: seed.bbox,
+    mask: seed.mask ?? null,
+  }));
+  return {
+    roi: overlay.roi,
+    seeds: seeds ?? null,
+    frameWidth: overlay.seedFrameWidth ?? null,
+    frameHeight: overlay.seedFrameHeight ?? null,
+    frameOrientation: normalizeFrameOrientation(overlay.seedFrameOrientation),
+  };
 }

@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, Pressable } from "react-native";
+import { Alert, ScrollView, View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -10,8 +10,10 @@ import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
+import { Toggle } from "@/components/ui/Toggle";
 import type { Theme } from "@advance-seeds/types";
 import type { SupportedLocale } from "@advance-seeds/i18n";
+import { useAutoInstallOnWifi } from "@/lib/models/autoInstall";
 
 /**
  * App-level settings.
@@ -27,6 +29,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const syncQueue = useSyncQueue();
+  const [autoInstallOnWifi, setAutoInstallOnWifi] = useAutoInstallOnWifi();
   const themeOpts: Theme[] = ["light", "dark", "system"];
   const localeOpts: SupportedLocale[] = ["en", "th"];
   const activeLocale: SupportedLocale = i18n.language.startsWith("th") ? "th" : "en";
@@ -47,6 +50,23 @@ export default function SettingsScreen() {
 
   const syncTone =
     syncQueue.counts.failed > 0 ? "danger" : syncQueue.counts.pending > 0 ? "warning" : "success";
+  const showNoSyncAction = (message: string) => {
+    Alert.alert(t("settings:sections.sync"), message);
+  };
+  const onRetryAll = () => {
+    if (syncQueue.counts.pending + syncQueue.counts.failed === 0) {
+      showNoSyncAction(t("settings:sync.noRetryAction"));
+      return;
+    }
+    void syncQueue.retryAll();
+  };
+  const onClearFailed = () => {
+    if (syncQueue.counts.failed === 0) {
+      showNoSyncAction(t("settings:sync.noClearAction"));
+      return;
+    }
+    void syncQueue.clearFailed();
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
@@ -96,6 +116,28 @@ export default function SettingsScreen() {
           </View>
         </Section>
 
+        {/* Models */}
+        <Section title={t("settings:sections.models")}>
+          <View className="flex-row items-center gap-md px-md py-md">
+            <View className="h-9 w-9 items-center justify-center rounded-md bg-card-cream">
+              <Cloud color="#704B00" size={18} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-body font-medium text-fg-primary">
+                {t("settings:models.autoInstallOnWifi")}
+              </Text>
+              <Text className="text-caption text-fg-secondary mt-[1px]">
+                {t("settings:models.autoInstallOnWifiHint")}
+              </Text>
+            </View>
+            <Toggle
+              value={autoInstallOnWifi}
+              onValueChange={setAutoInstallOnWifi}
+              accessibilityLabel={t("settings:models.autoInstallOnWifi")}
+            />
+          </View>
+        </Section>
+
         {/* Sync */}
         <Section title={t("settings:sections.sync")}>
           <View className="flex-row items-center gap-md px-md py-md">
@@ -140,16 +182,14 @@ export default function SettingsScreen() {
               size="sm"
               variant="primary"
               label={t("settings:sync.retryAll")}
-              disabled={syncQueue.counts.pending + syncQueue.counts.failed === 0}
-              onPress={() => void syncQueue.retryAll()}
+              onPress={onRetryAll}
             />
             <Button
               className="flex-1"
               size="sm"
               variant="ghostDanger"
               label={t("settings:sync.clearFailed")}
-              disabled={syncQueue.counts.failed === 0}
-              onPress={() => void syncQueue.clearFailed()}
+              onPress={onClearFailed}
             />
           </View>
         </Section>

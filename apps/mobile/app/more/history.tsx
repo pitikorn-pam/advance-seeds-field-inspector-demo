@@ -15,6 +15,12 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Button } from "@/components/ui/Button";
 import { GradeChip } from "@/components/ui/GradeChip";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/States";
+import {
+  DateRangePicker,
+  DateRangeTrigger,
+  type DateRange,
+  toDateKey,
+} from "@/components/ui/DateRangePicker";
 
 type Filter = "all" | "today" | "synced" | "pending" | "failed";
 type GroupKey = "today" | "yesterday" | "earlierThisWeek" | "earlier";
@@ -32,8 +38,10 @@ type HistoryListEntry =
  * width, and a scrollable Segmented filter with ink/black active state.
  */
 export default function HistoryScreen() {
-  const { t } = useTranslation(["common", "history", "inspections"]);
+  const { t, i18n } = useTranslation(["common", "history", "inspections"]);
   const router = useRouter();
+  const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const {
     data: paged,
     isLoading,
@@ -43,7 +51,7 @@ export default function HistoryScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInspectionsPaged({ start: null, end: null });
+  } = useInspectionsPaged({ start: dateRange.start, end: dateRange.end ?? dateRange.start });
   const data = useMemo<InspectionRow[]>(() => paged?.pages.flat() ?? [], [paged]);
   const queueEntries = useSyncQueueEntries();
   const [filter, setFilter] = useState<Filter>("all");
@@ -58,6 +66,7 @@ export default function HistoryScreen() {
         (entry) =>
           entry.status === "pending" || entry.status === "syncing" || entry.status === "failed",
       )
+      .filter((entry) => withinDateRange(entry.createdAt, dateRange))
       .map<HistoryItem>((entry) => ({
         kind: "local",
         entry,
@@ -65,7 +74,7 @@ export default function HistoryScreen() {
       }));
     const remote = data.map<HistoryItem>((row) => ({ kind: "remote", row, syncState: "synced" }));
     return [...local, ...remote];
-  }, [data, queueEntries]);
+  }, [data, dateRange, queueEntries]);
 
   const counts = useMemo(
     () => ({
@@ -114,13 +123,21 @@ export default function HistoryScreen() {
       />
 
       {/* Filter row — pinned, scrollable. Active = ink/black via variant="tag" */}
-      <View className="px-xl pt-sm pb-md bg-bg-secondary">
+      <View className="px-xl pt-sm pb-md bg-bg-secondary gap-sm">
         <Segmented<Filter>
           value={filter}
           onChange={setFilter}
           options={segmentOptions}
           variant="tag"
           scrollable
+        />
+        <DateRangeTrigger
+          value={dateRange}
+          locale={i18n.language}
+          label={t("history:filters.dateRange")}
+          accessibilityLabel={t("history:filters.selectDate")}
+          onPress={() => setDatePickerOpen(true)}
+          onClear={() => setDateRange({ start: null, end: null })}
         />
       </View>
 
@@ -168,6 +185,14 @@ export default function HistoryScreen() {
             </View>
           ) : null
         }
+      />
+      <DateRangePicker
+        visible={datePickerOpen}
+        value={dateRange}
+        locale={i18n.language}
+        onClose={() => setDatePickerOpen(false)}
+        onClear={() => setDateRange({ start: null, end: null })}
+        onChange={setDateRange}
       />
     </SafeAreaView>
   );
@@ -254,6 +279,13 @@ function applyFilter(rows: HistoryItem[], filter: Filter): HistoryItem[] {
     case "failed":
       return rows.filter((r) => r.syncState === filter);
   }
+}
+
+function withinDateRange(iso: string, range: DateRange): boolean {
+  if (!range.start) return true;
+  const key = toDateKey(new Date(iso));
+  const end = range.end ?? range.start;
+  return key >= range.start && key <= end;
 }
 
 function groupByDate(rows: HistoryItem[]): Array<{ groupKey: GroupKey; items: HistoryItem[] }> {

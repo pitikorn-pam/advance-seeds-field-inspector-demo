@@ -2,8 +2,6 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Pill } from "@/components/ui/Pill";
-import { Toggle } from "@/components/ui/Toggle";
-import { useAutoInstallOnWifi } from "@/lib/models/autoInstall";
 import { resetSharedTfliteModel } from "@/lib/analyzer/TfliteSeedAnalyzer";
 import {
   cancelArtifactDownload,
@@ -33,7 +31,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Cloud,
   Cpu,
   Download,
   Inbox,
@@ -57,7 +54,6 @@ interface RegistryRow {
 
 export default function ModelRegistryScreen() {
   const { t } = useTranslation(["common", "more", "settings"]);
-  const [autoInstallOnWifi, setAutoInstallOnWifi] = useAutoInstallOnWifi();
   const router = useRouter();
   const params = useLocalSearchParams<{ install?: string }>();
   const requestedInstallVersionId = typeof params.install === "string" ? params.install : null;
@@ -349,23 +345,6 @@ export default function ModelRegistryScreen() {
               </Pressable>
             );
           })}
-        </View>
-
-        <View className="flex-row items-center gap-md rounded-md bg-card-cream px-md py-md">
-          <Cloud color="#704B00" size={16} />
-          <View className="flex-1">
-            <Text className="text-body text-fg-primary font-medium">
-              {t("settings:models.autoInstallOnWifi")}
-            </Text>
-            <Text className="text-caption text-fg-secondary mt-xs">
-              {t("settings:models.autoInstallOnWifiHint")}
-            </Text>
-          </View>
-          <Toggle
-            value={autoInstallOnWifi}
-            onValueChange={setAutoInstallOnWifi}
-            accessibilityLabel={t("settings:models.autoInstallOnWifi")}
-          />
         </View>
 
         {error ? (

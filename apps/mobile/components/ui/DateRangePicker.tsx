@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal, View, Text, Pressable } from "react-native";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react-native";
 
 export type DateRange = { start: string | null; end: string | null };
 
@@ -48,16 +48,19 @@ export function DateRangePicker({ visible, value, locale, onClose, onClear, onCh
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 justify-center bg-black/30 px-lg">
-        <View className="rounded-lg bg-bg-primary px-lg py-lg">
-          <View className="mb-md">
-            <Text className="text-title font-medium text-fg-primary">
+      <View className="flex-1 justify-center bg-black/30 px-xl">
+        <View
+          className="rounded-lg border border-line-tertiary bg-bg-primary px-md py-md"
+          style={{ alignSelf: "center", width: "100%", maxWidth: 360 }}
+        >
+          <View className="mb-sm">
+            <Text className="text-[11px] font-semibold uppercase tracking-[0.6px] text-fg-tertiary">
               {t("history:filters.dateRange")}
             </Text>
             <Text className="mt-xs text-caption text-fg-secondary">
               {t("history:filters.rangeHint")}
             </Text>
-            <View className="mt-md flex-row gap-sm">
+            <View className="mt-sm flex-row gap-xs">
               <RangeChip
                 label={t("history:filters.start")}
                 value={
@@ -75,23 +78,23 @@ export function DateRangePicker({ visible, value, locale, onClose, onClear, onCh
             </View>
           </View>
 
-          <View className="mb-md flex-row items-center justify-between">
+          <View className="mb-sm flex-row items-center justify-between">
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("history:filters.previousMonth")}
-              className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary"
+              className="h-8 w-8 items-center justify-center rounded-md bg-bg-tertiary"
               onPress={() => shiftMonth(-1)}
             >
-              <ChevronLeft color="#171717" size={18} />
+              <ChevronLeft color="#171717" size={16} />
             </Pressable>
             <Text className="text-title font-medium text-fg-primary">{monthLabel}</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("history:filters.nextMonth")}
-              className="h-10 w-10 items-center justify-center rounded-full bg-bg-tertiary"
+              className="h-8 w-8 items-center justify-center rounded-md bg-bg-tertiary"
               onPress={() => shiftMonth(1)}
             >
-              <ChevronRight color="#171717" size={18} />
+              <ChevronRight color="#171717" size={16} />
             </Pressable>
           </View>
 
@@ -122,31 +125,31 @@ export function DateRangePicker({ visible, value, locale, onClose, onClear, onCh
                 singleDay: startSelected && endSelected,
               });
               return (
-                <View key={key} className="w-[14.2857%] py-[3px]">
+                <View key={key} className="w-[14.2857%] py-[2px]">
                   {day ? (
                     <Pressable
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
-                      className="h-10 items-center justify-center"
+                      className="h-8 items-center justify-center"
                       onPress={() => selectDay(key)}
                     >
                       {hasTrack ? (
                         <View
                           pointerEvents="none"
-                          className="absolute h-8 bg-brand-soft"
+                          className="absolute h-7 bg-brand-soft"
                           style={trackStyle}
                         />
                       ) : null}
                       {startSelected && !value.end ? (
                         <View
                           pointerEvents="none"
-                          className="absolute h-8 w-8 rounded-full border border-brand bg-brand-soft"
+                          className="absolute h-7 w-7 rounded-full border border-brand bg-brand-soft"
                         />
                       ) : null}
                       {selected ? (
                         <View
                           pointerEvents="none"
-                          className="absolute h-10 w-10 rounded-full bg-brand"
+                          className="absolute h-8 w-8 rounded-full bg-brand"
                         />
                       ) : null}
                       <Text
@@ -162,17 +165,17 @@ export function DateRangePicker({ visible, value, locale, onClose, onClear, onCh
                       </Text>
                     </Pressable>
                   ) : (
-                    <View className="h-10" />
+                    <View className="h-8" />
                   )}
                 </View>
               );
             })}
           </View>
 
-          <View className="mt-lg flex-row gap-md">
+          <View className="mt-md flex-row gap-sm">
             <Pressable
               accessibilityRole="button"
-              className="h-11 flex-1 items-center justify-center rounded-lg border border-line-secondary"
+              className="h-10 flex-1 items-center justify-center rounded-md border border-line-secondary"
               onPress={() => {
                 onClear();
                 onClose();
@@ -184,7 +187,7 @@ export function DateRangePicker({ visible, value, locale, onClose, onClear, onCh
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              className="h-11 flex-1 items-center justify-center rounded-lg bg-brand"
+              className="h-10 flex-1 items-center justify-center rounded-md bg-brand"
               onPress={onClose}
             >
               <Text className="text-title font-medium text-brand-on">
@@ -195,6 +198,59 @@ export function DateRangePicker({ visible, value, locale, onClose, onClear, onCh
         </View>
       </View>
     </Modal>
+  );
+}
+
+export function DateRangeTrigger({
+  value,
+  locale,
+  label,
+  onPress,
+  onClear,
+  accessibilityLabel,
+}: {
+  value: DateRange;
+  locale: string;
+  label: string;
+  onPress: () => void;
+  onClear: () => void;
+  accessibilityLabel?: string;
+}) {
+  const { t } = useTranslation(["common", "history"]);
+  const active = Boolean(value.start || value.end);
+  return (
+    <View className="flex-row items-center gap-xs">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        className={`h-8 flex-1 flex-row items-center gap-xs rounded-full border px-md active:bg-bg-tertiary ${
+          active ? "border-brand bg-brand-soft" : "border-line-secondary bg-bg-primary"
+        }`}
+        onPress={onPress}
+      >
+        <View className="items-center justify-center">
+          <Calendar color="#6E40E0" size={13} />
+        </View>
+        <View className="flex-1 min-w-0">
+          <Text
+            className={`text-caption font-medium ${active ? "text-brand-deep" : "text-fg-primary"}`}
+            numberOfLines={1}
+          >
+            {rangeLabel(value, locale, t)}
+          </Text>
+        </View>
+      </Pressable>
+      {active ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("common:actions.clear")}
+          className="h-8 w-8 items-center justify-center rounded-full border border-line-secondary bg-bg-primary active:bg-bg-tertiary"
+          onPress={onClear}
+        >
+          <X color="#171717" size={13} />
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -230,7 +286,7 @@ export function rangeLabel(
 function RangeChip({ label, value, active }: { label: string; value: string; active: boolean }) {
   return (
     <View
-      className={`min-h-12 flex-1 justify-center rounded-lg border px-md py-xs ${
+      className={`min-h-10 flex-1 justify-center rounded-md border px-sm py-xs ${
         active ? "border-brand bg-brand-soft" : "border-line-tertiary bg-bg-secondary"
       }`}
     >

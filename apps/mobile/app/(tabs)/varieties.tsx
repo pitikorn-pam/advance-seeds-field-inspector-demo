@@ -153,12 +153,6 @@ function VarietyRow({ variety, isLast, observed, onPress }: RowProps) {
           {subtitle}
         </Text>
       </View>
-      {observed ? (
-        <View className="items-end mr-sm">
-          <Text className="text-title font-medium text-fg-primary tabular-nums">{observed.n}</Text>
-          <Text className="text-caption text-fg-tertiary mt-xs">{t("library:row.sevenDay")}</Text>
-        </View>
-      ) : null}
       <ChevronRight color="#8C8C87" size={16} />
     </Pressable>
   );

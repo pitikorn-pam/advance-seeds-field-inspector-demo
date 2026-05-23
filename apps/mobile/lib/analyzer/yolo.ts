@@ -545,32 +545,6 @@ export function mapDetectionsToSeeds(
   let droppedOutOfBounds = 0;
   let droppedOutOfRoi = 0;
   let droppedTooLarge = 0;
-  // [DBG-LB] Diagnostic: dump every incoming detection (bbox + score + class)
-  // so we can tell what the model + native decode is actually emitting before
-  // the visibility / ROI / size filters chop them down. Logs ALWAYS when
-  // count > 1 (the case we care about) and 1-in-30 when count==1 (so we
-  // still see the steady-state). Remove once multi-detect live is fixed.
-  if (__DEV__ && detections.length > 0) {
-    const g = globalThis as typeof globalThis & { __dbgLbCounter?: number };
-    g.__dbgLbCounter = (g.__dbgLbCounter ?? 0) + 1;
-    const shouldLog = detections.length > 1 || g.__dbgLbCounter % 30 === 0;
-    if (shouldLog) {
-      const summary = detections.map((d, i) => ({
-        i,
-        x: Math.round(d.x),
-        y: Math.round(d.y),
-        w: Math.round(d.width),
-        h: Math.round(d.height),
-        s: Number((d.score ?? 0).toFixed(3)),
-        c: d.classId,
-        poly: d.polygon?.length ?? 0,
-      }));
-      console.info(
-        `[DBG-LB] count=${detections.length} frame=${frameWidth}x${frameHeight}`,
-        summary,
-      );
-    }
-  }
   for (let raw of detections) {
     if (frameWidth > 0 && frameHeight > 0) {
       const originalArea = raw.width * raw.height;
@@ -610,11 +584,7 @@ export function mapDetectionsToSeeds(
       };
     }
     const d = raw;
-    const centroid = {
-      x: frameWidth > 0 ? (d.x + d.width / 2) / frameWidth : 0,
-      y: frameHeight > 0 ? (d.y + d.height / 2) / frameHeight : 0,
-    };
-    if (roi && !pointInRoi(centroid, roi)) {
+    if (roi && !detectionWithinRoi(d, frameWidth, frameHeight, roi)) {
       droppedOutOfRoi++;
       continue;
     }
@@ -715,19 +685,142 @@ export function summarizeSeeds(seeds: AnalyzedSeed[]): AnalysisSummary {
   };
 }
 
-function pointInRoi(p: { x: number; y: number }, roi: AnalysisRoi): boolean {
+function pointInRoi(
+  p: { x: number; y: number },
+  roi: AnalysisRoi,
+  frameWidth: number,
+  frameHeight: number,
+): boolean {
   switch (roi.kind) {
     case "rect":
       return p.x >= roi.x && p.x <= roi.x + roi.w && p.y >= roi.y && p.y <= roi.y + roi.h;
     case "circle": {
-      const dx = p.x - roi.cx;
-      const dy = p.y - roi.cy;
-      return dx * dx + dy * dy <= roi.r * roi.r;
+      const dx = (p.x - roi.cx) * frameWidth;
+      const dy = (p.y - roi.cy) * frameHeight;
+      const radius = roi.r * Math.min(frameWidth, frameHeight);
+      return dx * dx + dy * dy <= radius * radius;
     }
     case "polygon":
       if (!roi.closed || roi.points.length < 3) return true;
       return pointInPolygon(p, roi.points);
   }
+}
+
+export function detectionWithinRoi(
+  detection: RawDetection,
+  frameWidth: number,
+  frameHeight: number,
+  roi: AnalysisRoi,
+  roiStage?: { width: number; height: number } | null,
+): boolean {
+  if (frameWidth <= 0 || frameHeight <= 0) return true;
+  const toRoiSpace = (point: { x: number; y: number }) =>
+    projectFramePointToRoiSpace(point, frameWidth, frameHeight, roiStage);
+  const roiWidth = roiStage?.width ?? frameWidth;
+  const roiHeight = roiStage?.height ?? frameHeight;
+  const bboxCenter = toRoiSpace(normalizedBboxCenter(detection, frameWidth, frameHeight));
+  if (pointInRoi(bboxCenter, roi, roiWidth, roiHeight)) return true;
+
+  if (detection.polygon?.length) {
+    const samples = normalizedPolygonSamples(detection.polygon, frameWidth, frameHeight).map(
+      toRoiSpace,
+    );
+    if (samples.length === 0) return false;
+    const polygonCenter = normalizedPointCentroid(samples);
+    if (pointInRoi(polygonCenter, roi, roiWidth, roiHeight)) return true;
+    return roiSampleOverlap(samples, roi, roiWidth, roiHeight) >= 0.55;
+  }
+
+  return (
+    roiSampleOverlap(
+      normalizedBboxSamples(detection, frameWidth, frameHeight).map(toRoiSpace),
+      roi,
+      roiWidth,
+      roiHeight,
+    ) >= 0.55
+  );
+}
+
+function projectFramePointToRoiSpace(
+  point: { x: number; y: number },
+  frameWidth: number,
+  frameHeight: number,
+  roiStage?: { width: number; height: number } | null,
+): { x: number; y: number } {
+  if (!roiStage || roiStage.width <= 0 || roiStage.height <= 0) return point;
+  const scale = Math.max(roiStage.width / frameWidth, roiStage.height / frameHeight);
+  const dx = (frameWidth * scale - roiStage.width) / 2;
+  const dy = (frameHeight * scale - roiStage.height) / 2;
+  return {
+    x: (point.x * frameWidth * scale - dx) / roiStage.width,
+    y: (point.y * frameHeight * scale - dy) / roiStage.height,
+  };
+}
+
+function normalizedBboxCenter(
+  detection: RawDetection,
+  frameWidth: number,
+  frameHeight: number,
+): { x: number; y: number } {
+  return {
+    x: (detection.x + detection.width / 2) / frameWidth,
+    y: (detection.y + detection.height / 2) / frameHeight,
+  };
+}
+
+function normalizedPolygonSamples(
+  polygon: ReadonlyArray<Point>,
+  frameWidth: number,
+  frameHeight: number,
+): Array<{ x: number; y: number }> {
+  return polygon.map((point) => ({
+    x: point.x / frameWidth,
+    y: point.y / frameHeight,
+  }));
+}
+
+function normalizedBboxSamples(
+  detection: RawDetection,
+  frameWidth: number,
+  frameHeight: number,
+): Array<{ x: number; y: number }> {
+  const xs = [detection.x, detection.x + detection.width / 2, detection.x + detection.width];
+  const ys = [detection.y, detection.y + detection.height / 2, detection.y + detection.height];
+  const samples: Array<{ x: number; y: number }> = [];
+  for (const y of ys) {
+    for (const x of xs) {
+      samples.push({ x: x / frameWidth, y: y / frameHeight });
+    }
+  }
+  return samples;
+}
+
+function roiSampleOverlap(
+  points: Array<{ x: number; y: number }>,
+  roi: AnalysisRoi,
+  frameWidth: number,
+  frameHeight: number,
+): number {
+  if (points.length === 0) return 0;
+  const inside = points.reduce(
+    (count, point) => count + (pointInRoi(point, roi, frameWidth, frameHeight) ? 1 : 0),
+    0,
+  );
+  return inside / points.length;
+}
+
+function normalizedPointCentroid(points: Array<{ x: number; y: number }>): {
+  x: number;
+  y: number;
+} {
+  const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), {
+    x: 0,
+    y: 0,
+  });
+  return {
+    x: sum.x / points.length,
+    y: sum.y / points.length,
+  };
 }
 
 function pointInPolygon(p: { x: number; y: number }, points: Array<{ x: number; y: number }>) {

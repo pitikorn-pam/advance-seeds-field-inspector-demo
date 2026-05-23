@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { View, Text, Alert, ActivityIndicator, Platform, Pressable } from "react-native";
+import { View, Text, Alert, ActivityIndicator, Platform, Pressable, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -28,7 +28,10 @@ import { useLiveDetections } from "@/lib/analyzer/useLiveDetections";
 import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { DetectionOverlay } from "@/components/camera/DetectionOverlay";
 import { useVarieties } from "@/lib/queries";
+import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
 import { captureFrameMetadataFromPhoto, useCaptureSession } from "@/lib/capture/session";
+import { orientLiveSeeds } from "@/lib/capture/liveFrameGeometry";
+import { filterFrameResultToStageRoi } from "@/lib/capture/liveRoiStageFilter";
 import { useRecordingState } from "@/lib/capture/recording";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
@@ -68,9 +71,11 @@ export default function CaptureScan() {
   const router = useRouter();
   const session = useCaptureSession();
   const notify = useNotify();
+  const analyzer = useAnalyzer();
   const cameraRef = useRef<VCCamera>(null);
   const recordingCalibrationRef = useRef<CalibrationReading | null>(null);
   const [busy, setBusy] = useState(false);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [cameraActive, setCameraActive] = useState(true);
   const [roiTool, setRoiTool] = useState<RoiKind | null>(null);
   const [position, setPosition] = useState<"back" | "front">("back");
@@ -164,13 +169,16 @@ export default function CaptureScan() {
         : null,
     [activeVariety],
   );
+  const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
+  const roiForLive = session.mode === "live" ? session.roi : null;
   const liveDetections = useLiveDetections({
     enabled: liveDetectionStartReady,
     pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
     classFilter: liveClassFilter,
     varietyNames: liveVarietyNames,
     modelClassAliases: liveModelClassAliases,
-    roi: session.mode === "live" ? session.roi : null,
+    roi: roiForLive,
+    roiStage: stageSize,
     gradingConfig,
   });
   useEffect(() => {
@@ -202,13 +210,11 @@ export default function CaptureScan() {
       : frameProcessorKind === "live"
         ? liveDetections.frameProcessor
         : undefined;
-  const cameraRemountKey = Platform.OS === "ios" ? `fp:${frameProcessorKind}` : "stable";
   const androidFrameProcessorActive =
     Platform.OS === "android" &&
     !busy &&
     !modelInstallInProgress &&
     activeFrameProcessor !== undefined;
-  const [stageSize, setStageSize] = useState<{ width: number; height: number } | null>(null);
 
   const cycleFlash = () =>
     setFlashMode((m) => (m === "off" ? "auto" : m === "auto" ? "on" : "off"));
@@ -260,6 +266,10 @@ export default function CaptureScan() {
   const frameResult = useFrameTicker(!busy, {
     pxPerMm: automaticCalibration?.pxPerMm,
   });
+  const visibleLiveDetections = useMemo(
+    () => filterFrameResultToStageRoi(liveDetections.detections, roiForLive, stageSize),
+    [liveDetections.detections, roiForLive, stageSize],
+  );
 
   const recording = useRecordingState(cameraRef, {
     onRecordingFinished: async ({ uri, durationMs }) => {
@@ -270,7 +280,7 @@ export default function CaptureScan() {
         uploadedImageUrl: null,
         uploadedVideoUrl: null,
         analysisResult: null,
-        capturedLiveFrameResult: liveDetections.detections,
+        capturedLiveFrameResult: visibleLiveDetections,
         capturedFrameMetadata: null,
         analysisDiagnostics: null,
         recordingDurationMs: Math.max(0, Math.round(durationMs)),
@@ -391,7 +401,7 @@ export default function CaptureScan() {
         uploadedImageUrl: null,
         uploadedVideoUrl: null,
         analysisResult: null,
-        capturedLiveFrameResult: liveDetections.detections,
+        capturedLiveFrameResult: visibleLiveDetections,
         capturedFrameMetadata: captureFrameMetadataFromPhoto(photo),
         analysisDiagnostics: null,
         recordingDurationMs: null,
@@ -451,14 +461,52 @@ export default function CaptureScan() {
    * on live capture, so operators keep the annotated evidence frame.
    */
   const onSnapshot = async () => {
-    if (!cameraRef.current || busy || recording.isRecording) return;
+    if (!cameraRef.current || busy || snapshotBusy || recording.isRecording) return;
+    if (!ensureCalibrationLock()) return;
+    setSnapshotBusy(true);
     try {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const photo = await cameraRef.current.takePhoto({ flash: "off" });
       const uri = photo.path.startsWith("file://") ? photo.path : `file://${photo.path}`;
-      const snapshotFrame = liveDetections.detections ?? frameResult;
+      const snapshotFrame = visibleLiveDetections ?? frameResult;
+      const imageSize = await getImageDimensions(uri);
+      const analysis = await analyzer
+        .analyze(
+          { kind: "uri", uri },
+          {
+            pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
+            classFilter: [...liveClassFilter],
+            varietyNames: liveVarietyNames,
+            modelClassAliases: liveModelClassAliases,
+            roi: session.mode === "live" ? session.roi : null,
+            gradingConfig,
+          },
+        )
+        .catch((err) => {
+          console.warn("[scan] snapshot post-photo analysis failed; using live overlay", err);
+          return null;
+        });
+      const analysisSeeds = analysis?.seeds?.length ? analysis.seeds : null;
+      const analysisHasMasks =
+        analysisSeeds?.some((seed) => seed.mask?.polygon && seed.mask.polygon.length >= 3) ?? false;
+      const hasLiveFrameSpace =
+        snapshotFrame &&
+        (snapshotFrame.frameWidth ?? 0) > 0 &&
+        (snapshotFrame.frameHeight ?? 0) > 0 &&
+        imageSize.width > 0 &&
+        imageSize.height > 0;
+      const snapshotFrameSeeds = hasLiveFrameSpace
+        ? orientLiveSeeds(snapshotFrame.seeds, {
+            frameWidth: snapshotFrame.frameWidth ?? 0,
+            frameHeight: snapshotFrame.frameHeight ?? 0,
+            imageWidth: imageSize.width,
+            imageHeight: imageSize.height,
+            orientation: snapshotFrame.frameOrientation ?? "up",
+          })
+        : snapshotFrame?.seeds;
+      const overlaySeeds = analysisHasMasks ? analysisSeeds : snapshotFrameSeeds;
       const snapshotSeeds =
-        snapshotFrame?.seeds.map((seed) => {
+        overlaySeeds?.map((seed) => {
           const className =
             typeof seed.class_id === "number"
               ? (activeModelRecord?.metadata.class_names[seed.class_id] ?? null)
@@ -470,8 +518,18 @@ export default function CaptureScan() {
         {
           roi: session.roi,
           seeds: snapshotSeeds,
-          seedFrameWidth: snapshotFrame?.frameWidth ?? null,
-          seedFrameHeight: snapshotFrame?.frameHeight ?? null,
+          seedFrameWidth:
+            analysisHasMasks || hasLiveFrameSpace
+              ? imageSize.width
+              : (snapshotFrame?.frameWidth ?? null),
+          seedFrameHeight:
+            analysisHasMasks || hasLiveFrameSpace
+              ? imageSize.height
+              : (snapshotFrame?.frameHeight ?? null),
+          seedFrameOrientation:
+            analysisHasMasks || hasLiveFrameSpace
+              ? "up"
+              : (snapshotFrame?.frameOrientation ?? null),
         },
         {
           title: t("inspections:capture.snapshot.savedToast"),
@@ -487,6 +545,8 @@ export default function CaptureScan() {
       });
     } catch (err) {
       console.error("[scan] snapshot failed", err);
+    } finally {
+      setSnapshotBusy(false);
     }
   };
 
@@ -573,7 +633,7 @@ export default function CaptureScan() {
   // The prototype shows Frame/Detect/Light but the original demo's stats are
   // count/avg-mm/grade-A — we keep our existing analyzer outputs to drive
   // the same 3-up layout the prototype establishes.
-  const liveFrame = liveDetections.detections ?? frameResult;
+  const liveFrame = visibleLiveDetections ?? frameResult;
   const seeds = liveFrame?.seeds ?? [];
   const kpiCount = liveFrame ? String(seeds.length) : "—";
   const kpiAvg =
@@ -610,7 +670,6 @@ export default function CaptureScan() {
         position={position}
         showGrid={showGrid}
         performanceProfile={androidFrameProcessorActive ? "low" : "quality"}
-        cameraKey={cameraRemountKey}
         cameraProps={viewfinderCameraProps}
       >
         {/* Detection overlay sits directly over the camera frame. */}
@@ -624,11 +683,11 @@ export default function CaptureScan() {
             })
           }
         >
-          {stageSize && cameraActive && !busy && liveDetections.detections ? (
+          {stageSize && cameraActive && !busy && visibleLiveDetections ? (
             <DetectionOverlay
-              frameResult={liveDetections.detections}
-              frameWidth={liveDetections.detections.frameWidth ?? 1920}
-              frameHeight={liveDetections.detections.frameHeight ?? 1080}
+              frameResult={visibleLiveDetections}
+              frameWidth={visibleLiveDetections.frameWidth ?? 1920}
+              frameHeight={visibleLiveDetections.frameHeight ?? 1080}
               stageWidth={stageSize.width}
               stageHeight={stageSize.height}
               varietyName={activeVariety?.name ?? null}
@@ -868,8 +927,10 @@ export default function CaptureScan() {
                 marginTop: 10,
               }}
             >
-              <DarkChip wide onPress={onSnapshot}>
-                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>Snapshot</Text>
+              <DarkChip wide onPress={snapshotBusy ? undefined : onSnapshot}>
+                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "600" }}>
+                  {snapshotBusy ? "Saving..." : "Snapshot"}
+                </Text>
               </DarkChip>
               {session.roi ? (
                 <DarkChip wide onPress={onClearRoi}>
@@ -1001,6 +1062,16 @@ function StatCol({
       </Text>
     </View>
   );
+}
+
+function getImageDimensions(uri: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    Image.getSize(
+      uri,
+      (width, height) => resolve({ width, height }),
+      () => resolve({ width: 0, height: 0 }),
+    );
+  });
 }
 
 function RoiSelector({

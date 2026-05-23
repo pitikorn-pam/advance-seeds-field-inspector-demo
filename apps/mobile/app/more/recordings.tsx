@@ -3,16 +3,7 @@ import { ActivityIndicator, FlatList, View, Text, Alert, Pressable } from "react
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import {
-  Calendar,
-  Check,
-  ChevronLeft,
-  Play,
-  RefreshCw,
-  Share2,
-  Trash2,
-  X,
-} from "lucide-react-native";
+import { Check, ChevronLeft, Play, RefreshCw, Share2, Trash2 } from "lucide-react-native";
 import type { Recording } from "@advance-seeds/types";
 import { useRecordings, useDeleteRecording, useDeleteRecordings } from "@/lib/queries";
 import {
@@ -32,8 +23,8 @@ import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Segmented } from "@/components/ui/Segmented";
 import {
   DateRangePicker,
+  DateRangeTrigger,
   type DateRange,
-  rangeLabel,
   toDateKey,
 } from "@/components/ui/DateRangePicker";
 type DurationFilter = "all" | "short" | "long";
@@ -96,7 +87,6 @@ export default function RecordingsScreen() {
     });
   }, [recordings.data, dateRange, durationFilter]);
 
-  const hasDateRange = !!dateRange.start || !!dateRange.end;
   const selectedCount = selectedIds.size;
   const selectedRecordings = useMemo(() => {
     const byId = new Map((recordings.data ?? []).map((rec) => [rec.id, rec]));
@@ -263,34 +253,14 @@ export default function RecordingsScreen() {
               ) : null}
             </View>
 
-            <View className="flex-row items-center gap-xs">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("profile:recordings.filters.selectDate")}
-                className="flex-1 flex-row items-center gap-sm rounded-full border border-line-secondary bg-bg-primary px-md py-sm"
-                onPress={() => setDatePickerOpen(true)}
-              >
-                <Calendar color="#6E40E0" size={16} />
-                <View className="flex-1">
-                  <Text className="text-caption text-fg-secondary">
-                    {t("profile:recordings.filters.dateRange")}
-                  </Text>
-                  <Text className="text-title font-medium text-fg-primary" numberOfLines={1}>
-                    {rangeLabel(dateRange, i18n.language, t)}
-                  </Text>
-                </View>
-              </Pressable>
-              {hasDateRange ? (
-                <Button
-                  size="icon"
-                  variant="tinted"
-                  accessibilityLabel={t("common:actions.clear")}
-                  onPress={() => setDateRange({ start: null, end: null })}
-                >
-                  <X color="#171717" size={16} />
-                </Button>
-              ) : null}
-            </View>
+            <DateRangeTrigger
+              value={dateRange}
+              locale={i18n.language}
+              label={t("profile:recordings.filters.dateRange")}
+              accessibilityLabel={t("profile:recordings.filters.selectDate")}
+              onPress={() => setDatePickerOpen(true)}
+              onClear={() => setDateRange({ start: null, end: null })}
+            />
 
             {pendingRecordings.length > 0 ? (
               <View className="gap-sm">

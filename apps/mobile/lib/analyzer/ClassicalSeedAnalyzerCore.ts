@@ -71,7 +71,10 @@ export function analyzePixels(pixels: PixelImage, options: CoreOptions): Analysi
         width: component.maxX - component.minX + 1,
         height: component.maxY - component.minY + 1,
       };
-      if (options.roi && !pointInRoi(normalizeCentroid(bbox, width, height), options.roi)) {
+      if (
+        options.roi &&
+        !pointInRoi(normalizeCentroid(bbox, width, height), options.roi, width, height)
+      ) {
         continue;
       }
       const longPx = Math.max(bbox.width, bbox.height);
@@ -178,14 +181,20 @@ function normalizeCentroid(
   };
 }
 
-function pointInRoi(p: { x: number; y: number }, roi: AnalysisRoi) {
+function pointInRoi(
+  p: { x: number; y: number },
+  roi: AnalysisRoi,
+  frameWidth: number,
+  frameHeight: number,
+) {
   switch (roi.kind) {
     case "rect":
       return p.x >= roi.x && p.x <= roi.x + roi.w && p.y >= roi.y && p.y <= roi.y + roi.h;
     case "circle": {
-      const dx = p.x - roi.cx;
-      const dy = p.y - roi.cy;
-      return dx * dx + dy * dy <= roi.r * roi.r;
+      const dx = (p.x - roi.cx) * frameWidth;
+      const dy = (p.y - roi.cy) * frameHeight;
+      const radius = roi.r * Math.min(frameWidth, frameHeight);
+      return dx * dx + dy * dy <= radius * radius;
     }
     case "polygon":
       if (!roi.closed || roi.points.length < 3) return true;

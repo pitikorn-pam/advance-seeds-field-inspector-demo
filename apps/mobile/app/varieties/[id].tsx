@@ -78,7 +78,7 @@ export default function VarietyDetail() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-primary" edges={["top", "bottom"]}>
+    <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar
         title={variety.name}
         left={{
@@ -254,7 +254,7 @@ export default function VarietyDetail() {
         })()}
       </ScrollView>
 
-      <View className="px-xl pb-xl pt-md border-t border-line-tertiary bg-bg-primary">
+      <View className="px-xl pb-xl pt-md border-t border-line-tertiary bg-bg-secondary">
         {variety.is_active === false ? (
           <Text className="text-caption text-fg-secondary mb-sm">
             {t("varieties:detail.inactiveUsage")}

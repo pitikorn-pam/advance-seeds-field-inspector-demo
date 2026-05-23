@@ -26,6 +26,8 @@
     "pendingCount": "Pending",
     "failedCount": "Failed",
     "retryAll": "Retry all",
-    "clearFailed": "Clear failed"
+    "clearFailed": "Clear failed",
+    "noRetryAction": "There are no pending or failed sync items to retry.",
+    "noClearAction": "There are no failed sync items to clear."
   }
 }

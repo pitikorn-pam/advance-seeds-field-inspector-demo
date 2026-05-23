@@ -8,6 +8,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 const tabsLayout = readFileSync(join(root, "(tabs)", "_layout.tsx"), "utf8");
 const moreScreen = readFileSync(join(root, "(tabs)", "more.tsx"), "utf8");
 const rootLayout = readFileSync(join(root, "_layout.tsx"), "utf8");
+const appIndex = readFileSync(join(root, "index.tsx"), "utf8");
 const notificationsList = readFileSync(join(root, "notifications", "index.tsx"), "utf8");
 
 test("bottom tabs default to Varieties and keep Varieties, Inspect, and More", () => {
@@ -18,6 +19,7 @@ test("bottom tabs default to Varieties and keep Varieties, Inspect, and More", (
 });
 
 test("signed-in startup defaults to the Varieties tab", () => {
+  assert.match(appIndex, /<Redirect href="\/\(tabs\)\/varieties" \/>/);
   assert.match(rootLayout, /router\.replace\("\/\(tabs\)\/varieties"\)/);
   assert.doesNotMatch(rootLayout, /router\.replace\("\/\(tabs\)"\)/);
 });

@@ -54,9 +54,17 @@ test("iOS live detector keeps the worklet enabled ref synchronized", () => {
   );
 });
 
-test("iOS live detector warms up CoreML before native mask polygon decode", () => {
+test("iOS live detector requests native mask polygons every sampled frame and stabilizes masks", () => {
   const iosSource = liveSource.split("function useLiveDetectionsCoreML")[1].split("// ---------------------------------------------------------------------\n// Android")[0];
   assert.match(iosSource, /const warmupFrameCounter = useSharedValue\(0\);/);
-  assert.match(iosSource, /const MASK_WARMUP_FRAMES = 3;/);
+  assert.match(iosSource, /const MASK_WARMUP_FRAMES = 0;/);
+  assert.match(iosSource, /const MASK_THROTTLE = 1;/);
   assert.match(iosSource, /warmupCounter > MASK_WARMUP_FRAMES && counter % MASK_THROTTLE === 0/s);
+  assert.doesNotMatch(iosSource, /maxPolygons:/);
+  assert.doesNotMatch(iosSource, /lastCoreMLPolygonsByRowRef/);
+  assert.match(iosSource, /const lastCoreMLMaskSeedsRef = useRef<AnalysisFrameResult\["seeds"\] \| null>\(null\);/);
+  assert.match(iosSource, /const lastCoreMLMaskHoldFramesRef = useRef\(0\);/);
+  assert.match(iosSource, /stabilizeMaskedLiveSeeds\([\s\S]*seeds,[\s\S]*lastCoreMLMaskSeedsRef\.current,[\s\S]*lastCoreMLMaskHoldFramesRef,/);
+  assert.match(iosSource, /lastCoreMLMaskSeedsRef\.current = maskedDisplaySeeds;/);
+  assert.match(iosSource, /lastCoreMLMaskSeedsRef\.current = null;/);
 });

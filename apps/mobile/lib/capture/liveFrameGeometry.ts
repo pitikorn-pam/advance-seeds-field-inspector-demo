@@ -171,9 +171,16 @@ function bestLiveMaskMatch(
     ) {
       continue;
     }
-    const score =
-      Math.abs((seed.length_mm || 0) - (live.length_mm || 0)) +
-      Math.abs((seed.width_mm || 0) - (live.width_mm || 0));
+    const overlap = bboxIou(seed.bbox, live.bbox);
+    const centerDistance = normalizedCenterDistance(seed.bbox, live.bbox);
+    const sizeDelta =
+      Math.abs(seed.bbox.width - live.bbox.width) / Math.max(1, live.bbox.width) +
+      Math.abs(seed.bbox.height - live.bbox.height) / Math.max(1, live.bbox.height);
+    const measurementDelta =
+      (Math.abs((seed.length_mm || 0) - (live.length_mm || 0)) +
+        Math.abs((seed.width_mm || 0) - (live.width_mm || 0))) /
+      Math.max(1, (live.length_mm || 0) + (live.width_mm || 0));
+    const score = centerDistance * 3 + sizeDelta + measurementDelta - overlap * 2;
     if (score < bestScore) {
       best = live;
       bestScore = score;
@@ -184,4 +191,26 @@ function bestLiveMaskMatch(
 
 function isUsableBox(box: AnalyzedSeed["bbox"]): boolean {
   return box.width > 1 && box.height > 1;
+}
+
+function bboxIou(a: AnalyzedSeed["bbox"], b: AnalyzedSeed["bbox"]): number {
+  const x1 = Math.max(a.x, b.x);
+  const y1 = Math.max(a.y, b.y);
+  const x2 = Math.min(a.x + a.width, b.x + b.width);
+  const y2 = Math.min(a.y + a.height, b.y + b.height);
+  const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  const union = a.width * a.height + b.width * b.height - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+function normalizedCenterDistance(a: AnalyzedSeed["bbox"], b: AnalyzedSeed["bbox"]): number {
+  const ax = a.x + a.width / 2;
+  const ay = a.y + a.height / 2;
+  const bx = b.x + b.width / 2;
+  const by = b.y + b.height / 2;
+  const normalizer = Math.max(
+    1,
+    Math.hypot(Math.max(a.width, b.width), Math.max(a.height, b.height)),
+  );
+  return Math.hypot(ax - bx, ay - by) / normalizer;
 }

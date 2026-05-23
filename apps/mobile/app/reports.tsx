@@ -3,7 +3,7 @@ import { ScrollView, View, Text, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Calendar, ChevronLeft, Download, Layers, TrendingUp, X } from "lucide-react-native";
+import { ChevronLeft, Download, Layers, TrendingUp } from "lucide-react-native";
 import { DropdownSearch, type DropdownItem } from "@/components/ui/DropdownSearch";
 // expo-file-system v19 (Expo SDK 54) introduced a new Paths/File API and
 // moved the previous API behind /legacy. Using legacy here keeps the diff
@@ -17,8 +17,8 @@ import { Segmented } from "@/components/ui/Segmented";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import {
   DateRangePicker,
+  DateRangeTrigger,
   type DateRange,
-  rangeLabel,
   toDateKey,
 } from "@/components/ui/DateRangePicker";
 import { LoadingState, StateCard, ErrorState } from "@/components/ui/States";
@@ -165,8 +165,6 @@ export default function ReportsRoute() {
       })),
     [varietyList],
   );
-  const hasDateRange = !!dateRange.start || !!dateRange.end;
-
   return (
     <SafeAreaView className="flex-1 bg-bg-secondary" edges={["top", "bottom"]}>
       <AppTopBar
@@ -192,26 +190,14 @@ export default function ReportsRoute() {
           scrollable
         />
         {preset === "custom" ? (
-          <View className="flex-row items-center gap-xs">
-            <Button
-              className="flex-1"
-              size="sm"
-              variant="outline"
-              label={rangeLabel(dateRange, i18n.language, t)}
-              renderLeadingIcon={() => <Calendar color="#6E40E0" size={14} />}
-              onPress={() => setDatePickerOpen(true)}
-            />
-            {hasDateRange ? (
-              <Button
-                size="icon"
-                variant="tinted"
-                accessibilityLabel={t("common:actions.clear")}
-                onPress={() => setDateRange({ start: null, end: null })}
-              >
-                <X color="#171717" size={16} />
-              </Button>
-            ) : null}
-          </View>
+          <DateRangeTrigger
+            value={dateRange}
+            locale={i18n.language}
+            label={t("reports:filters.dateRange")}
+            accessibilityLabel={t("history:filters.selectDate")}
+            onPress={() => setDatePickerOpen(true)}
+            onClear={() => setDateRange({ start: null, end: null })}
+          />
         ) : null}
         {/* Variety dropdown — opens the shared DropdownSearch sheet
             (slide-up modal with typeahead) so the picker UX matches

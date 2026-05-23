@@ -2,7 +2,11 @@ import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import { toByteArray } from "base64-js";
 import jpeg from "jpeg-js";
-import { loadTensorflowModel, type TfliteModel } from "react-native-fast-tflite";
+import {
+  loadTensorflowModel,
+  type TensorflowModelDelegate,
+  type TfliteModel,
+} from "react-native-fast-tflite";
 import CoreMLRunner from "@advance-seeds/coreml-runner";
 import type {
   AnalysisFrameResult,
@@ -125,17 +129,13 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
     const current = globalSlot[GLOBAL_KEY] ?? null;
     if (current?.key === source.key) return current.promise;
     const modelPromise = (async () => {
-      // Android live camera stability beats peak benchmark speed here. On the
-      // Z Flip 7 FE, NNAPI inference coincides with Camera2
-      // FrameProcessorBase timeouts while the camera HAL is also running its
-      // own Samsung AI/ISP path. Keep Android TFLite on CPU so live inference
-      // does not compete with the camera pipeline's NPU/GPU resources.
       let model: TfliteModel | null = null;
       let activeDelegate: TfliteDelegate = "cpu";
       if (Platform.OS === "android") {
-        model = await loadTensorflowModel(source.source, []);
-        activeDelegate = "cpu";
-        console.info("[analyzer] tflite delegate=cpu");
+        const loaded = await loadTfliteWithBestAndroidDelegate(source.source);
+        model = loaded.model;
+        activeDelegate = loaded.delegate;
+        console.info(`[analyzer] tflite delegate=${activeDelegate}`);
       }
       if (!model) {
         model = await loadTensorflowModel(source.source, []);
@@ -203,6 +203,24 @@ export function loadSharedTfliteModel(): Promise<LoadedTfliteModel> {
 
 export function resetSharedTfliteModel(): void {
   globalSlot[GLOBAL_KEY] = null;
+}
+
+async function loadTfliteWithBestAndroidDelegate(source: { url: string }): Promise<{
+  model: TfliteModel;
+  delegate: TfliteDelegate;
+}> {
+  try {
+    return {
+      model: await loadTensorflowModel(source, ["android-gpu"] satisfies TensorflowModelDelegate[]),
+      delegate: "android-gpu",
+    };
+  } catch (err) {
+    console.warn("[analyzer] android-gpu delegate unavailable; falling back to cpu", err);
+    return {
+      model: await loadTensorflowModel(source, []),
+      delegate: "cpu",
+    };
+  }
 }
 
 async function getActiveTfliteSource(): Promise<{

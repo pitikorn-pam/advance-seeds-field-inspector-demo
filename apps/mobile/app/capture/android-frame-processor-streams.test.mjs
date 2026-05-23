@@ -52,7 +52,7 @@ for (const file of ["scan.tsx", "precise.tsx"]) {
     );
   });
 
-  test(`${file} remounts iOS camera when switching native frame processor plugins`, () => {
+  test(`${file} delays iOS live detection after ArUco without remounting the camera`, () => {
     const source = readFileSync(join(root, file), "utf8");
 
     assert.match(source, /const IOS_ARUCO_TO_LIVE_DETECTION_START_DELAY_MS = 1200;/);
@@ -60,9 +60,7 @@ for (const file of ["scan.tsx", "precise.tsx"]) {
       source,
       /Platform\.OS === "ios" && liveAruco\.locked\s+\?\s+IOS_ARUCO_TO_LIVE_DETECTION_START_DELAY_MS/s,
     );
-    assert.match(source, /const cameraRemountKey = Platform\.OS === "ios"/);
-    assert.match(source, /`fp:\$\{frameProcessorKind\}`/);
-    assert.match(source, /: "stable";/);
-    assert.match(source, /cameraKey=\{cameraRemountKey\}/);
+    assert.doesNotMatch(source, /cameraRemountKey/);
+    assert.doesNotMatch(source, /cameraKey=/);
   });
 }

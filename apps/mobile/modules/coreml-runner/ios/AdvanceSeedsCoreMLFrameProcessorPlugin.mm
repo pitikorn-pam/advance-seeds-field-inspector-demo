@@ -7,6 +7,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <climits>
+#include <algorithm>
 #include <vector>
 
 // CoreML Vision Camera frame-processor plugin. Runs the installed YOLO26
@@ -402,7 +404,8 @@ static NSArray<NSArray<NSNumber *> *> *decodeAllPolygons(
     float target,
     int srcW,
     int srcH,
-    float maskThreshold) {
+    float maskThreshold,
+    int maxPolygons) {
   NSMutableArray<NSArray<NSNumber *> *> *out = [NSMutableArray array];
   if (detectionArr == nil || protoArr == nil) return out;
   NSArray<NSNumber *> *detShape = detectionArr.shape;
@@ -490,25 +493,29 @@ static NSArray<NSArray<NSNumber *> *> *decodeAllPolygons(
     classSet = [NSMutableSet setWithArray:classFilter];
   }
 
-  // [DBG-LETTERBOX] Diagnostic: raw det rows (top of 300-slot output array).
-  // Helps confirm/refute H4: does the model emit boxes whose xyxy lies inside
-  // the letterbox pad region? Rate-limited to every ~30 wantMask-frames.
-  {
-    static int __dbgLetterboxDetCounter = 0;
-    if ((__dbgLetterboxDetCounter++ % 30) == 0) {
-      NSLog(@"[DBG-LETTERBOX live] raw det rows (max 5 by index):");
-      for (NSInteger i = 0; i < MIN(maxDet, (NSInteger)5); i++) {
-        const NSInteger base = i * fields;
-        NSLog(@"  [%ld] x1=%.2f y1=%.2f x2=%.2f y2=%.2f score=%.4f class=%.1f",
-              (long)i,
-              (double)detPtr[base + 0], (double)detPtr[base + 1],
-              (double)detPtr[base + 2], (double)detPtr[base + 3],
-              (double)detPtr[base + 4], (double)detPtr[base + 5]);
-      }
+  std::vector<uint8_t> selected(maxDet, 0);
+  if (maxPolygons > 0) {
+    std::vector<std::pair<float, NSInteger>> candidates;
+    candidates.reserve((size_t)maxDet);
+    for (NSInteger i = 0; i < maxDet; i++) {
+      const NSInteger base = i * fields;
+      const float score = detPtr[base + 4];
+      if (score < scoreThreshold) continue;
+      const int classId = (int)std::lround(detPtr[base + 5]);
+      if (classSet != nil && ![classSet containsObject:@(classId)]) continue;
+      candidates.push_back({score, i});
     }
+    std::sort(candidates.begin(), candidates.end(),
+              [](const auto &a, const auto &b) { return a.first > b.first; });
+    const NSInteger limit = std::min<NSInteger>((NSInteger)maxPolygons, (NSInteger)candidates.size());
+    for (NSInteger i = 0; i < limit; i++) selected[candidates[(size_t)i].second] = 1;
   }
 
   for (NSInteger i = 0; i < maxDet; i++) {
+    if (!selected[i]) {
+      [out addObject:@[]];
+      continue;
+    }
     const NSInteger base = i * fields;
     const float score = detPtr[base + 4];
     if (score < scoreThreshold) {
@@ -609,11 +616,12 @@ static MLModel *loadModel(NSString *assetName, NSString *modelPath) {
     return nil;
   }
   MLModelConfiguration *config = [[MLModelConfiguration alloc] init];
-  // TestFlight builds have been observed terminating during ANE compilation
-  // as soon as live capture starts. Keep the live frame-processor path off
-  // ANE; post-capture single-shot analysis still uses the regular CoreML
-  // runner and can use the system default compute units.
-  config.computeUnits = MLComputeUnitsCPUAndGPU;
+  // Keep the live frame-processor path on CPU only. This path runs inside
+  // VisionCamera's frame-processing runtime immediately after ArUco lock;
+  // device testing has shown process termination while CoreML compiles/starts
+  // accelerator-backed execution here. Post-capture single-shot analysis still
+  // uses the regular CoreML runner and can use the system default compute path.
+  config.computeUnits = MLComputeUnitsCPUOnly;
   NSError *err = nil;
   MLModel *model = [MLModel modelWithContentsOfURL:url configuration:config error:&err];
   if (model == nil) {
@@ -762,6 +770,19 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
 }
 
 - (id _Nullable)callback:(Frame *)frame withArguments:(NSDictionary *_Nullable)arguments {
+  id response = nil;
+  @try {
+    @autoreleasepool {
+      response = [self processFrame:frame withArguments:arguments];
+    }
+  } @catch (NSException *exception) {
+    NSLog(@"[CoreML FP] uncaught exception: %@ %@", exception.name, exception.reason);
+    return nil;
+  }
+  return response;
+}
+
+- (id _Nullable)processFrame:(Frame *)frame withArguments:(NSDictionary *_Nullable)arguments {
   NSString *assetName = arguments[@"assetName"];
   if (assetName == nil) {
     assetName = @"yolo26n";
@@ -787,6 +808,8 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
       (maskClassFilterRaw != nil && maskClassFilterRaw.count > 0) ? maskClassFilterRaw : nil;
   NSNumber *maskThresholdNum = arguments[@"maskThreshold"];
   const float maskBinThreshold = maskThresholdNum != nil ? [maskThresholdNum floatValue] : 0.5f;
+  NSNumber *maxPolygonsNum = arguments[@"maxPolygons"];
+  const int maskMaxPolygons = maxPolygonsNum != nil ? std::max(0, [maxPolygonsNum intValue]) : INT_MAX;
   // Derive letterbox + src dims from the frame itself. Vision rotates
   // the input buffer based on `frame.orientation` before scale-and-fit
   // into 640x640, so the source-space dims we use here are the
@@ -810,19 +833,6 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
   const int scaledH = (int)std::lround((float)maskSrcH * maskLetterboxScale);
   const float maskLetterboxPadX = std::floor((maskLetterboxTarget - (float)scaledW) / 2.0f);
   const float maskLetterboxPadY = std::floor((maskLetterboxTarget - (float)scaledH) / 2.0f);
-  // [DBG-LETTERBOX] Diagnostic: log derived letterbox params every ~30 frames.
-  // Confirms what source-space dims and pad we project the model output back
-  // through — drives hypothesis H4 (model hallucinates in letterbox padding).
-  {
-    static int __dbgLetterboxFrameCounter = 0;
-    if ((__dbgLetterboxFrameCounter++ % 30) == 0) {
-      NSLog(@"[DBG-LETTERBOX live] frame.w=%lld frame.h=%lld orientation=%d "
-            @"maskSrcW=%d maskSrcH=%d scale=%.4f padX=%.1f padY=%.1f wantMask=%d",
-            (long long)frame.width, (long long)frame.height, (int)frame.orientation,
-            maskSrcW, maskSrcH, (double)maskLetterboxScale,
-            (double)maskLetterboxPadX, (double)maskLetterboxPadY, (int)wantMask);
-    }
-  }
   NSString *modelKey = (modelPath != nil && modelPath.length > 0) ? modelPath : assetName;
   CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(frame.buffer);
   if (imageBuffer == nil) {
@@ -911,7 +921,8 @@ static NSDictionary *flattenLargestMultiArray(NSDictionary<NSString *, VNCoreMLF
                                    maskScoreThreshold, maskClassFilter,
                                    maskLetterboxScale, maskLetterboxPadX,
                                    maskLetterboxPadY, maskLetterboxTarget,
-                                   maskSrcW, maskSrcH, maskBinThreshold);
+                                   maskSrcW, maskSrcH, maskBinThreshold,
+                                   maskMaxPolygons);
                                if (polys != nil) {
                                  combined[@"polygons"] = polys;
                                }

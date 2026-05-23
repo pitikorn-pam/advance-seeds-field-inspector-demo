@@ -15,6 +15,16 @@ public final class AdvanceSeedsRoiVideoExporterModule: Module {
       try await RoiVideoExporter.export(inputURL: inputURL, outputURL: outputURL, roi: roi)
       return outputURL.absoluteString
     }
+
+    AsyncFunction("exportImageWithOverlayAsync") { (inputUri: String, overlay: [String: Any]) async throws -> String in
+      let inputURL = try fileURL(from: inputUri)
+      let outputURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("advance-seeds-annotated-\(UUID().uuidString)")
+        .appendingPathExtension("jpg")
+
+      try RoiVideoExporter.exportImage(inputURL: inputURL, outputURL: outputURL, overlay: overlay)
+      return outputURL.absoluteString
+    }
   }
 }
 
@@ -67,6 +77,36 @@ private final class OverlayCache: @unchecked Sendable {
 }
 
 private enum RoiVideoExporter {
+  static func exportImage(inputURL: URL, outputURL: URL, overlay: [String: Any]) throws {
+    guard let image = UIImage(contentsOfFile: inputURL.path) else {
+      throw NSError(
+        domain: "AdvanceSeedsRoiVideoExporter",
+        code: 7,
+        userInfo: [NSLocalizedDescriptionKey: "Unable to load source image"]
+      )
+    }
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    format.opaque = true
+    let size = image.size
+    let renderer = UIGraphicsImageRenderer(size: size, format: format)
+    let rendered = renderer.image { rendererContext in
+      image.draw(in: CGRect(origin: .zero, size: size))
+      drawOverlay(overlay, in: rendererContext.cgContext, size: size)
+    }
+    guard let data = rendered.jpegData(compressionQuality: 0.92) else {
+      throw NSError(
+        domain: "AdvanceSeedsRoiVideoExporter",
+        code: 8,
+        userInfo: [NSLocalizedDescriptionKey: "Unable to encode annotated image"]
+      )
+    }
+    if FileManager.default.fileExists(atPath: outputURL.path) {
+      try FileManager.default.removeItem(at: outputURL)
+    }
+    try data.write(to: outputURL, options: .atomic)
+  }
+
   static func export(inputURL: URL, outputURL: URL, roi: [String: Any]) async throws {
     let asset = AVAsset(url: inputURL)
     let videoTracks = try await asset.loadTracks(withMediaType: .video)
@@ -227,16 +267,32 @@ private enum RoiVideoExporter {
       )
       context.setFillColor(fill.cgColor)
       context.setStrokeColor(stroke.cgColor)
-      context.addPath(UIBezierPath(roundedRect: rect, cornerRadius: 4).cgPath)
-      context.drawPath(using: .fillStroke)
+      if let mask = seed["mask"] as? [String: Any],
+         let polygon = mask["polygon"] as? [[String: Any]],
+         polygon.count >= 3 {
+        let path = UIBezierPath()
+        for (idx, rawPoint) in polygon.enumerated() {
+          let point = rotatePoint(rawPoint, frameWidth: sourceWidth, frameHeight: sourceHeight, orientation: orientation)
+          let projected = CGPoint(x: point.x * scaleX, y: point.y * scaleY)
+          if idx == 0 {
+            path.move(to: projected)
+          } else {
+            path.addLine(to: projected)
+          }
+        }
+        path.close()
+        context.addPath(path.cgPath)
+        context.drawPath(using: .fillStroke)
+      } else {
+        context.addPath(UIBezierPath(roundedRect: rect, cornerRadius: 4).cgPath)
+        context.drawPath(using: .fillStroke)
+      }
 
-      let index = seed["index"] as? NSNumber
-      let grade = seed["grade"] as? String
-      let label = "#\(index?.intValue ?? 0) \(grade ?? "")"
+      let label = seedLabel(seed)
       let labelRect = CGRect(
         x: rect.minX,
         y: max(CGFloat(0), rect.minY - 28),
-        width: max(CGFloat(58), CGFloat(label.count * 10)),
+        width: min(size.width - rect.minX - 4, max(CGFloat(58), CGFloat(label.count * 8 + 12))),
         height: 24
       )
       context.setFillColor(labelFill.cgColor)
@@ -273,6 +329,50 @@ private enum RoiVideoExporter {
     default:
       return CGRect(x: x, y: y, width: width, height: height)
     }
+  }
+
+  private static func rotatePoint(
+    _ point: [String: Any],
+    frameWidth: CGFloat,
+    frameHeight: CGFloat,
+    orientation: String
+  ) -> CGPoint {
+    let x = number(point["x"])
+    let y = number(point["y"])
+    switch orientation {
+    case "right", "right-mirrored":
+      return CGPoint(x: frameHeight - y, y: x)
+    case "left", "left-mirrored":
+      return CGPoint(x: y, y: frameWidth - x)
+    case "down", "down-mirrored":
+      return CGPoint(x: frameWidth - x, y: frameHeight - y)
+    default:
+      return CGPoint(x: x, y: y)
+    }
+  }
+
+  private static func seedLabel(_ seed: [String: Any]) -> String {
+    var parts: [String] = []
+    if let label = seed["label"] as? String, !label.isEmpty {
+      parts.append(label)
+    } else if let index = seed["index"] as? NSNumber {
+      parts.append("#\(index.intValue)")
+    } else {
+      parts.append("Seed")
+    }
+    let length = number(seed["length_mm"])
+    if length > 0 {
+      parts.append("\(Int(length.rounded())) mm")
+    }
+    let area = number(seed["area_mm2"])
+    if area > 0 {
+      parts.append("\(Int(area.rounded())) mm²")
+    }
+    let volume = number(seed["volume_ml"])
+    if volume > 0 {
+      parts.append(String(format: "%.1f ml", Double(volume)))
+    }
+    return parts.joined(separator: " · ")
   }
 
   private static func number(_ value: Any?) -> CGFloat {

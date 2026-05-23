@@ -144,7 +144,6 @@ export default function CapturePrecise() {
       : frameProcessorKind === "live"
         ? liveDetections.frameProcessor
         : undefined;
-  const cameraRemountKey = Platform.OS === "ios" ? `fp:${frameProcessorKind}` : "stable";
   const androidFrameProcessorActive =
     Platform.OS === "android" &&
     !busy &&
@@ -345,7 +344,6 @@ export default function CapturePrecise() {
         position={position}
         showGrid={showGrid}
         performanceProfile={androidFrameProcessorActive ? "low" : "quality"}
-        cameraKey={cameraRemountKey}
         cameraProps={viewfinderCameraProps}
       >
         <View

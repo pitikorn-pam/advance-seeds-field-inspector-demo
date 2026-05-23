@@ -14,7 +14,7 @@ import { SkeletonList } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { DEFAULT_CAPTURE_CLASSES } from "@/lib/analyzer/captureClasses";
 
-type FilterKey = "all" | "mapped" | "unmapped";
+type FilterKey = "all" | "mapped" | "unmapped" | "active" | "inactive";
 
 /**
  * Capture-class master-data list.
@@ -42,35 +42,41 @@ export default function CaptureClassesScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
 
-  // Pre-sort once (mapped first, then alpha) and derive counts before
+  // Pre-sort once (active first, then alpha) and derive counts before
   // filter is applied so the segmented row stays stable as the user
   // types a search query.
   const baseSorted = useMemo(() => {
     const rows = data ?? [];
     return rows.slice().sort((a, b) => {
-      const aMapped = isMapped(a.coco_class_id);
-      const bMapped = isMapped(b.coco_class_id);
-      if (aMapped !== bMapped) return aMapped ? -1 : 1;
-      return a.name.localeCompare(b.name);
+      const activeRank = Number(b.is_active !== false) - Number(a.is_active !== false);
+      if (activeRank !== 0) return activeRank;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
   }, [data]);
 
   const counts = useMemo(() => {
     let mapped = 0;
     let unmapped = 0;
+    let active = 0;
+    let inactive = 0;
     for (const v of baseSorted) {
       if (isMapped(v.coco_class_id)) mapped += 1;
       else unmapped += 1;
+      if (v.is_active !== false) active += 1;
+      else inactive += 1;
     }
-    return { all: baseSorted.length, mapped, unmapped };
+    return { all: baseSorted.length, mapped, unmapped, active, inactive };
   }, [baseSorted]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return baseSorted.filter((v) => {
       const mapped = isMapped(v.coco_class_id);
+      const active = v.is_active !== false;
       if (filter === "mapped" && !mapped) return false;
       if (filter === "unmapped" && mapped) return false;
+      if (filter === "active" && !active) return false;
+      if (filter === "inactive" && active) return false;
       if (!q) return true;
       // Match name, scientific name, OR the resolved COCO class label so
       // searching "apple" or "47" both find the right row.
@@ -101,6 +107,20 @@ export default function CaptureClassesScreen() {
       label: t("more:masterData.filterWithCount", {
         label: t("more:masterData.filters.unmapped"),
         count: counts.unmapped,
+      }),
+    },
+    {
+      value: "active",
+      label: t("more:masterData.filterWithCount", {
+        label: t("varieties:status.active"),
+        count: counts.active,
+      }),
+    },
+    {
+      value: "inactive",
+      label: t("more:masterData.filterWithCount", {
+        label: t("varieties:status.inactive"),
+        count: counts.inactive,
       }),
     },
   ];
@@ -175,6 +195,7 @@ export default function CaptureClassesScreen() {
             const mapped = isMapped(variety.coco_class_id);
             const hasGrade = hasGradeCriteria(variety.grade_criteria);
             const hasRef = Boolean(variety.ref_length_mm && variety.ref_width_mm);
+            const active = variety.is_active !== false;
             return (
               <Pressable
                 key={variety.id}
@@ -184,7 +205,7 @@ export default function CaptureClassesScreen() {
                 disabled={!editable}
                 className={`flex-row items-center gap-md bg-bg-primary px-xl py-md ${
                   isLast ? "" : "border-b border-line-tertiary"
-                } ${variety.is_active ? "" : "opacity-60"}`}
+                } ${active ? "" : "opacity-60"}`}
               >
                 <View className="flex-1 min-w-0">
                   <View className="flex-row items-center gap-sm">
@@ -194,9 +215,7 @@ export default function CaptureClassesScreen() {
                     >
                       {variety.name}
                     </Text>
-                    {variety.is_active ? null : (
-                      <Pill tone="warning" label={t("varieties:status.inactive")} />
-                    )}
+                    {active ? null : <Pill tone="warning" label={t("varieties:status.inactive")} />}
                   </View>
                   {variety.scientific_name ? (
                     <Text
