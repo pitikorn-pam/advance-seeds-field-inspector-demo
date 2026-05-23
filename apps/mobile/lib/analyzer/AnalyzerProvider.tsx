@@ -1,30 +1,47 @@
 import type { SeedAnalyzer } from "@advance-seeds/types";
 import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager } from "react-native";
 import { useAuth } from "@/lib/auth";
+import { useModelStoreVersion } from "@/lib/models/modelStore";
 import { ClassicalSeedAnalyzer } from "./ClassicalSeedAnalyzer";
 import { selectAnalyzer } from "./selectAnalyzer";
 
 const ctx = createContext<SeedAnalyzer | null>(null);
+const FALLBACK_ANALYZER_IDS = new Set(["classical-cv-v1", "mock"]);
+const FALLBACK_RETRY_DELAYS_MS = [500, 1500, 3000];
 
 export function AnalyzerProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
+  const modelStoreVersion = useModelStoreVersion();
   // Render with the classical analyzer immediately so screens never see a
   // null context; swap in the resolved analyzer once selectAnalyzer settles.
   const initial = useMemo(() => new ClassicalSeedAnalyzer(), []);
   const [analyzer, setAnalyzer] = useState<SeedAnalyzer>(initial);
+  const selectionRunRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
-    // Analyzer selection runs immediately — screens depend on it.
-    selectAnalyzer().then((picked) => {
-      if (!cancelled) setAnalyzer(picked);
-    });
+    const runId = selectionRunRef.current + 1;
+    selectionRunRef.current = runId;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const select = (attempt: number) => {
+      void selectAnalyzer().then((picked) => {
+        if (cancelled || selectionRunRef.current !== runId) return;
+        setAnalyzer(picked);
+        if (FALLBACK_ANALYZER_IDS.has(picked.id) && attempt < FALLBACK_RETRY_DELAYS_MS.length) {
+          timers.push(setTimeout(() => select(attempt + 1), FALLBACK_RETRY_DELAYS_MS[attempt]));
+        }
+      });
+    };
+
+    select(0);
     return () => {
       cancelled = true;
+      timers.forEach((timer) => clearTimeout(timer));
     };
-  }, []);
+  }, [modelStoreVersion]);
 
   useEffect(() => {
     // The registry probe runs only after sign-in. It publishes the resolve

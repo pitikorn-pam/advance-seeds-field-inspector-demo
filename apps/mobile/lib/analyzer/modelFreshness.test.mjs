@@ -8,6 +8,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 const coremlSource = readFileSync(join(root, "CoreMLSeedAnalyzer.ts"), "utf8");
 const tfliteSource = readFileSync(join(root, "TfliteSeedAnalyzer.ts"), "utf8");
 const liveSource = readFileSync(join(root, "useLiveDetections.ts"), "utf8");
+const providerSource = readFileSync(join(root, "AnalyzerProvider.tsx"), "utf8");
 const modelStoreSource = readFileSync(join(root, "..", "models", "modelStore.ts"), "utf8");
 
 test("post-capture CoreML analyzer resolves the active model for every analyze call", () => {
@@ -45,4 +46,11 @@ test("live Android TFLite detection reloads when the active model store changes"
   const androidLiveSource = liveSource.split("function useLiveDetectionsAndroidNative")[1];
   assert.match(androidLiveSource, /const modelStoreVersion = useModelStoreVersion\(\);/);
   assert.match(androidLiveSource, /\}, \[enabled, modelStoreVersion\]\);/);
+});
+
+test("analyzer provider reselects after model store changes and retries transient fallbacks", () => {
+  assert.match(providerSource, /const modelStoreVersion = useModelStoreVersion\(\);/);
+  assert.match(providerSource, /const FALLBACK_RETRY_DELAYS_MS = \[500, 1500, 3000\];/);
+  assert.match(providerSource, /if \(FALLBACK_ANALYZER_IDS\.has\(picked\.id\)/);
+  assert.match(providerSource, /\}, \[modelStoreVersion\]\);/);
 });
