@@ -20,7 +20,11 @@ test("bottom tabs hide Home and keep Inspect, Varieties, and More", () => {
 });
 
 test("More links to notifications as a stack page", () => {
+  assert.match(moreScreen, /const \{ data: notifications \} = useNotifications\(\);/);
+  assert.match(moreScreen, /const unreadNotifications = \(notifications \?\? \[\]\)\.filter/);
+  assert.match(moreScreen, /unreadNotifications > 9 \? "9\+"/);
   assert.match(moreScreen, /label=\{t\("more:menu\.notifications"\)\}/);
+  assert.match(moreScreen, /badge=\{notificationBadge\}/);
   assert.match(moreScreen, /router\.push\("\/notifications" as never\)/);
   assert.match(rootLayout, /<Stack\.Screen name="notifications" options=\{\{ headerShown: false \}\} \/>/);
   assert.doesNotMatch(rootLayout, /name="notifications"[\s\S]*presentation: "modal"/);

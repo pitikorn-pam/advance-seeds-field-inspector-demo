@@ -18,6 +18,7 @@ import {
   Bell,
 } from "lucide-react-native";
 import { useAuth } from "@/lib/auth";
+import { useNotifications } from "@/lib/queries";
 import { Card } from "@/components/ui/Card";
 
 /**
@@ -34,6 +35,10 @@ export default function MoreScreen() {
   const { t } = useTranslation(["common", "more"]);
   const router = useRouter();
   const { signOut } = useAuth();
+  const { data: notifications } = useNotifications();
+  const unreadNotifications = (notifications ?? []).filter((n) => n.read_at === null).length;
+  const notificationBadge =
+    unreadNotifications > 9 ? "9+" : unreadNotifications > 0 ? String(unreadNotifications) : null;
 
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "—";
   const buildNumber =
@@ -110,6 +115,7 @@ export default function MoreScreen() {
             renderIcon={() => <Bell color={ROW_INK.sky} size={16} />}
             tint="bg-card-sky"
             label={t("more:menu.notifications")}
+            badge={notificationBadge}
             onPress={() => router.push("/notifications" as never)}
           />
           <Divider />
@@ -192,6 +198,7 @@ function MenuRow({
   sub,
   admin = false,
   destructive = false,
+  badge,
   onPress,
 }: {
   renderIcon: () => React.ReactNode;
@@ -200,6 +207,7 @@ function MenuRow({
   sub?: string;
   admin?: boolean;
   destructive?: boolean;
+  badge?: string | null;
   onPress?: () => void;
 }) {
   return (
@@ -235,6 +243,13 @@ function MenuRow({
           </Text>
         ) : null}
       </View>
+      {badge ? (
+        <View className="min-w-[22px] items-center justify-center rounded-full bg-danger px-[6px] py-[2px]">
+          <Text className="text-[11px] font-semibold text-white" numberOfLines={1}>
+            {badge}
+          </Text>
+        </View>
+      ) : null}
       <ChevronRight color="#8C8C87" size={16} />
     </Pressable>
   );
