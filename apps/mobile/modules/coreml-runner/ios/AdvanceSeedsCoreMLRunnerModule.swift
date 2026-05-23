@@ -86,6 +86,10 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
           userInfo: [NSLocalizedDescriptionKey: "Failed to decode JPEG at \(url.path)"]
         )
       }
+      // [DBG-LETTERBOX] Diagnostic: log snapshot image dims so we can compare
+      // against the live-path letterbox params. Snapshot path is per-shutter
+      // so no rate-limit needed.
+      print("[DBG-LETTERBOX snapshot] image.w=\(cgImage.width) image.h=\(cgImage.height) fileUri=\(fileUri)")
       let inputName = model.modelDescription.inputDescriptionsByName.keys.first ?? "image"
       guard let imageConstraint =
               model.modelDescription.inputDescriptionsByName[inputName]?.imageConstraint
@@ -231,6 +235,28 @@ public final class AdvanceSeedsCoreMLRunnerModule: Module {
         code: 2,
         userInfo: [NSLocalizedDescriptionKey: "Model produced no MLMultiArray outputs"]
       )
+    }
+    // [DBG-LETTERBOX] Diagnostic: raw det rows (first 5) from snapshot path.
+    // Mirrors live-path log so we can diff the two side-by-side. Assumes
+    // detection signature [1, 300, fields] with fields >= 6. Uses subscript
+    // access (not raw dataPointer) for robustness against strided layouts.
+    if array.shape.count == 3 {
+      let maxDet = array.shape[1].intValue
+      let fields = array.shape[2].intValue
+      if fields >= 6 {
+        print("[DBG-LETTERBOX snapshot] outputName=\(bestName) shape=\(array.shape.map { $0.intValue }) raw det rows (max 5):")
+        let limit = min(maxDet, 5)
+        for i in 0..<limit {
+          let base = i * fields
+          let x1 = Double(truncating: array[base + 0])
+          let y1 = Double(truncating: array[base + 1])
+          let x2 = Double(truncating: array[base + 2])
+          let y2 = Double(truncating: array[base + 3])
+          let score = Double(truncating: array[base + 4])
+          let cls = Double(truncating: array[base + 5])
+          print("  [\(i)] x1=\(x1) y1=\(y1) x2=\(x2) y2=\(y2) score=\(score) class=\(cls)")
+        }
+      }
     }
     var extraOutputs: [String: Any] = [:]
     for name in result.featureNames {
