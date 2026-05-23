@@ -34,8 +34,15 @@ test("post-capture TFLite analyzer resolves the active model for every analyze c
 });
 
 test("live CoreML detection reloads when the active model store changes", () => {
+  const coremlLiveSource = liveSource.split("function useLiveDetectionsCoreML")[1].split("// ---------------------------------------------------------------------\n// Android")[0];
   assert.match(modelStoreSource, /export function useModelStoreVersion\(\): number/);
   assert.match(modelStoreSource, /FileSystem\.writeAsStringAsync\(registryUri,[\s\S]*emitModelStoreChanged\(\);/);
-  assert.match(liveSource, /const modelStoreVersion = useModelStoreVersion\(\);/);
-  assert.match(liveSource, /\}, \[enabled, modelStoreVersion\]\);/);
+  assert.match(coremlLiveSource, /const modelStoreVersion = useModelStoreVersion\(\);/);
+  assert.match(coremlLiveSource, /\}, \[enabled, modelStoreVersion\]\);/);
+});
+
+test("live Android TFLite detection reloads when the active model store changes", () => {
+  const androidLiveSource = liveSource.split("function useLiveDetectionsAndroidNative")[1];
+  assert.match(androidLiveSource, /const modelStoreVersion = useModelStoreVersion\(\);/);
+  assert.match(androidLiveSource, /\}, \[enabled, modelStoreVersion\]\);/);
 });

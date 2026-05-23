@@ -579,6 +579,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
   // forcing parent re-renders on every frame.
   const detectionsShared = useReanimatedSharedValue<AnalysisFrameResult | null>(null);
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
+  const modelStoreVersion = useModelStoreVersion();
   const lastSetAtRef = useRef(0);
   const lastAcceptedFrameTimestampRef = useRef(0);
   const lastDecodeLogAtRef = useRef(0);
@@ -660,7 +661,7 @@ function useLiveDetectionsAndroidNative(options: Options): State {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, modelStoreVersion]);
 
   useEffect(() => {
     const mapped = mapClassFilterForModel(
