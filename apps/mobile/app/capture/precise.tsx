@@ -21,6 +21,7 @@ import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 
 const LIDAR_ARUCO_FALLBACK_DELAY_MS = 1600;
+const LIVE_DETECTION_START_DELAY_MS = 450;
 
 /**
  * Precise capture mode.
@@ -77,6 +78,15 @@ export default function CapturePrecise() {
   const cameraTorch = flashMode === "on" && position === "back" ? "on" : torch;
   const calibrationLocked =
     liveLidar.locked || liveAruco.locked || manualCalibration.reading !== null;
+  const [liveDetectionStartReady, setLiveDetectionStartReady] = useState(false);
+  useEffect(() => {
+    if (!cameraActive || busy || modelInstallInProgress || !calibrationLocked) {
+      setLiveDetectionStartReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setLiveDetectionStartReady(true), LIVE_DETECTION_START_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [busy, calibrationLocked, cameraActive, modelInstallInProgress]);
   const varieties = useVarieties();
   const activeVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId),
@@ -105,7 +115,7 @@ export default function CapturePrecise() {
     [activeVariety],
   );
   const liveDetections = useLiveDetections({
-    enabled: cameraActive && calibrationLocked && !busy && !modelInstallInProgress,
+    enabled: liveDetectionStartReady,
     pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
     classFilter: liveClassFilter,
     varietyNames: preciseVarietyNames,

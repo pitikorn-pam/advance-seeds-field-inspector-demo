@@ -26,11 +26,10 @@ test("live inference fps copy describes model sampling rather than preview fps",
   assert.match(i18nSource, /camera preview keeps its native smoothness/);
 });
 
-test("iOS live detector uses targetFps directly and Android keeps the 5 fps cap", () => {
-  assert.match(liveSource, /const targetFps = hp\.targetFps;/);
-  assert.match(liveSource, /runAtTargetFps\(targetFps,\s*\(\) => \{/);
+test("live detectors keep requested fps configurable but cap native inference at 5 fps", () => {
   assert.match(liveSource, /const requestedTargetFps = hp\.targetFps;/);
   assert.match(liveSource, /const targetFps = Math\.min\(requestedTargetFps, 5\);/);
+  assert.match(liveSource, /runAtTargetFps\(targetFps,\s*\(\) => \{/);
 });
 
 test("live detectors log requested and effective inference fps for QA", () => {

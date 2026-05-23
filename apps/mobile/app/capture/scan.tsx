@@ -42,6 +42,7 @@ import type { Roi, RoiKind } from "@/lib/capture/roi";
 import type { CalibrationReading } from "@advance-seeds/types";
 
 const LIDAR_ARUCO_FALLBACK_DELAY_MS = 1600;
+const LIVE_DETECTION_START_DELAY_MS = 450;
 
 /**
  * Live capture screen.
@@ -118,6 +119,15 @@ export default function CaptureScan() {
   // continuous LiDAR keeps it running through device movement.
   const calibrationLocked =
     liveLidar.locked || liveAruco.locked || manualCalibration.reading !== null;
+  const [liveDetectionStartReady, setLiveDetectionStartReady] = useState(false);
+  useEffect(() => {
+    if (!cameraActive || busy || modelInstallInProgress || !calibrationLocked) {
+      setLiveDetectionStartReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setLiveDetectionStartReady(true), LIVE_DETECTION_START_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [busy, calibrationLocked, cameraActive, modelInstallInProgress]);
   const varieties = useVarieties();
   const activeVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId),
@@ -150,7 +160,7 @@ export default function CaptureScan() {
     [activeVariety],
   );
   const liveDetections = useLiveDetections({
-    enabled: cameraActive && calibrationLocked && !busy && !modelInstallInProgress,
+    enabled: liveDetectionStartReady,
     pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
     classFilter: liveClassFilter,
     varietyNames: liveVarietyNames,

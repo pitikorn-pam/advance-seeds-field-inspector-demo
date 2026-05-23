@@ -551,7 +551,7 @@ export function mapDetectionsToSeeds(
   // count > 1 (the case we care about) and 1-in-30 when count==1 (so we
   // still see the steady-state). Remove once multi-detect live is fixed.
   if (__DEV__ && detections.length > 0) {
-    const g = globalThis as any;
+    const g = globalThis as typeof globalThis & { __dbgLbCounter?: number };
     g.__dbgLbCounter = (g.__dbgLbCounter ?? 0) + 1;
     const shouldLog = detections.length > 1 || g.__dbgLbCounter % 30 === 0;
     if (shouldLog) {

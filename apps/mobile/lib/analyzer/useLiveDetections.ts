@@ -309,14 +309,15 @@ function useLiveDetectionsCoreML(options: Options): State {
 
   const scoreThreshold = hp.scoreThreshold;
   const iouThreshold = hp.iouThreshold;
-  const targetFps = hp.targetFps;
+  const requestedTargetFps = hp.targetFps;
+  const targetFps = Math.min(requestedTargetFps, 5);
   useEffect(() => {
     console.info(
       "[live-detections coreml] inferenceFps requested=%d effective=%d previewFps=30",
-      targetFps,
+      requestedTargetFps,
       targetFps,
     );
-  }, [targetFps]);
+  }, [requestedTargetFps, targetFps]);
   const preprocessProfile = useMemo(
     () => resolvePreprocessProfile(hp.preprocessProfile, activeModel?.metadata ?? null),
     [hp.preprocessProfile, activeModel],
