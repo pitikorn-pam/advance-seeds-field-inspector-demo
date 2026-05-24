@@ -31,6 +31,7 @@ import { CaptureMediaPreview } from "@/components/capture/CaptureMediaPreview";
 import { gradePalette } from "@/lib/grading/palette";
 
 type GradeFilter = "all" | Seed["grade"];
+type ClassFilter = "all" | string;
 
 /**
  * Read the captured ROI off of `inspection.metadata.roi`. Returns the
@@ -121,11 +122,16 @@ export default function InspectionDetail() {
   const del = useDeleteInspection();
   const [metadataExpanded, setMetadataExpanded] = useState(false);
   const [gradeFilter, setGradeFilter] = useState<GradeFilter>("all");
+  const [classFilter, setClassFilter] = useState<ClassFilter>("all");
   const allSeeds = data?.seeds ?? [];
   const filteredSeeds = useMemo(
     () =>
-      gradeFilter === "all" ? allSeeds : allSeeds.filter((seed) => seed.grade === gradeFilter),
-    [gradeFilter, allSeeds],
+      allSeeds.filter((seed) => {
+        const gradeMatches = gradeFilter === "all" || seed.grade === gradeFilter;
+        const classMatches = classFilter === "all" || seed.class_name === classFilter;
+        return gradeMatches && classMatches;
+      }),
+    [gradeFilter, classFilter, allSeeds],
   );
   // Counts shown next to each filter chip (prototype shows "All 18 · A 14 …").
   // Derived from the actual seeds in this inspection so old A/B/C/reject
@@ -144,6 +150,15 @@ export default function InspectionDetail() {
     if (gradeCounts.reject) out.push("reject");
     return out;
   }, [gradeCounts]);
+  const classCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const seed of allSeeds) {
+      const name = seed.class_name;
+      if (!name) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [allSeeds]);
 
   const dateFmt = new Intl.DateTimeFormat(i18n.language === "th" ? "th-TH" : "en-US", {
     dateStyle: "medium",
@@ -177,7 +192,7 @@ export default function InspectionDetail() {
     const annotation = seedAnnotations.get(seed.index);
     return {
       ...seed,
-      label: annotation?.label ?? inspection.variety?.name ?? null,
+      label: seed.class_name ?? annotation?.label ?? inspection.variety?.name ?? null,
       ...(typeof annotation?.volume_ml === "number" ? { volume_ml: annotation.volume_ml } : {}),
       ...(annotation?.mask ? { mask: annotation.mask } : {}),
     };
@@ -640,6 +655,29 @@ export default function InspectionDetail() {
                   );
                 })}
               </ScrollView>
+              {classCounts.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 6, paddingBottom: 4 }}
+                >
+                  <GradeFilterChip
+                    label={t("inspections:detail.classFilterAll")}
+                    count={allSeeds.length}
+                    selected={classFilter === "all"}
+                    onPress={() => setClassFilter("all")}
+                  />
+                  {classCounts.map(([name, count]) => (
+                    <GradeFilterChip
+                      key={name}
+                      label={name}
+                      count={count}
+                      selected={classFilter === name}
+                      onPress={() => setClassFilter(name)}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
             </View>
           </View>
         }

@@ -9,7 +9,7 @@ import Svg, { Circle, Text as SvgText } from "react-native-svg";
 import { AlertTriangle, Check, X } from "lucide-react-native";
 import { tokens } from "@advance-seeds/tokens";
 import { useTheme } from "@/lib/theme";
-import type { AnalysisResult, AnalyzedSeed, Variety } from "@advance-seeds/types";
+import type { AnalysisResult } from "@advance-seeds/types";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
@@ -23,8 +23,8 @@ import { useCreateRecording, useVarieties } from "@/lib/queries";
 import { addQueueEntry } from "@/lib/sync/store";
 import { replaySyncQueue } from "@/lib/sync/replay";
 import { isQueueableSyncError } from "@/lib/sync/errors";
-import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { readActiveModel } from "@/lib/models/modelStore";
+import { classNameForSeed, resolveDetectorFilter } from "@/lib/capture/detectorFilter";
 import { useNotify } from "@/lib/notifications";
 import { AppTopBar } from "@/components/ui/AppTopBar";
 import { Button } from "@/components/ui/Button";
@@ -54,42 +54,6 @@ function getImageDimensions(uri: string): Promise<{ width: number | null; height
       (err) => reject(err),
     );
   });
-}
-
-function inferVarietyFromDetections(
-  seeds: readonly AnalyzedSeed[],
-  varieties: readonly Variety[] | null | undefined,
-  modelClassNames: readonly string[] | null | undefined,
-): Variety | null {
-  if (!seeds.length || !varieties?.length) return null;
-  const scores = new Map<string, number>();
-  const activeVarieties = varieties.filter((v) => v.is_active !== false);
-  for (const seed of seeds) {
-    const classId = seed.class_id;
-    const className =
-      typeof classId === "number" && modelClassNames ? modelClassNames[classId] : null;
-    for (const variety of activeVarieties) {
-      let score = 0;
-      if (typeof classId === "number" && variety.coco_class_id === classId) score += 1;
-      if (className) {
-        const normalizedClass = className.toLowerCase();
-        const aliases = variety.model_class_aliases ?? [];
-        if (aliases.some((alias) => alias.toLowerCase() === normalizedClass)) score += 4;
-        if (normalizedClass.includes(variety.name.toLowerCase())) score += 2;
-      }
-      if (score > 0) scores.set(variety.id, (scores.get(variety.id) ?? 0) + score);
-    }
-  }
-  let best: Variety | null = null;
-  let bestScore = 0;
-  for (const variety of activeVarieties) {
-    const score = scores.get(variety.id) ?? 0;
-    if (score > bestScore) {
-      best = variety;
-      bestScore = score;
-    }
-  }
-  return best;
 }
 
 /**
@@ -436,23 +400,18 @@ export default function CaptureProcessing() {
             console.warn("[processing] aruco calibration unavailable", err);
           }
         }
-        // Source the class filter from the inspected variety. Empty array
-        // means "no filter" (analyzer keeps every class), so we fall back to
-        // the demo default whenever a variety has no COCO mapping yet.
+        const activeModel = await readActiveModel().catch(() => null);
+        const detectorFilter = resolveDetectorFilter(
+          { mode: session.detectorFilterMode, classNames: session.detectorClassNames },
+          activeModel?.metadata.class_names ?? null,
+        );
         const activeVariety = session.varietyId
           ? varieties.data?.find((v) => v.id === session.varietyId)
           : null;
-        const classFilter =
-          activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
-            ? [activeVariety.coco_class_id]
-            : [...DEFAULT_CAPTURE_CLASS_IDS];
-        // Mirror the live detection path so post-capture analyze sees the
-        // same detections. With the Detector Class section removed,
-        // varieties bind to the model by name (model_class_aliases) — the
-        // analyzer needs both signals to translate them into model class
-        // indices via mapClassFilterForModel.
-        const varietyNames = activeVariety?.name ? [activeVariety.name] : null;
-        const modelClassAliases = activeVariety?.model_class_aliases ?? null;
+        const varietyNames =
+          detectorFilter.varietyNames ?? (activeVariety?.name ? [activeVariety.name] : null);
+        const modelClassAliases =
+          detectorFilter.modelClassAliases ?? activeVariety?.model_class_aliases ?? null;
         const gradingConfig = activeVariety
           ? {
               criteria: activeVariety.grade_criteria,
@@ -522,7 +481,9 @@ export default function CaptureProcessing() {
                   { kind: "uri", uri: analyzerImageUri },
                   {
                     pxPerMm: effectivePxPerMm,
-                    classFilter,
+                    classFilter: detectorFilter.classFilter
+                      ? [...detectorFilter.classFilter]
+                      : undefined,
                     varietyNames,
                     modelClassAliases,
                     roi: session.mode === "live" ? session.roi : null,
@@ -562,23 +523,14 @@ export default function CaptureProcessing() {
           }
         }
         const usedLiveFrameFallback = result.analyzerId.endsWith("+shutter-fallback");
-        if (!session.varietyId) {
-          const activeModel = await readActiveModel().catch(() => null);
-          const inferredVariety = inferVarietyFromDetections(
-            result.seeds,
-            varieties.data,
-            activeModel?.metadata.class_names ?? null,
-          );
-          if (inferredVariety) {
-            session.set({ varietyId: inferredVariety.id });
-            console.info(
-              "[processing] inferred variety=%s from detected classes",
-              inferredVariety.name,
-            );
-          } else if (result.seeds.length > 0) {
-            console.warn("[processing] could not infer variety from detected classes");
-          }
-        }
+        result = {
+          ...result,
+          seeds: result.seeds.map((seed) => ({
+            ...seed,
+            class_name:
+              seed.class_name ?? classNameForSeed(seed.class_id, activeModel?.metadata.class_names),
+          })),
+        };
         if (cancelledRef.current) return;
 
         // No-detection inspections are saved with an empty seed list rather

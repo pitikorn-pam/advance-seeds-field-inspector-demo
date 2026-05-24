@@ -25,7 +25,6 @@ import { RoiOverlay } from "@/components/camera/RoiOverlay";
 import { Toast } from "@/components/ui/Toast";
 import { useFrameTicker } from "@/lib/analyzer/useFrameTicker";
 import { useLiveDetections } from "@/lib/analyzer/useLiveDetections";
-import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { DetectionOverlay } from "@/components/camera/DetectionOverlay";
 import { useVarieties } from "@/lib/queries";
 import { useAnalyzer } from "@/lib/analyzer/AnalyzerProvider";
@@ -41,6 +40,7 @@ import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
 import { readActiveModel } from "@/lib/models/modelStore";
 import type { InstalledModelRecord } from "@/lib/models/types";
 import { saveAnnotatedImageToLibrary } from "@/lib/capture/imageActions";
+import { resolveDetectorFilter } from "@/lib/capture/detectorFilter";
 import type { Roi, RoiKind } from "@/lib/capture/roi";
 import type { CalibrationReading } from "@advance-seeds/types";
 
@@ -143,21 +143,23 @@ export default function CaptureScan() {
     () => varieties.data?.find((v) => v.id === session.varietyId),
     [varieties.data, session.varietyId],
   );
-  const liveClassFilter = useMemo<readonly number[]>(
+  const detectorFilter = useMemo(
     () =>
-      activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
-        ? [activeVariety.coco_class_id]
-        : DEFAULT_CAPTURE_CLASS_IDS,
-    [activeVariety?.coco_class_id],
+      resolveDetectorFilter(
+        { mode: session.detectorFilterMode, classNames: session.detectorClassNames },
+        activeModelRecord?.metadata.class_names ?? null,
+      ),
+    [session.detectorFilterMode, session.detectorClassNames, activeModelRecord],
   );
   // Stable references so useLiveDetections' useEffect dep array doesn't
   // re-fire every render (creating a fresh array literal in the props
   // object would otherwise trigger the diagnostic log on every paint).
   const liveVarietyNames = useMemo<readonly string[] | null>(
-    () => (activeVariety?.name ? [activeVariety.name] : null),
-    [activeVariety?.name],
+    () => detectorFilter.varietyNames ?? (activeVariety?.name ? [activeVariety.name] : null),
+    [detectorFilter.varietyNames, activeVariety?.name],
   );
-  const liveModelClassAliases = activeVariety?.model_class_aliases ?? null;
+  const liveModelClassAliases =
+    detectorFilter.modelClassAliases ?? activeVariety?.model_class_aliases ?? null;
   const gradingConfig = useMemo(
     () =>
       activeVariety
@@ -174,7 +176,7 @@ export default function CaptureScan() {
   const liveDetections = useLiveDetections({
     enabled: liveDetectionStartReady,
     pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
-    classFilter: liveClassFilter,
+    classFilter: detectorFilter.classFilter,
     varietyNames: liveVarietyNames,
     modelClassAliases: liveModelClassAliases,
     roi: roiForLive,
@@ -475,7 +477,7 @@ export default function CaptureScan() {
           { kind: "uri", uri },
           {
             pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
-            classFilter: [...liveClassFilter],
+            classFilter: detectorFilter.classFilter ? [...detectorFilter.classFilter] : undefined,
             varietyNames: liveVarietyNames,
             modelClassAliases: liveModelClassAliases,
             roi: session.mode === "live" ? session.roi : null,

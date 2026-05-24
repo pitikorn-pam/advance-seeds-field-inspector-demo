@@ -21,6 +21,7 @@ export type CaptureMode = "live" | "precise";
 export type CaptureMediaKind = "photo" | "video";
 export type CaptureCameraPosition = "back" | "front";
 export type CaptureFlashMode = "off" | "auto" | "on";
+export type DetectorFilterMode = "all" | "classes";
 
 export interface CaptureFrameMetadata {
   width: number | null;
@@ -53,6 +54,8 @@ export function captureFrameMetadataFromPhoto(photo: unknown): CaptureFrameMetad
 }
 
 interface CaptureSessionState {
+  detectorFilterMode: DetectorFilterMode;
+  detectorClassNames: string[];
   varietyId: string | null;
   batchId: string | null;
   calibrationId: string | null;
@@ -125,6 +128,8 @@ interface CaptureSessionState {
 }
 
 const initial: CaptureSessionState = {
+  detectorFilterMode: "all",
+  detectorClassNames: [],
   varietyId: null,
   batchId: null,
   calibrationId: null,

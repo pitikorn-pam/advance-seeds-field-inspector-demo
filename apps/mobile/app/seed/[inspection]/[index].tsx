@@ -48,7 +48,7 @@ export default function SavedSeedDetail() {
   const seed = seedRow
     ? {
         ...seedRow,
-        label: seedAnnotation?.label ?? variety?.name ?? null,
+        label: seedRow.class_name ?? seedAnnotation?.label ?? variety?.name ?? null,
         ...(typeof seedAnnotation?.volume_ml === "number"
           ? { volume_ml: seedAnnotation.volume_ml }
           : {}),

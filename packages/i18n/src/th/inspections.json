@@ -90,6 +90,7 @@
     },
     "perSeedTitle": "ค่าวัดต่อเมล็ด",
     "gradeFilterAll": "ทั้งหมด",
+    "classFilterAll": "ทุกคลาส",
     "filteredSeedCount": "{{count}} จาก {{total}} เมล็ด",
     "deleteConfirm": "ลบการตรวจสอบนี้? ไม่สามารถกู้คืนได้",
     "roiBadge": {
@@ -146,6 +147,13 @@
     "startCapture": "เริ่มถ่าย",
     "selectVariety": "เลือกพันธุ์",
     "varietyPlaceholder": "เลือกพันธุ์…",
+    "detectorFilter": {
+      "label": "ตัวกรองการตรวจจับ",
+      "all": "ALL",
+      "allSubtitle": "ตรวจจับทุกคลาสที่โมเดลเทรนมา",
+      "classSubtitle": "ตรวจจับเฉพาะคลาสนี้ของโมเดล",
+      "empty": "คลาสของโมเดลจะแสดงเมื่อโมเดลพร้อมใช้งาน"
+    },
     "selectCalibration": "เลือกการสอบเทียบ",
     "notesLabel": "บันทึกย่อ",
     "notesOptional": "ไม่บังคับ",
@@ -266,6 +274,7 @@
       "subtitle": "{{variety}} · {{when}}",
       "resultLabel": "ผลลัพธ์",
       "summary": "{{count}} เมล็ด · เฉลี่ย {{length}} × {{width}} มม.",
+      "classBreakdown": "คลาสที่ตรวจพบ",
       "perSeedTitle": "รายเมล็ด",
       "sort": "เรียง",
       "sortIndex": "ลำดับ",
@@ -282,6 +291,7 @@
       },
       "saveDraft": "บันทึกร่าง",
       "saveAndSync": "บันทึกและซิงค์",
+      "saveBlocked": "ผลการถ่ายยังไม่มีรูปหรือข้อมูลบัญชีที่จำเป็น กรุณาถ่ายใหม่แล้วลองอีกครั้ง",
       "queuedForSync": "บันทึกไว้ในเครื่องแล้ว จะซิงค์เมื่อมีการเชื่อมต่อ",
       "missing": "ไม่มีผลให้แสดง — กลับไปถ่ายใหม่อีกครั้ง"
     }

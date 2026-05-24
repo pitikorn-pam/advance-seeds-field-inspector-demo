@@ -26,6 +26,7 @@ import { getHyperParamsSync } from "@/lib/analyzer/hyperparams";
 import { resolvePreprocessProfile } from "@/lib/analyzer/preprocess";
 import { readActiveModel } from "@/lib/models/modelStore";
 import type { InstalledModelRecord } from "@/lib/models/types";
+import { buildClassBreakdown, resolveDetectorFilter } from "@/lib/capture/detectorFilter";
 import { addQueueEntry } from "@/lib/sync/store";
 import { replaySyncQueue } from "@/lib/sync/replay";
 import { isQueueableSyncError, syncErrorMessage } from "@/lib/sync/errors";
@@ -198,6 +199,18 @@ export default function CaptureReview() {
     () => (result ? buildAnalyzerModelMetadata(reviewActiveModel, result.analyzerId) : null),
     [reviewActiveModel, result],
   );
+  const reviewDetectorFilter = useMemo(
+    () =>
+      resolveDetectorFilter(
+        { mode: session.detectorFilterMode, classNames: session.detectorClassNames },
+        reviewAnalyzerModel?.class_names ?? null,
+      ),
+    [session.detectorFilterMode, session.detectorClassNames, reviewAnalyzerModel?.class_names],
+  );
+  const reviewClassBreakdown = useMemo(
+    () => buildClassBreakdown(result?.seeds ?? [], reviewAnalyzerModel?.class_names ?? null),
+    [result?.seeds, reviewAnalyzerModel?.class_names],
+  );
   const annotatedResultSeeds = useMemo(
     () =>
       result?.seeds.map((seed) => ({
@@ -295,11 +308,8 @@ export default function CaptureReview() {
   };
 
   const onSave = async () => {
-    if (!profile || !session.uploadedImageUrl || !session.varietyId) {
-      Alert.alert(
-        t("common:states.error"),
-        "The model could not map this capture to an active variety. Re-capture with the object clearly visible or check variety model aliases.",
-      );
+    if (!profile || !session.uploadedImageUrl) {
+      Alert.alert(t("common:states.error"), t("inspections:capture.review.saveBlocked"));
       return;
     }
     setSaving(true);
@@ -352,6 +362,12 @@ export default function CaptureReview() {
           captured_at: capturedAt,
         },
         analyzerModel,
+        detectorFilter: {
+          mode: reviewDetectorFilter.mode,
+          class_names: [...reviewDetectorFilter.classNames],
+          class_ids: [...reviewDetectorFilter.classIds],
+        },
+        classBreakdown: buildClassBreakdown(result.seeds, analyzerModel.class_names ?? null),
         analysisDiagnostics: session.analysisDiagnostics,
         seeds: result.seeds,
       });
@@ -364,6 +380,7 @@ export default function CaptureReview() {
         imageUrl: session.uploadedImageUrl,
         summary: result.summary,
         seeds: result.seeds,
+        modelClassNames: analyzerModel.class_names ?? null,
         metadata,
         notes: session.notes,
       });
@@ -399,6 +416,7 @@ export default function CaptureReview() {
           imageUrl: session.uploadedImageUrl,
           summary: result.summary,
           seeds: result.seeds,
+          modelClassNames: analyzerModel.class_names ?? null,
           metadata: buildInspectionMetadata({
             roi: session.roi,
             mediaKind,
@@ -432,6 +450,12 @@ export default function CaptureReview() {
               captured_at: capturedAt,
             },
             analysisDiagnostics: session.analysisDiagnostics,
+            detectorFilter: {
+              mode: reviewDetectorFilter.mode,
+              class_names: [...reviewDetectorFilter.classNames],
+              class_ids: [...reviewDetectorFilter.classIds],
+            },
+            classBreakdown: buildClassBreakdown(result.seeds, analyzerModel.class_names ?? null),
             seeds: result.seeds,
           }),
           notes: session.notes,
@@ -653,6 +677,30 @@ export default function CaptureReview() {
                 );
               })}
             </View>
+
+            {reviewClassBreakdown.length > 0 ? (
+              <View className="mt-xs rounded-lg border border-line-tertiary bg-bg-primary px-md py-md">
+                <Text
+                  className="text-[11px] font-semibold uppercase text-fg-tertiary"
+                  style={{ letterSpacing: 0.6 }}
+                >
+                  {t("inspections:capture.review.classBreakdown")}
+                </Text>
+                <View className="mt-sm flex-row flex-wrap gap-xs">
+                  {reviewClassBreakdown.map((row) => (
+                    <View
+                      key={`${row.class_id ?? "unknown"}-${row.class_name}`}
+                      className="flex-row items-center gap-xs rounded-full border border-line-tertiary bg-bg-secondary px-sm py-xs"
+                    >
+                      <Text className="text-caption font-medium text-fg-primary">
+                        {row.class_name}
+                      </Text>
+                      <Text className="text-caption text-fg-tertiary">{row.count}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
             {/* Per-seed header with sort segmented control */}
             <View className="mt-md flex-row items-center justify-between px-xs">

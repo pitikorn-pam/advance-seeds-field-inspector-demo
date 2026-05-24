@@ -134,6 +134,27 @@ test("buildInspectionMetadata includes GPS when available", () => {
   );
 });
 
+test("buildInspectionMetadata includes detector filter and class breakdown", () => {
+  const metadata = buildInspectionMetadata({
+    roi: null,
+    mediaKind: "photo",
+    mediaUrl: "https://example.test/capture.jpg",
+    recordingId: null,
+    recordingDurationMs: null,
+    locationTagEnabled: false,
+    capturedLocation: null,
+    deviceUsage,
+    calibration: null,
+    capture,
+    analyzerModel: null,
+    detectorFilter: { mode: "all", class_names: [], class_ids: [] },
+    classBreakdown: [{ class_id: 0, class_name: "banana", count: 2 }],
+  });
+
+  assert.deepEqual(metadata.detector_filter, { mode: "all", class_names: [], class_ids: [] });
+  assert.deepEqual(metadata.class_breakdown, [{ class_id: 0, class_name: "banana", count: 2 }]);
+});
+
 test("metadata readers return location, device usage, and capture detail", () => {
   const metadata = {
     location: {

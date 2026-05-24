@@ -57,6 +57,18 @@ export interface AnalyzerModelMetadata {
   class_names?: readonly string[] | null;
 }
 
+export interface DetectorFilterMetadata {
+  mode: "all" | "classes";
+  class_names: string[];
+  class_ids: number[];
+}
+
+export interface ClassBreakdownMetadata {
+  class_id: number | null;
+  class_name: string;
+  count: number;
+}
+
 export interface CalibrationMetadata {
   px_per_mm: number;
   source: CalibrationReading["source"];
@@ -101,6 +113,8 @@ interface BuildInspectionMetadataArgs {
     | null;
   capture: Omit<CaptureMetadata, "media_kind" | "roi_kind">;
   analyzerModel: AnalyzerModelMetadata | null;
+  detectorFilter?: DetectorFilterMetadata | null;
+  classBreakdown?: ClassBreakdownMetadata[] | null;
   analysisDiagnostics?: AnalysisDiagnosticsMetadata | null;
   seeds?: readonly AnalyzedSeed[] | null;
 }
@@ -133,6 +147,8 @@ export function buildInspectionMetadata(
     roi_kind: args.roi?.kind ?? null,
   };
   if (args.analyzerModel) metadata.analyzer_model = args.analyzerModel;
+  if (args.detectorFilter) metadata.detector_filter = args.detectorFilter;
+  if (args.classBreakdown?.length) metadata.class_breakdown = args.classBreakdown;
   if (args.analysisDiagnostics) metadata.analysis_diagnostics = args.analysisDiagnostics;
   const seedMasks = compactSeedMasks(args.seeds, args.analyzerModel?.class_names ?? null);
   if (seedMasks.length > 0) metadata.seed_masks = seedMasks;

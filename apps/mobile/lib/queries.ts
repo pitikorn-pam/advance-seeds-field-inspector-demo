@@ -508,7 +508,7 @@ export function useCreateInspection() {
 
 export async function createInspectionRemote(args: {
   inspector_id: string;
-  variety_id: string;
+  variety_id: string | null;
   batch_id: string | null;
   calibration_id: string | null;
   image_url: string;
@@ -522,6 +522,8 @@ export async function createInspectionRemote(args: {
   notes?: string | null;
   seeds: {
     index: number;
+    class_id?: number | null;
+    class_name?: string | null;
     length_mm: number;
     width_mm: number;
     area_mm2: number;
@@ -549,6 +551,8 @@ export async function createInspectionRemote(args: {
   const seedRows = seeds.map((s) => ({
     inspection_id: data.id,
     index: s.index,
+    class_id: typeof s.class_id === "number" ? s.class_id : null,
+    class_name: s.class_name ?? null,
     length_mm: s.length_mm,
     width_mm: s.width_mm,
     area_mm2: s.area_mm2,

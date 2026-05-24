@@ -86,10 +86,11 @@ export type Database = {
           mean_area_mm2: number | null
           mean_length_mm: number | null
           mean_width_mm: number | null
+          metadata: Json | null
           notes: string | null
           status: Database["public"]["Enums"]["inspection_status"]
           total_seeds: number
-          variety_id: string
+          variety_id: string | null
         }
         Insert: {
           batch_id?: string | null
@@ -102,10 +103,11 @@ export type Database = {
           mean_area_mm2?: number | null
           mean_length_mm?: number | null
           mean_width_mm?: number | null
+          metadata?: Json | null
           notes?: string | null
           status?: Database["public"]["Enums"]["inspection_status"]
           total_seeds?: number
-          variety_id: string
+          variety_id?: string | null
         }
         Update: {
           batch_id?: string | null
@@ -118,10 +120,11 @@ export type Database = {
           mean_area_mm2?: number | null
           mean_length_mm?: number | null
           mean_width_mm?: number | null
+          metadata?: Json | null
           notes?: string | null
           status?: Database["public"]["Enums"]["inspection_status"]
           total_seeds?: number
-          variety_id?: string
+          variety_id?: string | null
         }
         Relationships: [
           {
@@ -150,6 +153,50 @@ export type Database = {
             columns: ["variety_id"]
             isOneToOne: false
             referencedRelation: "varieties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["notification_kind"]
+          metadata: Json | null
+          read_at: string | null
+          route: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["notification_kind"]
+          metadata?: Json | null
+          read_at?: string | null
+          route?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["notification_kind"]
+          metadata?: Json | null
+          read_at?: string | null
+          route?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -184,10 +231,53 @@ export type Database = {
         }
         Relationships: []
       }
+      recordings: {
+        Row: {
+          captured_at: string
+          created_at: string
+          duration_ms: number
+          id: string
+          inspector_id: string
+          metadata: Json | null
+          notes: string | null
+          video_url: string
+        }
+        Insert: {
+          captured_at?: string
+          created_at?: string
+          duration_ms: number
+          id?: string
+          inspector_id: string
+          metadata?: Json | null
+          notes?: string | null
+          video_url: string
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          inspector_id?: string
+          metadata?: Json | null
+          notes?: string | null
+          video_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recordings_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seeds: {
         Row: {
           area_mm2: number
           bbox: Json
+          class_id: number | null
+          class_name: string | null
           defects: Json
           grade: Database["public"]["Enums"]["seed_grade"]
           id: string
@@ -199,6 +289,8 @@ export type Database = {
         Insert: {
           area_mm2: number
           bbox: Json
+          class_id?: number | null
+          class_name?: string | null
           defects?: Json
           grade: Database["public"]["Enums"]["seed_grade"]
           id?: string
@@ -210,6 +302,8 @@ export type Database = {
         Update: {
           area_mm2?: number
           bbox?: Json
+          class_id?: number | null
+          class_name?: string | null
           defects?: Json
           grade?: Database["public"]["Enums"]["seed_grade"]
           id?: string
@@ -230,15 +324,15 @@ export type Database = {
       }
       varieties: {
         Row: {
-          color_key: string | null
           coco_class_id: number | null
+          color_key: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          grade_criteria: Json | null
           id: string
           image_url: string | null
           is_active: boolean
-          grade_criteria: Json | null
           model_class_aliases: string[] | null
           name: string
           ref_length_mm: number | null
@@ -246,15 +340,15 @@ export type Database = {
           scientific_name: string | null
         }
         Insert: {
-          color_key?: string | null
           coco_class_id?: number | null
+          color_key?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          grade_criteria?: Json | null
           id?: string
           image_url?: string | null
           is_active?: boolean
-          grade_criteria?: Json | null
           model_class_aliases?: string[] | null
           name: string
           ref_length_mm?: number | null
@@ -262,15 +356,15 @@ export type Database = {
           scientific_name?: string | null
         }
         Update: {
-          color_key?: string | null
           coco_class_id?: number | null
+          color_key?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          grade_criteria?: Json | null
           id?: string
           image_url?: string | null
           is_active?: boolean
-          grade_criteria?: Json | null
           model_class_aliases?: string[] | null
           name?: string
           ref_length_mm?: number | null
@@ -302,8 +396,9 @@ export type Database = {
       calibration_source: "lidar" | "aruco"
       inspection_status: "pending" | "analyzing" | "complete" | "failed"
       locale: "en" | "th"
+      notification_kind: "success" | "info" | "warning" | "error"
       role: "inspector" | "admin"
-      seed_grade: "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "reject"
+      seed_grade: "A" | "B" | "C" | "reject" | "D" | "E" | "F" | "G" | "H"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -434,8 +529,10 @@ export const Constants = {
       calibration_source: ["lidar", "aruco"],
       inspection_status: ["pending", "analyzing", "complete", "failed"],
       locale: ["en", "th"],
+      notification_kind: ["success", "info", "warning", "error"],
       role: ["inspector", "admin"],
-      seed_grade: ["A", "B", "C", "D", "E", "F", "G", "H", "reject"],
+      seed_grade: ["A", "B", "C", "reject", "D", "E", "F", "G", "H"],
     },
   },
 } as const
+

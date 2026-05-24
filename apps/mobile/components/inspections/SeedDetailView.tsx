@@ -188,7 +188,7 @@ export function SeedDetailView({
             <GradeChip grade={grade} size="md" />
             <View className="flex-1">
               <Text className="text-caption text-fg-secondary">
-                {t("inspections:seed.detectedGrade")}
+                {seed.label ?? t("inspections:seed.detectedGrade")}
               </Text>
               <Text className="text-title text-fg-primary font-semibold mt-[2px]">
                 {t(`inspections:seedGrade.${grade}`)}

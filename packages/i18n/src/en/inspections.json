@@ -90,6 +90,7 @@
     },
     "perSeedTitle": "Per-seed measurements",
     "gradeFilterAll": "All",
+    "classFilterAll": "All classes",
     "filteredSeedCount": "{{count}} of {{total}} seeds",
     "deleteConfirm": "Delete this inspection? This cannot be undone.",
     "roiBadge": {
@@ -146,6 +147,13 @@
     "startCapture": "Start capture",
     "selectVariety": "Select a variety",
     "varietyPlaceholder": "Choose a variety…",
+    "detectorFilter": {
+      "label": "Detector filter",
+      "all": "ALL",
+      "allSubtitle": "Detect every trained model class",
+      "classSubtitle": "Detect only this model class",
+      "empty": "Active model classes will appear after the model is ready."
+    },
     "selectCalibration": "Select calibration",
     "notesLabel": "Notes",
     "notesOptional": "optional",
@@ -266,6 +274,7 @@
       "subtitle": "{{variety}} · {{when}}",
       "resultLabel": "Result",
       "summary": "{{count}} seeds · avg {{length}} × {{width}} mm",
+      "classBreakdown": "Detected classes",
       "perSeedTitle": "Per-seed",
       "sort": "Sort",
       "sortIndex": "Index",
@@ -282,6 +291,7 @@
       },
       "saveDraft": "Save draft",
       "saveAndSync": "Save and sync",
+      "saveBlocked": "Capture result is missing required image or account data. Re-capture and try again.",
       "queuedForSync": "Saved locally. It will sync when the connection is available.",
       "missing": "Result not available — return to capture and try again."
     }

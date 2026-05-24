@@ -56,11 +56,45 @@ test("buildInspectionSavePayload returns null notes when only whitespace was ent
 
 test("buildInspectionSavePayload preserves nullable references", () => {
   const payload = buildInspectionSavePayload(
-    baseOptions({ batchId: null, calibrationId: null, metadata: null }),
+    baseOptions({ varietyId: null, batchId: null, calibrationId: null, metadata: null }),
   );
+  assert.equal(payload.variety_id, null);
   assert.equal(payload.batch_id, null);
   assert.equal(payload.calibration_id, null);
   assert.equal(payload.metadata, null);
+});
+
+test("buildInspectionSavePayload resolves model class names onto seeds", () => {
+  const payload = buildInspectionSavePayload(
+    baseOptions({
+      varietyId: null,
+      seeds: [{ ...SEED, class_id: 1 }],
+      modelClassNames: ["banana", "watermelon"],
+    }),
+  );
+
+  assert.equal(payload.variety_id, null);
+  assert.equal(payload.seeds[0].class_id, 1);
+  assert.equal(payload.seeds[0].class_name, "watermelon");
+});
+
+test("toInspectionQueuePayload preserves class-first seed fields", () => {
+  const payload = buildInspectionSavePayload(
+    baseOptions({
+      varietyId: null,
+      seeds: [{ ...SEED, class_id: 0, class_name: "banana" }],
+    }),
+  );
+  const queue = toInspectionQueuePayload({
+    payload,
+    mediaKind: "photo",
+    localImageUri: "file:///local.jpg",
+    localVideoUri: null,
+  });
+
+  assert.equal(queue.data.variety_id, null);
+  assert.equal(queue.data.seeds[0].class_id, 0);
+  assert.equal(queue.data.seeds[0].class_name, "banana");
 });
 
 test("buildInspectionSavePayload drops measurements that would overflow Supabase numeric columns", () => {

@@ -5,7 +5,7 @@ const DB_MAX_AREA_MM2 = 99999.999;
 
 export function buildInspectionSavePayload(opts) {
   const trimmed = opts.notes.trim();
-  const seeds = sanitizeSeedsForPersistence(opts.seeds);
+  const seeds = sanitizeSeedsForPersistence(opts.seeds, opts.modelClassNames ?? null);
   const summary = summarizeSeedsForPersistence(seeds, opts.summary, opts.seeds.length);
   return {
     inspector_id: opts.inspectorId,
@@ -52,7 +52,7 @@ export function isLocalUri(uri) {
   return uri.startsWith("file://") || uri.startsWith("/");
 }
 
-function sanitizeSeedsForPersistence(seeds) {
+function sanitizeSeedsForPersistence(seeds, modelClassNames) {
   return seeds
     .filter(
       (seed) =>
@@ -62,6 +62,10 @@ function sanitizeSeedsForPersistence(seeds) {
     )
     .map((seed) => ({
       ...seed,
+      class_id: typeof seed.class_id === "number" ? seed.class_id : undefined,
+      class_name:
+        seed.class_name ??
+        (typeof seed.class_id === "number" ? (modelClassNames?.[seed.class_id] ?? null) : null),
       length_mm: roundToScale(seed.length_mm, 3),
       width_mm: roundToScale(seed.width_mm, 3),
       area_mm2: roundToScale(seed.area_mm2, 3),

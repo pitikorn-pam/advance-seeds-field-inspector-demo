@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ทางเลือก Workflow ตรวจจับทุก Class</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f5f1;
+        --paper: #ffffff;
+        --ink: #171717;
+        --muted: #5f5f5b;
+        --line: #dedbd2;
+        --brand: #6e40e0;
+        --brand-soft: #eee8ff;
+        --ok: #2d6e3f;
+        --warn: #9a6417;
+        --risk: #9b2d20;
+        --blue: #1c5a8e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        line-height: 1.55;
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 40px 24px 56px;
+      }
+
+      header {
+        margin-bottom: 28px;
+      }
+
+      .eyebrow {
+        color: var(--brand);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 8px 0 10px;
+        font-size: clamp(30px, 5vw, 48px);
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+      }
+
+      .lead {
+        max-width: 840px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      section {
+        margin-top: 20px;
+        padding: 24px;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+
+      h2 {
+        margin: 0 0 14px;
+        font-size: 22px;
+        letter-spacing: -0.01em;
+      }
+
+      h3 {
+        margin: 0 0 8px;
+        font-size: 17px;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      ul,
+      ol {
+        margin: 10px 0 0;
+        padding-left: 22px;
+      }
+
+      li {
+        margin: 6px 0;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fbfaf7;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: var(--brand-soft);
+        color: var(--brand);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .step {
+        position: relative;
+        min-height: 104px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fbfaf7;
+      }
+
+      .step strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .step span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      th,
+      td {
+        padding: 13px 14px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f1efe8;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .ok {
+        color: var(--ok);
+        font-weight: 700;
+      }
+
+      .warn {
+        color: var(--warn);
+        font-weight: 700;
+      }
+
+      .risk {
+        color: var(--risk);
+        font-weight: 700;
+      }
+
+      .blue {
+        color: var(--blue);
+        font-weight: 700;
+      }
+
+      .recommendation {
+        border-color: #cbbdff;
+        background: linear-gradient(180deg, #ffffff, #f7f3ff);
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 16px;
+      }
+
+      code {
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: #efede6;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.92em;
+      }
+
+      @media (max-width: 860px) {
+        .grid,
+        .flow,
+        .summary {
+          grid-template-columns: 1fr;
+        }
+
+        main {
+          padding: 28px 16px 40px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">Advance Seeds Field Inspector</div>
+        <h1>Workflow ตรวจจับทุก Class: สรุปปัญหาและทางเลือก</h1>
+        <p class="lead">
+          Workflow ปัจจุบันยังตั้งอยู่บนสมมติฐานว่า user ต้องเลือก variety ก่อนเริ่มตรวจ
+          แต่ทิศทางใหม่คือ class-first workflow: model ตรวจจับ class ที่ train มาได้ทั้งหมด
+          และ user เลือก filter ได้ว่าจะดูทุก class หรือเฉพาะ class เช่น banana หรือ watermelon
+        </p>
+      </header>
+
+      <section class="summary">
+        <div>
+          <h2>TL;DR</h2>
+          <p>
+            ตัว model สามารถคืนผลหลาย class ได้อยู่แล้ว ข้อจำกัดตอนนี้อยู่ที่ workflow ของ app:
+            app ยังบังคับให้เลือก variety ก่อน และใช้ variety นั้นไป filter ผล detect ตั้งแต่ต้น
+            ทำให้ class อื่นที่ model เห็นถูกซ่อนออกจาก pipeline
+          </p>
+          <p>
+            ทิศทางที่แนะนำคือเปลี่ยน inspection ให้เป็น class-first: user เลือก
+            <code>ALL</code> หรือเลือก detector class เป็น filter, live และ post-shutter analysis
+            ใช้ filter เดียวกัน และหน้า inspection detail สามารถกรอง thumbnail ราย seed/object
+            ตาม class ที่ detect ได้
+          </p>
+        </div>
+        <div class="card">
+          <h3>เรื่องที่ต้องตัดสินใจ</h3>
+          <p>
+            จะทำรอบแรกแบบ metadata-only เพื่อให้เร็ว หรือเพิ่มการ persist class ต่อ seed/object
+            ตั้งแต่ตอนนี้เพื่อให้ reload, filter, และ reporting ถูกต้องตั้งแต่ต้น
+          </p>
+          <span class="tag">แนะนำ: เก็บ class ต่อ seed/object</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Flow ที่คาดหวัง</h2>
+        <div class="flow">
+          <div class="step">
+            <strong>1. เปิดแอพ</strong>
+            <span>User เข้า app แล้วเลือก Inspect</span>
+          </div>
+          <div class="step">
+            <strong>2. เลือก filter</strong>
+            <span>เลือก ALL, banana, watermelon หรือ class อื่นที่ model train มา</span>
+          </div>
+          <div class="step">
+            <strong>3. Live detect</strong>
+            <span>ALL overlay ทุก class; ถ้าเลือก class เฉพาะก็ overlay เฉพาะ class นั้น</span>
+          </div>
+          <div class="step">
+            <strong>4. Snap</strong>
+            <span>Post-shutter analysis รันซ้ำด้วย filter เดียวกับ live</span>
+          </div>
+          <div class="step">
+            <strong>5. Review/detail</strong>
+            <span>Thumbnail ราย seed/object กรองตาม class/variety ได้</span>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>ปัญหาปัจจุบัน</h2>
+        <ul>
+          <li>
+            <strong>Workflow ไม่ตรงกับ model:</strong> app บังคับเลือก variety ก่อนตรวจ
+            แต่ผลจาก model เป็น class-based และหนึ่ง frame สามารถมีหลาย class ได้
+          </li>
+          <li>
+            <strong>Filter เร็วเกินไป:</strong> variety ที่เลือกถูกแปลงเป็น model class filter
+            ตั้งแต่ก่อน live/post-shutter analysis ทำให้ class ที่ไม่ได้เลือกถูกซ่อน
+          </li>
+          <li>
+            <strong>Data model ไม่พอ:</strong> database ตอนนี้ผูก variety หนึ่งตัวที่ระดับ
+            inspection แต่ requirement ใหม่ต้องรู้ class ของ object แต่ละชิ้น
+          </li>
+          <li>
+            <strong>หน้า detail ยัง filter ไม่ได้อย่างถูกต้อง:</strong> การ filter thumbnail
+            ราย seed/object ตาม class ต้องมี class ติดอยู่กับแต่ละ seed หลัง save และ reload
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>ทางเลือกของ Solution</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ทางเลือก</th>
+              <th>สิ่งที่จะทำ</th>
+              <th>ข้อดี</th>
+              <th>ความเสี่ยง / Trade-off</th>
+              <th>ความเหมาะสม</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>A. Metadata-only</strong></td>
+              <td>
+                เพิ่ม ALL/class filter ใน capture, detect ทุก class และเก็บ class breakdown
+                ไว้ใน metadata ของ inspection
+              </td>
+              <td>เร็วที่สุด แตะ schema น้อย เหมาะกับการพิสูจน์ live/post pipeline</td>
+              <td>
+                การ filter ราย seed หลัง reload จะเปราะ เพราะ class ไม่ได้ติดอยู่กับ seed row
+                โดยตรง
+              </td>
+              <td><span class="warn">เหมาะเป็น demo ระยะสั้น</span></td>
+            </tr>
+            <tr>
+              <td><strong>B. Per-seed class persistence</strong></td>
+              <td>
+                เพิ่ม ALL/class filter และเก็บ class id/name ของ seed/object แต่ละชิ้น
+                พร้อมเก็บ class breakdown ระดับ inspection เป็น summary metadata
+              </td>
+              <td>
+                Data model ถูกกับ requirement: filter thumbnail ได้, รองรับ reporting ในอนาคต,
+                และรองรับ inspection ที่มีหลาย class
+              </td>
+              <td>
+                ต้องอัปเดต schema, generated types, save payload, offline sync และหน้า detail/report
+              </td>
+              <td><span class="ok">แนะนำ</span></td>
+            </tr>
+            <tr>
+              <td><strong>C. Multi-variety inspection only</strong></td>
+              <td>
+                เก็บ array/list ของ variety ที่ระดับ inspection โดยไม่เก็บ class ของ seed/object
+                แต่ละชิ้น
+              </td>
+              <td>บอกได้ว่า inspection นี้มีหลาย class/variety</td>
+              <td>
+                ไม่ตอบว่า seed/object ไหนเป็น class ไหน จึงไม่พอกับ requirement filter thumbnail
+                ราย seed
+              </td>
+              <td><span class="risk">ไม่พอ</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="recommendation">
+        <h2>ข้อแนะนำ</h2>
+        <p>
+          เดินต่อด้วย <strong>Option B: Per-seed class persistence</strong> เพราะตรงกับ behavior
+          ที่ต้องการ: model detect เป็น class, UI filter ตาม detected class และหน้า inspection
+          detail filter thumbnail ได้อย่างถูกต้องหลัง reload
+        </p>
+        <p>
+          Scope แรกควรโฟกัสที่ class filter selection, parity ระหว่าง live/post-shutter,
+          การเก็บ class ต่อ seed/object, class breakdown metadata และ detail-page filtering
+          ส่วน redesign reporting เชิงลึกควร defer จน capture result stable แล้ว
+        </p>
+      </section>
+
+      <section>
+        <h2>รูปแบบ Implementation</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Capture UX</h3>
+            <p>
+              เปลี่ยนจาก required variety selection เป็น detector filter selection:
+              <code>ALL</code> หรือ model class group
+            </p>
+          </div>
+          <div class="card">
+            <h3>Analyzer Pipeline</h3>
+            <p>
+              ถ้าเลือก ALL จะไม่ส่ง class filter ถ้าเลือก class เฉพาะจึงส่ง class id เฉพาะชุดนั้น
+            </p>
+          </div>
+          <div class="card">
+            <h3>Persistence</h3>
+            <p>
+              Save class id/name ต่อ seed/object และเก็บ class breakdown ระดับ inspection
+              สำหรับ summary/reporting
+            </p>
+          </div>
+          <div class="card">
+            <h3>Inspection Detail</h3>
+            <p>
+              เพิ่ม filter chips สำหรับ All และแต่ละ detected class โดย thumbnail list ใช้ข้อมูล
+              class ที่ save มากับ seed/object
+            </p>
+          </div>
+          <div class="card">
+            <h3>Backward Compatibility</h3>
+            <p>
+              Inspection เก่าที่ไม่มี class data ต้องยังแสดงผลได้ตามเดิม โดยซ่อนหรือ disable
+              class filter
+            </p>
+          </div>
+          <div class="card">
+            <h3>Validation</h3>
+            <p>
+              Test ALL mode, single-class mode, parity ของ post-shutter, save/reload และ
+              detail-page thumbnail filtering
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>ความเสี่ยงและ Mitigation</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ความเสี่ยง</th>
+              <th>ผลกระทบ</th>
+              <th>Mitigation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Schema และ offline sync เปลี่ยน</td>
+              <td>Save/offline replay อาจพังถ้า payload ไม่ตรงกัน</td>
+              <td>อัปเดต schema, generated types, save payload และ queue replay ใน change เดียว</td>
+            </tr>
+            <tr>
+              <td>Inspection เก่าไม่มี class data</td>
+              <td>Row เก่าไม่สามารถ filter ตาม class ได้</td>
+              <td>Render row เก่าตามเดิม และแสดง class filter เฉพาะเมื่อมี class data</td>
+            </tr>
+            <tr>
+              <td>Grading ต่อ class</td>
+              <td>หนึ่ง inspection อาจมี class ที่ใช้ grading rule ต่างกัน</td>
+              <td>
+                รอบแรกใช้ generic fallback หรือ mapped class rules เท่าที่มี และบันทึก rule
+                ที่ใช้ไว้ใน metadata
+              </td>
+            </tr>
+            <tr>
+              <td>Class name ไม่ตรงกับชื่อ product</td>
+              <td>ชื่อ class จาก model อาจไม่ตรงกับชื่อที่ user คุ้นเคย</td>
+              <td>
+                ใช้ model class name เป็น source of truth และมี display mapping ผ่าน reference data
+                เมื่อจำเป็น
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Next Decision</h2>
+        <p>
+          ถ้า leadership/product เห็นด้วยกับ Option B ขั้นต่อไปคือสร้าง implementation spec
+          สำหรับ <strong>detect-all class-first inspection workflow</strong> และแยกงานเป็น
+          capture UX, analyzer wiring, persistence, detail filtering และ compatibility testing
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

@@ -4,7 +4,7 @@ export type SyncQueueStatus = "pending" | "syncing" | "failed" | "synced" | "can
 
 export interface InspectionQueuePayload {
   inspector_id: string;
-  variety_id: string;
+  variety_id: string | null;
   batch_id: string | null;
   calibration_id: string | null;
   local_media_uri: string;
@@ -18,6 +18,8 @@ export interface InspectionQueuePayload {
   notes: string | null;
   seeds: {
     index: number;
+    class_id?: number | null;
+    class_name?: string | null;
     length_mm: number;
     width_mm: number;
     area_mm2: number;

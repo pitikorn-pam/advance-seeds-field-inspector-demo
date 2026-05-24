@@ -92,6 +92,8 @@ export interface AnalyzedSeed {
    * mock fixture don't have a class concept.
    */
   class_id?: number;
+  /** Detector class label resolved from active model metadata before persistence. */
+  class_name?: string | null;
   /**
    * Segment-based measurement details. Present when the analyzer ran a
    * segmentation head and reconstructed the per-instance mask polygon —

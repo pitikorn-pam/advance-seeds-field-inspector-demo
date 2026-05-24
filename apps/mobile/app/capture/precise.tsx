@@ -12,13 +12,15 @@ import { ShutterBar } from "@/components/camera/ShutterBar";
 import { CalibrationBanner } from "@/components/camera/CalibrationBanner";
 import { captureFrameMetadataFromPhoto, useCaptureSession } from "@/lib/capture/session";
 import { useLiveDetections } from "@/lib/analyzer/useLiveDetections";
-import { DEFAULT_CAPTURE_CLASS_IDS } from "@/lib/analyzer/captureClasses";
 import { DetectionOverlay } from "@/components/camera/DetectionOverlay";
 import { useVarieties } from "@/lib/queries";
 import { useLiveArucoCalibration } from "@/lib/calibration/useLiveArucoCalibration";
 import { useLiveLidarCalibration } from "@/lib/calibration/useLiveLidarCalibration";
 import { useCalibrator } from "@/lib/calibration/useCalibrator";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
+import { readActiveModel } from "@/lib/models/modelStore";
+import type { InstalledModelRecord } from "@/lib/models/types";
+import { resolveDetectorFilter } from "@/lib/capture/detectorFilter";
 
 const LIDAR_ARUCO_FALLBACK_DELAY_MS = 1600;
 const LIVE_DETECTION_START_DELAY_MS = 450;
@@ -48,6 +50,7 @@ export default function CapturePrecise() {
   const [position, setPosition] = useState<"back" | "front">("back");
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [showGrid, setShowGrid] = useState(false);
+  const [activeModelRecord, setActiveModelRecord] = useState<InstalledModelRecord | null>(null);
   // Continuous LiDAR — see scan.tsx for the design notes.
   const [firstLidarReadingSeen, setFirstLidarReadingSeen] = useState(false);
   const [lidarArucoFallbackReady, setLidarArucoFallbackReady] = useState(false);
@@ -93,20 +96,34 @@ export default function CapturePrecise() {
     return () => clearTimeout(timer);
   }, [busy, calibrationLocked, cameraActive, liveAruco.locked, modelInstallInProgress]);
   const varieties = useVarieties();
+  useEffect(() => {
+    let cancelled = false;
+    void readActiveModel()
+      .then((record) => {
+        if (!cancelled) setActiveModelRecord(record);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveModelRecord(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const activeVariety = useMemo(
     () => varieties.data?.find((v) => v.id === session.varietyId),
     [varieties.data, session.varietyId],
   );
-  const liveClassFilter = useMemo<readonly number[]>(
+  const detectorFilter = useMemo(
     () =>
-      activeVariety?.coco_class_id !== null && activeVariety?.coco_class_id !== undefined
-        ? [activeVariety.coco_class_id]
-        : DEFAULT_CAPTURE_CLASS_IDS,
-    [activeVariety?.coco_class_id],
+      resolveDetectorFilter(
+        { mode: session.detectorFilterMode, classNames: session.detectorClassNames },
+        activeModelRecord?.metadata.class_names ?? null,
+      ),
+    [session.detectorFilterMode, session.detectorClassNames, activeModelRecord],
   );
   const preciseVarietyNames = useMemo<readonly string[] | null>(
-    () => (activeVariety?.name ? [activeVariety.name] : null),
-    [activeVariety?.name],
+    () => detectorFilter.varietyNames ?? (activeVariety?.name ? [activeVariety.name] : null),
+    [detectorFilter.varietyNames, activeVariety?.name],
   );
   const gradingConfig = useMemo(
     () =>
@@ -122,9 +139,10 @@ export default function CapturePrecise() {
   const liveDetections = useLiveDetections({
     enabled: liveDetectionStartReady,
     pxPerMm: automaticCalibration?.pxPerMm ?? 38.4,
-    classFilter: liveClassFilter,
+    classFilter: detectorFilter.classFilter,
     varietyNames: preciseVarietyNames,
-    modelClassAliases: activeVariety?.model_class_aliases ?? null,
+    modelClassAliases:
+      detectorFilter.modelClassAliases ?? activeVariety?.model_class_aliases ?? null,
     roi: null,
     gradingConfig,
   });

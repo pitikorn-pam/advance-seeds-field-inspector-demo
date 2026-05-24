@@ -137,6 +137,10 @@ export interface Seed {
   inspection_id: string;
   /** 1-based ordinal within the inspection (used in UI as the seed number). */
   index: number;
+  /** Detector class index saved from model-backed analysis; null for legacy/classical rows. */
+  class_id: number | null;
+  /** Detector class label resolved from active model metadata; null for legacy/classical rows. */
+  class_name: string | null;
   length_mm: number;
   width_mm: number;
   area_mm2: number;
@@ -183,7 +187,7 @@ export interface InspectionMetadata {
 export interface Inspection {
   id: string;
   inspector_id: string;
-  variety_id: string;
+  variety_id: string | null;
   batch_id: string | null;
   calibration_id: string | null;
   image_url: string;
@@ -200,7 +204,7 @@ export interface Inspection {
 
 /** Inspection with its child seeds and joined reference rows — what list/detail screens render. */
 export interface InspectionWithDetail extends Inspection {
-  variety: Pick<Variety, "id" | "name" | "color_key">;
+  variety: Pick<Variety, "id" | "name" | "color_key"> | null;
   batch: Pick<Batch, "id" | "code"> | null;
   calibration: Pick<CalibrationProfile, "id" | "name" | "px_per_mm" | "source"> | null;
   inspector: Pick<Profile, "id" | "full_name" | "email">;

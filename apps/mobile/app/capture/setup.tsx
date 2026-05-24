@@ -3,43 +3,31 @@ import { Linking, ScrollView, View, Text, Pressable, TextInput } from "react-nat
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { X, MapPin, ArrowRight } from "lucide-react-native";
+import { X, MapPin, ArrowRight, Check } from "lucide-react-native";
 import * as MediaLibrary from "expo-media-library";
 import { Camera as VCCamera } from "react-native-vision-camera";
-import { useVarieties } from "@/lib/queries";
 import { Button } from "@/components/ui/Button";
 import { AppTopBar } from "@/components/ui/AppTopBar";
-import { LoadingState } from "@/components/ui/States";
-import { DropdownSearch } from "@/components/ui/DropdownSearch";
-import type { DropdownItem } from "@/components/ui/DropdownSearch";
 import { PreflightGateSheet, type PreflightCheck } from "@/components/capture/PreflightGateSheet";
 import { useCaptureSession } from "@/lib/capture/session";
 import { readActiveModel } from "@/lib/models/modelStore";
 import type { InstalledModelRecord } from "@/lib/models/types";
-import { effectiveModelAliases } from "@/lib/analyzer/captureClasses";
 import { useModelInstallInspectionGate } from "@/lib/models/inspectionGate";
-
-const NEUTRAL_VARIETY_THUMB = { bg: "#EFEEEA", fg: "#5F5F5B" };
 
 type CameraPermissionState = "unknown" | "granted" | "blocked";
 
 /**
  * /capture/setup — metadata step before opening the unified capture camera.
  *
- * Variety is mandatory; notes/location tagging are optional. Continue runs
- * a pre-flight pass over the four checks the redesign cares about (active
- * model, class-alias binding, camera/microphone permission, model install
- * progress) and surfaces blockers in a bottom-sheet gate rather than as
- * inline banners or Alert dialogs. When everything's green, Continue
- * proceeds straight into live capture.
+ * Detector filter is selected before capture. `ALL` is the default and
+ * means the analyzer receives no class filter; selecting a class restricts
+ * live and post-shutter analysis to that model class.
  */
 export default function CaptureSetup() {
   const { t } = useTranslation(["common", "inspections", "more"]);
   const router = useRouter();
   const session = useCaptureSession();
   const modelInstallGate = useModelInstallInspectionGate();
-
-  const varieties = useVarieties();
 
   const [activeModel, setActiveModel] = useState<InstalledModelRecord | null>(null);
   useEffect(() => {
@@ -67,34 +55,10 @@ export default function CaptureSetup() {
   });
 
   useEffect(() => {
-    if (session.calibrationId) {
-      session.set({ calibrationId: null });
+    if (session.calibrationId || session.varietyId) {
+      session.set({ calibrationId: null, varietyId: null });
     }
   }, [session]);
-
-  const varietyOptions = useMemo<DropdownItem[]>(() => {
-    if (!varieties.data) return [];
-    return varieties.data
-      .filter((v) => v.is_active !== false)
-      .map((v) => ({
-        id: v.id,
-        label: v.name,
-        meta: v.scientific_name ?? null,
-        leading: <VarietyThumb letter={v.name.charAt(0)} tint={NEUTRAL_VARIETY_THUMB} />,
-      }));
-  }, [varieties.data]);
-
-  const selectedVariety = useMemo(
-    () => varieties.data?.find((v) => v.id === session.varietyId) ?? null,
-    [varieties.data, session.varietyId],
-  );
-
-  const liveAliases = useMemo(
-    () => effectiveModelAliases(selectedVariety?.model_class_aliases, activeModelClassNames),
-    [selectedVariety, activeModelClassNames],
-  );
-  const modelExposesClassNames = activeModelClassNames.length > 0;
-  const needsBinding = !!selectedVariety && modelExposesClassNames && liveAliases.length === 0;
 
   // Build the gate inputs from real device state. A check is "blocking"
   // when it would prevent capture from starting; the gate sheet renders
@@ -148,26 +112,6 @@ export default function CaptureSetup() {
       passed.push(t("inspections:capture.preflight.checks.passedModel", { name: modelName }));
     }
 
-    // Class-alias binding (only checkable once a variety is picked AND the
-    // model advertises a class list)
-    if (needsBinding && selectedVariety) {
-      blocking.push({
-        id: "binding-missing",
-        state: "fail",
-        label: t("inspections:capture.preflight.checks.bindingLabel"),
-        description: t("inspections:capture.preflight.checks.bindingMissingDesc", {
-          variety: selectedVariety.name,
-        }),
-        fixLabel: t("inspections:capture.preflight.actions.openVarietyEditor"),
-        onFix: () => {
-          setGateOpen(false);
-          router.push(`/more/capture-classes/${selectedVariety.id}` as never);
-        },
-      });
-    } else if (selectedVariety && modelExposesClassNames) {
-      passed.push(t("inspections:capture.preflight.checks.passedBinding"));
-    }
-
     // Camera permission
     if (cameraPerm === "blocked") {
       blocking.push({
@@ -191,9 +135,6 @@ export default function CaptureSetup() {
     modelInstallGate.installing,
     modelInstallGate.modelStatus,
     modelInstallGate.install,
-    needsBinding,
-    selectedVariety,
-    modelExposesClassNames,
     cameraPerm,
     router,
     t,
@@ -221,11 +162,7 @@ export default function CaptureSetup() {
 
   const gateBusy = checks.length > 0 && checks.every((c) => c.state === "busy");
 
-  if (varieties.isLoading) {
-    return <LoadingState />;
-  }
-
-  const canTapContinue = !!session.varietyId;
+  const canTapContinue = true;
 
   const ensurePhotosPermission = async () => {
     const current = await MediaLibrary.getPermissionsAsync();
@@ -260,7 +197,7 @@ export default function CaptureSetup() {
       return;
     }
     await ensurePhotosPermission();
-    session.set({ mode: "live", batchId: null });
+    session.set({ mode: "live", batchId: null, varietyId: null });
     router.push("/capture/scan" as never);
   };
 
@@ -295,22 +232,42 @@ export default function CaptureSetup() {
         contentContainerClassName="px-lg pt-sm pb-2xl gap-md"
         showsVerticalScrollIndicator={false}
       >
-        {/* Variety — mandatory dropdown with search. */}
+        {/* Detector filter — ALL or a class from the active model. */}
         <View className="gap-xs">
           <Text
             className="text-[11px] font-semibold uppercase text-fg-tertiary px-xs"
             style={{ letterSpacing: 0.6 }}
           >
-            {t("inspections:capture.selectVariety")}
-            <Text className="text-danger-text"> *</Text>
+            {t("inspections:capture.detectorFilter.label")}
           </Text>
-          <DropdownSearch
-            value={session.varietyId}
-            onChange={(id) => session.set({ varietyId: id })}
-            options={varietyOptions}
-            placeholder={t("inspections:capture.varietyPlaceholder")}
-            invalid={!session.varietyId}
-          />
+          <View className="rounded-lg border border-line-tertiary bg-bg-primary p-sm gap-xs">
+            <DetectorFilterOption
+              label={t("inspections:capture.detectorFilter.all")}
+              subtitle={t("inspections:capture.detectorFilter.allSubtitle")}
+              selected={session.detectorFilterMode === "all"}
+              onPress={() => session.set({ detectorFilterMode: "all", detectorClassNames: [] })}
+            />
+            {activeModelClassNames.length > 0 ? (
+              activeModelClassNames.map((name) => (
+                <DetectorFilterOption
+                  key={name}
+                  label={name}
+                  subtitle={t("inspections:capture.detectorFilter.classSubtitle")}
+                  selected={
+                    session.detectorFilterMode === "classes" &&
+                    session.detectorClassNames.includes(name)
+                  }
+                  onPress={() =>
+                    session.set({ detectorFilterMode: "classes", detectorClassNames: [name] })
+                  }
+                />
+              ))
+            ) : (
+              <Text className="px-sm py-xs text-caption text-fg-tertiary">
+                {t("inspections:capture.detectorFilter.empty")}
+              </Text>
+            )}
+          </View>
         </View>
 
         {/* Notes textarea. */}
@@ -399,16 +356,38 @@ export default function CaptureSetup() {
   );
 }
 
-function VarietyThumb({ letter, tint }: { letter: string; tint: { bg: string; fg: string } }) {
+function DetectorFilterOption({
+  label,
+  subtitle,
+  selected,
+  onPress,
+}: {
+  label: string;
+  subtitle: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
   return (
-    <View
-      className="items-center justify-center"
-      style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: tint.bg }}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      className={`flex-row items-center gap-md rounded-md px-md py-sm ${
+        selected ? "bg-card-lavender" : "bg-bg-primary"
+      }`}
     >
-      <Text className="font-medium" style={{ color: tint.fg, fontSize: 13 }}>
-        {letter}
-      </Text>
-    </View>
+      <View
+        className={`h-[24px] w-[24px] items-center justify-center rounded-full ${
+          selected ? "bg-primary" : "bg-line-tertiary"
+        }`}
+      >
+        {selected ? <Check color="#FFFFFF" size={14} strokeWidth={3} /> : null}
+      </View>
+      <View className="flex-1">
+        <Text className="text-body font-medium text-fg-primary">{label}</Text>
+        <Text className="text-caption text-fg-secondary">{subtitle}</Text>
+      </View>
+    </Pressable>
   );
 }
 

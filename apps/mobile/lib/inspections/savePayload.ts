@@ -16,7 +16,7 @@ const DB_MAX_AREA_MM2 = 99999.999;
 
 export interface InspectionSavePayload {
   inspector_id: string;
-  variety_id: string;
+  variety_id: string | null;
   batch_id: string | null;
   calibration_id: string | null;
   image_url: string;
@@ -31,12 +31,13 @@ export interface InspectionSavePayload {
 
 export interface BuildSavePayloadOptions {
   inspectorId: string;
-  varietyId: string;
+  varietyId: string | null;
   batchId: string | null;
   calibrationId: string | null;
   imageUrl: string;
   summary: AnalysisSummary;
   seeds: AnalyzedSeed[];
+  modelClassNames?: readonly string[] | null;
   metadata: Record<string, unknown> | null;
   notes: string;
 }
@@ -44,7 +45,7 @@ export interface BuildSavePayloadOptions {
 /** Returns the row shape `useCreateInspection` accepts. */
 export function buildInspectionSavePayload(opts: BuildSavePayloadOptions): InspectionSavePayload {
   const trimmed = opts.notes.trim();
-  const seeds = sanitizeSeedsForPersistence(opts.seeds);
+  const seeds = sanitizeSeedsForPersistence(opts.seeds, opts.modelClassNames ?? null);
   const summary = summarizeSeedsForPersistence(seeds, opts.summary, opts.seeds.length);
   return {
     inspector_id: opts.inspectorId,
@@ -104,7 +105,10 @@ export function isLocalUri(uri: string): boolean {
   return uri.startsWith("file://") || uri.startsWith("/");
 }
 
-function sanitizeSeedsForPersistence(seeds: AnalyzedSeed[]): AnalyzedSeed[] {
+function sanitizeSeedsForPersistence(
+  seeds: AnalyzedSeed[],
+  modelClassNames: readonly string[] | null,
+): AnalyzedSeed[] {
   return seeds
     .filter(
       (seed) =>
@@ -114,6 +118,10 @@ function sanitizeSeedsForPersistence(seeds: AnalyzedSeed[]): AnalyzedSeed[] {
     )
     .map((seed) => ({
       ...seed,
+      class_id: typeof seed.class_id === "number" ? seed.class_id : undefined,
+      class_name:
+        seed.class_name ??
+        (typeof seed.class_id === "number" ? (modelClassNames?.[seed.class_id] ?? null) : null),
       length_mm: roundToScale(seed.length_mm, 3),
       width_mm: roundToScale(seed.width_mm, 3),
       area_mm2: roundToScale(seed.area_mm2, 3),
