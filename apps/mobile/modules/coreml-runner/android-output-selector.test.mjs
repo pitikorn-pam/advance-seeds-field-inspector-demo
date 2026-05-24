@@ -75,8 +75,14 @@ test("Android live TFLite samples rotated frames before inference", () => {
 
   assert.match(source, /val orientation = normalizeOrientation/);
   assert.match(source, /val postWidth = if \(rotates\) image\.height else image\.width/);
-  assert.match(source, /activeRunner\.fillInputFromYuv\([\s\S]*orientation,[\s\S]*preprocessProfile/);
-  assert.match(source, /updateCoordinateMaps\(frameWidth, frameHeight, cropX, cropY, cropSize, orientation\)/);
+  assert.match(
+    source,
+    /activeRunner\.fillInputFromYuv\([\s\S]*orientation,[\s\S]*preprocessProfile/,
+  );
+  assert.match(
+    source,
+    /updateCoordinateMaps\(frameWidth, frameHeight, cropX, cropY, cropSize, orientation\)/,
+  );
   assert.match(source, /private fun postToSensor/);
   assert.match(source, /"right", "right-mirrored" -> Pair\(y, postW - x\)/);
   assert.match(source, /result\["orientation"\] = orientation/);

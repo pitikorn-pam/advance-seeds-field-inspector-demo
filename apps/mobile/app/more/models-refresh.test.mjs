@@ -12,15 +12,9 @@ test("model registry reloads installed models when the screen regains focus", ()
     source,
     /import \{ useFocusEffect, useLocalSearchParams, useRouter \} from "expo-router";/,
   );
-  assert.match(
-    source,
-    /useFocusEffect\(\s*useCallback\(\(\) => \{\s*void reloadInstalled\(\);/s,
-  );
+  assert.match(source, /useFocusEffect\(\s*useCallback\(\(\) => \{\s*void reloadInstalled\(\);/s);
 });
 
 test("model registry refresh also reloads the installed model list", () => {
-  assert.match(
-    source,
-    /setCandidates\(list\);\s*await reloadInstalled\(\);\s*if \(resolveRes\)/s,
-  );
+  assert.match(source, /setCandidates\(list\);\s*await reloadInstalled\(\);\s*if \(resolveRes\)/s);
 });

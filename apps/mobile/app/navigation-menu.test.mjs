@@ -31,7 +31,10 @@ test("More links to notifications as a stack page", () => {
   assert.match(moreScreen, /label=\{t\("more:menu\.notifications"\)\}/);
   assert.match(moreScreen, /badge=\{notificationBadge\}/);
   assert.match(moreScreen, /router\.push\("\/notifications" as never\)/);
-  assert.match(rootLayout, /<Stack\.Screen name="notifications" options=\{\{ headerShown: false \}\} \/>/);
+  assert.match(
+    rootLayout,
+    /<Stack\.Screen name="notifications" options=\{\{ headerShown: false \}\} \/>/,
+  );
   assert.doesNotMatch(rootLayout, /name="notifications"[\s\S]*presentation: "modal"/);
   assert.match(notificationsList, /renderIcon: \(\) => <ChevronLeft/);
 });

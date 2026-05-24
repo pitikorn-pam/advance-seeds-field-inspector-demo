@@ -29,7 +29,12 @@
         background: var(--bg);
         color: var(--ink);
         font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
           sans-serif;
         line-height: 1.55;
       }
@@ -236,8 +241,8 @@
         <h1>Workflow ตรวจจับทุก Class: สรุปปัญหาและทางเลือก</h1>
         <p class="lead">
           Workflow ปัจจุบันยังตั้งอยู่บนสมมติฐานว่า user ต้องเลือก variety ก่อนเริ่มตรวจ
-          แต่ทิศทางใหม่คือ class-first workflow: model ตรวจจับ class ที่ train มาได้ทั้งหมด
-          และ user เลือก filter ได้ว่าจะดูทุก class หรือเฉพาะ class เช่น banana หรือ watermelon
+          แต่ทิศทางใหม่คือ class-first workflow: model ตรวจจับ class ที่ train มาได้ทั้งหมด และ user
+          เลือก filter ได้ว่าจะดูทุก class หรือเฉพาะ class เช่น banana หรือ watermelon
         </p>
       </header>
 
@@ -245,15 +250,15 @@
         <div>
           <h2>TL;DR</h2>
           <p>
-            ตัว model สามารถคืนผลหลาย class ได้อยู่แล้ว ข้อจำกัดตอนนี้อยู่ที่ workflow ของ app:
-            app ยังบังคับให้เลือก variety ก่อน และใช้ variety นั้นไป filter ผล detect ตั้งแต่ต้น
-            ทำให้ class อื่นที่ model เห็นถูกซ่อนออกจาก pipeline
+            ตัว model สามารถคืนผลหลาย class ได้อยู่แล้ว ข้อจำกัดตอนนี้อยู่ที่ workflow ของ app: app
+            ยังบังคับให้เลือก variety ก่อน และใช้ variety นั้นไป filter ผล detect ตั้งแต่ต้น ทำให้
+            class อื่นที่ model เห็นถูกซ่อนออกจาก pipeline
           </p>
           <p>
             ทิศทางที่แนะนำคือเปลี่ยน inspection ให้เป็น class-first: user เลือก
             <code>ALL</code> หรือเลือก detector class เป็น filter, live และ post-shutter analysis
-            ใช้ filter เดียวกัน และหน้า inspection detail สามารถกรอง thumbnail ราย seed/object
-            ตาม class ที่ detect ได้
+            ใช้ filter เดียวกัน และหน้า inspection detail สามารถกรอง thumbnail ราย seed/object ตาม
+            class ที่ detect ได้
           </p>
         </div>
         <div class="card">
@@ -296,8 +301,8 @@
         <h2>ปัญหาปัจจุบัน</h2>
         <ul>
           <li>
-            <strong>Workflow ไม่ตรงกับ model:</strong> app บังคับเลือก variety ก่อนตรวจ
-            แต่ผลจาก model เป็น class-based และหนึ่ง frame สามารถมีหลาย class ได้
+            <strong>Workflow ไม่ตรงกับ model:</strong> app บังคับเลือก variety ก่อนตรวจ แต่ผลจาก
+            model เป็น class-based และหนึ่ง frame สามารถมีหลาย class ได้
           </li>
           <li>
             <strong>Filter เร็วเกินไป:</strong> variety ที่เลือกถูกแปลงเป็น model class filter
@@ -308,8 +313,8 @@
             inspection แต่ requirement ใหม่ต้องรู้ class ของ object แต่ละชิ้น
           </li>
           <li>
-            <strong>หน้า detail ยัง filter ไม่ได้อย่างถูกต้อง:</strong> การ filter thumbnail
-            ราย seed/object ตาม class ต้องมี class ติดอยู่กับแต่ละ seed หลัง save และ reload
+            <strong>หน้า detail ยัง filter ไม่ได้อย่างถูกต้อง:</strong> การ filter thumbnail ราย
+            seed/object ตาม class ต้องมี class ติดอยู่กับแต่ละ seed หลัง save และ reload
           </li>
         </ul>
       </section>
@@ -330,21 +335,20 @@
             <tr>
               <td><strong>A. Metadata-only</strong></td>
               <td>
-                เพิ่ม ALL/class filter ใน capture, detect ทุก class และเก็บ class breakdown
-                ไว้ใน metadata ของ inspection
+                เพิ่ม ALL/class filter ใน capture, detect ทุก class และเก็บ class breakdown ไว้ใน
+                metadata ของ inspection
               </td>
               <td>เร็วที่สุด แตะ schema น้อย เหมาะกับการพิสูจน์ live/post pipeline</td>
               <td>
-                การ filter ราย seed หลัง reload จะเปราะ เพราะ class ไม่ได้ติดอยู่กับ seed row
-                โดยตรง
+                การ filter ราย seed หลัง reload จะเปราะ เพราะ class ไม่ได้ติดอยู่กับ seed row โดยตรง
               </td>
               <td><span class="warn">เหมาะเป็น demo ระยะสั้น</span></td>
             </tr>
             <tr>
               <td><strong>B. Per-seed class persistence</strong></td>
               <td>
-                เพิ่ม ALL/class filter และเก็บ class id/name ของ seed/object แต่ละชิ้น
-                พร้อมเก็บ class breakdown ระดับ inspection เป็น summary metadata
+                เพิ่ม ALL/class filter และเก็บ class id/name ของ seed/object แต่ละชิ้น พร้อมเก็บ
+                class breakdown ระดับ inspection เป็น summary metadata
               </td>
               <td>
                 Data model ถูกกับ requirement: filter thumbnail ได้, รองรับ reporting ในอนาคต,
@@ -363,8 +367,8 @@
               </td>
               <td>บอกได้ว่า inspection นี้มีหลาย class/variety</td>
               <td>
-                ไม่ตอบว่า seed/object ไหนเป็น class ไหน จึงไม่พอกับ requirement filter thumbnail
-                ราย seed
+                ไม่ตอบว่า seed/object ไหนเป็น class ไหน จึงไม่พอกับ requirement filter thumbnail ราย
+                seed
               </td>
               <td><span class="risk">ไม่พอ</span></td>
             </tr>
@@ -380,9 +384,9 @@
           detail filter thumbnail ได้อย่างถูกต้องหลัง reload
         </p>
         <p>
-          Scope แรกควรโฟกัสที่ class filter selection, parity ระหว่าง live/post-shutter,
-          การเก็บ class ต่อ seed/object, class breakdown metadata และ detail-page filtering
-          ส่วน redesign reporting เชิงลึกควร defer จน capture result stable แล้ว
+          Scope แรกควรโฟกัสที่ class filter selection, parity ระหว่าง live/post-shutter, การเก็บ
+          class ต่อ seed/object, class breakdown metadata และ detail-page filtering ส่วน redesign
+          reporting เชิงลึกควร defer จน capture result stable แล้ว
         </p>
       </section>
 
@@ -405,8 +409,8 @@
           <div class="card">
             <h3>Persistence</h3>
             <p>
-              Save class id/name ต่อ seed/object และเก็บ class breakdown ระดับ inspection
-              สำหรับ summary/reporting
+              Save class id/name ต่อ seed/object และเก็บ class breakdown ระดับ inspection สำหรับ
+              summary/reporting
             </p>
           </div>
           <div class="card">
@@ -419,15 +423,15 @@
           <div class="card">
             <h3>Backward Compatibility</h3>
             <p>
-              Inspection เก่าที่ไม่มี class data ต้องยังแสดงผลได้ตามเดิม โดยซ่อนหรือ disable
-              class filter
+              Inspection เก่าที่ไม่มี class data ต้องยังแสดงผลได้ตามเดิม โดยซ่อนหรือ disable class
+              filter
             </p>
           </div>
           <div class="card">
             <h3>Validation</h3>
             <p>
-              Test ALL mode, single-class mode, parity ของ post-shutter, save/reload และ
-              detail-page thumbnail filtering
+              Test ALL mode, single-class mode, parity ของ post-shutter, save/reload และ detail-page
+              thumbnail filtering
             </p>
           </div>
         </div>
@@ -477,9 +481,9 @@
       <section>
         <h2>Next Decision</h2>
         <p>
-          ถ้า leadership/product เห็นด้วยกับ Option B ขั้นต่อไปคือสร้าง implementation spec
-          สำหรับ <strong>detect-all class-first inspection workflow</strong> และแยกงานเป็น
-          capture UX, analyzer wiring, persistence, detail filtering และ compatibility testing
+          ถ้า leadership/product เห็นด้วยกับ Option B ขั้นต่อไปคือสร้าง implementation spec สำหรับ
+          <strong>detect-all class-first inspection workflow</strong> และแยกงานเป็น capture UX,
+          analyzer wiring, persistence, detail filtering และ compatibility testing
         </p>
       </section>
     </main>
